@@ -19,6 +19,48 @@
     @apply focus-visible:border-cyan-400/80 focus-visible:ring-2 focus-visible:ring-cyan-400/45 focus-visible:shadow-[0_0_20px_rgba(34,211,238,0.32)] dark:focus-visible:border-cyan-400/70;
   }
 
+  /** UserCard 等級框（與 LevelFrame 對應） */
+  .level-frame-master {
+    animation: level-frame-master-breathe 2.2s ease-in-out infinite;
+  }
+  .level-frame-lv10 {
+    animation: level-frame-lv10-sacred 2.8s ease-in-out infinite;
+  }
+  .level-frame-lv9 {
+    animation: level-frame-lv9-crystal 2.4s ease-in-out infinite;
+  }
+  .level-frame-lv8 {
+    animation: level-frame-lv8-platinum 2.5s ease-in-out infinite;
+  }
+  .level-frame-lv7 {
+    animation: level-frame-lv7-gold 3.2s ease-in-out infinite;
+  }
+  .level-frame-lv6 {
+    animation: level-frame-lv6-silver 3.2s ease-in-out infinite;
+  }
+  .level-frame-lv5 {
+    animation: level-frame-lv5-emerald 3.2s ease-in-out infinite;
+  }
+
+  /** 技能市集：包在卡片觸發層外；Perfect Match 白金屬光澤掃過 */
+  .perfect-match-market-shell {
+    background: linear-gradient(
+      115deg,
+      rgba(241, 245, 249, 0.92) 0%,
+      rgba(226, 232, 240, 0.88) 12%,
+      rgba(255, 255, 255, 0.72) 28%,
+      rgba(203, 213, 225, 0.92) 44%,
+      rgba(248, 250, 252, 0.85) 58%,
+      rgba(148, 163, 184, 0.82) 74%,
+      rgba(241, 245, 249, 0.9) 100%
+    );
+    background-size: 280% 100%;
+    animation: perfect-match-platinum-sheen 3.2s ease-in-out infinite;
+    box-shadow:
+      0 0 22px rgba(248, 250, 252, 0.22),
+      0 0 48px rgba(226, 232, 240, 0.12);
+  }
+
   /** 村莊：興趣標籤（金色邊框） */
   .tag-gold {
     @apply inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium;
@@ -71,6 +113,153 @@
       0 0 48px rgba(234, 179, 8, 0.28),
       inset 0 0 28px rgba(88, 28, 135, 0.25);
     border-color: rgba(233, 213, 255, 0.75);
+  }
+}
+
+/** 等級卡框：領袖 Master（Lv11+）火焰紅光暈呼吸 */
+@keyframes level-frame-master-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 0 16px rgba(239, 68, 68, 0.45),
+      0 0 36px rgba(220, 38, 38, 0.3),
+      0 0 52px rgba(251, 146, 60, 0.18),
+      inset 0 0 18px rgba(127, 29, 29, 0.2);
+    border-color: rgba(248, 113, 113, 0.55);
+  }
+  50% {
+    box-shadow:
+      0 0 28px rgba(239, 68, 68, 0.75),
+      0 0 56px rgba(220, 38, 38, 0.48),
+      0 0 80px rgba(251, 146, 60, 0.32),
+      inset 0 0 26px rgba(153, 27, 27, 0.35);
+    border-color: rgba(254, 202, 202, 0.85);
+  }
+}
+
+/** Lv10 金色聖光＋微縮放 */
+@keyframes level-frame-lv10-sacred {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 0 20px rgba(250, 204, 21, 0.42),
+      0 0 44px rgba(234, 179, 8, 0.28),
+      inset 0 0 22px rgba(120, 53, 15, 0.22);
+    border-color: rgba(252, 211, 77, 0.65);
+  }
+  50% {
+    transform: scale(1.015);
+    box-shadow:
+      0 0 32px rgba(250, 204, 21, 0.72),
+      0 0 64px rgba(234, 179, 8, 0.45),
+      inset 0 0 30px rgba(161, 98, 7, 0.3);
+    border-color: rgba(254, 240, 138, 0.9);
+  }
+}
+
+/** Lv9 水晶藍脈衝 */
+@keyframes level-frame-lv9-crystal {
+  0%,
+  100% {
+    box-shadow:
+      0 0 14px rgba(56, 189, 248, 0.35),
+      0 0 32px rgba(14, 165, 233, 0.22),
+      inset 0 0 16px rgba(12, 74, 110, 0.2);
+    border-color: rgba(125, 211, 252, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 26px rgba(56, 189, 248, 0.62),
+      0 0 52px rgba(14, 165, 233, 0.4),
+      inset 0 0 24px rgba(8, 47, 73, 0.32);
+    border-color: rgba(186, 230, 253, 0.88);
+  }
+}
+
+/** Lv8 白金脈衝 */
+@keyframes level-frame-lv8-platinum {
+  0%,
+  100% {
+    box-shadow:
+      0 0 14px rgba(226, 232, 240, 0.38),
+      0 0 30px rgba(148, 163, 184, 0.28),
+      inset 0 0 18px rgba(71, 85, 105, 0.18);
+    border-color: rgba(203, 213, 225, 0.55);
+  }
+  50% {
+    box-shadow:
+      0 0 26px rgba(248, 250, 252, 0.55),
+      0 0 50px rgba(203, 213, 225, 0.38),
+      inset 0 0 26px rgba(100, 116, 139, 0.28);
+    border-color: rgba(241, 245, 249, 0.88);
+  }
+}
+
+/** Lv5 翡翠呼吸 */
+@keyframes level-frame-lv5-emerald {
+  0%,
+  100% {
+    box-shadow:
+      0 0 12px rgba(16, 185, 129, 0.32),
+      0 0 26px rgba(5, 150, 105, 0.18);
+    border-color: rgba(52, 211, 153, 0.48);
+  }
+  50% {
+    box-shadow:
+      0 0 22px rgba(16, 185, 129, 0.55),
+      0 0 44px rgba(5, 150, 105, 0.32);
+    border-color: rgba(167, 243, 208, 0.78);
+  }
+}
+
+/** Lv6 銀呼吸 */
+@keyframes level-frame-lv6-silver {
+  0%,
+  100% {
+    box-shadow:
+      0 0 12px rgba(148, 163, 184, 0.38),
+      0 0 26px rgba(100, 116, 139, 0.22);
+    border-color: rgba(203, 213, 225, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 22px rgba(226, 232, 240, 0.48),
+      0 0 44px rgba(148, 163, 184, 0.35);
+    border-color: rgba(248, 250, 252, 0.82);
+  }
+}
+
+/** Lv7 金呼吸 */
+@keyframes level-frame-lv7-gold {
+  0%,
+  100% {
+    box-shadow:
+      0 0 12px rgba(234, 179, 8, 0.35),
+      0 0 28px rgba(180, 83, 9, 0.2);
+    border-color: rgba(250, 204, 21, 0.52);
+  }
+  50% {
+    box-shadow:
+      0 0 24px rgba(250, 204, 21, 0.58),
+      0 0 48px rgba(217, 119, 6, 0.35);
+    border-color: rgba(253, 230, 138, 0.85);
+  }
+}
+
+/** 技能市集：Perfect Match 白金屬流動高光（外環） */
+@keyframes perfect-match-platinum-sheen {
+  0% {
+    background-position: 0% 50%;
+    filter: brightness(1.02) saturate(1.05);
+  }
+  50% {
+    background-position: 100% 50%;
+    filter: brightness(1.18) saturate(1.12);
+  }
+  100% {
+    background-position: 200% 50%;
+    filter: brightness(1.02) saturate(1.05);
   }
 }
 

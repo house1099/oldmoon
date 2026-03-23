@@ -31,9 +31,15 @@ export interface Database {
           avatar_url: string | null;
           /** active：正常；banned：已放逐（路由層強制登出） */
           status: "active" | "banned";
-          /** 累積經驗值（欄位名必為 `total_exp`，勿使用不存在的 `exp` 欄位）；由 Trigger／exp_logs 等規則維護 */
+          /**
+           * 累積經驗值（欄位名必為 `total_exp`，勿使用不存在的 `exp` 欄位）；由 Trigger／exp_logs 等規則維護。
+           * 雲端建議 **`integer` 或 `bigint`（int4／int8）**；TypeScript 對應 **`number`**，可支撐數值成長。
+           */
           total_exp: number;
-          /** 由 Trigger 依 total_exp 與等級門檻維護 */
+          /**
+           * 由 Trigger 依 total_exp 與等級門檻維護。
+           * 雲端建議 **`integer`（int4）** 或 **`bigint`（int8）**；TypeScript 對應 **`number`**。
+           */
           level: number;
           /** 最後上線／活躍時間（村莊排序用）；未上線可為 null */
           last_seen_at: string | null;
@@ -61,8 +67,9 @@ export interface Database {
           offline_ok?: boolean;
           avatar_url?: string | null;
           status?: "active" | "banned";
-          /** 累積經驗值，欄位名 `total_exp` */
+          /** 累積經驗值，欄位名 `total_exp`（Postgres int4／int8 → TS `number`） */
           total_exp?: number;
+          /** 等級（Postgres int4／int8 → TS `number`） */
           level?: number;
           last_seen_at?: string | null;
           interests?: string[] | null;
@@ -84,8 +91,9 @@ export interface Database {
           offline_ok?: boolean;
           avatar_url?: string | null;
           status?: "active" | "banned";
-          /** 累積經驗值，欄位名 `total_exp` */
+          /** 累積經驗值，欄位名 `total_exp`（Postgres int4／int8 → TS `number`） */
           total_exp?: number;
+          /** 等級（Postgres int4／int8 → TS `number`） */
           level?: number;
           last_seen_at?: string | null;
           interests?: string[] | null;

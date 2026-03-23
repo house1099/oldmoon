@@ -1,6 +1,70 @@
 # 月老事務所：傳奇公會 V2.0 — 交接文件
 
-與 Vibe Coder 同步專案狀態用；**每次開啟新對話請先讀本檔**（見 `.cursorrules`）。
+與 Vibe Coder／架構師同步專案狀態用。**每次在新視窗、新對話或調整架構前，請先讀本檔與根目錄 `.cursorrules`。**
+
+## 🌕 目前開發階段：Phase 2 — 社交核心（進行中）
+
+### 🛠️ 核心工具基準（Layer 4）
+
+- **`src/lib/utils/date.ts`**：全系統唯一「公會日曆／時間基準點」。
+  - **`taipeiCalendarDateKey()`**：強制使用 **`Asia/Taipei`** 產出 **`YYYY-MM-DD`**。
+  - **規範**：嚴禁在 Action 或 Repository 中直接使用 `toISOString().slice(0, 10)`；必須引用此工具以確保台灣日界一致。
+
+### 🏛️ 五層架構狀態（速覽）
+
+- **Layer 1（連線）**：Supabase Client／Server／Admin 已完備。
+- **Layer 2（資料）**：`user.repository.ts`、`exp.repository.ts` 支援 **`total_exp`**（SSOT）。
+- **Layer 3（業務）**：`daily-checkin.action.ts` 已校準時區（日鍵來自 **`date.ts`**）。
+- **Layer 4（狀態／常數）**：`levels.ts`（門檻 0〜1350）、Zod 驗證已就緒；**`date.ts`** 為日界 SSOT。
+- **Layer 5（UI）**：**`Navbar.tsx`**（底部霓虹發光導航）、**`LevelFrame.tsx`**（Lv5〜10 與預留 **Master／Lv11+** 等級框特效）、村莊 **`UserCard`** 等。
+
+### 📈 開發進度
+
+- [x] **Phase 1.5**：帳號體系、Google 登入預留、暗黑視覺升級、時區校正（日鍵集中於 **`date.ts`**）。
+- [ ] **Phase 2.1**：Village 興趣村莊列表（已接線，可持續打磨）、**Market** 技能市集（**Perfect Match** 演算法與頁面接線）。
+- [ ] **Phase 2.2**：互讚系統（**Likes**）與血盟（**Alliances**）解鎖流程。
+
+### 🗄️ 資料庫異動紀錄（交接必備）
+
+- **`users`** 已補齊（與程式約定一致時）：**`instagram_handle`**、**`ig_public`**、**`mood`**、**`mood_at`**、**`interests`**、**`last_seen_at`**。
+- **`likes`**、**`alliances`**：雲端建表後，請維持 **`src/types/database.types.ts`** 與 **RLS** 同步；Phase 2.2 於 Layer 2／3 接線。
+
+---
+
+## 新視窗／新架構 — 30 秒啟動
+
+| 步驟 | 動作 |
+|------|------|
+| 1 | 讀 **`.cursorrules`**（五層禁則、回報格式、`total_exp` 等） |
+| 2 | 讀本檔 **「目前開發階段」→「關鍵檔案索引」→「雲端 DDL」** |
+| 3 | 實作時遵守：**UI 不直連 DB**；寫入經 **Layer 3 → Layer 2**；經驗值欄位僅 **`total_exp`** |
+| 4 | **Phase 2 預設戰場**：**`/village`**（已接線）+ **`/market`**（頁面占位，待產品／接線） |
+
+**Git**：`main` 已含 Phase 1.5（OAuth IG 補填、簽到 **Asia/Taipei** 日鍵、個人頁 Tabs／簽到／profile 更新等）。新架構若搬遷目錄，請同步更新本檔與 `.cursorrules` 路徑描述。
+
+---
+
+## 關鍵檔案索引（查程式用）
+
+| 主題 | 路徑 |
+|------|------|
+| 守衛／Session | `src/middleware.ts` |
+| Auth UI | `src/app/(auth)/login/*`、`register/*`、`register/profile/*` |
+| OAuth callback | `src/app/auth/callback/route.ts` |
+| 補名冊（含 IG） | `src/services/adventurer-profile.action.ts` |
+| 每日簽到 +1 EXP | `src/services/daily-checkin.action.ts`；日鍵 SSOT：`src/lib/utils/date.ts`（`taipeiCalendarDateKey`） |
+| 編輯自介／IG 公開／心情 | `src/services/profile-update.action.ts` |
+| 首頁個人頁 UI | `src/app/(app)/page.tsx` → `src/components/profile/guild-profile-home.tsx` |
+| 底部導航 | `src/components/layout/Navbar.tsx` |
+| 村莊列表 | `src/app/(app)/village/*`、`src/services/village.service.ts`、`src/components/cards/UserCard.tsx`、`src/components/cards/LevelFrame.tsx` |
+| Users Repository | `src/lib/repositories/server/user.repository.ts` |
+| EXP 寫入 | `src/lib/repositories/server/exp.repository.ts` |
+| 等級 SSOT | `src/lib/constants/levels.ts` |
+| 問卷選項 | `src/lib/constants/adventurer-questionnaire.ts` |
+| Zod／不雅字／IG 格式 | `src/lib/validation/*.ts`、`src/lib/utils/forbidden-words.ts` |
+| DB 型別 | `src/types/database.types.ts` |
+
+---
 
 # 目前開發階段
 
@@ -24,8 +88,8 @@
 |------|------|
 | ✅ 已接線 | Layer 2 **`findActiveUsers(currentUserId)`**：`status = active`、排除自己、依 **`last_seen_at`** 降序（最活躍在前） |
 | ✅ 已接線 | Layer 3 **`getVillageUsers(currentUserId)`**：呼叫 Repository，並依**與自己的 `interests` 重疊數**優先排序（進階），同分再依 **`last_seen_at`** |
-| ✅ 已接線 | Layer 5 **`UserCard`**（`src/components/cards/UserCard.tsx`）：暗黑 RPG、**`tag-gold`** 興趣標籤、**`guild-breathe-ring`** 呼吸燈邊框；shadcn **aspect-ratio**／**separator**／**hover-card** |
-| ⏳ 雲端待對齊 | `users` 需具備 **`last_seen_at`**（`timestamptz`，可 null）、**`interests`**（建議 `text[]` 或與程式一致之 jsonb 陣列）；見下方 🗄️ **Phase 2 欄位補齊** |
+| ✅ 已接線 | Layer 5 **`UserCard`**（`src/components/cards/UserCard.tsx`）：暗黑 RPG、**`tag-gold`** 興趣標籤、**`LevelFrame`** 依等級外框（低階沿用 **`guild-breathe-ring`**）；shadcn **aspect-ratio**／**separator**／**hover-card** |
+| ✅ 交接確認 | **`users`** 已補齊 **`last_seen_at`**、**`interests`** 等 Phase 2 欄位時，村莊排序與標籤可完整發揮；若環境尚未執行 DDL，見下方 🗄️ **Phase 2 欄位補齊** |
 
 **Phase 3**：待產品規劃後於此文件更新。
 
@@ -36,7 +100,8 @@
 ### `public.users` 與程式約定（務必與 Supabase 一致）
 
 - **暱稱**：`nickname`（**非** `display_name`）。
-- **問卷欄位**（獨立欄位，**無** `bio`）：`gender`、`region`、`orientation`、`offline_ok`（boolean）；表單選項 **value 為英文 slug**，**label 為繁中**，定義於 `src/lib/constants/adventurer-questionnaire.ts`。
+- **問卷欄位**（與「自介」分開）：`gender`、`region`、`orientation`、`offline_ok`（boolean）；**自介**為獨立欄位 **`users.bio`**（text，可 null）。表單選項 **value 為英文 slug**，**label 為繁中**，定義於 `src/lib/constants/adventurer-questionnaire.ts`。
+- **Phase 1.5 擴充欄位**：**`instagram_handle`**、**`ig_public`**、**`mood`**、**`mood_at`**（見下方 🗄️）；**`orientation`** 為隱私，公會公開 UI 不應展示。
 - **累積經驗值**：欄位名必為 **`total_exp`**（**勿**使用不存在的 `exp` 欄位名；Trigger／函式亦須對齊 `total_exp`）。
 - **等級**：`level`；新建 profile 時 insert 帶入 `total_exp: 0`、`level: 1` 初值（真實數值仍由雲端 Trigger／規則為準）。
 - **狀態**：`status`（`active`／`banned`），Middleware 會處理放逐流程。
@@ -47,7 +112,7 @@
 1. 未登入造訪受保護路由 → Middleware → `/login`（可帶 `next=`）。
 2. `/register` 註冊後（視專案是否開信箱驗證）→ 導向 `/register/profile` 補 **nickname + 問卷**（OAuth 若無 IG metadata，同頁 **動態補填 IG**）。
 3. `completeAdventurerProfile`（`src/services/adventurer-profile.action.ts`）以 **admin client** 寫入 `users`（含 **`instagram_handle`**：metadata 優先，否則表單補填）；失敗時 **`console.error("❌ 伺服器寫入失敗詳細原因:", error)`** 便於 **Vercel Logs** 除錯。
-4. Profile 就緒後 → 首頁 `src/app/(app)/page.tsx` 顯示「歡迎回到公會」並使用 **`profile.nickname`**。
+4. Profile 就緒後 → 首頁 `src/app/(app)/page.tsx` 載入 **`GuildProfileHome`**（頭像首字、等級、`total_exp` 進度條、信譽、心情、Tabs「我的狀態／修改資料」、簽到、登出）。
 
 ### Admin／環境
 
@@ -62,8 +127,8 @@
 | **Layer 1** 連線 | `src/lib/supabase/` | ✅ `client.ts`、`server.ts`、`admin.ts`；`Database` 型別已注入 client |
 | **Layer 2** 資料 | `src/lib/repositories/server/` | ✅ `user.repository.ts`（`findProfileById`、`createProfile`、**`findActiveUsers(currentUserId)`**）、`exp.repository.ts`（admin）；`client/` 尚空 |
 | **Layer 3** 業務 | `src/services/` | ✅ `auth-status.ts`、`auth.service.ts`、**`adventurer-profile.action.ts`**（含 OAuth IG 補填）、**`daily-checkin.action.ts`**（簽到時區 **Asia/Taipei**）、**`profile-update.action.ts`**、**`village.service.ts`（`getVillageUsers`）** |
-| **Layer 4** 狀態 | `src/lib/hooks/`、`src/store/` | ⏳ 目錄已建，Zustand／hooks 尚未實作 |
-| **Layer 5** UI | `src/components/*`、`src/app/*` | ✅ shadcn（含 **select**、**aspect-ratio**、**separator**、**hover-card**）、`Providers`+`Toaster`；**暗黑奇幻登入／註冊／補資料 UI**、`GuildAuthShell`、首頁歡迎、**`/village` + `UserCard`** |
+| **Layer 4** 狀態 | `src/lib/hooks/`、`src/store/`、`src/lib/constants/`、`src/lib/validation/`、`src/lib/utils/` | ⏳ **hooks／Zustand** 尚未實作；✅ **常數、Zod schema、forbidden-words**；✅ **`src/lib/utils/date.ts`**（台灣日界 SSOT） |
+| **Layer 5** UI | `src/components/*`、`src/app/*` | ✅ shadcn（含 **tabs**、**textarea**、**select**、**aspect-ratio**、**separator**、**hover-card**）；**暗黑奇幻**登入／註冊／補資料、`GuildAuthShell`、**個人頁**、**`Navbar`**、**`/village` + `UserCard` + `LevelFrame`**；`/market` 占位 |
 
 **規則重申**：UI 不得直連 Supabase／SQL；僅 Layer 1 建立 client；寫入 `exp_logs` 等應經 Layer 2 → Layer 3。
 
@@ -73,8 +138,8 @@
 
 - [x] `.cursorrules`、`HANDOFF.md`、`.env.example`
 - [x] Next.js 14（App Router、TS、Tailwind v3、ESLint、`src/`）
-- [x] 套件：Supabase、`zustand`、`lucide-react`、shadcn（button、input、dialog、sonner、**select**）
-- [x] `src/types/database.types.ts`（`users`：`nickname`、`gender`、`region`、`orientation`、`offline_ok`、`total_exp`、`level`、**`status`**、**`last_seen_at`**、**`interests`**；`exp_logs` 含 **`unique_key`** 等）
+- [x] 套件：Supabase、`zustand`、`zod`、`lucide-react`、shadcn（button、input、dialog、sonner、**select**、**tabs**、**textarea**）
+- [x] `src/types/database.types.ts`（`users`：上列問卷欄位 + **`bio`**、**`core_values`**、**`instagram_handle`**、**`ig_public`**、**`mood`**、**`mood_at`**、**`total_exp`**、**`level`**、**`status`**、**`last_seen_at`**、**`interests`**；`exp_logs` 含 **`unique_key`** 等）
 - [x] `src/lib/constants/levels.ts`（稱號與 EXP 門檻 — 見下方 **SSOT**）
 - [x] `src/lib/constants/adventurer-questionnaire.ts`（問卷英文 value／繁中 label）
 - [x] Step 3 Schema（雲端）：Trigger 維護 **`users.total_exp`**、**`users.level`**；**`exp_logs.unique_key` UNIQUE**（見下方 **Unique Key**）
@@ -114,13 +179,14 @@
 1. **Layer 2**：`insertExpLog` 已將 **`23505`** 轉成 **`DuplicateExpRewardError`**（預設訊息：**「你已經領取過這份獎勵了喵！」**）；其餘錯誤原樣拋出。
 2. **Layer 3**：可再攔截 `DuplicateExpRewardError` 做冪等成功／toast；若自行呼叫 repository，亦可補攔 **`23505`**。
 3. **Layer 5**：只顯示友善文案（toast／dialog），**不**把原始 SQL 或內部 key 暴露給使用者。
-4. 產生 `unique_key` 的規則（前綴、**日曆日（含時區）**、user id）建議集中在 **Layer 3 常數或純函式**（例如 **`daily-checkin.action.ts` 之 `taipeiCalendarDateKey`**），避免各處字串拼裝不一致。
+4. 產生 `unique_key` 的規則（前綴、**日曆日（含時區）**、user id）必須使用 **`src/lib/utils/date.ts` 之 `taipeiCalendarDateKey()`**（全系統唯一日界基準），避免各處字串拼裝不一致。
 
 ---
 
 # 進行中任務
 
-- **Phase 2（村莊 + 市集）**：深化 **`/village`**（列表、卡片、興趣排序、體驗打磨）；並啟動 **`/market`** 產品與接線節奏。雲端補上 **`last_seen_at`／`interests`** 後村莊排序與標籤可完整發揮。
+- **Phase 2.1（村莊 + 市集）**：深化 **`/village`**；實作 **`/market`** 與 **Perfect Match** 演算法（Layer 2／3／5）。
+- **Phase 2.2（社交互動）**：**Likes**、**Alliances** 業務與 UI（雲端表已建時對齊 RLS 與型別）。
 
 # 下一步（Phase 2 建議方向）
 
@@ -146,6 +212,25 @@ alter table public.users
 - **`interests`** 若改為 **jsonb** 陣列，請同步調整 **`database.types.ts`** 與讀寫邏輯。
 - 既有使用者：`last_seen_at` 為 null 時，村莊查詢會將其排在**較後**（`nullsFirst: false`）。
 
+### 🗄️ Phase 1.5 欄位補齊（`public.users`，與個人頁／註冊一致）
+
+若尚無下列欄位，於 SQL Editor 執行（**先對齊 `database.types.ts` 再跑**）：
+
+🗄️
+```sql
+alter table public.users
+  add column if not exists instagram_handle text null;
+
+alter table public.users
+  add column if not exists ig_public boolean not null default false;
+
+alter table public.users
+  add column if not exists mood text null;
+
+alter table public.users
+  add column if not exists mood_at timestamptz null;
+```
+
 # 待解決問題 (Known Issues)
 
 - `database.types.ts` 手動維護；雲端 Schema 變更後請同步型別
@@ -161,4 +246,4 @@ alter table public.users
 
 ---
 
-*最後更新：Phase 1.5 收尾 — **OAuth IG 補填**、**簽到 `Asia/Taipei` 日鍵**；**準備進入 Phase 2（村莊 `/village` + 市集 `/market`）**；`total_exp` 與等級門檻以 `levels.ts`／雲端 Trigger 為準；雲端待補 `last_seen_at`／`interests`*
+*最後更新：2025-03-23 — 新增頂部 **Phase 2 交接摘要**（**`date.ts`** 規範、五層速覽、進度勾選、DB 紀錄）；**關鍵檔案索引**與 **Unique Key** 改指向 **`taipeiCalendarDateKey`** SSOT；**UserCard**／**LevelFrame**、**Navbar** 納入 Layer 5 說明；**Phase 2** 區分 2.1（村莊／市集）與 2.2（Likes／Alliances）*

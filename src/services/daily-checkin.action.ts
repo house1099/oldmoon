@@ -6,23 +6,7 @@ import {
   DuplicateExpRewardError,
   insertExpLog,
 } from "@/lib/repositories/server/exp.repository";
-
-/** 以台灣日界產生 `YYYY-MM-DD`（勿用 UTC `toISOString()`，否則重置時間會偏移） */
-function taipeiCalendarDateKey(date: Date = new Date()): string {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Taipei",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  const y = parts.find((p) => p.type === "year")?.value;
-  const m = parts.find((p) => p.type === "month")?.value;
-  const d = parts.find((p) => p.type === "day")?.value;
-  if (!y || !m || !d) {
-    throw new Error("taipeiCalendarDateKey: missing date parts");
-  }
-  return `${y}-${m}-${d}`;
-}
+import { taipeiCalendarDateKey } from "@/lib/utils/date";
 
 /**
  * Layer 3：每日簽到 +1 EXP（`exp_logs.unique_key` 同日僅能領一次）。

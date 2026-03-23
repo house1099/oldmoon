@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/hover-card";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { LevelFrame } from "@/components/cards/LevelFrame";
 
 function labelFor(
   options: readonly { value: string; label: string }[],
@@ -25,9 +26,15 @@ function labelFor(
 export type UserCardProps = {
   user: UserRow;
   className?: string;
+  /** 技能市集：完美匹配時套用白金屬高光外環 */
+  perfectMatch?: boolean;
 };
 
-export function UserCard({ user, className }: UserCardProps) {
+export function UserCard({
+  user,
+  className,
+  perfectMatch = false,
+}: UserCardProps) {
   const interests = user.interests?.filter(Boolean) ?? [];
 
   return (
@@ -35,14 +42,24 @@ export function UserCard({ user, className }: UserCardProps) {
       <HoverCardTrigger
         delay={120}
         closeDelay={80}
-        render={(props) => (
-          <div
-            {...props}
-            className={cn(
-              "block w-full rounded-2xl border-2 border-violet-500/40 bg-gradient-to-b from-slate-950/95 via-violet-950/35 to-slate-950/95 p-4 text-left shadow-xl backdrop-blur-sm guild-breathe-ring outline-none transition-[transform] duration-300 hover:-translate-y-0.5",
-              className,
-            )}
-          >
+        render={(triggerProps) => {
+          const { className: triggerClassName, ...restTrigger } = triggerProps;
+          const shellClass = cn(
+            "block w-full outline-none transition-[transform] duration-300 hover:-translate-y-0.5",
+            perfectMatch
+              ? "rounded-2xl p-[2px] perfect-match-market-shell"
+              : "rounded-2xl",
+            triggerClassName,
+            className,
+          );
+          const frameClass = cn(
+            "block w-full bg-gradient-to-b from-slate-950/95 via-violet-950/35 to-slate-950/95 p-4 text-left shadow-xl backdrop-blur-sm",
+            perfectMatch ? "rounded-[0.9375rem]" : "",
+          );
+
+          return (
+            <div {...restTrigger} className={shellClass}>
+              <LevelFrame level={user.level} className={frameClass}>
             <div className="flex gap-4">
               <div className="w-[5.25rem] shrink-0 overflow-hidden rounded-xl border border-amber-800/45 bg-slate-900/90">
                 <AspectRatio ratio={1}>
@@ -113,8 +130,10 @@ export function UserCard({ user, className }: UserCardProps) {
                 </ul>
               )}
             </div>
-          </div>
-        )}
+              </LevelFrame>
+            </div>
+          );
+        }}
       />
       <HoverCardContent className="w-72 border border-amber-900/40 bg-slate-950/98 p-3 text-slate-200 shadow-2xl">
         <p className="font-serif text-sm font-medium text-amber-100/95">

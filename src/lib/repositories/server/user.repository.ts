@@ -85,3 +85,12 @@ export async function findActiveUsers(
 
   return (data ?? []) as UserRow[];
 }
+
+/**
+ * 技能市集：列出其他 **`active`** 冒險者（語意與 **`findActiveUsers`** 相同，便於 Layer 3 分域）。
+ */
+export async function findMarketUsers(
+  currentUserId: string,
+): Promise<UserRow[]> {
+  return findActiveUsers(currentUserId);
+}
