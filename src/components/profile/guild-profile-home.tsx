@@ -23,6 +23,7 @@ import {
   CalendarCheck,
   Camera,
   ChevronRight,
+  Lock,
   LogOut,
   PencilLine,
 } from "lucide-react";
@@ -483,20 +484,24 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           className={cn(
             "mb-3 flex w-full items-center justify-between rounded-2xl border p-4 text-left transition disabled:pointer-events-none",
             checkinDoneToday
-              ? "border-zinc-700/80 bg-zinc-950/70 text-zinc-400 opacity-90"
-              : "border-white/5 bg-gradient-to-r from-zinc-900/90 via-amber-950/20 to-zinc-900/90 text-zinc-100 hover:border-amber-500/35 hover:from-zinc-900 hover:via-amber-950/30 hover:to-zinc-900",
+              ? "cursor-not-allowed border-zinc-700/50 bg-zinc-900/40 text-zinc-500 opacity-85 backdrop-blur-sm"
+              : "border-white/10 bg-gradient-to-r from-amber-950/55 via-zinc-900/55 to-violet-950/45 text-zinc-100 shadow-md shadow-black/25 hover:border-amber-400/30 hover:from-amber-900/50 hover:via-zinc-900/50 hover:to-violet-900/40",
           )}
         >
           <span className="flex min-w-0 flex-1 items-center gap-3">
             <span
               className={cn(
-                "flex size-10 shrink-0 items-center justify-center rounded-xl text-amber-200",
+                "flex size-10 shrink-0 items-center justify-center rounded-xl",
                 checkinDoneToday
                   ? "bg-zinc-800/80 text-zinc-500"
-                  : "bg-amber-950/40",
+                  : "bg-amber-950/50 text-amber-200 ring-1 ring-amber-500/25",
               )}
             >
-              <CalendarCheck className="size-5" aria-hidden />
+              {checkinDoneToday ? (
+                <Lock className="size-5" aria-hidden />
+              ) : (
+                <CalendarCheck className="size-5" aria-hidden />
+              )}
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="font-medium">
@@ -508,7 +513,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               </span>
               {checkinDoneToday && checkinNextLabel ? (
                 <span className="text-[11px] font-normal leading-snug text-zinc-500">
-                  下次可簽：{checkinNextLabel}
+                  下次可簽到：{checkinNextLabel}（台北曆日切換後）
                 </span>
               ) : null}
             </span>

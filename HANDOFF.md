@@ -56,7 +56,7 @@
 | Auth UI | `src/app/(auth)/login/*`、`register/*`、`register/profile/*` |
 | OAuth callback | `src/app/auth/callback/route.ts` |
 | 補名冊（含 IG） | `src/services/adventurer-profile.action.ts`（註冊 insert **不帶 `bio`**） |
-| 每日簽到 +1 EXP | `src/services/daily-checkin.action.ts`；重複簽到字串常數 `src/lib/constants/daily-checkin.ts`；日鍵 SSOT：`src/lib/utils/date.ts`（`taipeiCalendarDateKey`） |
+| 每日簽到 +1 EXP | `src/services/daily-checkin.action.ts`；**`findDailyCheckinForUserOnTaipeiDay`**／**`insertExpLog`（`delta`+`delta_exp`）** 見 `exp.repository.ts`；機讀錯誤 **`DAILY_CHECKIN_ALREADY_TODAY`** 見 `daily-checkin.ts`；日鍵 SSOT：`date.ts`（`taipeiCalendarDateKey`） |
 | 編輯自介／IG 公開／心情 | `src/services/profile-update.action.ts`（**支援部分欄位 patch**，僅在傳入 `mood` 時更新 `mood_at`） |
 | 首頁個人頁 UI | `src/app/(app)/page.tsx` → `src/components/profile/guild-profile-home.tsx` |
 | 底部導航 | `src/components/layout/Navbar.tsx` |
@@ -303,7 +303,18 @@ alter table public.users
 - **Layer 4 — `date.ts`**：**`nextTaipeiCalendarDateAfter`**、**`formatTaipeiDateKeyForDisplay`**（下次可簽日期繁中顯示）。
 - **Layer 5 — `guild-profile-home.tsx`**：簽到錯誤 **`toast.error(result.error)`** 顯示真實原因；若訊息含 **`duplicate`**（不分大小寫）或常數 **`DAILY_CHECKIN_ALREADY_TODAY`**，改 **`toast.success("今日已經簽到過了喵！")`** 並同步冷卻狀態。已簽到時按鈕鎖定、**`Lock`** 圖示與「下次可簽到」文案（台北曆日切換後）。
 
-*最後更新：2025-03-23 — **任務 12**：簽到錯誤透明化、曆日預檢、冷卻 UI 與 UTF-8 友善字串（Server Action 純 JSON 可序列化物件）。*
+*最後更新：2025-03-23 — **任務 14**：`exp_logs` 同時維護 **`delta`** 與 **`delta_exp`**（`insertExpLog` 預設各 **1**，避免 **23502 NOT NULL**）；簽到前以 **`findDailyCheckinForUserOnTaipeiDay`**（**`unique_key`** + **`source = daily_checkin`**）判斷當日是否已簽，回傳 **`error: DAILY_CHECKIN_ALREADY_TODAY`**；個人頁簽到鈕冷卻為深灰半透明、**`⏳ 回報冷卻中 (約 23 小時)`**，未簽到為漸層質感；成功 **toast**：「簽到成功！獲得 +1 EXP 喵！」。*
+
+### 2025-03-23 — 任務 14：`exp_logs` **delta**／**delta_exp** 與 24H 冷卻 UI
+
+- **🗄️ `exp_logs`**：雲端可同時存在 **`delta`** 與 **`delta_exp`**（皆 NOT NULL 時，應用層 **`insertExpLog`** 明確帶入 **1**，與 DB 預設值雙重保險）。**`database.types.ts`** 之 **`Row`**／**`Insert`** 已對齊。
+- **Layer 2 — `exp.repository.ts`**：**`insertExpLog`** payload 含 **`delta`**、**`delta_exp`**（預設 **1**，可覆寫）；**`findDailyCheckinForUserOnTaipeiDay`** 以 **`daily_checkin:{YYYY-MM-DD}:{user_id}`** 之 **`unique_key`** 並 **`source = daily_checkin`** 查詢。
+- **Layer 3 — `daily-checkin.action.ts`**：**`claimDailyCheckin`**／**`getDailyCheckinCooldownInfo`** 依上列查詢判斷當日；已簽回傳 **`error: DAILY_CHECKIN_ALREADY_TODAY`**（常數見 **`src/lib/constants/daily-checkin.ts`**）。
+- **Layer 5 — `guild-profile-home.tsx`**：今日已簽 **disabled**、深灰半透明、主文案 **⏳ 回報冷卻中 (約 23 小時)**；未簽 **漸層**按鈕；簽到成功 **`toast.success("簽到成功！獲得 +1 EXP 喵！")`**。
+
+---
+
+*（歷史）**任務 12**：簽到錯誤透明化、曆日預檢、冷卻 UI 與 UTF-8 友善字串（Server Action 純 JSON 可序列化物件）。*
 
 ### 2025-03-23 — 任務 14：`delta`／`delta_exp` 對齊（23502）、曆日查詢與冷卻 UI
 
