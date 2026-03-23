@@ -1,16 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createProfile } from "@/lib/repositories/server/user.repository";
 
-import type {
-  GenderValue,
-  OfflineIntentValue,
-  OrientationValue,
-  RegionValue,
+import {
+  offlineIntentToOfflineOk,
+  type GenderValue,
+  type OfflineIntentValue,
+  type OrientationValue,
+  type RegionValue,
 } from "@/lib/constants/adventurer-questionnaire";
+import { instagramHandleSchema } from "@/lib/validation/instagram-handle";
+import { adventurerNicknameSchema } from "@/lib/validation/nickname";
 
 /** 問卷值皆為英文 slug（與 `adventurer-questionnaire` 常數一致），對應 `users.gender` 等欄位。 */
 export type AdventurerQuestionnaire = {
@@ -20,11 +22,6 @@ export type AdventurerQuestionnaire = {
   offlineIntent: OfflineIntentValue;
 };
 
-/** 前端 `offlineIntent` → DB `offline_ok`：僅「願意實體聚會」為 true，其餘為 false */
-function offlineIntentToOfflineOk(v: OfflineIntentValue): boolean {
-  return v === "in_person";
-}
-
 /**
  * Layer 3：補齊公會檔（`users` 列）：`nickname`、`gender`、`region`、`orientation`、`offline_ok` 等。
  * `total_exp`／`level` 初值依 SSOT（Lv1 起算）。
@@ -32,19 +29,62 @@ function offlineIntentToOfflineOk(v: OfflineIntentValue): boolean {
 export async function completeAdventurerProfile(input: {
   nickname: string;
   questionnaire: AdventurerQuestionnaire;
-}) {
+  /** 三題核心價值觀，依序對應 `CORE_VALUES_QUESTIONS` */
+  coreValues: string[];
+  /** 興趣 slug 列表（`users.interests`） */
+  interests: string[];
+  /**
+   * OAuth（如 Google）略過註冊 Step1 時，`user_metadata` 可能無 IG；
+   * 此時由 Profile 表單補填。若 metadata 已有 `instagram_handle` 則優先採用 metadata。
+   */
+  instagramHandleFromForm?: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login?next=/register/profile");
+    return { ok: false, error: "工作階段已失效，請重新登入。" };
   }
 
-  const nickname = input.nickname.trim();
-  if (!nickname) {
-    return { ok: false as const, error: "請填寫暱稱。" };
+  const nickResult = adventurerNicknameSchema.safeParse(input.nickname);
+  if (!nickResult.success) {
+    const msg = nickResult.error.issues[0]?.message ?? "暱稱無效";
+    return { ok: false, error: msg };
+  }
+  const nickname = nickResult.data;
+
+  const meta = user.user_metadata as Record<string, unknown> | undefined;
+  const rawMetaIg = meta?.instagram_handle;
+  const fromMeta =
+    typeof rawMetaIg === "string" && rawMetaIg.trim().length > 0
+      ? rawMetaIg.trim()
+      : null;
+
+  let instagram_handle: string | null = fromMeta;
+
+  if (!instagram_handle) {
+    const igParsed = instagramHandleSchema.safeParse(
+      input.instagramHandleFromForm ?? "",
+    );
+    if (!igParsed.success) {
+      const msg = igParsed.error.issues[0]?.message ?? "IG 帳號無效";
+      return { ok: false, error: msg };
+    }
+    instagram_handle = igParsed.data;
+  }
+
+  if (input.coreValues.length !== 3) {
+    return { ok: false, error: "請完成三題核心價值觀。" };
+  }
+
+  if (input.interests.length < 1) {
+    return { ok: false, error: "請至少選擇一個興趣標籤。" };
+  }
+
+  if (input.interests.length > 12) {
+    return { ok: false, error: "興趣標籤最多 12 個。" };
   }
 
   const q = input.questionnaire;
@@ -53,6 +93,8 @@ export async function completeAdventurerProfile(input: {
     await createProfile({
       id: user.id,
       nickname,
+      bio: null,
+      core_values: input.coreValues,
       gender: q.gender,
       region: q.region,
       orientation: q.orientation,
@@ -60,29 +102,38 @@ export async function completeAdventurerProfile(input: {
       status: "active",
       total_exp: 0, // users 表欄位名為 total_exp，非 exp
       level: 1,
+      interests: input.interests,
+      instagram_handle,
+      ig_public: false,
+      mood: null,
+      mood_at: null,
     });
   } catch (error) {
     console.error("❌ 伺服器寫入失敗詳細原因:", error);
     const err = error as { code?: string; message?: string };
     const code = err.code ? String(err.code) : "";
     if (code === "23505") {
-      return { ok: false as const, error: "公會名冊已有你的紀錄，請重新整理或聯絡管理員。" };
+      return {
+        ok: false,
+        error: "公會名冊已有你的紀錄，請重新整理或聯絡管理員。",
+      };
     }
     if (code === "42703" || err.message?.includes("does not exist")) {
       return {
-        ok: false as const,
-        error: "資料庫欄位與程式不一致，請聯絡管理員檢查 users 表結構。",
+        ok: false,
+        error:
+          "資料庫欄位與程式不一致，請聯絡管理員檢查 users 表（含 bio、core_values）。",
       };
     }
     if (code === "23502") {
       return {
-        ok: false as const,
+        ok: false,
         error: "缺少必要欄位，請聯絡管理員檢查 users 表 NOT NULL／預設值。",
       };
     }
-    return { ok: false as const, error: "建立檔案時發生錯誤，請稍後再試。" };
+    return { ok: false, error: "建立檔案時發生錯誤，請稍後再試。" };
   }
 
   revalidatePath("/");
-  redirect("/");
+  return { ok: true };
 }

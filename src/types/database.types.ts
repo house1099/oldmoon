@@ -18,6 +18,10 @@ export interface Database {
         Row: {
           id: string;
           nickname: string;
+          /** 自介；雲端需有 `bio` 欄位（text, nullable） */
+          bio: string | null;
+          /** 核心價值觀三題答案 slug，順序對應問卷；雲端建議 `text[]` */
+          core_values: string[] | null;
           /** 英文 slug，與問卷常數一致 */
           gender: string;
           region: string;
@@ -35,12 +39,22 @@ export interface Database {
           last_seen_at: string | null;
           /** 興趣 slug 或標籤列表（雲端建議 `text[]` 或 jsonb，與型別一致） */
           interests: string[] | null;
+          /** IG 帳號（註冊時寫入；不含 @ 亦可） */
+          instagram_handle: string | null;
+          /** 是否在公會公開 IG（隱私開關） */
+          ig_public: boolean;
+          /** 每日心情內文 */
+          mood: string | null;
+          /** 心情最後更新時間（ISO）；超過 24h 前端可不顯示內容 */
+          mood_at: string | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id: string;
           nickname: string;
+          bio?: string | null;
+          core_values?: string[];
           gender: string;
           region: string;
           orientation: string;
@@ -52,12 +66,18 @@ export interface Database {
           level?: number;
           last_seen_at?: string | null;
           interests?: string[] | null;
+          instagram_handle?: string | null;
+          ig_public?: boolean;
+          mood?: string | null;
+          mood_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
           nickname?: string;
+          bio?: string | null;
+          core_values?: string[];
           gender?: string;
           region?: string;
           orientation?: string;
@@ -69,6 +89,10 @@ export interface Database {
           level?: number;
           last_seen_at?: string | null;
           interests?: string[] | null;
+          instagram_handle?: string | null;
+          ig_public?: boolean;
+          mood?: string | null;
+          mood_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

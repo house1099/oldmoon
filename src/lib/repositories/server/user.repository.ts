@@ -3,6 +3,7 @@ import type { Database } from "@/types/database.types";
 
 export type UserInsert = Database["public"]["Tables"]["users"]["Insert"];
 export type UserRow = Database["public"]["Tables"]["users"]["Row"];
+export type UserUpdate = Database["public"]["Tables"]["users"]["Update"];
 
 /**
  * Layer 2：users 表存取（伺服端，使用 admin client 以略過 RLS 做管理查詢／建檔）。
@@ -23,8 +24,8 @@ export async function findProfileById(id: string): Promise<UserRow | null> {
 }
 
 /**
- * 新增 `public.users` 一列。欄位須與雲端一致（`nickname`、`gender`、`region`、`orientation`、`offline_ok` 等，勿使用不存在的 `bio`）。
- * 累積經驗值欄位名為 **`total_exp`**（勿傳 `exp`）。
+ * 新增 `public.users` 一列。欄位須與雲端一致（含 **`total_exp`**，勿傳 `exp`）。
+ * 若雲端尚無 `bio`／`core_values`，請於 Supabase 補欄後再部署。
  */
 export async function createProfile(data: UserInsert): Promise<UserRow> {
   const admin = createAdminClient();
@@ -39,6 +40,28 @@ export async function createProfile(data: UserInsert): Promise<UserRow> {
   }
 
   return row as UserRow;
+}
+
+/**
+ * 更新既有使用者列（略過 RLS）。用於 Layer 3 個人資料編修等。
+ */
+export async function updateProfile(
+  id: string,
+  patch: UserUpdate,
+): Promise<UserRow> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("users")
+    .update(patch)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as UserRow;
 }
 
 /**

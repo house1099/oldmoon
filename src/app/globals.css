@@ -14,6 +14,11 @@
     animation: guild-border-glow 3.5s ease-in-out infinite;
   }
 
+  /** 表單：青色 Energy 聚焦（Input／Select／Textarea 共用） */
+  .guild-energy-focus {
+    @apply focus-visible:border-cyan-400/80 focus-visible:ring-2 focus-visible:ring-cyan-400/45 focus-visible:shadow-[0_0_20px_rgba(34,211,238,0.32)] dark:focus-visible:border-cyan-400/70;
+  }
+
   /** 村莊：興趣標籤（金色邊框） */
   .tag-gold {
     @apply inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium;
@@ -21,6 +26,33 @@
     color: rgba(254, 243, 199, 0.95);
     background: rgba(66, 32, 6, 0.45);
     box-shadow: inset 0 1px 0 rgba(251, 191, 36, 0.12);
+  }
+
+  /** 個人頁：水銀流動感 EXP 進度條 */
+  .mercury-exp-fill {
+    background: linear-gradient(
+      105deg,
+      rgba(226, 232, 240, 0.95) 0%,
+      rgba(148, 163, 184, 0.9) 18%,
+      rgba(34, 211, 238, 0.88) 42%,
+      rgba(241, 245, 249, 0.98) 52%,
+      rgba(167, 139, 250, 0.85) 72%,
+      rgba(203, 213, 225, 0.92) 100%
+    );
+    background-size: 220% 100%;
+    animation: mercury-flow 2.6s ease-in-out infinite;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      0 0 14px rgba(34, 211, 238, 0.28);
+  }
+}
+
+@keyframes mercury-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
   }
 }
 
