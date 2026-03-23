@@ -1,6 +1,6 @@
 /**
  * 與 Supabase `public` schema 對齊的型別（手動維護，請在雲端 Schema 變更後同步更新）。
- * 表：users, exp_logs, likes, alliances, messages
+ * 表：users, exp_logs, likes, alliances, messages, ig_change_requests
  */
 
 export type Json =
@@ -61,6 +61,8 @@ export interface Database {
           invited_by: string | null;
           /** 是否在公會公開 IG（隱私開關） */
           ig_public: boolean;
+          /** 公會權限：`member`（預設）／`admin`／`leader` */
+          role: string;
           /** 每日心情內文 */
           mood: string | null;
           /** 心情最後更新時間（ISO）；超過 24h 前端可不顯示內容 */
@@ -93,6 +95,7 @@ export interface Database {
           invite_code?: string | null;
           invited_by?: string | null;
           ig_public?: boolean;
+          role?: string;
           mood?: string | null;
           mood_at?: string | null;
           created_at?: string;
@@ -123,12 +126,59 @@ export interface Database {
           invite_code?: string | null;
           invited_by?: string | null;
           ig_public?: boolean;
+          role?: string;
           mood?: string | null;
           mood_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Relationships: [];
+      };
+      ig_change_requests: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          old_handle: string | null;
+          new_handle: string;
+          status: string;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          old_handle?: string | null;
+          new_handle: string;
+          status?: string;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string | null;
+          old_handle?: string | null;
+          new_handle?: string;
+          status?: string;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ig_change_requests_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ig_change_requests_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       exp_logs: {
         Row: {
@@ -303,3 +353,4 @@ export type ExpLogRow = PublicTables["exp_logs"]["Row"];
 export type LikeRow = PublicTables["likes"]["Row"];
 export type AllianceRow = PublicTables["alliances"]["Row"];
 export type MessageRow = PublicTables["messages"]["Row"];
+export type IgChangeRequestRow = PublicTables["ig_change_requests"]["Row"];

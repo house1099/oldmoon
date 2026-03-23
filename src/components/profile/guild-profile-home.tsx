@@ -19,6 +19,7 @@ import {
   getMyRecentExpLogsAction,
   type ExpLogProfileEntry,
 } from "@/services/exp-logs.action";
+import { requestIgChangeAction } from "@/services/ig-request.action";
 import { updateMyProfile } from "@/services/profile-update.action";
 import { uploadAvatarToCloudinary } from "@/lib/utils/cloudinary";
 import { getCroppedImg } from "@/lib/utils/cropImage";
@@ -41,7 +42,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { INTEREST_TAG_OPTIONS } from "@/lib/constants/adventurer-questionnaire";
 import { LEVEL_MIN_EXP_BY_LEVEL, getLevelTierByExp } from "@/lib/constants/levels";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
@@ -123,10 +123,10 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   const [savingBioVillage, setSavingBioVillage] = useState(false);
   const [savingBioMarket, setSavingBioMarket] = useState(false);
   const [igPublic, setIgPublic] = useState(profile.ig_public);
-  const [instagramInput, setInstagramInput] = useState(
-    profile.instagram_handle ?? "",
-  );
+  const [igInput, setIgInput] = useState("");
+  const [showIgChangeInput, setShowIgChangeInput] = useState(false);
   const [savingInstagram, setSavingInstagram] = useState(false);
+  const [igRequestSubmitting, setIgRequestSubmitting] = useState(false);
   const [moodInput, setMoodInput] = useState(profile.mood ?? "");
   const [moodAt, setMoodAt] = useState<string | null>(profile.mood_at ?? null);
   const [savingMood, setSavingMood] = useState(false);
@@ -156,16 +156,15 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     setBioVillage(profile.bio_village ?? "");
     setBioMarket(profile.bio_market ?? "");
     setIgPublic(profile.ig_public);
-    setInstagramInput(profile.instagram_handle ?? "");
     setMoodInput(profile.mood ?? "");
     setMoodAt(profile.mood_at ?? null);
     setAvatarUrl(profile.avatar_url?.trim() || null);
   }, [profile]);
 
   useEffect(() => {
-    if (editOpen) {
-      setInstagramInput(profile.instagram_handle ?? "");
-    }
+    if (!editOpen) return;
+    setIgInput("");
+    setShowIgChangeInput(false);
   }, [editOpen, profile.instagram_handle]);
 
   const handleIosTextareaFocus = useCallback(
@@ -293,20 +292,43 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     }
   }
 
-  async function handleSaveInstagram() {
+  async function handleConfirmBindIg() {
+    if (!igInput.trim()) return;
     setSavingInstagram(true);
     try {
       const result = await updateMyProfile({
-        instagram_handle: instagramInput.trim(),
+        instagram_handle: igInput.trim(),
       });
       if (result.ok === false) {
         toast.error(result.error);
         return;
       }
-      toast.success("IG 帳號已更新");
+      toast.success("IG 帳號已設定");
+      setIgInput("");
       router.refresh();
     } finally {
       setSavingInstagram(false);
+    }
+  }
+
+  async function handleSubmitIgChangeRequest() {
+    if (!igInput.trim()) {
+      toast.error("請填寫新的 IG 帳號");
+      return;
+    }
+    setIgRequestSubmitting(true);
+    try {
+      const r = await requestIgChangeAction(igInput.trim());
+      if (!r.ok) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success("已送出申請，審核通過後將更新");
+      setShowIgChangeInput(false);
+      setIgInput("");
+      router.refresh();
+    } finally {
+      setIgRequestSubmitting(false);
     }
   }
 
@@ -332,6 +354,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     if (
       igSaving ||
       savingInstagram ||
+      igRequestSubmitting ||
       savingMood ||
       savingBioVillage ||
       savingBioMarket
@@ -429,6 +452,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
 
   const avatarSrc = avatarUrl?.trim() || null;
   const initial = (profile.nickname ?? "?").slice(0, 1).toUpperCase();
+  const hasIg = Boolean(profile.instagram_handle?.trim());
 
   return (
     <main className="flex w-full flex-col gap-6">
@@ -845,45 +869,101 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           <DialogHeader className="border-b border-white/10 px-4 pb-3 pt-4">
             <DialogTitle className="text-zinc-100">帳號設定</DialogTitle>
             <DialogDescription className="text-zinc-400">
-              更多資料請在首頁各區塊直接編輯。下方可更新 IG 帳號與公開與否；開關變更會立即寫入。
+              更多資料請在首頁各區塊直接編輯。已綁定 IG
+              後若要修改須送審；公開與否開關仍會立即寫入。
             </DialogDescription>
           </DialogHeader>
           <div className="flex max-h-[min(70vh,520px)] flex-col gap-5 overflow-y-auto px-4 py-4">
             <div className="space-y-2">
-              <label
-                htmlFor="profile-instagram-handle"
-                className="text-sm font-medium text-zinc-100"
-              >
-                Instagram 帳號
-              </label>
-              <Input
-                id="profile-instagram-handle"
-                value={instagramInput}
-                onChange={(e) => setInstagramInput(e.target.value)}
-                placeholder="username（不含 @）"
-                autoComplete="username"
-                className={cn(
-                  "guild-energy-focus h-auto min-h-11 rounded-2xl border-white/10 bg-zinc-900/60 px-4 py-3 text-base text-white md:text-base placeholder:text-zinc-500 focus-visible:border-cyan-400 focus-visible:ring-cyan-400",
-                )}
-              />
-              <div className="flex justify-end pt-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="rounded-full bg-zinc-800 px-4 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 hover:text-zinc-100"
-                  disabled={
-                    savingInstagram ||
-                    savingMood ||
-                    savingBioVillage ||
-                    savingBioMarket ||
-                    igSaving
-                  }
-                  onClick={() => void handleSaveInstagram()}
-                >
-                  {savingInstagram ? "更新中…" : "確認儲存 IG 帳號"}
-                </Button>
-              </div>
+              <p className="text-sm font-medium text-white">Instagram 帳號</p>
+
+              {hasIg ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3 rounded-full border border-white/10 bg-zinc-900/40 px-4 py-3">
+                    <span className="text-sm text-zinc-400">@</span>
+                    <span className="flex-1 text-sm text-white">
+                      {profile.instagram_handle}
+                    </span>
+                    <span className="text-xs text-zinc-500">已綁定</span>
+                  </div>
+
+                  {showIgChangeInput ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 rounded-full border border-white/10 bg-zinc-900/60 px-4 py-3 transition-colors focus-within:border-white/30">
+                        <span className="text-sm text-zinc-400">@</span>
+                        <input
+                          type="text"
+                          value={igInput}
+                          onChange={(e) =>
+                            setIgInput(e.target.value.replace(/\s/g, ""))
+                          }
+                          placeholder="新的 IG 帳號"
+                          autoComplete="username"
+                          className="min-w-0 flex-1 border-0 bg-transparent text-base text-white outline-none placeholder:text-zinc-600"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={igRequestSubmitting || !igInput.trim()}
+                          onClick={() => void handleSubmitIgChangeRequest()}
+                          className="flex-1 rounded-full bg-white/10 py-2 text-sm text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-40"
+                        >
+                          {igRequestSubmitting ? "送出中…" : "確認送出申請"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={igRequestSubmitting}
+                          onClick={() => {
+                            setShowIgChangeInput(false);
+                            setIgInput("");
+                          }}
+                          className="rounded-full border border-white/15 px-4 py-2 text-sm text-zinc-300 hover:bg-white/5"
+                        >
+                          取消
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={igRequestSubmitting}
+                      onClick={() => setShowIgChangeInput(true)}
+                      className="w-full rounded-full bg-white/10 py-2 text-sm text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-40"
+                    >
+                      申請修改 IG 帳號
+                    </button>
+                  )}
+
+                  <p className="text-center text-xs text-zinc-500">
+                    申請後由公會管理員審核，審核通過才會更新
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 rounded-full border border-white/10 bg-zinc-900/60 px-4 py-3 transition-colors focus-within:border-white/30">
+                    <span className="text-sm text-zinc-400">@</span>
+                    <input
+                      type="text"
+                      value={igInput}
+                      onChange={(e) =>
+                        setIgInput(e.target.value.replace(/\s/g, ""))
+                      }
+                      placeholder="your_ig_handle"
+                      autoComplete="username"
+                      className="min-w-0 flex-1 border-0 bg-transparent text-base text-white outline-none placeholder:text-zinc-600"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!igInput.trim() || savingInstagram}
+                    onClick={() => void handleConfirmBindIg()}
+                    className="w-full rounded-full bg-white/10 py-2 text-sm text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-40"
+                  >
+                    {savingInstagram ? "設定中…" : "確認設定"}
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-4">
@@ -904,6 +984,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                 disabled={
                   igSaving ||
                   savingInstagram ||
+                  igRequestSubmitting ||
                   savingMood ||
                   savingBioVillage ||
                   savingBioMarket

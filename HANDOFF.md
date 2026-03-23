@@ -29,7 +29,7 @@
 ## Phase 2.1 首頁個人卡重構（完成）
 
 - **iOS／PWA**：首頁三處 **textarea**（今日心情、興趣自白、技能自白）使用 **`text-base`（16px）** 避免 Safari 聚焦自動縮放；**`onFocus` → `scrollIntoView({ block: 'center' })`**（延遲 300ms）減輕鍵盤頂動；根 **`layout.tsx`** **`viewport.maximumScale: 1`** + **`viewport-fit=cover`**（**不**使用 **`user-scalable=no`**）
-- **帳號設定 Dialog**（原「修改冒險者資料」）：標題 **「帳號設定」**；僅 **Instagram 帳號**（**`updateMyProfile({ instagram_handle })`**）與 **`ig_public`** 開關；通用 **bio** 表單已移除，文案引導至首頁各區塊編輯
+- **帳號設定 Dialog**：**無 IG** 時可直接 **`updateMyProfile({ instagram_handle })`** 綁定；**已有 IG** 時畫面鎖定顯示，改帳須 **`requestIgChangeAction`** 寫入 **`ig_change_requests`**，由 **admin／leader** 於 **`/admin/ig-requests`** 審核（**`reviewIgRequestAction`**）。**`ig_public`** 開關仍即時寫入
 - **今日心情**：與頭像卡同級之**獨立 `glass-panel`**，常駐展開；24h 倒數，IG 限時動態風格
 - **我的狀態**：同一 `glass-panel` 內僅含三區，皆為**手風琴**（`openSection` 單開），**預設收折**，點標題展開
   - **自白**：**`bio_village`**（興趣自白）+ **`bio_market`**（技能自白），各自獨立確認按鈕
@@ -44,7 +44,8 @@
 
 ### 🗄️ 資料庫異動紀錄（交接必備）
 
-- **`users`**：**`bio`**（text，可 null）、**`bio_village`**／**`bio_market`**（興趣／技能分域自白）、**`invite_code`**、**`invited_by`**（uuid）、**`interests`**（**須為 `text[]`**，勿用單一 text）、**`skills_offer`**／**`skills_want`**（`text[]`，建議 **`default '{}'`**）、以及 **`instagram_handle`**、**`ig_public`**、**`mood`**、**`mood_at`**、**`last_seen_at`** 等與 **`database.types.ts`** 一致。
+- **`users`**：**`role`**（**`text`**，預設 **`member`**；**`admin`**／**`leader`** 可審核 IG 申請）、**`bio`**（text，可 null）、**`bio_village`**／**`bio_market`**、**`invite_code`**、**`invited_by`**、**`interests`**（**`text[]`**）、**`skills_offer`**／**`skills_want`**、**`instagram_handle`**、**`ig_public`**、**`mood`**、**`mood_at`**、**`last_seen_at`** 等與 **`database.types.ts`** 一致。
+- **`ig_change_requests`**：**`user_id`**、**`old_handle`**、**`new_handle`**、**`status`**（**`pending`**／**`approved`**／**`rejected`**）、**`reviewed_by`**、**`reviewed_at`**、**`created_at`**；已 **ENABLE RLS**（政策可後補）；遷移見 **`supabase/migrations/20260324100000_ig_change_requests_and_user_role.sql`**。
 - **註冊建檔**：**`completeAdventurerProfile`** 為避免 PostgREST／欄位快取問題，**insert 不帶 `bio`**（自介於個人頁 **`profile-update`** 填寫）。
 - DDL 變更後若仍報「找不到欄位」，至 Supabase **Settings → API** 嘗試 **重新載入 Schema**。
 - **`likes`**、**`alliances`**：雲端建表後維持型別與 **RLS**；Phase 2.2 於 Layer 2／3 接線。
@@ -74,6 +75,8 @@
 | 補名冊（含 IG） | `src/services/adventurer-profile.action.ts`（註冊 insert **不帶 `bio`**） |
 | 每日簽到 +1 EXP | `src/services/daily-checkin.action.ts`；**`findDailyCheckinForUserOnTaipeiDay`**／**`insertExpLog`（`delta`+`delta_exp`）** 見 `exp.repository.ts`；機讀錯誤 **`DAILY_CHECKIN_ALREADY_TODAY`** 見 `daily-checkin.ts`；日鍵 SSOT：`date.ts`（`taipeiCalendarDateKey`） |
 | 編輯自介／分域自白／**`instagram_handle`**／IG 公開／心情 | `src/services/profile-update.action.ts`（**支援部分欄位 patch**；**`mood`** 時更新 **`mood_at`**；**`bio_village`**／**`bio_market`**；**`instagram_handle`** 經 **`instagramHandleSchema`**；空字串寫入 **null**） |
+| IG 變更申請／審核 | `src/services/ig-request.action.ts`（**`requestIgChangeAction`**、**`reviewIgRequestAction`**、**`getPendingIgRequestsAction`**）→ **`src/lib/repositories/server/ig-request.repository.ts`**（**admin client** 寫入 **`ig_change_requests`**、核准時更新 **`users.instagram_handle`**） |
+| 管理：IG 待審 | `src/app/(app)/admin/ig-requests/page.tsx`（**role** 為 **admin／leader** 可進；其餘 **`redirect('/')`**） |
 | 個人頁 EXP 紀錄 | `src/services/exp-logs.action.ts`（**`getMyRecentExpLogsAction`**）→ **`exp.repository`** **`findRecentExpLogsForUser`** |
 | 首頁個人頁 UI | `src/app/(app)/page.tsx` → `src/components/profile/guild-profile-home.tsx` |
 | 頭像裁切＋Cloudinary | **`react-easy-crop`** 全螢幕裁切；**`src/lib/utils/cropImage.ts`**（**`getCroppedImg`**）；**`src/lib/utils/cloudinary.ts`**（**`uploadAvatarToCloudinary`**）→ **`updateMyProfile({ avatar_url })`**（**禁止** **`supabase.storage`** 上傳頭像） |
@@ -85,7 +88,7 @@
 | 等級 SSOT | `src/lib/constants/levels.ts` |
 | 問卷選項 | `src/lib/constants/adventurer-questionnaire.ts` |
 | Zod／不雅字／IG 格式 | `src/lib/validation/*.ts`、`src/lib/utils/forbidden-words.ts` |
-| DB 型別 | `src/types/database.types.ts`（含 **`skills_offer`**／**`skills_want`**） |
+| DB 型別 | `src/types/database.types.ts`（含 **`ig_change_requests`**、**`users.role`**、**`skills_offer`**／**`skills_want`**） |
 | 市集 Perfect Match 高光 | `src/app/globals.css`（**`.perfect-match-market-shell`**） |
 
 ---
@@ -358,6 +361,14 @@ NOTIFY pgrst, 'reload schema';
 - **Layer 5 — `guild-profile-home.tsx`**：已簽到時按鈕 **disabled**、**深灰半透明**樣式、主文案 **「⏳ 回報冷卻中 (約 23 小時)」**；簽到成功 **「簽到成功！獲得 +1 EXP 喵！」**。
 
 *最後更新：2025-03-23 — 頭像 **react-easy-crop** 全螢幕裁切＋**Cloudinary**；**`cropImage.getCroppedImg`**；**廢除 Supabase Storage 頭像上傳**；同步 **`.cursorrules`**。*
+
+### 2025-03-24 — IG 變更申請與審核（`ig_change_requests`）
+
+- **🗄️**：**`public.ig_change_requests`** 表 + **`users.role`**（預設 **`member`**，**`admin`**／**`leader`** 可進 **`/admin/ig-requests`**）。遷移檔 **`supabase/migrations/20260324100000_ig_change_requests_and_user_role.sql`**。
+- **型別**：**`database.types.ts`** 新增 **`ig_change_requests`**、**`users.role`**。
+- **Layer 2**：**`ig-request.repository.ts`** — **`insertIgChangeRequest`**、**`getPendingIgRequests`**（embed **`users!ig_change_requests_user_id_fkey`**）、**`reviewIgRequest`**（核准時先改 **`users.instagram_handle`** 再更新申請列）。
+- **Layer 3**：**`ig-request.action.ts`** — **`requestIgChangeAction`**（**`instagramHandleSchema`**）、**`reviewIgRequestAction`**、**`getPendingIgRequestsAction`**。
+- **Layer 5**：**`guild-profile-home`** 帳號設定 — 無 IG 直接綁定；有 IG 鎖定 + 展開輸入後送審。**`/admin/ig-requests`** 待審列表 + **核准／拒絕**。
 
 ### 2025-03-23 — iOS textarea 與帳號設定 Dialog
 
