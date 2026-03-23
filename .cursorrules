@@ -18,6 +18,10 @@
 
 違規範例（禁止）：在 React 元件內 `createClient()` 並查詢 Supabase；在頁面元件內寫原生 SQL 字串並執行。
 
+## 頭像上傳（Layer 5）
+- **禁止**於個人頁使用 **`supabase.storage.from(...)`** 上傳頭像；**唯一**上傳管線為：**`react-easy-crop`** 全螢幕裁切 Modal（**`aspect={1}`**、**`cropShape="round"`**、**`showGrid={false}`**）→ **`getCroppedImg`**（**`src/lib/utils/cropImage.ts`**，`canvas` 輸出 **Blob**）→ **`File`** → **`uploadAvatarToCloudinary`**（**`src/lib/utils/cloudinary.ts`**）→ **`updateMyProfile({ avatar_url })`** 寫入 **`users.avatar_url`**。
+- **Cloudinary** 僅使用後台設好之 **unsigned upload preset**；**API Secret** 不可進前端 bundle。
+
 ## 任務完成回報格式
 每次完成任務時，必須以以下固定區塊回報（可視情況填「無」）：
 

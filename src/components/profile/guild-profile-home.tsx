@@ -12,7 +12,10 @@ import {
 } from "@/services/daily-checkin.action";
 import { updateMyProfile } from "@/services/profile-update.action";
 import { uploadAvatarToCloudinary } from "@/lib/utils/cloudinary";
+import { getCroppedImg } from "@/lib/utils/cropImage";
 import { createClient } from "@/lib/supabase/client";
+import Cropper from "react-easy-crop";
+import type { Area } from "react-easy-crop";
 import {
   Accordion,
   AccordionContent,
@@ -137,6 +140,13 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(() =>
     profile.avatar_url?.trim() || null,
   );
+  const [cropOpen, setCropOpen] = useState(false);
+  const [cropSrc, setCropSrc] = useState("");
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(
+    null,
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [checkinLoading, setCheckinLoading] = useState(false);
   const [checkinDoneToday, setCheckinDoneToday] = useState(false);
@@ -164,6 +174,30 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   useEffect(() => {
     void syncCheckinCooldown();
   }, [profile.id, profile.updated_at, syncCheckinCooldown]);
+
+  useEffect(() => {
+    if (!cropOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [cropOpen]);
+
+  const onCropComplete = useCallback((_area: Area, pixels: Area) => {
+    setCroppedAreaPixels(pixels);
+  }, []);
+
+  const closeCropModal = useCallback(() => {
+    setCropSrc((prev) => {
+      if (prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+      return "";
+    });
+    setCropOpen(false);
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setCroppedAreaPixels(null);
+  }, []);
 
   async function runConfirmedSave() {
     if (!confirmField) return;
@@ -208,7 +242,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     void onIgPublicChange(!igPublic);
   }
 
-  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
@@ -220,19 +254,38 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
       toast.error("圖片請小於 5MB");
       return;
     }
+    setCropSrc((prev) => {
+      if (prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setCroppedAreaPixels(null);
+    setCropOpen(true);
+  }
+
+  async function handleCropConfirm() {
+    if (!cropSrc || !croppedAreaPixels) {
+      toast.error("請稍候畫面載入完成");
+      return;
+    }
     setUploading(true);
     try {
-      const url = await uploadAvatarToCloudinary(file);
-      const result = await updateMyProfile({ avatar_url: url });
+      const blob = await getCroppedImg(cropSrc, croppedAreaPixels);
+      const mime = blob.type || "image/jpeg";
+      const file = new File([blob], "avatar.jpg", { type: mime });
+      const cloudUrl = await uploadAvatarToCloudinary(file);
+      const result = await updateMyProfile({ avatar_url: cloudUrl });
       if (result.ok === false) {
         toast.error(result.error);
         return;
       }
-      setAvatarUrl(url);
+      setAvatarUrl(cloudUrl);
       toast.success("大頭貼已更新");
+      closeCropModal();
       router.refresh();
     } catch (err) {
-      console.error("❌ Cloudinary 上傳:", err);
+      console.error("❌ 頭像裁切或上傳:", err);
       toast.error(err instanceof Error ? err.message : "上傳失敗");
     } finally {
       setUploading(false);
@@ -305,7 +358,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             <div className="group relative mx-auto size-32 sm:size-36">
               <button
                 type="button"
-                disabled={uploading}
+                disabled={uploading || cropOpen}
                 onClick={() => fileInputRef.current?.click()}
                 className="relative mx-auto block size-32 cursor-pointer overflow-hidden rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] ring-offset-2 ring-offset-zinc-950 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50 enabled:group-hover:ring-2 enabled:group-hover:ring-violet-500/35 disabled:cursor-not-allowed sm:size-36"
                 aria-label="更換大頭貼"
@@ -710,6 +763,62 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {cropOpen && cropSrc ? (
+        <div
+          className="fixed inset-0 z-[200] flex flex-col bg-black"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="avatar-crop-title"
+        >
+          <div className="glass-panel shrink-0 border-b border-white/10 px-4 py-3 text-center shadow-2xl backdrop-blur-xl">
+            <p
+              id="avatar-crop-title"
+              className="text-sm font-medium tracking-wide text-zinc-100"
+            >
+              調整頭像
+            </p>
+            <p className="mt-0.5 text-xs text-zinc-500">
+              拖曳與縮放，圓形區域即為裁切範圍
+            </p>
+          </div>
+
+          <div className="relative min-h-0 flex-1 w-full bg-black">
+            <Cropper
+              image={cropSrc}
+              crop={crop}
+              zoom={zoom}
+              aspect={1}
+              cropShape="round"
+              showGrid={false}
+              onCropChange={setCrop}
+              onZoomChange={setZoom}
+              onCropComplete={onCropComplete}
+            />
+          </div>
+
+          <div className="glass-panel shrink-0 border-t border-white/10 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl backdrop-blur-xl">
+            <div className="mx-auto flex w-full max-w-md gap-3">
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={closeCropModal}
+                className="flex-1 rounded-full border border-white/15 bg-zinc-900/70 px-5 py-2.5 text-sm text-zinc-200 transition hover:bg-zinc-800/90 disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                disabled={uploading || !croppedAreaPixels}
+                onClick={() => void handleCropConfirm()}
+                className="flex-1 rounded-full border border-violet-400/35 bg-violet-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-950/50 transition hover:bg-violet-500 disabled:pointer-events-none disabled:opacity-45"
+              >
+                {uploading ? "上傳中…" : "確認裁切"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

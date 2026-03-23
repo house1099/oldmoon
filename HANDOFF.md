@@ -59,6 +59,7 @@
 | 每日簽到 +1 EXP | `src/services/daily-checkin.action.ts`；**`findDailyCheckinForUserOnTaipeiDay`**／**`insertExpLog`（`delta`+`delta_exp`）** 見 `exp.repository.ts`；機讀錯誤 **`DAILY_CHECKIN_ALREADY_TODAY`** 見 `daily-checkin.ts`；日鍵 SSOT：`date.ts`（`taipeiCalendarDateKey`） |
 | 編輯自介／IG 公開／心情 | `src/services/profile-update.action.ts`（**支援部分欄位 patch**，僅在傳入 `mood` 時更新 `mood_at`） |
 | 首頁個人頁 UI | `src/app/(app)/page.tsx` → `src/components/profile/guild-profile-home.tsx` |
+| 頭像裁切＋Cloudinary | **`react-easy-crop`** 全螢幕裁切；**`src/lib/utils/cropImage.ts`**（**`getCroppedImg`**）；**`src/lib/utils/cloudinary.ts`**（**`uploadAvatarToCloudinary`**）→ **`updateMyProfile({ avatar_url })`**（**禁止** **`supabase.storage`** 上傳頭像） |
 | 底部導航 | `src/components/layout/Navbar.tsx` |
 | 村莊列表 | `src/app/(app)/village/*`、`src/services/village.service.ts`、`src/components/cards/UserCard.tsx`、`src/components/cards/LevelFrame.tsx` |
 | 技能市集 | `src/app/(app)/market/page.tsx`、`src/services/market.service.ts`（**`evaluatePerfectMatch`**、**`getMarketUsers`**） |
@@ -287,7 +288,7 @@ alter table public.users
 
 ### 2025-03-23 — 任務 11：IG 即時儲存、頭像上傳、簽到與列表體驗
 
-- **Layer 5 — `guild-profile-home.tsx`**：**IG `Switch`** 改為 **`onCheckedChange` 直接呼叫 `updateMyProfile({ ig_public })`**，**移除** IG 區塊 **[確認修改]**；成功 **`toast.success("IG 公開狀態已更新")`**，失敗還原開關並 **toast.error**。大頭貼區 **相機鈕**＋隱藏 **`input type="file"`**，以 **`createClient()`（`@supabase/ssr` browser）** 上傳至 Storage **`avatars`** 路徑 **`{userId}/{timestamp}.{ext}`**，**`getPublicUrl`** 後經 **`updateMyProfile({ avatar_url })`** 寫入 **`users.avatar_url`**（**HTTPS** 驗證）。雲端須已建 **`avatars`** bucket（建議 **Public**）並設定 **authenticated** 可 **upload** 之 **RLS／Policy**。
+- **Layer 5 — `guild-profile-home.tsx`（歷史）**：**IG** 即時寫入等見後續任務。**頭像**：已改為 **全螢幕黑底裁切 Modal**（**`react-easy-crop`**，**`aspect={1}`**、**`cropShape="round"`**、**`showGrid={false}`**，頂／底 **glass-panel**）；選圖後先裁切，**`getCroppedImg`**（**`cropImage.ts`**）輸出 **Blob** → **`File`** → **`uploadAvatarToCloudinary`** → **`updateMyProfile({ avatar_url })`**。**已移除** Supabase Storage **`avatars` bucket** 上傳路徑（**無** **`supabase.storage.from()`**）。
 - **Layer 5 — 極簡導覽**：**`/village`**、**`/market`** 移除左上角 **「返回公會大廳」**。**`UserCard`** 移除 **`HoverCard`**，整卡 **`role="button"`** 點擊開 **UserDetailModal**。
 - **Layer 5 — `UserDetailModal`**：左 **💬 聊聊**、右 **🤍 送出緣分**／**💖 已送出緣分**（emoji＋文字，無額外 Lucide 愛心）；已送出再點先 **AlertDialog**「你確定要結束這段緣分嗎？」。
 - **Layer 3 — `daily-checkin.action.ts`**：catch 時 **`console.error`** 印出完整錯誤與 **`JSON.stringify`**（含 **keys**）。
@@ -324,8 +325,17 @@ alter table public.users
 - **常數 — `daily-checkin.ts`**：**`DAILY_CHECKIN_ALREADY_TODAY`** 改為 slug **`DAILY_CHECKIN_ALREADY_TODAY`**；UI 仍以友善 **toast** 回饋，勿直接顯示該字串給使用者。
 - **Layer 5 — `guild-profile-home.tsx`**：已簽到時按鈕 **disabled**、**深灰半透明**樣式、主文案 **「⏳ 回報冷卻中 (約 23 小時)」**；簽到成功 **「簽到成功！獲得 +1 EXP 喵！」**。
 
-*最後更新：2025-03-23 — **任務 14**：23502 修復、**`delta`+`delta_exp`** 併送、**`unique_key`** 精準預檢、冷卻按鈕視覺。*
+*最後更新：2025-03-23 — 頭像 **react-easy-crop** 全螢幕裁切＋**Cloudinary**；**`cropImage.getCroppedImg`**；**廢除 Supabase Storage 頭像上傳**；同步 **`.cursorrules`**。*
 
 ### 2025-03-23 — 編輯 Modal：IG 公開開關（藍色可視化）
 
 - **Layer 5 — `guild-profile-home.tsx`**：編輯資料 Modal 內 **IG 公開** 改為 **`role="switch"`** 自訂按鈕軌道（**`bg-blue-500`**／**`bg-zinc-600`**、白球位移），取代 shadcn **`Switch`**，行為仍為 **`onIgPublicChange` → `updateMyProfile({ ig_public })`**。
+
+### 2025-03-23 — 頭像：react-easy-crop 裁切＋Cloudinary（廢除 Storage 上傳）
+
+- **依賴**：**`react-easy-crop`**（**`npm install react-easy-crop`**）。
+- **Layer 4 Utils**：**`src/lib/utils/cropImage.ts`** — **`getCroppedImg(imageSrc, pixelCrop)`**，以 **`canvas.drawImage`** 裁切 **react-easy-crop** 之 **`croppedAreaPixels`**，**`toBlob`** 回傳 **Blob**。
+- **Layer 4 Utils**：**`src/lib/utils/cloudinary.ts`** — **`uploadAvatarToCloudinary(File)`**（unsigned preset、**`folder: avatars`**）。
+- **Layer 5 — `guild-profile-home.tsx`**：選圖後開啟 **fixed 全螢幕** 黑底裁切層；**膠囊按鈕**「取消」（關閉並 **`revokeObjectURL`**）、「確認裁切」（**`getCroppedImg` → File → Cloudinary → `updateMyProfile`**）；上傳中鎖定按鈕與主頭像觸發。
+- **Layer 3 — `profile-update.action.ts`**：僅接受 **HTTPS** **`avatar_url`**；註解已標明**不**經 Supabase Storage。
+- **專案內** **`guild-profile-home`／`updateMyProfile`** 已**無** **`supabase.storage`**／**`bucket`**／**`avatars` bucket** 上傳程式碼（**`createClient()`** 仍用於 **登出**）。
