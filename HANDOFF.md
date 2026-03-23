@@ -304,3 +304,13 @@ alter table public.users
 - **Layer 5 — `guild-profile-home.tsx`**：簽到錯誤 **`toast.error(result.error)`** 顯示真實原因；若訊息含 **`duplicate`**（不分大小寫）或常數 **`DAILY_CHECKIN_ALREADY_TODAY`**，改 **`toast.success("今日已經簽到過了喵！")`** 並同步冷卻狀態。已簽到時按鈕鎖定、**`Lock`** 圖示與「下次可簽到」文案（台北曆日切換後）。
 
 *最後更新：2025-03-23 — **任務 12**：簽到錯誤透明化、曆日預檢、冷卻 UI 與 UTF-8 友善字串（Server Action 純 JSON 可序列化物件）。*
+
+### 2025-03-23 — 任務 14：`delta`／`delta_exp` 對齊（23502）、曆日查詢與冷卻 UI
+
+- **Layer 2 — `exp.repository.ts`**：**`insertExpLog`** 明確送出 **`delta: 1`**、**`delta_exp: 1`**（可於 **`ExpLogInsertPayload`** 覆寫），與雲端 **`exp_logs`** 並存之 **`delta`**／**`delta_exp`** NOT NULL 對齊，避免 **23502**。改以 **`findDailyCheckinForUserOnTaipeiDay(userId, ymd)`** 依 **`unique_key === daily_checkin:{YYYY-MM-DD}:{userId}`** 查當日是否已簽（與 UNIQUE 索引一致）。
+- **Layer 3 — `daily-checkin.action.ts`**：**`claimDailyCheckin`**／**`getDailyCheckinCooldownInfo`** 皆以 **`taipeiCalendarDateKey()`** 與上述查詢預檢；若當日已有列則 **`error: DAILY_CHECKIN_ALREADY_TODAY`**（常數值為機讀 slug **`"DAILY_CHECKIN_ALREADY_TODAY"`**）。
+- **型別 — `database.types.ts`**：**`exp_logs.Row`／`Insert`／`Update`** 補上 **`delta`** 欄位說明。
+- **常數 — `daily-checkin.ts`**：**`DAILY_CHECKIN_ALREADY_TODAY`** 改為 slug **`DAILY_CHECKIN_ALREADY_TODAY`**；UI 仍以友善 **toast** 回饋，勿直接顯示該字串給使用者。
+- **Layer 5 — `guild-profile-home.tsx`**：已簽到時按鈕 **disabled**、**深灰半透明**樣式、主文案 **「⏳ 回報冷卻中 (約 23 小時)」**；簽到成功 **「簽到成功！獲得 +1 EXP 喵！」**。
+
+*最後更新：2025-03-23 — **任務 14**：23502 修復、**`delta`+`delta_exp`** 併送、**`unique_key`** 精準預檢、冷卻按鈕視覺。*

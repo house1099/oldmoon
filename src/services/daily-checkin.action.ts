@@ -4,10 +4,9 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import {
   DuplicateExpRewardError,
-  findLatestDailyCheckinByUserId,
+  findDailyCheckinForUserOnTaipeiDay,
   insertExpLog,
   isUniqueConstraintError,
-  type ExpLogRow,
 } from "@/lib/repositories/server/exp.repository";
 import { DAILY_CHECKIN_ALREADY_TODAY } from "@/lib/constants/daily-checkin";
 import {
@@ -50,13 +49,6 @@ function formatCheckinErrorForClient(error: unknown): string {
   return String(error);
 }
 
-/** 從 **`daily_checkin:{YYYY-MM-DD}:{uuid}`** 取出曆日鍵；格式異常時退回 **`created_at`** 的台北曆日。 */
-function dailyCheckinCalendarDayFromLog(log: ExpLogRow): string {
-  const m = /^daily_checkin:([^:]+):/.exec(log.unique_key);
-  if (m?.[1]) return m[1];
-  return taipeiCalendarDateKey(new Date(log.created_at));
-}
-
 export type DailyCheckinCooldownResult =
   | {
       ok: true;
@@ -67,7 +59,7 @@ export type DailyCheckinCooldownResult =
   | { ok: false; error: string };
 
 /**
- * Layer 3：讀取今日是否已簽到（依 **`exp_logs`** 最近一筆 **`daily_checkin`** + 台北曆日），供 UI 鎖定按鈕。
+ * Layer 3：讀取今日是否已簽到（**`unique_key`** 對應 **`taipeiCalendarDateKey()`**），供 UI 鎖定按鈕。
  */
 export async function getDailyCheckinCooldownInfo(): Promise<DailyCheckinCooldownResult> {
   const supabase = createClient();
@@ -82,16 +74,11 @@ export async function getDailyCheckinCooldownInfo(): Promise<DailyCheckinCooldow
   const dayTaipei = taipeiCalendarDateKey();
 
   try {
-    const latest = await findLatestDailyCheckinByUserId(user.id);
-    if (!latest) {
-      return {
-        ok: true,
-        checkedToday: false,
-        nextEligibleDateKey: null,
-      };
-    }
-    const lastDay = dailyCheckinCalendarDayFromLog(latest);
-    if (lastDay === dayTaipei) {
+    const existing = await findDailyCheckinForUserOnTaipeiDay(
+      user.id,
+      dayTaipei,
+    );
+    if (existing) {
       return {
         ok: true,
         checkedToday: true,
@@ -110,8 +97,8 @@ export async function getDailyCheckinCooldownInfo(): Promise<DailyCheckinCooldow
 }
 
 /**
- * Layer 3：每日簽到 +1 EXP（`exp_logs.unique_key` 同日僅能領一次）。
- * 先以台北曆日預檢，避免無謂 insert；失敗時 **`error`** 帶回真實 **`code`／`message`** 供除錯。
+ * Layer 3：每日簽到 +1 EXP（**`unique_key`** 同日僅一筆）。
+ * 簽到前先查當日 **`daily_checkin`** 列；**`insertExpLog`** 明送 **`delta`**／**`delta_exp`**。
  */
 export async function claimDailyCheckin(): Promise<
   { ok: true } | { ok: false; error: string }
@@ -129,18 +116,20 @@ export async function claimDailyCheckin(): Promise<
   const unique_key = `daily_checkin:${dayTaipei}:${user.id}`;
 
   try {
-    const latest = await findLatestDailyCheckinByUserId(user.id);
-    if (latest) {
-      const lastDay = dailyCheckinCalendarDayFromLog(latest);
-      if (lastDay === dayTaipei) {
-        return { ok: false, error: DAILY_CHECKIN_ALREADY_TODAY };
-      }
+    const existing = await findDailyCheckinForUserOnTaipeiDay(
+      user.id,
+      dayTaipei,
+    );
+    if (existing) {
+      return { ok: false, error: DAILY_CHECKIN_ALREADY_TODAY };
     }
 
     await insertExpLog({
       user_id: user.id,
       source: "daily_checkin",
       unique_key,
+      delta: 1,
+      delta_exp: 1,
     });
   } catch (error) {
     if (

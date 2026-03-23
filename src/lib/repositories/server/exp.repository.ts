@@ -3,11 +3,17 @@ import type { Database } from "@/types/database.types";
 
 export type ExpLogRow = Database["public"]["Tables"]["exp_logs"]["Row"];
 
-/** 寫入 exp_logs 時僅傳業務鍵；**`delta_exp`** 交給 DB DEFAULT（簽到 +1 等）。 */
+/**
+ * 寫入 exp_logs：**`delta`**／**`delta_exp`** 預設 **1**（簽到），避免雲端 **`delta`** NOT NULL（23502）。
+ * 其他來源可於呼叫端覆寫。
+ */
 export type ExpLogInsertPayload = Pick<
   Database["public"]["Tables"]["exp_logs"]["Insert"],
   "user_id" | "unique_key" | "source"
->;
+> & {
+  delta?: number;
+  delta_exp?: number;
+};
 
 /** 與 Postgres `23505` unique_violation 對應之業務訊息（Layer 3 可再包裝） */
 export const DUPLICATE_EXP_REWARD_MESSAGE = "你已經領取過這份獎勵了喵！";
@@ -54,24 +60,24 @@ function logSupabaseError(context: string, error: unknown) {
 }
 
 /**
- * 該使用者最近一次 **`source = daily_checkin`** 的紀錄（依 **`created_at`** 降序）。
- * 用於簽到前台北曆日預檢，與 **`unique_key`** 格式 `daily_checkin:{YYYY-MM-DD}:{user_id}` 對齊。
+ * 該使用者在台北曆日 **`dayTaipeiYmd`**（`YYYY-MM-DD`）是否已有簽到列。
+ * 以 **`unique_key === daily_checkin:{day}:{userId}`** 精準比對，與 DB UNIQUE 索引一致。
  */
-export async function findLatestDailyCheckinByUserId(
+export async function findDailyCheckinForUserOnTaipeiDay(
   userId: string,
+  dayTaipeiYmd: string,
 ): Promise<ExpLogRow | null> {
+  const unique_key = `daily_checkin:${dayTaipeiYmd}:${userId}`;
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("exp_logs")
     .select("*")
-    .eq("user_id", userId)
+    .eq("unique_key", unique_key)
     .eq("source", "daily_checkin")
-    .order("created_at", { ascending: false })
-    .limit(1)
     .maybeSingle();
 
   if (error) {
-    logSupabaseError("findLatestDailyCheckinByUserId", error);
+    logSupabaseError("findDailyCheckinForUserOnTaipeiDay", error);
     throw error;
   }
 
@@ -81,10 +87,14 @@ export async function findLatestDailyCheckinByUserId(
 export async function insertExpLog(
   data: ExpLogInsertPayload,
 ): Promise<ExpLogRow> {
+  const delta = data.delta ?? 1;
+  const delta_exp = data.delta_exp ?? 1;
   const payload = {
     user_id: data.user_id,
     unique_key: data.unique_key,
     source: data.source,
+    delta,
+    delta_exp,
   };
   const admin = createAdminClient();
   const { data: row, error } = await admin

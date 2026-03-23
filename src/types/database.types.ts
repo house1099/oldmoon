@@ -118,6 +118,8 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
+          /** 與 **`delta_exp`** 並存時之變動量（雲端 NOT NULL 時須一併寫入） */
+          delta: number;
           /** 本次變動經驗值（可正可負，依業務約定） */
           delta_exp: number;
           /** 事件類型，例如 daily_login、quest_complete */
@@ -132,7 +134,9 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
-          /** 省略時由資料庫 DEFAULT 補上（避免 PGRST204／快取與欄位不一致） */
+          /** 與 **`delta_exp`** 建議一併由程式寫入 **1**（簽到），避免 **23502 NOT NULL** */
+          delta?: number;
+          /** 省略時由資料庫 DEFAULT 補上；與 **`delta`** 併送時以程式值為準 */
           delta_exp?: number;
           source: string;
           unique_key: string;
@@ -142,6 +146,7 @@ export interface Database {
         Update: {
           id?: string;
           user_id?: string;
+          delta?: number;
           delta_exp?: number;
           source?: string;
           unique_key?: string;

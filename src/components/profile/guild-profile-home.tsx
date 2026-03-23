@@ -23,7 +23,6 @@ import {
   CalendarCheck,
   Camera,
   ChevronRight,
-  Lock,
   LogOut,
   PencilLine,
 } from "lucide-react";
@@ -247,7 +246,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         toast.error(result.error);
         return;
       }
-      toast.success("簽到成功！獲得 +1 EXP");
+      toast.success("簽到成功！獲得 +1 EXP 喵！");
       await syncCheckinCooldown();
       router.refresh();
     } finally {
@@ -482,36 +481,34 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           disabled={checkinLoading || checkinDoneToday}
           onClick={onCheckin}
           className={cn(
-            "mb-3 flex w-full items-center justify-between rounded-2xl border p-4 text-left text-zinc-100 transition disabled:pointer-events-none disabled:opacity-60",
+            "mb-3 flex w-full items-center justify-between rounded-2xl border p-4 text-left transition disabled:pointer-events-none",
             checkinDoneToday
-              ? "border-amber-500/30 bg-zinc-900/70"
-              : "border-white/5 bg-zinc-900/50 hover:border-amber-500/30 hover:bg-zinc-900/70",
+              ? "border-zinc-700/80 bg-zinc-950/70 text-zinc-400 opacity-90"
+              : "border-white/5 bg-gradient-to-r from-zinc-900/90 via-amber-950/20 to-zinc-900/90 text-zinc-100 hover:border-amber-500/35 hover:from-zinc-900 hover:via-amber-950/30 hover:to-zinc-900",
           )}
         >
           <span className="flex min-w-0 flex-1 items-center gap-3">
             <span
               className={cn(
-                "flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-950/40 text-amber-200",
-                checkinDoneToday && "ring-1 ring-amber-500/35",
+                "flex size-10 shrink-0 items-center justify-center rounded-xl text-amber-200",
+                checkinDoneToday
+                  ? "bg-zinc-800/80 text-zinc-500"
+                  : "bg-amber-950/40",
               )}
             >
-              {checkinDoneToday ? (
-                <Lock className="size-5" aria-hidden />
-              ) : (
-                <CalendarCheck className="size-5" aria-hidden />
-              )}
+              <CalendarCheck className="size-5" aria-hidden />
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="font-medium">
                 {checkinLoading
                   ? "連線中…"
                   : checkinDoneToday
-                    ? "今日已簽到（冷卻中）"
+                    ? "⏳ 回報冷卻中 (約 23 小時)"
                     : "每日簽到（+1 EXP）"}
               </span>
               {checkinDoneToday && checkinNextLabel ? (
-                <span className="text-xs font-normal leading-snug text-amber-200/85">
-                  下次可簽到：{checkinNextLabel}（台北曆日切換後）
+                <span className="text-[11px] font-normal leading-snug text-zinc-500">
+                  下次可簽：{checkinNextLabel}
                 </span>
               ) : null}
             </span>
