@@ -112,7 +112,7 @@
 - **累積經驗值**：欄位名必為 **`total_exp`**（**勿**使用不存在的 `exp` 欄位名；Trigger／函式亦須對齊 `total_exp`）。
 - **等級**：`level`；新建 profile 時 insert 帶入 `total_exp: 0`、`level: 1` 初值（真實數值仍由雲端 Trigger／規則為準）。
 - **狀態**：`status`（`active`／`banned`），Middleware 會處理放逐流程。
-- **Phase 2 社交**：**`last_seen_at`**；**`interests`**（**`text[]`**）；**`skills_offer`**／**`skills_want`**（市集 Perfect Match 優先，空則退回興趣）。型別見 **`src/types/database.types.ts`**。
+- **Phase 2 社交**：**`last_seen_at`**；**`interests`**（**`text[]`**，村莊排序用）；**`skills_offer`**／**`skills_want`**（市集 Perfect Match **僅**依此兩欄，**不**退回興趣）。型別見 **`src/types/database.types.ts`**。
 
 ### 登入與補資料流程（簡述）
 
