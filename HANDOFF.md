@@ -28,10 +28,11 @@
 
 ## Phase 2.1 首頁個人卡重構（完成）
 
-- **今日心情**：獨立區塊，24h 倒數，IG 限時動態風格
-- **自白**：**`bio_village`**（興趣自白）+ **`bio_market`**（技能自白），各自獨立確認按鈕
-- **信譽與紀錄**：**`created_at`**、**`invite_code`**、**`invited_by`**、**`exp_logs`** 近三個月橫向滑動（Layer 3 **`getMyRecentExpLogsAction`** → Layer 2 **`findRecentExpLogsForUser`**）
-- **興趣與技能標籤**：**`interests[]`**、**`skills_offer[]`**、**`skills_want[]`**，純顯示；無該類標籤則不顯示該區塊
+- **今日心情**：與頭像卡同級之**獨立 `glass-panel`**，常駐展開；24h 倒數，IG 限時動態風格
+- **我的狀態**：同一 `glass-panel` 內僅含三區，皆為**手風琴**（`openSection` 單開），**預設收折**，點標題展開
+  - **自白**：**`bio_village`**（興趣自白）+ **`bio_market`**（技能自白），各自獨立確認按鈕
+  - **信譽與紀錄**：**`created_at`**、**`invite_code`**、**`invited_by`**、**`exp_logs`** 近三個月橫向滑動（Layer 3 **`getMyRecentExpLogsAction`** → Layer 2 **`findRecentExpLogsForUser`**）
+  - **興趣與技能標籤**：**雙區抬頭**——**興趣村莊**（紫）+ **技能市集**（琥珀抬頭；**`skills_offer`** 琥珀標籤、**`skills_want`** 天藍標籤，兩者合併於同一區，有任一即顯示）；全空時占位文案
 
 ## DB 欄位 SSOT 確認
 
@@ -134,7 +135,7 @@
 1. 未登入造訪受保護路由 → Middleware → `/login`（可帶 `next=`）。
 2. `/register` 註冊後（視專案是否開信箱驗證）→ 導向 `/register/profile` 補 **nickname + 問卷**（OAuth 若無 IG metadata，同頁 **動態補填 IG**）。
 3. `completeAdventurerProfile` 以 **admin client** 寫入 `users`（**不帶 `bio`**；**`instagram_handle`** metadata 優先）；**`bio`** 於個人頁 **`profile-update`** 填寫。失敗時 **`console.error("❌ 伺服器寫入失敗詳細原因:", error)`**。
-4. Profile 就緒後 → 首頁 `src/app/(app)/page.tsx` 載入 **`GuildProfileHome`**（精簡頭像卡＋等級進度；**Accordion** 收合「今日心情／自白／信譽與紀錄／興趣與價值觀」；**「修改資料」** 改為 **Dialog Modal** 編輯自介／IG 公開／心情；簽到、登出；頁面容器 **`pb-32` + `safe-area-inset-bottom`** 防 Navbar 遮擋）。
+4. Profile 就緒後 → 首頁 `src/app/(app)/page.tsx` 載入 **`GuildProfileHome`**（精簡頭像卡＋等級進度；**今日心情**為獨立頂層卡片；**我的狀態**內自白／信譽與紀錄／興趣與技能標籤為**手風琴**預設收折；**「修改資料」** 為 **Dialog Modal** 編輯通用自介／IG 公開；簽到、登出；頁面容器 **`pb-32` + `safe-area-inset-bottom`** 防 Navbar 遮擋）。
 
 ### Admin／環境
 
@@ -163,7 +164,7 @@
 - [x] 套件：Supabase、`zustand`、`zod`、`lucide-react`、shadcn（button、input、dialog、sonner、**select**、**tabs**、**textarea**、**accordion**、**alert-dialog**、**switch**）
 - [x] **PWA（standalone）**：根目錄 **`public/manifest.json`**（**`display": "standalone"`**、`start_url` **`/`**、`theme_color` **`#000000`**；圖示暫用 **`/favicon.ico`**，可另補 192／512 PNG）；**`src/app/layout.tsx`** 設 **`metadata.manifest: "/manifest.json"`**、**`appleWebApp`**（**`capable: true`**、**`statusBarStyle: "black-translucent"`**）、**`viewport.themeColor`** 與 manifest 對齊；**`middleware`** 放行 **`/manifest.json`** 免被 Session 擋下。
 - [x] **Auth UI（單一面板）**：**`GuildAuthShell`** 將標題與表單收進**同一 `.glass-panel`**；登入／註冊表單 **Label／Input／Button** 統一 **高對比 `text-zinc-100`**，動線集中、減少上下留白分離。
-- [x] **個人頁 V1 風格**：**`guild-profile-home.tsx`** 改 **Accordion + Dialog**（移除 Tabs）；首頁容器 **`pb-[max(8rem,calc(8rem+env(safe-area-inset-bottom,0px)))]`**。
+- [x] **個人頁 V1 風格**：**`guild-profile-home.tsx`** 為 **今日心情獨立卡**、**我的狀態手風琴** + **Dialog**（移除 Tabs）；首頁容器 **`pb-[max(8rem,calc(8rem+env(safe-area-inset-bottom,0px)))]`**。
 - [x] `src/types/database.types.ts`（`users`：問卷 + **`bio`**、**`core_values`**、**`skills_offer`**、**`skills_want`**、**`instagram_handle`**、**`ig_public`**、**`mood`**、**`mood_at`**、**`total_exp`**、**`level`**、**`status`**、**`last_seen_at`**、**`interests`**；**`likes`**、**`alliances`**、`exp_logs` 等）
 - [x] `src/lib/constants/levels.ts`（稱號與 EXP 門檻 — 見下方 **SSOT**）
 - [x] `src/lib/constants/adventurer-questionnaire.ts`（問卷英文 value／繁中 label）
@@ -355,6 +356,10 @@ NOTIFY pgrst, 'reload schema';
 - **Layer 5 — `guild-profile-home.tsx`**：已簽到時按鈕 **disabled**、**深灰半透明**樣式、主文案 **「⏳ 回報冷卻中 (約 23 小時)」**；簽到成功 **「簽到成功！獲得 +1 EXP 喵！」**。
 
 *最後更新：2025-03-23 — 頭像 **react-easy-crop** 全螢幕裁切＋**Cloudinary**；**`cropImage.getCroppedImg`**；**廢除 Supabase Storage 頭像上傳**；同步 **`.cursorrules`**。*
+
+### 2025-03-23 — 首頁個人卡：今日心情獨立卡、狀態手風琴、標籤雙區
+
+- **Layer 5 — `guild-profile-home.tsx`**：**今日心情**自「我的狀態」移出，與頭像卡同級之獨立 **`glass-panel`**，常駐展開。**我的狀態**僅含三區：**自白**、**信譽與紀錄**、**興趣與技能標籤**，皆以 **`openSection`** 手風琴呈現，預設收折。**興趣與技能標籤**改為 **興趣村莊**（紫抬頭／紫標籤）與 **技能市集**（琥珀抬頭；**`skills_offer`** 琥珀、**`skills_want`** 天藍，合併顯示）。編輯 Modal 說明同步指向「今日心情」卡片與「我的狀態」手風琴。
 
 ### 2025-03-23 — 編輯 Modal：IG 公開開關（藍色可視化）
 

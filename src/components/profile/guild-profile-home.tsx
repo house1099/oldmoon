@@ -119,6 +119,36 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   const [checkinNextLabel, setCheckinNextLabel] = useState<string | null>(null);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [expLogs, setExpLogs] = useState<ExpLogProfileEntry[]>([]);
+  const [openSection, setOpenSection] = useState<string | null>(null);
+
+  function AccordionSection({
+    id,
+    title,
+    children,
+  }: {
+    id: string;
+    title: string;
+    children: React.ReactNode;
+  }) {
+    const isOpen = openSection === id;
+    return (
+      <div className="border-t border-white/10">
+        <button
+          type="button"
+          onClick={() => setOpenSection(isOpen ? null : id)}
+          className="flex w-full items-center justify-between px-1 py-4 text-sm font-medium text-white"
+        >
+          {title}
+          <span
+            className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+          >
+            ▼
+          </span>
+        </button>
+        {isOpen ? <div className="pb-4">{children}</div> : null}
+      </div>
+    );
+  }
 
   useEffect(() => {
     setBio(profile.bio ?? "");
@@ -476,18 +506,17 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
 
       <section className="glass-panel overflow-hidden p-0 shadow-xl">
         <p className="border-b border-white/10 px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-400">
-          我的狀態
+          今日心情
         </p>
-        <div className="border-b border-white/10 p-4">
-          <div className="glass-panel p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-white">今日心情</span>
-              {countdown && (
+        <div className="p-4">
+          <div className="space-y-3">
+            <div className="flex min-h-[1.25rem] items-center justify-end gap-2">
+              {countdown ? (
                 <span className="text-xs text-zinc-400">{countdown}</span>
-              )}
-              {!countdown && moodAt && (
+              ) : null}
+              {!countdown && moodAt ? (
                 <span className="text-xs text-zinc-500">已過期</span>
-              )}
+              ) : null}
             </div>
 
             <textarea
@@ -496,10 +525,10 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               placeholder="今天的心情是..."
               maxLength={50}
               rows={2}
-              className="w-full bg-zinc-900/60 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white placeholder:text-zinc-600 resize-none focus:outline-none focus:border-white/30 transition-colors"
+              className="w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-sm text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
             />
 
-            <div className="flex justify-between items-center">
+            <div className="flex items-center justify-between">
               <span className="text-xs text-zinc-600">
                 {moodInput.length}/50
               </span>
@@ -507,189 +536,190 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                 type="button"
                 onClick={() => void handleSaveMood()}
                 disabled={savingMood || !moodInput.trim()}
-                className="px-5 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-all disabled:opacity-40 active:scale-95"
+                className="rounded-full bg-white/10 px-5 py-2 text-sm font-medium text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-40"
               >
                 {savingMood ? "更新中…" : "確認"}
               </button>
             </div>
           </div>
         </div>
+      </section>
 
-        <div className="border-b border-white/10 p-4">
-          <div className="glass-panel space-y-4 p-4">
-            <p className="text-sm font-semibold text-white">自白</p>
-
-            <div className="space-y-2">
-              <p className="text-xs text-zinc-400">興趣自白</p>
-              <textarea
-                value={bioVillage}
-                onChange={(e) => setBioVillage(e.target.value)}
-                placeholder="說說你的興趣..."
-                maxLength={200}
-                rows={3}
-                className="w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-sm text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
-              />
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-zinc-600">
-                  {bioVillage.length}/200
-                </span>
-                <button
-                  type="button"
-                  onClick={() => void handleSaveBio("village")}
-                  disabled={savingBioVillage}
-                  className="rounded-full bg-white/10 px-5 py-2 text-sm font-medium text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-40"
-                >
-                  {savingBioVillage ? "更新中…" : "確認修改"}
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-xs text-zinc-400">技能自白</p>
-              <textarea
-                value={bioMarket}
-                onChange={(e) => setBioMarket(e.target.value)}
-                placeholder="說說你能提供的技能..."
-                maxLength={200}
-                rows={3}
-                className="w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-sm text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
-              />
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-zinc-600">
-                  {bioMarket.length}/200
-                </span>
-                <button
-                  type="button"
-                  onClick={() => void handleSaveBio("market")}
-                  disabled={savingBioMarket}
-                  className="rounded-full bg-white/10 px-5 py-2 text-sm font-medium text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-40"
-                >
-                  {savingBioMarket ? "更新中…" : "確認修改"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-b border-white/10 p-4">
-          <div className="glass-panel space-y-4 p-4">
-            <p className="text-sm font-semibold text-white">信譽與紀錄</p>
-
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-zinc-400">註冊時間</span>
-                <span className="text-white">
-                  {profile.created_at
-                    ? new Date(profile.created_at).toLocaleDateString("zh-TW")
-                    : "—"}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-zinc-400">邀請碼</span>
-                <span className="font-mono text-white">
-                  {profile.invite_code ?? "尚未生成"}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-zinc-400">推薦人</span>
-                <span className="text-white">
-                  {profile.invited_by ?? "—"}
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <p className="text-xs text-zinc-400">近三個月經驗值紀錄</p>
-              <div className="overflow-x-auto">
-                <div
-                  className="flex gap-2 pb-2"
-                  style={{ minWidth: "max-content" }}
-                >
-                  {expLogs.map((log) => (
-                    <div
-                      key={log.id}
-                      className="flex-shrink-0 rounded-2xl border border-white/10 bg-zinc-900/60 px-3 py-2 text-center"
-                    >
-                      <p className="text-xs text-zinc-400">
-                        {new Date(log.created_at).toLocaleDateString("zh-TW", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </p>
-                      <p className="text-sm font-medium text-white">
-                        {log.delta_exp >= 0 ? "+" : ""}
-                        {log.delta_exp} EXP
-                      </p>
-                      <p className="text-xs text-zinc-500">{log.source}</p>
-                    </div>
-                  ))}
-                  {expLogs.length === 0 ? (
-                    <p className="text-xs text-zinc-500">尚無紀錄</p>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4">
-          <div className="glass-panel space-y-4 p-4">
-            <p className="text-sm font-semibold text-white">興趣與技能標籤</p>
-
-            {profile.interests && profile.interests.length > 0 ? (
+      <section className="glass-panel overflow-hidden p-0 shadow-xl">
+        <p className="border-b border-white/10 px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-400">
+          我的狀態
+        </p>
+        <div className="px-4 pb-4">
+          <AccordionSection id="bio" title="自白">
+            <div className="space-y-4">
               <div className="space-y-2">
-                <p className="text-xs text-zinc-400">興趣村莊</p>
-                <div className="flex flex-wrap gap-2">
-                  {profile.interests.map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full border border-violet-500/30 bg-violet-500/20 px-3 py-1 text-xs text-violet-300"
-                    >
-                      {interestLabel(tag)}
-                    </span>
-                  ))}
+                <p className="text-xs text-zinc-400">興趣自白</p>
+                <textarea
+                  value={bioVillage}
+                  onChange={(e) => setBioVillage(e.target.value)}
+                  placeholder="說說你的興趣..."
+                  maxLength={200}
+                  rows={3}
+                  className="w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-sm text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
+                />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-600">
+                    {bioVillage.length}/200
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveBio("village")}
+                    disabled={savingBioVillage}
+                    className="rounded-full bg-white/10 px-5 py-2 text-sm font-medium text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-40"
+                  >
+                    {savingBioVillage ? "更新中…" : "確認修改"}
+                  </button>
                 </div>
               </div>
-            ) : null}
 
-            {profile.skills_offer && profile.skills_offer.length > 0 ? (
               <div className="space-y-2">
-                <p className="text-xs text-zinc-400">技能市集（提供）</p>
-                <div className="flex flex-wrap gap-2">
-                  {profile.skills_offer.map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full border border-amber-500/30 bg-amber-500/20 px-3 py-1 text-xs text-amber-300"
-                    >
-                      {interestLabel(tag)}
-                    </span>
-                  ))}
+                <p className="text-xs text-zinc-400">技能自白</p>
+                <textarea
+                  value={bioMarket}
+                  onChange={(e) => setBioMarket(e.target.value)}
+                  placeholder="說說你能提供的技能..."
+                  maxLength={200}
+                  rows={3}
+                  className="w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-sm text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
+                />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-600">
+                    {bioMarket.length}/200
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveBio("market")}
+                    disabled={savingBioMarket}
+                    className="rounded-full bg-white/10 px-5 py-2 text-sm font-medium text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-40"
+                  >
+                    {savingBioMarket ? "更新中…" : "確認修改"}
+                  </button>
                 </div>
               </div>
-            ) : null}
+            </div>
+          </AccordionSection>
 
-            {profile.skills_want && profile.skills_want.length > 0 ? (
+          <AccordionSection id="reputation" title="信譽與紀錄">
+            <div className="space-y-4">
               <div className="space-y-2">
-                <p className="text-xs text-zinc-400">技能市集（想學）</p>
-                <div className="flex flex-wrap gap-2">
-                  {profile.skills_want.map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full border border-sky-500/30 bg-sky-500/20 px-3 py-1 text-xs text-sky-300"
-                    >
-                      {interestLabel(tag)}
-                    </span>
-                  ))}
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-400">註冊時間</span>
+                  <span className="text-white">
+                    {profile.created_at
+                      ? new Date(profile.created_at).toLocaleDateString("zh-TW")
+                      : "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-400">邀請碼</span>
+                  <span className="font-mono text-white">
+                    {profile.invite_code ?? "尚未生成"}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-400">推薦人</span>
+                  <span className="text-white">
+                    {profile.invited_by ?? "—"}
+                  </span>
                 </div>
               </div>
-            ) : null}
 
-            {!profile.interests?.length &&
-            !profile.skills_offer?.length &&
-            !profile.skills_want?.length ? (
-              <p className="text-xs text-zinc-500">尚未填寫任何標籤</p>
-            ) : null}
-          </div>
+              <div className="space-y-2">
+                <p className="text-xs text-zinc-400">近三個月經驗值紀錄</p>
+                <div className="overflow-x-auto">
+                  <div
+                    className="flex gap-2 pb-2"
+                    style={{ minWidth: "max-content" }}
+                  >
+                    {expLogs.map((log) => (
+                      <div
+                        key={log.id}
+                        className="flex-shrink-0 rounded-2xl border border-white/10 bg-zinc-900/60 px-3 py-2 text-center"
+                      >
+                        <p className="text-xs text-zinc-400">
+                          {new Date(log.created_at).toLocaleDateString(
+                            "zh-TW",
+                            {
+                              month: "short",
+                              day: "numeric",
+                            },
+                          )}
+                        </p>
+                        <p className="text-sm font-medium text-white">
+                          {log.delta_exp >= 0 ? "+" : ""}
+                          {log.delta_exp} EXP
+                        </p>
+                        <p className="text-xs text-zinc-500">{log.source}</p>
+                      </div>
+                    ))}
+                    {expLogs.length === 0 ? (
+                      <p className="text-xs text-zinc-500">尚無紀錄</p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </AccordionSection>
+
+          <AccordionSection id="tags" title="興趣與技能標籤">
+            <div className="space-y-4">
+              {profile.interests && profile.interests.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-violet-400">
+                    興趣村莊
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {profile.interests.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full border border-violet-500/40 bg-violet-500/20 px-3 py-1 text-xs text-violet-200"
+                      >
+                        {interestLabel(tag)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {(profile.skills_offer?.length ?? 0) > 0 ||
+              (profile.skills_want?.length ?? 0) > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-amber-400">
+                    技能市集
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {profile.skills_offer?.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full border border-amber-500/40 bg-amber-500/20 px-3 py-1 text-xs text-amber-200"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                    {profile.skills_want?.map((tag) => (
+                      <span
+                        key={`want-${tag}`}
+                        className="rounded-full border border-sky-500/40 bg-sky-500/20 px-3 py-1 text-xs text-sky-200"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {!profile.interests?.length &&
+              !profile.skills_offer?.length &&
+              !profile.skills_want?.length ? (
+                <p className="text-xs text-zinc-500">尚未填寫任何標籤</p>
+              ) : null}
+            </div>
+          </AccordionSection>
         </div>
       </section>
 
@@ -777,7 +807,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           <DialogHeader className="border-b border-white/10 px-4 pb-3 pt-4">
             <DialogTitle className="text-zinc-100">修改冒險者資料</DialogTitle>
             <DialogDescription className="text-zinc-400">
-              此處為通用自白（bio）。興趣／技能分域自白請在「我的狀態」內編輯。今日心情亦於該區。IG
+              此處為通用自白（bio）。興趣／技能分域自白請在「我的狀態」手風琴內編輯。今日心情於上方「今日心情」卡片。IG
               公開開關會立即同步名冊。
             </DialogDescription>
           </DialogHeader>
