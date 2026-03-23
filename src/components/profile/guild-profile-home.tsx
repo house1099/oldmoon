@@ -1,7 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { toast } from "sonner";
 import { DAILY_CHECKIN_ALREADY_TODAY } from "@/lib/constants/daily-checkin";
 import { formatTaipeiDateKeyForDisplay } from "@/lib/utils/date";
@@ -71,6 +77,40 @@ function normalizeLevel(v: UserRow["level"]): number {
   return Math.min(10, Math.floor(n));
 }
 
+/** 必須為模組層元件：若在父元件內宣告，每次 render 型別參考變更會整段 remount，textarea 失焦、行動鍵盤會收起。 */
+function AccordionSection({
+  id,
+  title,
+  openSection,
+  setOpenSection,
+  children,
+}: {
+  id: string;
+  title: string;
+  openSection: string | null;
+  setOpenSection: (v: string | null) => void;
+  children: ReactNode;
+}) {
+  const isOpen = openSection === id;
+  return (
+    <div className="border-t border-white/10">
+      <button
+        type="button"
+        onClick={() => setOpenSection(isOpen ? null : id)}
+        className="flex w-full items-center justify-between px-1 py-4 text-sm font-medium text-white"
+      >
+        {title}
+        <span
+          className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+        >
+          ▼
+        </span>
+      </button>
+      {isOpen ? <div className="pb-4">{children}</div> : null}
+    </div>
+  );
+}
+
 export function GuildProfileHome({ profile }: { profile: UserRow }) {
   const router = useRouter();
   const totalExpSafe = normalizeTotalExp(profile.total_exp);
@@ -111,35 +151,6 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [expLogs, setExpLogs] = useState<ExpLogProfileEntry[]>([]);
   const [openSection, setOpenSection] = useState<string | null>(null);
-
-  function AccordionSection({
-    id,
-    title,
-    children,
-  }: {
-    id: string;
-    title: string;
-    children: React.ReactNode;
-  }) {
-    const isOpen = openSection === id;
-    return (
-      <div className="border-t border-white/10">
-        <button
-          type="button"
-          onClick={() => setOpenSection(isOpen ? null : id)}
-          className="flex w-full items-center justify-between px-1 py-4 text-sm font-medium text-white"
-        >
-          {title}
-          <span
-            className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
-          >
-            ▼
-          </span>
-        </button>
-        {isOpen ? <div className="pb-4">{children}</div> : null}
-      </div>
-    );
-  }
 
   useEffect(() => {
     setBioVillage(profile.bio_village ?? "");
@@ -560,7 +571,12 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           我的狀態
         </p>
         <div className="px-4 pb-4">
-          <AccordionSection id="bio" title="自白">
+          <AccordionSection
+            id="bio"
+            title="自白"
+            openSection={openSection}
+            setOpenSection={setOpenSection}
+          >
             <div className="space-y-4">
               <div className="space-y-2">
                 <p className="text-xs text-zinc-400">興趣自白</p>
@@ -616,7 +632,12 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             </div>
           </AccordionSection>
 
-          <AccordionSection id="reputation" title="信譽與紀錄">
+          <AccordionSection
+            id="reputation"
+            title="信譽與紀錄"
+            openSection={openSection}
+            setOpenSection={setOpenSection}
+          >
             <div className="space-y-4">
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
@@ -678,7 +699,12 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             </div>
           </AccordionSection>
 
-          <AccordionSection id="tags" title="興趣與技能標籤">
+          <AccordionSection
+            id="tags"
+            title="興趣與技能標籤"
+            openSection={openSection}
+            setOpenSection={setOpenSection}
+          >
             <div className="space-y-4">
               {profile.interests && profile.interests.length > 0 ? (
                 <div className="space-y-2">
