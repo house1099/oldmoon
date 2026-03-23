@@ -208,7 +208,7 @@ export function LoginForm() {
             />
             <button
               type="button"
-              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full p-1 text-zinc-500 transition-colors hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-violet-500/60"
+              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-zinc-900/50 p-1.5 text-zinc-500 transition-colors hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-violet-500/60"
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? "隱藏密碼" : "顯示密碼"}
             >

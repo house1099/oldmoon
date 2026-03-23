@@ -267,7 +267,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               今日心情
             </AccordionTrigger>
             <AccordionContent className="px-2 text-zinc-200">
-              <div className="mt-2 rounded-xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
+              <div className="mt-2 rounded-2xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
                 {moodVisible ? (
                   <p>{profile.mood}</p>
                 ) : (
@@ -284,7 +284,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               自白
             </AccordionTrigger>
             <AccordionContent className="px-2 text-zinc-200">
-              <div className="mt-2 rounded-xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
+              <div className="mt-2 rounded-2xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
                 {profile.bio?.trim() ? (
                   <p>{profile.bio}</p>
                 ) : (
@@ -299,7 +299,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               信譽與紀錄
             </AccordionTrigger>
             <AccordionContent className="px-2 text-zinc-200">
-              <div className="mt-2 rounded-xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
+              <div className="mt-2 rounded-2xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
                 <p className="font-mono text-lg text-cyan-300 tabular-nums">
                   {rep.toLocaleString("zh-TW")}
                 </p>
@@ -319,7 +319,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               興趣與價值觀
             </AccordionTrigger>
             <AccordionContent className="px-2 text-zinc-200">
-              <div className="mt-2 rounded-xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
+              <div className="mt-2 rounded-2xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
                 <p className="text-xs uppercase tracking-wide text-zinc-500">
                   興趣標籤
                 </p>
@@ -476,21 +476,23 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             </div>
 
             <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-4">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-row items-center justify-between gap-3">
                 <div className="min-w-0 flex-1 space-y-1">
                   <p className="text-sm font-medium text-zinc-100">
-                    IG 公開顯示
+                    IG 狀態：{igPublic ? "已公開" : "不公開"}
                   </p>
                   <p className="text-xs text-zinc-500">
-                    開啟後於公會名片揭露 IG（@
+                    公開時於公會名片顯示 IG（@
                     {profile.instagram_handle ?? "—"}）
                   </p>
                 </div>
                 <Switch
                   checked={igPublic}
                   onCheckedChange={setIgPublic}
-                  className="mt-0.5 shrink-0 data-checked:bg-violet-600"
-                  aria-label="IG 公開顯示"
+                  className="shrink-0 data-checked:bg-violet-600"
+                  aria-label={
+                    igPublic ? "IG 狀態：已公開" : "IG 狀態：不公開"
+                  }
                 />
               </div>
               <div className="mt-3 flex justify-end border-t border-zinc-800/50 pt-3">
@@ -512,7 +514,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             <Button
               type="button"
               variant="outline"
-              className="mx-auto max-w-[80%] border-white/15 text-zinc-100"
+              className="mx-auto w-full max-w-full rounded-full border-white/15 py-6 text-zinc-100"
               onClick={() => setEditOpen(false)}
             >
               關閉

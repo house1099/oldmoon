@@ -15,6 +15,16 @@ import {
 } from "@/services/social.action";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -90,6 +100,7 @@ export function UserDetailModal({
 }: UserDetailModalProps) {
   const [pending, startTransition] = useTransition();
   const [likedByMe, setLikedByMe] = useState(false);
+  const [unlikeConfirmOpen, setUnlikeConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -143,7 +154,21 @@ export function UserDetailModal({
     });
   }
 
+  function onLoveButtonClick() {
+    if (likedByMe) {
+      setUnlikeConfirmOpen(true);
+      return;
+    }
+    handleLike();
+  }
+
+  function confirmEndAffinity() {
+    setUnlikeConfirmOpen(false);
+    handleLike();
+  }
+
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton
@@ -242,19 +267,33 @@ export function UserDetailModal({
           </div>
         </div>
 
-        <DialogFooter className="border-t border-amber-900/35 bg-zinc-950 px-4 py-4">
-          <div className="mx-auto flex w-full max-w-[min(100%,22rem)] flex-col gap-3 sm:max-w-full sm:flex-row sm:gap-3">
+        <DialogFooter className="border-t border-amber-900/35 bg-zinc-950 px-6 pb-8 pt-4">
+          <div className="flex w-full flex-row items-center justify-center gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 min-h-[2.75rem] min-w-0 flex-1 rounded-full border-violet-800/50 px-4 py-2.5 text-sm font-medium text-violet-100/95 transition-transform active:scale-95 hover:bg-violet-950/40"
+              onClick={() =>
+                toast.message("即將開啟私訊功能喵！", {
+                  description: "私訊通道建置中，敬請期待。",
+                  className:
+                    "border border-violet-700/50 bg-zinc-950 text-violet-50 shadow-lg",
+                })
+              }
+            >
+              💬 聊聊
+            </Button>
             <Button
               type="button"
               variant="secondary"
               className={cn(
-                "group w-full gap-2 rounded-full border px-5 py-2.5 font-medium transition-transform active:scale-95 sm:min-h-[2.75rem] sm:flex-1",
+                "group h-11 min-h-[2.75rem] min-w-0 flex-1 gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition-transform active:scale-95",
                 likedByMe
                   ? "border-rose-500/55 bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-lg shadow-rose-950/40 hover:from-rose-500 hover:to-rose-600"
                   : "border-amber-800/40 bg-rose-950/40 text-amber-50 hover:bg-rose-900/45",
               )}
               disabled={pending}
-              onClick={handleLike}
+              onClick={onLoveButtonClick}
             >
               <Heart
                 className={cn(
@@ -263,24 +302,38 @@ export function UserDetailModal({
                 )}
                 aria-hidden
               />
-              {likedByMe ? "已送出緣分" : "💖 送出緣分"}
+              {likedByMe ? "已送出緣分" : "❤️ 送出緣分"}
             </Button>
-            <span
-              className="block w-full sm:flex-1"
-              title="需雙方互有緣分才可解鎖"
-            >
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full rounded-full border-rose-900/50 px-5 py-2.5 text-rose-200/90 sm:min-h-[2.75rem]"
-                disabled
-              >
-                🩸 申請血盟
-              </Button>
-            </span>
           </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={unlikeConfirmOpen} onOpenChange={setUnlikeConfirmOpen}>
+      <AlertDialogContent className="border-amber-900/40 bg-zinc-950 text-zinc-100">
+        <AlertDialogHeader>
+          <AlertDialogTitle>結束緣分</AlertDialogTitle>
+          <AlertDialogDescription className="text-zinc-400">
+            你確定要結束這段緣分嗎？
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="border-t border-zinc-800 bg-zinc-900/50">
+          <AlertDialogCancel className="border-zinc-700 bg-transparent text-zinc-200 hover:bg-zinc-800">
+            取消
+          </AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-rose-600 text-white hover:bg-rose-500"
+            disabled={pending}
+            onClick={(e) => {
+              e.preventDefault();
+              confirmEndAffinity();
+            }}
+          >
+            確定結束
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
