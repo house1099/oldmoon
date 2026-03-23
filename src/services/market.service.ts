@@ -10,23 +10,17 @@ function normalizeTags(raw: string[] | null | undefined): string[] {
 }
 
 /**
- * 由使用者列推算「技能市集」語意下的**可提供的**標籤。
- * 優先 **`skills_offer`**；若為空則退回 **`interests`**。
+ * 由使用者列推算「技能市集」語意下的**可提供的**標籤（僅 **`skills_offer`**）。
  */
 export function marketOffersFromUser(user: UserRow): string[] {
-  const fromSkills = normalizeTags(user.skills_offer);
-  if (fromSkills.length > 0) return fromSkills;
-  return normalizeTags(user.interests);
+  return normalizeTags(user.skills_offer);
 }
 
 /**
- * 由使用者列推算「技能市集」語意下的**想尋找的**標籤。
- * 優先 **`skills_want`**；若為空則退回 **`interests`**。
+ * 由使用者列推算「技能市集」語意下的**想尋找的**標籤（僅 **`skills_want`**）。
  */
 export function marketWantsFromUser(user: UserRow): string[] {
-  const fromSkills = normalizeTags(user.skills_want);
-  if (fromSkills.length > 0) return fromSkills;
-  return normalizeTags(user.interests);
+  return normalizeTags(user.skills_want);
 }
 
 function intersectNonEmpty(a: string[], b: string[]): boolean {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { MapPin, Sparkles, UserRound } from "lucide-react";
 import {
   GENDER_OPTIONS,
@@ -15,6 +16,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { LevelFrame } from "@/components/cards/LevelFrame";
+import { UserDetailModal } from "@/components/modals/UserDetailModal";
 
 function labelFor(
   options: readonly { value: string; label: string }[],
@@ -35,6 +37,7 @@ export function UserCard({
   className,
   perfectMatch = false,
 }: UserCardProps) {
+  const [detailOpen, setDetailOpen] = useState(false);
   const interests = user.interests?.filter(Boolean) ?? [];
 
   return (
@@ -45,7 +48,7 @@ export function UserCard({
         render={(triggerProps) => {
           const { className: triggerClassName, ...restTrigger } = triggerProps;
           const shellClass = cn(
-            "block w-full outline-none transition-[transform] duration-300 hover:-translate-y-0.5",
+            "block w-full cursor-pointer outline-none transition-[transform] duration-300 hover:-translate-y-0.5",
             perfectMatch
               ? "rounded-2xl p-[2px] perfect-match-market-shell"
               : "rounded-2xl",
@@ -58,7 +61,21 @@ export function UserCard({
           );
 
           return (
-            <div {...restTrigger} className={shellClass}>
+            <div
+              {...restTrigger}
+              className={shellClass}
+              onClick={(e) => {
+                restTrigger.onClick?.(e);
+                setDetailOpen(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setDetailOpen(true);
+                }
+                restTrigger.onKeyDown?.(e);
+              }}
+            >
               <LevelFrame level={user.level} className={frameClass}>
             <div className="flex gap-4">
               <div className="w-[5.25rem] shrink-0 overflow-hidden rounded-xl border border-amber-800/45 bg-slate-900/90">
@@ -146,9 +163,14 @@ export function UserCard({
           </span>
         </p>
         <p className="mt-2 text-[11px] leading-relaxed text-slate-400/95">
-          暫停在此可查看數值；完整資料與互動功能將於後續任務開放 🐱
+          點擊卡片開啟冒險者詳情；暫停可快速預覽數值 🐱
         </p>
       </HoverCardContent>
+      <UserDetailModal
+        user={user}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+      />
     </HoverCard>
   );
 }
