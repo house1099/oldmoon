@@ -20,10 +20,12 @@ export const metadata: Metadata = {
   },
 };
 
+/** 與 iOS／PWA 對齊：`maximum-scale=1` 搭配首頁 textarea `text-base`，避免聚焦自動縮放；勿用 `user-scalable=no`。 */
 export const viewport: Viewport = {
   themeColor: "#000000",
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
   viewportFit: "cover",
 };
 

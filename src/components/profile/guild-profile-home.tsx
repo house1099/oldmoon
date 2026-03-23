@@ -28,16 +28,6 @@ import {
   PencilLine,
 } from "lucide-react";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -45,15 +35,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { INTEREST_TAG_OPTIONS } from "@/lib/constants/adventurer-questionnaire";
 import { LEVEL_MIN_EXP_BY_LEVEL, getLevelTierByExp } from "@/lib/constants/levels";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { cn } from "@/lib/utils";
 import { getMoodCountdown } from "@/lib/utils/mood";
 
-const EDIT_FOCUS =
-  "guild-energy-focus focus-visible:border-cyan-400 focus-visible:ring-cyan-400 text-zinc-100 placeholder:text-zinc-500";
+const IOS_TEXTAREA_CLASS =
+  "w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-base text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none";
 
 function levelProgressPercent(level: number, totalExp: number): number {
   if (level >= 10) return 100;
@@ -88,19 +78,20 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   const tier = getLevelTierByExp(totalExpSafe);
   const progress = levelProgressPercent(levelSafe, totalExpSafe);
 
-  const [bio, setBio] = useState(profile.bio ?? "");
   const [bioVillage, setBioVillage] = useState(profile.bio_village ?? "");
   const [bioMarket, setBioMarket] = useState(profile.bio_market ?? "");
   const [savingBioVillage, setSavingBioVillage] = useState(false);
   const [savingBioMarket, setSavingBioMarket] = useState(false);
   const [igPublic, setIgPublic] = useState(profile.ig_public);
+  const [instagramInput, setInstagramInput] = useState(
+    profile.instagram_handle ?? "",
+  );
+  const [savingInstagram, setSavingInstagram] = useState(false);
   const [moodInput, setMoodInput] = useState(profile.mood ?? "");
   const [moodAt, setMoodAt] = useState<string | null>(profile.mood_at ?? null);
   const [savingMood, setSavingMood] = useState(false);
   const [countdown, setCountdown] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const [confirmField, setConfirmField] = useState<"bio" | null>(null);
-  const [savingField, setSavingField] = useState<"bio" | null>(null);
   const [igSaving, setIgSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(() =>
@@ -151,14 +142,32 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   }
 
   useEffect(() => {
-    setBio(profile.bio ?? "");
     setBioVillage(profile.bio_village ?? "");
     setBioMarket(profile.bio_market ?? "");
     setIgPublic(profile.ig_public);
+    setInstagramInput(profile.instagram_handle ?? "");
     setMoodInput(profile.mood ?? "");
     setMoodAt(profile.mood_at ?? null);
     setAvatarUrl(profile.avatar_url?.trim() || null);
   }, [profile]);
+
+  useEffect(() => {
+    if (editOpen) {
+      setInstagramInput(profile.instagram_handle ?? "");
+    }
+  }, [editOpen, profile.instagram_handle]);
+
+  const handleIosTextareaFocus = useCallback(
+    (e: React.FocusEvent<HTMLTextAreaElement>) => {
+      setTimeout(() => {
+        e.target.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }, 300);
+    },
+    [],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -218,23 +227,6 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     setCroppedAreaPixels(null);
   }, []);
 
-  async function runConfirmedSave() {
-    if (!confirmField) return;
-    setSavingField("bio");
-    try {
-      const result = await updateMyProfile({ bio });
-      if (result.ok === false) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success("自白已更新");
-      setConfirmField(null);
-      router.refresh();
-    } finally {
-      setSavingField(null);
-    }
-  }
-
   async function handleSaveMood() {
     if (!moodInput.trim()) return;
     setSavingMood(true);
@@ -290,6 +282,23 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     }
   }
 
+  async function handleSaveInstagram() {
+    setSavingInstagram(true);
+    try {
+      const result = await updateMyProfile({
+        instagram_handle: instagramInput.trim(),
+      });
+      if (result.ok === false) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("IG 帳號已更新");
+      router.refresh();
+    } finally {
+      setSavingInstagram(false);
+    }
+  }
+
   async function onIgPublicChange(checked: boolean) {
     const prev = igPublic;
     setIgPublic(checked);
@@ -311,7 +320,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   function handleIgToggle() {
     if (
       igSaving ||
-      savingField ||
+      savingInstagram ||
       savingMood ||
       savingBioVillage ||
       savingBioMarket
@@ -522,10 +531,11 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             <textarea
               value={moodInput}
               onChange={(e) => setMoodInput(e.target.value)}
+              onFocus={handleIosTextareaFocus}
               placeholder="今天的心情是..."
               maxLength={50}
               rows={2}
-              className="w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-sm text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
+              className={IOS_TEXTAREA_CLASS}
             />
 
             <div className="flex items-center justify-between">
@@ -557,10 +567,11 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                 <textarea
                   value={bioVillage}
                   onChange={(e) => setBioVillage(e.target.value)}
+                  onFocus={handleIosTextareaFocus}
                   placeholder="說說你的興趣..."
                   maxLength={200}
                   rows={3}
-                  className="w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-sm text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
+                  className={IOS_TEXTAREA_CLASS}
                 />
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-zinc-600">
@@ -582,10 +593,11 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                 <textarea
                   value={bioMarket}
                   onChange={(e) => setBioMarket(e.target.value)}
+                  onFocus={handleIosTextareaFocus}
                   placeholder="說說你能提供的技能..."
                   maxLength={200}
                   rows={3}
-                  className="w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-sm text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
+                  className={IOS_TEXTAREA_CLASS}
                 />
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-zinc-600">
@@ -733,7 +745,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             <span className="flex size-10 items-center justify-center rounded-xl bg-violet-950/50 text-violet-200">
               <PencilLine className="size-5" aria-hidden />
             </span>
-            <span className="font-medium">修改資料</span>
+            <span className="font-medium">帳號設定</span>
           </span>
           <ChevronRight className="size-5 shrink-0 text-zinc-500" aria-hidden />
         </button>
@@ -805,30 +817,29 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-[calc(100%-2rem)] gap-0 overflow-hidden p-0 sm:max-w-md">
           <DialogHeader className="border-b border-white/10 px-4 pb-3 pt-4">
-            <DialogTitle className="text-zinc-100">修改冒險者資料</DialogTitle>
+            <DialogTitle className="text-zinc-100">帳號設定</DialogTitle>
             <DialogDescription className="text-zinc-400">
-              此處為通用自白（bio）。興趣／技能分域自白請在「我的狀態」手風琴內編輯。今日心情於上方「今日心情」卡片。IG
-              公開開關會立即同步名冊。
+              更多資料請在首頁各區塊直接編輯。下方可更新 IG 帳號與公開與否；開關變更會立即寫入。
             </DialogDescription>
           </DialogHeader>
           <div className="flex max-h-[min(70vh,520px)] flex-col gap-5 overflow-y-auto px-4 py-4">
             <div className="space-y-2">
               <label
-                htmlFor="profile-bio"
+                htmlFor="profile-instagram-handle"
                 className="text-sm font-medium text-zinc-100"
               >
-                自白
+                Instagram 帳號
               </label>
-              <Textarea
-                id="profile-bio"
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                placeholder="寫下你的冒險宣言…"
-                maxLength={500}
-                rows={5}
-                className={EDIT_FOCUS}
+              <Input
+                id="profile-instagram-handle"
+                value={instagramInput}
+                onChange={(e) => setInstagramInput(e.target.value)}
+                placeholder="username（不含 @）"
+                autoComplete="username"
+                className={cn(
+                  "guild-energy-focus h-auto min-h-11 rounded-2xl border-white/10 bg-zinc-900/60 px-4 py-3 text-base text-white md:text-base placeholder:text-zinc-500 focus-visible:border-cyan-400 focus-visible:ring-cyan-400",
+                )}
               />
-              <p className="text-xs text-zinc-500">{bio.length}/500</p>
               <div className="flex justify-end pt-1">
                 <Button
                   type="button"
@@ -836,14 +847,15 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                   size="sm"
                   className="rounded-full bg-zinc-800 px-4 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 hover:text-zinc-100"
                   disabled={
-                    Boolean(savingField) ||
+                    savingInstagram ||
                     savingMood ||
                     savingBioVillage ||
-                    savingBioMarket
+                    savingBioMarket ||
+                    igSaving
                   }
-                  onClick={() => setConfirmField("bio")}
+                  onClick={() => void handleSaveInstagram()}
                 >
-                  確認修改
+                  {savingInstagram ? "更新中…" : "確認儲存 IG 帳號"}
                 </Button>
               </div>
             </div>
@@ -854,8 +866,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                   IG 狀態：{igPublic ? "公開" : "不公開"}
                 </p>
                 <p className="mt-0.5 text-xs text-zinc-500">
-                  切換後立即寫入資料庫（@
-                  {profile.instagram_handle ?? "—"}）
+                  切換後立即寫入資料庫
                 </p>
               </div>
 
@@ -866,7 +877,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                 aria-label={igPublic ? "IG 狀態：公開" : "IG 狀態：不公開"}
                 disabled={
                   igSaving ||
-                  Boolean(savingField) ||
+                  savingInstagram ||
                   savingMood ||
                   savingBioVillage ||
                   savingBioMarket
@@ -899,42 +910,6 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <AlertDialog
-        open={confirmField !== null}
-        onOpenChange={(open) => {
-          if (!open) setConfirmField(null);
-        }}
-      >
-        <AlertDialogContent className="border-zinc-800 bg-zinc-950 text-zinc-100">
-          <AlertDialogHeader>
-            <AlertDialogTitle>更新資料</AlertDialogTitle>
-            <AlertDialogDescription className="text-zinc-400">
-              確定要更新此項資料嗎？
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="border-zinc-800 bg-zinc-900/50">
-            <AlertDialogCancel className="border-zinc-700 bg-transparent text-zinc-200 hover:bg-zinc-800">
-              取消
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-violet-600 text-white hover:bg-violet-500"
-              disabled={
-                Boolean(savingField) ||
-                savingMood ||
-                savingBioVillage ||
-                savingBioMarket
-              }
-              onClick={(e) => {
-                e.preventDefault();
-                void runConfirmedSave();
-              }}
-            >
-              {savingField ? "同步中…" : "確認"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {cropOpen && cropSrc ? (
         <div

@@ -7,9 +7,10 @@ import {
   updateProfile,
   type UserUpdate,
 } from "@/lib/repositories/server/user.repository";
+import { instagramHandleSchema } from "@/lib/validation/instagram-handle";
 
 /**
- * Layer 3：編輯公會名片（自介、分域自白、IG 公開、每日心情）。
+ * Layer 3：編輯公會名片（通用 bio、分域自白、**`instagram_handle`**、IG 公開、每日心情、頭像 URL）。
  * 可傳入部分欄位；**`mood` 出現在 input** 時一併寫入 **`mood_at`**（可傳 `mood_at` ISO 字串，否則伺服端用當下時間）。
  */
 const AVATAR_URL_MAX = 2048;
@@ -30,6 +31,7 @@ export async function updateMyProfile(input: {
   bio_village?: string;
   bio_market?: string;
   ig_public?: boolean;
+  instagram_handle?: string | null;
   mood?: string;
   /** 與 `mood` 一併寫入；省略時由伺服端設為當下時間 */
   mood_at?: string | null;
@@ -41,6 +43,7 @@ export async function updateMyProfile(input: {
     input.bio_village === undefined &&
     input.bio_market === undefined &&
     input.ig_public === undefined &&
+    input.instagram_handle === undefined &&
     input.mood === undefined &&
     input.avatar_url === undefined
   ) {
@@ -76,6 +79,22 @@ export async function updateMyProfile(input: {
   }
   if (input.ig_public !== undefined) {
     patch.ig_public = input.ig_public;
+  }
+  if (input.instagram_handle !== undefined) {
+    const t = String(input.instagram_handle).trim();
+    if (t.length === 0) {
+      patch.instagram_handle = null;
+    } else {
+      const parsed = instagramHandleSchema.safeParse(t);
+      if (!parsed.success) {
+        const msg = parsed.error.flatten().formErrors[0];
+        return {
+          ok: false,
+          error: msg ?? "IG 帳號格式不符。",
+        };
+      }
+      patch.instagram_handle = parsed.data;
+    }
   }
   if (input.mood !== undefined) {
     const moodTrimmed = input.mood.trim();
@@ -113,7 +132,7 @@ export async function updateMyProfile(input: {
       return {
         ok: false,
         error:
-          "資料庫尚未對齊（例如缺少 bio／bio_village／bio_market／ig_public／mood 欄位），請聯絡管理員。",
+          "資料庫尚未對齊（例如缺少 bio／bio_village／bio_market／instagram_handle／ig_public／mood 欄位），請聯絡管理員。",
       };
     }
     return { ok: false, error: "儲存失敗，請稍後再試。" };
