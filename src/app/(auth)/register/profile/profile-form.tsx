@@ -5,6 +5,13 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { completeAdventurerProfile } from "@/services/adventurer-profile.action";
 import { GuildAuthShell } from "@/components/auth/guild-auth-shell";
+import {
+  guildAuthFieldErrorClass,
+  guildAuthInputClass,
+  guildAuthPrimaryButtonClass,
+  guildAuthSelectContentClass,
+  guildAuthSelectTriggerClass,
+} from "@/components/auth/auth-styles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -31,9 +38,8 @@ import {
 import { instagramHandleSchema } from "@/lib/validation/instagram-handle";
 import { adventurerNicknameSchema } from "@/lib/validation/nickname";
 
-/** 青色霓虹聚焦（與公會 Energy 風格疊加） */
-const CYAN_FOCUS =
-  "guild-energy-focus focus-visible:border-cyan-400 focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-0 focus-visible:shadow-[0_0_22px_rgba(34,211,238,0.45)]";
+const outlineNavButtonClass =
+  "flex-1 rounded-full border border-zinc-700/90 bg-zinc-900/60 text-zinc-100 shadow-sm transition hover:bg-zinc-800/80";
 
 type ProfileFormProps = {
   /** Google OAuth 等略過註冊 Step1 時為 true，需在名冊補填 IG */
@@ -173,15 +179,15 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
       title="冒險者名冊"
       subtitle="分步填寫，讓公會更懂你"
     >
-      <div className="mb-6 flex items-center justify-center gap-2">
+      <div className="glass-panel mb-6 flex items-center justify-center gap-2 px-4 py-4">
         {[1, 2, 3].map((n) => (
           <div key={n} className="flex items-center gap-2">
             <div
               className={cn(
                 "flex size-8 items-center justify-center rounded-full text-xs font-semibold transition-colors",
                 step >= n
-                  ? "bg-cyan-500/25 text-cyan-200 ring-1 ring-cyan-400/50"
-                  : "bg-muted text-muted-foreground",
+                  ? "bg-violet-500/25 text-violet-100 ring-1 ring-violet-400/45"
+                  : "bg-zinc-800/80 text-zinc-500",
               )}
             >
               {n}
@@ -190,7 +196,7 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
               <div
                 className={cn(
                   "h-px w-6",
-                  step > n ? "bg-cyan-400/50" : "bg-border",
+                  step > n ? "bg-violet-400/40" : "bg-zinc-700/60",
                 )}
               />
             ) : null}
@@ -198,13 +204,13 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
         ))}
       </div>
 
-      <form onSubmit={onSubmit} className="flex flex-col gap-5">
+      <form onSubmit={onSubmit} className="flex flex-col gap-6">
         {step === 1 ? (
           <>
             <div className="space-y-2">
               <label
                 htmlFor="nickname"
-                className="text-sm font-medium text-foreground"
+                className="text-sm font-medium text-zinc-100"
               >
                 暱稱
               </label>
@@ -228,27 +234,26 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
                 placeholder="在公會使用的稱呼"
                 maxLength={32}
                 className={cn(
-                  CYAN_FOCUS,
-                  nicknameError
-                    ? "border-destructive/70 focus-visible:border-destructive focus-visible:ring-destructive/50"
-                    : null,
+                  guildAuthInputClass,
+                  nicknameError &&
+                    "border-red-500/50 focus-visible:ring-red-500/40",
                 )}
                 aria-invalid={Boolean(nicknameError)}
               />
               {nicknameError ? (
-                <p className="text-xs text-destructive">{nicknameError}</p>
+                <p className={guildAuthFieldErrorClass}>{nicknameError}</p>
               ) : null}
             </div>
 
             {needsProfileInstagram ? (
-              <div className="space-y-2">
+              <div className="glass-panel space-y-2 rounded-2xl border border-white/10 p-4">
                 <label
                   htmlFor="profile-ig"
-                  className="text-sm font-medium text-foreground"
+                  className="text-sm font-medium text-zinc-100"
                 >
                   IG 帳號（必填）
                 </label>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-zinc-400">
                   你使用 Google 等方式註冊，請在此補上 IG，供公會名冊使用。
                 </p>
                 <Input
@@ -272,15 +277,14 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
                   }}
                   placeholder="不含空白，例：oldmoon.guild"
                   className={cn(
-                    CYAN_FOCUS,
-                    instagramError
-                      ? "border-destructive/70 focus-visible:border-destructive focus-visible:ring-destructive/50"
-                      : null,
+                    guildAuthInputClass,
+                    instagramError &&
+                      "border-red-500/50 focus-visible:ring-red-500/40",
                   )}
                   aria-invalid={Boolean(instagramError)}
                 />
                 {instagramError ? (
-                  <p className="text-xs text-destructive">{instagramError}</p>
+                  <p className={guildAuthFieldErrorClass}>{instagramError}</p>
                 ) : null}
               </div>
             ) : null}
@@ -288,7 +292,7 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
             <div className="space-y-2">
               <span
                 id="gender-label"
-                className="text-sm font-medium text-foreground"
+                className="text-sm font-medium text-zinc-100"
               >
                 性別
               </span>
@@ -301,14 +305,18 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
               >
                 <SelectTrigger
                   id="gender"
-                  className={cn("w-full", CYAN_FOCUS)}
+                  className={guildAuthSelectTriggerClass}
                   aria-labelledby="gender-label"
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className={guildAuthSelectContentClass}>
                   {GENDER_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
+                    <SelectItem
+                      key={o.value}
+                      value={o.value}
+                      className="text-zinc-100 focus:bg-zinc-800 data-highlighted:bg-zinc-800"
+                    >
                       {o.label}
                     </SelectItem>
                   ))}
@@ -319,7 +327,7 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
             <div className="space-y-2">
               <span
                 id="region-label"
-                className="text-sm font-medium text-foreground"
+                className="text-sm font-medium text-zinc-100"
               >
                 地區
               </span>
@@ -332,14 +340,18 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
               >
                 <SelectTrigger
                   id="region"
-                  className={cn("w-full", CYAN_FOCUS)}
+                  className={guildAuthSelectTriggerClass}
                   aria-labelledby="region-label"
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className={guildAuthSelectContentClass}>
                   {REGION_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
+                    <SelectItem
+                      key={o.value}
+                      value={o.value}
+                      className="text-zinc-100 focus:bg-zinc-800 data-highlighted:bg-zinc-800"
+                    >
                       {o.label}
                     </SelectItem>
                   ))}
@@ -358,7 +370,7 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
             <div className="space-y-2">
               <span
                 id="orientation-label"
-                className="text-sm font-medium text-foreground"
+                className="text-sm font-medium text-zinc-100"
               >
                 性向
               </span>
@@ -373,14 +385,18 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
               >
                 <SelectTrigger
                   id="orientation"
-                  className={cn("w-full", CYAN_FOCUS)}
+                  className={guildAuthSelectTriggerClass}
                   aria-labelledby="orientation-label"
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className={guildAuthSelectContentClass}>
                   {ORIENTATION_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
+                    <SelectItem
+                      key={o.value}
+                      value={o.value}
+                      className="text-zinc-100 focus:bg-zinc-800 data-highlighted:bg-zinc-800"
+                    >
                       {o.label}
                     </SelectItem>
                   ))}
@@ -391,7 +407,7 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
             <div className="space-y-2">
               <span
                 id="offline-label"
-                className="text-sm font-medium text-foreground"
+                className="text-sm font-medium text-zinc-100"
               >
                 線下意願
               </span>
@@ -407,14 +423,18 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
               >
                 <SelectTrigger
                   id="offline"
-                  className={cn("w-full", CYAN_FOCUS)}
+                  className={guildAuthSelectTriggerClass}
                   aria-labelledby="offline-label"
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className={guildAuthSelectContentClass}>
                   {OFFLINE_INTENT_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
+                    <SelectItem
+                      key={o.value}
+                      value={o.value}
+                      className="text-zinc-100 focus:bg-zinc-800 data-highlighted:bg-zinc-800"
+                    >
                       {o.label}
                     </SelectItem>
                   ))}
@@ -422,13 +442,13 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
               </Select>
             </div>
 
-            <div className="space-y-4 border-t border-border/60 pt-4">
-              <p className="text-sm font-medium text-amber-100/90">
+            <div className="glass-panel space-y-4 rounded-2xl border border-white/10 p-4 pt-5">
+              <p className="text-sm font-medium text-violet-100">
                 核心價值觀（各選一項）
               </p>
               {CORE_VALUES_QUESTIONS.map((q, qi) => (
                 <fieldset key={q.key} className="space-y-2">
-                  <legend className="text-sm text-foreground/90">
+                  <legend className="text-sm text-zinc-200">
                     {q.question}
                   </legend>
                   <div className="flex flex-wrap gap-2">
@@ -442,11 +462,10 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
                             setCoreAt(qi as 0 | 1 | 2, o.value)
                           }
                           className={cn(
-                            "rounded-lg border px-3 py-2 text-left text-sm transition-all focus-visible:outline-none",
-                            CYAN_FOCUS,
+                            "rounded-xl border px-3 py-2 text-left text-sm transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-500/50",
                             selected
-                              ? "border-cyan-400/70 bg-cyan-500/15 text-cyan-100 shadow-[0_0_16px_rgba(34,211,238,0.25)]"
-                              : "border-border/80 bg-background/40 text-muted-foreground hover:border-cyan-500/30 hover:text-foreground",
+                              ? "border-violet-400/55 bg-violet-950/45 text-violet-50 shadow-md shadow-violet-950/25"
+                              : "border-zinc-700/80 bg-zinc-900/60 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200",
                           )}
                         >
                           {o.label}
@@ -461,11 +480,11 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
         ) : null}
 
         {step === 3 ? (
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-foreground">
+          <div className="glass-panel space-y-3 rounded-2xl border border-white/10 p-4">
+            <p className="text-sm font-medium text-zinc-100">
               技能與興趣（點選標籤，至少 1 個、最多 12 個）
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-zinc-400">
               已選 {interests.length} 個
             </p>
             <div className="flex flex-wrap gap-2">
@@ -477,10 +496,10 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
                     type="button"
                     onClick={() => toggleInterest(o.value)}
                     className={cn(
-                      "tag-gold rounded-full px-3 py-1.5 text-xs transition-all focus-visible:outline-none",
-                      CYAN_FOCUS,
-                      on &&
-                        "border-cyan-400/60 bg-cyan-950/40 text-cyan-100 shadow-[0_0_14px_rgba(34,211,238,0.28)]",
+                      "rounded-full border px-3 py-1.5 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-500/50",
+                      on
+                        ? "border-violet-400/55 bg-violet-950/50 text-violet-100 shadow-md shadow-violet-950/20"
+                        : "tag-gold border-amber-600/45",
                     )}
                   >
                     {o.label}
@@ -491,14 +510,14 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
           </div>
         ) : null}
 
-        <div className="flex flex-col gap-2 pt-2">
+        <div className="flex flex-col gap-3 border-t border-white/10 pt-4">
           {step < 3 ? (
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               {step > 1 ? (
                 <Button
                   type="button"
                   variant="outline"
-                  className="flex-1"
+                  className={outlineNavButtonClass}
                   onClick={goBack}
                   disabled={loading}
                 >
@@ -507,7 +526,10 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
               ) : null}
               <Button
                 type="button"
-                className="flex-1"
+                className={cn(
+                  guildAuthPrimaryButtonClass,
+                  step > 1 ? "min-w-0 flex-1 !w-auto" : "w-full",
+                )}
                 onClick={goNext}
                 disabled={loading}
               >
@@ -515,17 +537,24 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
               </Button>
             </div>
           ) : (
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <Button
                 type="button"
                 variant="outline"
-                className="flex-1"
+                className={outlineNavButtonClass}
                 onClick={goBack}
                 disabled={loading}
               >
                 上一步
               </Button>
-              <Button type="submit" className="flex-1" disabled={loading}>
+              <Button
+                type="submit"
+                className={cn(
+                  guildAuthPrimaryButtonClass,
+                  "min-w-0 flex-1 !w-auto",
+                )}
+                disabled={loading}
+              >
                 {loading ? "⏳ 傳輸中..." : "完成並進入公會"}
               </Button>
             </div>

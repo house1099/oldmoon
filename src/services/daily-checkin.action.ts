@@ -7,10 +7,8 @@ import {
   insertExpLog,
   isUniqueConstraintError,
 } from "@/lib/repositories/server/exp.repository";
+import { DAILY_CHECKIN_ALREADY_TODAY } from "@/lib/constants/daily-checkin";
 import { taipeiCalendarDateKey } from "@/lib/utils/date";
-
-/** 與前端比對用：重複簽到時回傳此字串（顯示改為 success toast）。 */
-export const DAILY_CHECKIN_ALREADY_TODAY = "今日已簽到" as const;
 
 /**
  * Layer 3：每日簽到 +1 EXP（`exp_logs.unique_key` 同日僅能領一次）。

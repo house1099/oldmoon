@@ -33,7 +33,7 @@ export function mapLikeRepositoryError(error: unknown): string {
 
 /**
  * Layer 2：寫入 **`likes`**（伺服端 admin client）。
- * `from_user_id`＝按讚者（目前使用者），`to_user_id`＝被按讚者；與 **`database.types`** 一致。
+ * **`from_user`**＝按讚者（目前使用者），**`to_user`**＝被按讚者；與 Supabase 雲端欄名一致。
  */
 export async function insertLike(
   fromUserId: string,
@@ -42,7 +42,7 @@ export async function insertLike(
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("likes")
-    .insert({ from_user_id: fromUserId, to_user_id: toUserId })
+    .insert({ from_user: fromUserId, to_user: toUserId })
     .select()
     .single();
 
@@ -61,8 +61,8 @@ export async function findLike(
   const { data, error } = await admin
     .from("likes")
     .select("*")
-    .eq("from_user_id", fromUserId)
-    .eq("to_user_id", toUserId)
+    .eq("from_user", fromUserId)
+    .eq("to_user", toUserId)
     .maybeSingle();
 
   if (error) {
@@ -80,8 +80,8 @@ export async function deleteLike(
   const { error } = await admin
     .from("likes")
     .delete()
-    .eq("from_user_id", fromUserId)
-    .eq("to_user_id", toUserId);
+    .eq("from_user", fromUserId)
+    .eq("to_user", toUserId);
 
   if (error) {
     throw error;
@@ -100,8 +100,8 @@ export async function checkMutualLike(
   const { data: ab, error: errAb } = await admin
     .from("likes")
     .select("id")
-    .eq("from_user_id", userA)
-    .eq("to_user_id", userB)
+    .eq("from_user", userA)
+    .eq("to_user", userB)
     .maybeSingle();
 
   if (errAb) {
@@ -111,8 +111,8 @@ export async function checkMutualLike(
   const { data: ba, error: errBa } = await admin
     .from("likes")
     .select("id")
-    .eq("from_user_id", userB)
-    .eq("to_user_id", userA)
+    .eq("from_user", userB)
+    .eq("to_user", userA)
     .maybeSingle();
 
   if (errBa) {

@@ -4,10 +4,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import {
-  claimDailyCheckin,
-  DAILY_CHECKIN_ALREADY_TODAY,
-} from "@/services/daily-checkin.action";
+import { DAILY_CHECKIN_ALREADY_TODAY } from "@/lib/constants/daily-checkin";
+import { claimDailyCheckin } from "@/services/daily-checkin.action";
 import { updateMyProfile } from "@/services/profile-update.action";
 import { createClient } from "@/lib/supabase/client";
 import {

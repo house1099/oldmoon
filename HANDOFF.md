@@ -56,7 +56,7 @@
 | Auth UI | `src/app/(auth)/login/*`、`register/*`、`register/profile/*` |
 | OAuth callback | `src/app/auth/callback/route.ts` |
 | 補名冊（含 IG） | `src/services/adventurer-profile.action.ts`（註冊 insert **不帶 `bio`**） |
-| 每日簽到 +1 EXP | `src/services/daily-checkin.action.ts`；日鍵 SSOT：`src/lib/utils/date.ts`（`taipeiCalendarDateKey`） |
+| 每日簽到 +1 EXP | `src/services/daily-checkin.action.ts`；重複簽到字串常數 `src/lib/constants/daily-checkin.ts`；日鍵 SSOT：`src/lib/utils/date.ts`（`taipeiCalendarDateKey`） |
 | 編輯自介／IG 公開／心情 | `src/services/profile-update.action.ts` |
 | 首頁個人頁 UI | `src/app/(app)/page.tsx` → `src/components/profile/guild-profile-home.tsx` |
 | 底部導航 | `src/components/layout/Navbar.tsx` |
@@ -268,6 +268,12 @@ alter table public.users
 ### 2025-03-23 — 任務 4：頂級深色 UI 與簽到／有緣分修復
 
 - **Layer 5**：**`dialog.tsx`** 預設 **`bg-zinc-950`**、**`border-zinc-800`**、**`shadow-2xl`**、**`max-h-[85vh] overflow-y-auto`**；遮罩加深為 **`bg-black/70`**。**`globals.css`** 之 **`.glass-panel`** 改為 **`bg-zinc-950/80 backdrop-blur-xl rounded-3xl shadow-2xl`**。認證殼 **`(auth)/layout`**、**`GuildAuthShell`**、**`login-form`／`register-form`**（**`auth-styles.ts`** 共用 Input／主按鈕／Google 次按鈕樣式）與首頁 **`/(app)/page.tsx`** 置中留白。**`guild-profile-home`**：放大頭像、等級徽章、操作改為圖示橫向列表；簽到重複改 **success toast**。**`UserDetailModal`**：載入有緣分狀態、按鈕實心愛心與 Sonner 回饋。
-- **Layer 2／3**：**`exp.repository`** 匯出 **`isUniqueConstraintError`** 供簽到攔截。**`daily-checkin.action`**：重複簽到回傳常數 **`DAILY_CHECKIN_ALREADY_TODAY`**（`"今日已簽到"`），仍使用 **`taipeiCalendarDateKey()`**。**`like.repository`** 補 **`mapLikeRepositoryError`**，insert 欄位維持 **`from_user_id`／`to_user_id`**（與 **`database.types`** 一致）。**`social.action`**：**`getLikeStatusForTargetAction`**、**`toggleLikeAction`** 回傳 **`liked`** 並以友善訊息包裝 DB 錯誤。
+- **Layer 2／3**：**`exp.repository`** 匯出 **`isUniqueConstraintError`** 供簽到攔截。重複簽到字串常數見 **`src/lib/constants/daily-checkin.ts`**（**`DAILY_CHECKIN_ALREADY_TODAY`**），**`daily-checkin.action`** 僅匯出 async；仍使用 **`taipeiCalendarDateKey()`**。**`like.repository`**：**`mapLikeRepositoryError`**；雲端 **`likes`** 欄位見下方 **任務 5**。**`social.action`**：**`getLikeStatusForTargetAction`**、**`toggleLikeAction`** 回傳 **`liked`** 並以友善訊息包裝 DB 錯誤。
 
-*最後更新：2025-03-23 — **任務 4**：頂級深色 Modal／玻璃面板／Auth／個人頁 UI；**簽到重複**與**有緣分** Layer 2–3 修復與 Modal 狀態回饋；其餘見上段「任務 4」條列。*
+### 2025-03-23 — 任務 5：`likes` 欄位對齊（42703）與註冊問卷深色統一
+
+- **Layer 2／型別**：Supabase **`public.likes`** 實際欄名為 **`from_user`**、**`to_user`**（非 `from_user_id`）。已同步 **`database.types.ts`** 與 **`like.repository.ts`** 之 insert／eq／delete／互查邏輯，修正 PostgREST **42703**（未定義欄位）導致的有緣分 500。
+- **Layer 3**：**`social.action.ts`** 僅透過 repository，無需解構列欄位；無程式變更需求。
+- **Layer 5**：**`register/profile/profile-form.tsx`** 廢除 **`CYAN_FOCUS`**，改採 **`auth-styles.ts`**（**`guildAuthInputClass`**、**`guildAuthSelectTriggerClass`**、**`guildAuthSelectContentClass`**、**`guildAuthPrimaryButtonClass`** 等）；步驟指示、核心價值與興趣區塊使用 **`.glass-panel`**／紫色 focus，與登入／註冊 Step1 視覺一致。
+
+*最後更新：2025-03-23 — **任務 5**：**`likes`** 欄位 **`from_user`／`to_user`**；註冊問卷頁深色統一；**`DAILY_CHECKIN_ALREADY_TODAY`** 移至 **`lib/constants`** 以通過 **`use server`** 建置。*

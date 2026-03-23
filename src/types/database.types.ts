@@ -159,32 +159,34 @@ export interface Database {
       likes: {
         Row: {
           id: string;
-          from_user_id: string;
-          to_user_id: string;
+          /** 雲端欄名 `from_user`（按讚者 uuid） */
+          from_user: string;
+          /** 雲端欄名 `to_user`（被按讚者 uuid） */
+          to_user: string;
           created_at: string;
         };
         Insert: {
           id?: string;
-          from_user_id: string;
-          to_user_id: string;
+          from_user: string;
+          to_user: string;
           created_at?: string;
         };
         Update: {
           id?: string;
-          from_user_id?: string;
-          to_user_id?: string;
+          from_user?: string;
+          to_user?: string;
           created_at?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "likes_from_user_id_fkey";
-            columns: ["from_user_id"];
+            foreignKeyName: "likes_from_user_fkey";
+            columns: ["from_user"];
             referencedRelation: "users";
             referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "likes_to_user_id_fkey";
-            columns: ["to_user_id"];
+            foreignKeyName: "likes_to_user_fkey";
+            columns: ["to_user"];
             referencedRelation: "users";
             referencedColumns: ["id"];
           },
