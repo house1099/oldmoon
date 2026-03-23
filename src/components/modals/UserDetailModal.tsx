@@ -211,70 +211,74 @@ export function UserDetailModal({
         </DialogHeader>
 
         <div className="max-h-[min(52vh,420px)] space-y-4 overflow-y-auto px-4 py-4">
-          <div>
-            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-violet-400/85">
-              自白
-            </p>
-            <p className="text-sm leading-relaxed text-slate-200/95">
-              {user.bio?.trim()
-                ? user.bio
-                : "這位冒險者尚未留下自白。"}
-            </p>
-          </div>
+          <div className="mx-auto w-full max-w-[min(100%,22rem)] space-y-4 sm:max-w-full">
+            <div>
+              <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-violet-400/85">
+                自白
+              </p>
+              <p className="text-sm leading-relaxed text-slate-200/95">
+                {user.bio?.trim()
+                  ? user.bio
+                  : "這位冒險者尚未留下自白。"}
+              </p>
+            </div>
 
-          <div>
-            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-violet-400/85">
-              今日心情
-            </p>
-            <p className="text-sm leading-relaxed text-slate-200/95">
-              {moodVisible ? user.mood : "尚未更新或已超過 24 小時。"}
-            </p>
-          </div>
+            <div>
+              <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-violet-400/85">
+                今日心情
+              </p>
+              <p className="text-sm leading-relaxed text-slate-200/95">
+                {moodVisible ? user.mood : "尚未更新或已超過 24 小時。"}
+              </p>
+            </div>
 
-          <Separator className="bg-amber-900/35" />
+            <Separator className="bg-amber-900/35" />
 
-          <div className="flex flex-col gap-3">
-            <TagBlock title="興趣" slugs={user.interests ?? []} />
-            <TagBlock title="可提供的技能" slugs={user.skills_offer ?? []} />
-            <TagBlock title="想尋找的共學" slugs={user.skills_want ?? []} />
+            <div className="flex flex-col gap-3">
+              <TagBlock title="興趣" slugs={user.interests ?? []} />
+              <TagBlock title="可提供的技能" slugs={user.skills_offer ?? []} />
+              <TagBlock title="想尋找的共學" slugs={user.skills_want ?? []} />
+            </div>
           </div>
         </div>
 
-        <DialogFooter className="flex flex-col gap-3 border-t border-amber-900/35 bg-zinc-950 px-4 py-4 sm:flex-row sm:justify-stretch">
-          <Button
-            type="button"
-            variant="secondary"
-            className={cn(
-              "group flex-1 gap-2 rounded-full border px-5 py-2.5 font-medium transition-transform active:scale-95",
-              likedByMe
-                ? "border-rose-500/55 bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-lg shadow-rose-950/40 hover:from-rose-500 hover:to-rose-600"
-                : "border-amber-800/40 bg-rose-950/40 text-amber-50 hover:bg-rose-900/45",
-            )}
-            disabled={pending}
-            onClick={handleLike}
-          >
-            <Heart
-              className={cn(
-                "size-4 shrink-0 transition-transform group-active:scale-95",
-                likedByMe && "fill-current text-rose-100",
-              )}
-              aria-hidden
-            />
-            {likedByMe ? "已送出有緣分" : "有緣分"}
-          </Button>
-          <span
-            className="inline-flex flex-1"
-            title="需雙方互有緣分才可解鎖"
-          >
+        <DialogFooter className="border-t border-amber-900/35 bg-zinc-950 px-4 py-4">
+          <div className="mx-auto flex w-full max-w-[min(100%,22rem)] flex-col gap-3 sm:max-w-full sm:flex-row sm:gap-3">
             <Button
               type="button"
-              variant="outline"
-              className="w-full rounded-full border-rose-900/50 px-5 py-2.5 text-rose-200/90"
-              disabled
+              variant="secondary"
+              className={cn(
+                "group w-full gap-2 rounded-full border px-5 py-2.5 font-medium transition-transform active:scale-95 sm:min-h-[2.75rem] sm:flex-1",
+                likedByMe
+                  ? "border-rose-500/55 bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-lg shadow-rose-950/40 hover:from-rose-500 hover:to-rose-600"
+                  : "border-amber-800/40 bg-rose-950/40 text-amber-50 hover:bg-rose-900/45",
+              )}
+              disabled={pending}
+              onClick={handleLike}
             >
-              🩸 申請血盟
+              <Heart
+                className={cn(
+                  "size-4 shrink-0 transition-transform group-active:scale-95",
+                  likedByMe && "fill-current text-rose-100",
+                )}
+                aria-hidden
+              />
+              {likedByMe ? "已送出緣分" : "💖 送出緣分"}
             </Button>
-          </span>
+            <span
+              className="block w-full sm:flex-1"
+              title="需雙方互有緣分才可解鎖"
+            >
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full rounded-full border-rose-900/50 px-5 py-2.5 text-rose-200/90 sm:min-h-[2.75rem]"
+                disabled
+              >
+                🩸 申請血盟
+              </Button>
+            </span>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

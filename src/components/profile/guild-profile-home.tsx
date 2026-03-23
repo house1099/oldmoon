@@ -508,11 +508,11 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             </div>
           </div>
 
-          <DialogFooter className="border-t border-white/10 bg-black/20 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+          <DialogFooter className="flex justify-center border-t border-white/10 bg-black/20 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
             <Button
               type="button"
               variant="outline"
-              className="w-full border-white/15 text-zinc-100 sm:w-auto"
+              className="mx-auto max-w-[80%] border-white/15 text-zinc-100"
               onClick={() => setEditOpen(false)}
             >
               關閉
