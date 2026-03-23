@@ -325,3 +325,7 @@ alter table public.users
 - **Layer 5 — `guild-profile-home.tsx`**：已簽到時按鈕 **disabled**、**深灰半透明**樣式、主文案 **「⏳ 回報冷卻中 (約 23 小時)」**；簽到成功 **「簽到成功！獲得 +1 EXP 喵！」**。
 
 *最後更新：2025-03-23 — **任務 14**：23502 修復、**`delta`+`delta_exp`** 併送、**`unique_key`** 精準預檢、冷卻按鈕視覺。*
+
+### 2025-03-23 — 編輯 Modal：IG 公開開關（藍色可視化）
+
+- **Layer 5 — `guild-profile-home.tsx`**：編輯資料 Modal 內 **IG 公開** 改為 **`role="switch"`** 自訂按鈕軌道（**`bg-blue-500`**／**`bg-zinc-600`**、白球位移），取代 shadcn **`Switch`**，行為仍為 **`onIgPublicChange` → `updateMyProfile({ ig_public })`**。

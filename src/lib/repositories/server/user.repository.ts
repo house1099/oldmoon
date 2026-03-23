@@ -6,6 +6,23 @@ export type UserRow = Database["public"]["Tables"]["users"]["Row"];
 export type UserUpdate = Database["public"]["Tables"]["users"]["Update"];
 
 /**
+ * 執行時剔除已廢棄鍵 **`exp`**，必要時映到 **`total_exp`**，避免 PostgREST／雲端 42703。
+ * （SSOT 欄位名為 **`total_exp`**；若 Trigger 仍引用 `users.exp` 須於 🗄️ 一併修正。）
+ */
+function normalizeUserWritePayload<T extends Record<string, unknown>>(row: T): T {
+  const o: Record<string, unknown> = { ...row };
+  if (!("exp" in o)) {
+    return o as T;
+  }
+  const legacy = o.exp;
+  if (o.total_exp === undefined && typeof legacy === "number") {
+    o.total_exp = legacy;
+  }
+  delete o.exp;
+  return o as T;
+}
+
+/**
  * Layer 2：users 表存取（伺服端，使用 admin client 以略過 RLS 做管理查詢／建檔）。
  */
 export async function findProfileById(id: string): Promise<UserRow | null> {
@@ -29,9 +46,12 @@ export async function findProfileById(id: string): Promise<UserRow | null> {
  */
 export async function createProfile(data: UserInsert): Promise<UserRow> {
   const admin = createAdminClient();
+  const payload = normalizeUserWritePayload(
+    data as unknown as Record<string, unknown>,
+  ) as UserInsert;
   const { data: row, error } = await admin
     .from("users")
-    .insert(data)
+    .insert(payload)
     .select()
     .single();
 
@@ -50,9 +70,12 @@ export async function updateProfile(
   patch: UserUpdate,
 ): Promise<UserRow> {
   const admin = createAdminClient();
+  const payload = normalizeUserWritePayload(
+    patch as unknown as Record<string, unknown>,
+  ) as UserUpdate;
   const { data, error } = await admin
     .from("users")
-    .update(patch)
+    .update(payload)
     .eq("id", id)
     .select()
     .single();

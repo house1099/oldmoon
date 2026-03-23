@@ -45,7 +45,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   CORE_VALUES_QUESTIONS,
@@ -181,6 +180,11 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     } finally {
       setIgSaving(false);
     }
+  }
+
+  function handleIgToggle() {
+    if (igSaving || savingField) return;
+    void onIgPublicChange(!igPublic);
   }
 
   async function onAvatarFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -614,27 +618,36 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               </div>
             </div>
 
-            <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-4">
-              <div className="flex flex-row items-center justify-between gap-3">
-                <div className="min-w-0 flex-1 space-y-1">
-                  <p className="text-sm font-medium text-zinc-100">
-                    IG 狀態：{igPublic ? "已公開" : "不公開"}
-                  </p>
-                  <p className="text-xs text-zinc-500">
-                    切換後立即寫入資料庫（@
-                    {profile.instagram_handle ?? "—"}）
-                  </p>
-                </div>
-                <Switch
-                  checked={igPublic}
-                  onCheckedChange={(v) => void onIgPublicChange(v)}
-                  disabled={igSaving || Boolean(savingField)}
-                  className="shrink-0 data-checked:bg-violet-600"
-                  aria-label={
-                    igPublic ? "IG 狀態：已公開" : "IG 狀態：不公開"
-                  }
-                />
+            <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-4">
+              <div className="min-w-0 pr-3">
+                <p className="text-sm font-medium text-white">
+                  IG 狀態：{igPublic ? "公開" : "不公開"}
+                </p>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  切換後立即寫入資料庫（@
+                  {profile.instagram_handle ?? "—"}）
+                </p>
               </div>
+
+              <button
+                type="button"
+                role="switch"
+                aria-checked={igPublic}
+                aria-label={igPublic ? "IG 狀態：公開" : "IG 狀態：不公開"}
+                disabled={igSaving || Boolean(savingField)}
+                onClick={handleIgToggle}
+                className={cn(
+                  "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 disabled:pointer-events-none disabled:opacity-50",
+                  igPublic ? "bg-blue-500" : "bg-zinc-600",
+                )}
+              >
+                <span
+                  className={cn(
+                    "inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200",
+                    igPublic ? "translate-x-6" : "translate-x-1",
+                  )}
+                />
+              </button>
             </div>
           </div>
 
