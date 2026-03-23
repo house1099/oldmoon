@@ -23,7 +23,7 @@ export async function findProfileById(id: string): Promise<UserRow | null> {
 }
 
 /**
- * 新增 `public.users` 一列。欄位名稱須與雲端 SQL／Supabase 型別一致（例如 `nickname`）。
+ * 新增 `public.users` 一列。欄位須與雲端一致（`nickname`、`gender`、`region`、`orientation`、`offline_ok` 等，勿使用不存在的 `bio`）。
  */
 export async function createProfile(data: UserInsert): Promise<UserRow> {
   const admin = createAdminClient();

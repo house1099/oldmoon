@@ -12,7 +12,7 @@ import type {
   RegionValue,
 } from "@/lib/constants/adventurer-questionnaire";
 
-/** 問卷值皆為英文 slug（與 `adventurer-questionnaire` 常數一致），寫入 `bio` JSON。 */
+/** 問卷值皆為英文 slug（與 `adventurer-questionnaire` 常數一致），對應 `users.gender` 等欄位。 */
 export type AdventurerQuestionnaire = {
   gender: GenderValue;
   region: RegionValue;
@@ -20,13 +20,14 @@ export type AdventurerQuestionnaire = {
   offlineIntent: OfflineIntentValue;
 };
 
-function serializeBio(extra: AdventurerQuestionnaire): string {
-  return JSON.stringify({ v: 1, ...extra });
+/** 前端 `offlineIntent` → DB `offline_ok`：僅「願意實體聚會」為 true，其餘為 false */
+function offlineIntentToOfflineOk(v: OfflineIntentValue): boolean {
+  return v === "in_person";
 }
 
 /**
- * Layer 3：補齊公會檔（users 列）；問卷欄位暫存於 `bio` JSON（雲端若新增專欄可再遷移）。
- * 插入欄位與 `users` 表一致：`nickname`、`total_exp`／`level` 初值依 SSOT（Lv1 起算）。
+ * Layer 3：補齊公會檔（`users` 列）：`nickname`、`gender`、`region`、`orientation`、`offline_ok` 等。
+ * `total_exp`／`level` 初值依 SSOT（Lv1 起算）。
  */
 export async function completeAdventurerProfile(input: {
   nickname: string;
@@ -46,11 +47,16 @@ export async function completeAdventurerProfile(input: {
     return { ok: false as const, error: "請填寫暱稱。" };
   }
 
+  const q = input.questionnaire;
+
   try {
     await createProfile({
       id: user.id,
       nickname,
-      bio: serializeBio(input.questionnaire),
+      gender: q.gender,
+      region: q.region,
+      orientation: q.orientation,
+      offline_ok: offlineIntentToOfflineOk(q.offlineIntent),
       status: "active",
       total_exp: 0,
       level: 1,

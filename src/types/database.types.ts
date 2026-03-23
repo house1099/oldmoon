@@ -17,9 +17,13 @@ export interface Database {
       users: {
         Row: {
           id: string;
-          /** 冒險者暱稱（與雲端 `users.nickname` 欄位一致） */
           nickname: string;
-          bio: string | null;
+          /** 英文 slug，與問卷常數一致 */
+          gender: string;
+          region: string;
+          orientation: string;
+          /** 是否願意線下／實體聚會（尚未決定時以 false 表示未承諾實體） */
+          offline_ok: boolean;
           avatar_url: string | null;
           /** active：正常；banned：已放逐（路由層強制登出） */
           status: "active" | "banned";
@@ -33,7 +37,10 @@ export interface Database {
         Insert: {
           id: string;
           nickname: string;
-          bio?: string | null;
+          gender: string;
+          region: string;
+          orientation: string;
+          offline_ok?: boolean;
           avatar_url?: string | null;
           status?: "active" | "banned";
           total_exp?: number;
@@ -44,7 +51,10 @@ export interface Database {
         Update: {
           id?: string;
           nickname?: string;
-          bio?: string | null;
+          gender?: string;
+          region?: string;
+          orientation?: string;
+          offline_ok?: boolean;
           avatar_url?: string | null;
           status?: "active" | "banned";
           total_exp?: number;
