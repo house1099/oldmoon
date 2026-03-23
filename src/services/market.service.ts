@@ -11,17 +11,21 @@ function normalizeTags(raw: string[] | null | undefined): string[] {
 
 /**
  * 由使用者列推算「技能市集」語意下的**可提供的**標籤。
- * v1：雲端尚無獨立 `skills_offered` 時，使用 **`interests`**。
+ * 優先 **`skills_offer`**；若為空則退回 **`interests`**。
  */
 export function marketOffersFromUser(user: UserRow): string[] {
+  const fromSkills = normalizeTags(user.skills_offer);
+  if (fromSkills.length > 0) return fromSkills;
   return normalizeTags(user.interests);
 }
 
 /**
  * 由使用者列推算「技能市集」語意下的**想尋找的**標籤。
- * v1：與 {@link marketOffersFromUser} 同源（同一批興趣／技能標籤）；日後可改讀獨立欄位。
+ * 優先 **`skills_want`**；若為空則退回 **`interests`**。
  */
 export function marketWantsFromUser(user: UserRow): string[] {
+  const fromSkills = normalizeTags(user.skills_want);
+  if (fromSkills.length > 0) return fromSkills;
   return normalizeTags(user.interests);
 }
 

@@ -43,8 +43,12 @@ export interface Database {
           level: number;
           /** 最後上線／活躍時間（村莊排序用）；未上線可為 null */
           last_seen_at: string | null;
-          /** 興趣 slug 或標籤列表（雲端建議 `text[]` 或 jsonb，與型別一致） */
+          /** 興趣 slug 或標籤列表（雲端須為 **`text[]`**，勿用單一 `text`） */
           interests: string[] | null;
+          /** 可提供的技能／專長標籤（`text[]`）；市集「提供」優先於 `interests` */
+          skills_offer: string[] | null;
+          /** 想尋找的技能／共學標籤（`text[]`）；市集「想要」優先於 `interests` */
+          skills_want: string[] | null;
           /** IG 帳號（註冊時寫入；不含 @ 亦可） */
           instagram_handle: string | null;
           /** 是否在公會公開 IG（隱私開關） */
@@ -73,6 +77,8 @@ export interface Database {
           level?: number;
           last_seen_at?: string | null;
           interests?: string[] | null;
+          skills_offer?: string[] | null;
+          skills_want?: string[] | null;
           instagram_handle?: string | null;
           ig_public?: boolean;
           mood?: string | null;
@@ -97,6 +103,8 @@ export interface Database {
           level?: number;
           last_seen_at?: string | null;
           interests?: string[] | null;
+          skills_offer?: string[] | null;
+          skills_want?: string[] | null;
           instagram_handle?: string | null;
           ig_public?: boolean;
           mood?: string | null;

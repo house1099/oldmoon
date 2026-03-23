@@ -90,10 +90,10 @@ export async function completeAdventurerProfile(input: {
   const q = input.questionnaire;
 
   try {
+    // 註冊建檔不帶 `bio`：雲端欄位／schema 快取未齊時可避免 PostgREST 報「找不到 bio」；自介可於個人頁後補。
     await createProfile({
       id: user.id,
       nickname,
-      bio: null,
       core_values: input.coreValues,
       gender: q.gender,
       region: q.region,
@@ -122,7 +122,7 @@ export async function completeAdventurerProfile(input: {
       return {
         ok: false,
         error:
-          "資料庫欄位與程式不一致，請聯絡管理員檢查 users 表（含 bio、core_values）。",
+          "資料庫欄位與程式不一致。請在 Supabase 確認 **`public.users`** 欄位（含 **`interests` 須為 `text[]`**），並於 Dashboard → **Settings → API** 重新載入 **Schema** 後再試。",
       };
     }
     if (code === "23502") {
