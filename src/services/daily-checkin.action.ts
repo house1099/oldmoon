@@ -31,7 +31,6 @@ export async function claimDailyCheckin(): Promise<
   try {
     await insertExpLog({
       user_id: user.id,
-      delta_exp: 1,
       source: "daily_checkin",
       unique_key,
     });
@@ -42,7 +41,13 @@ export async function claimDailyCheckin(): Promise<
     ) {
       return { ok: false, error: DAILY_CHECKIN_ALREADY_TODAY };
     }
-    console.error("❌ 每日簽到失敗:", error);
+    console.error("❌ claimDailyCheckin — caught error:", error);
+    if (error && typeof error === "object") {
+      console.error(
+        "❌ claimDailyCheckin — serialized:",
+        JSON.stringify(error, Object.getOwnPropertyNames(error)),
+      );
+    }
     return { ok: false, error: "簽到失敗，請稍後再試。" };
   }
 

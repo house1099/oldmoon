@@ -1,8 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/types/database.types";
 
-export type ExpLogInsert = Database["public"]["Tables"]["exp_logs"]["Insert"];
 export type ExpLogRow = Database["public"]["Tables"]["exp_logs"]["Row"];
+
+/** 寫入 exp_logs 時僅傳業務鍵；**`delta_exp`** 交給 DB DEFAULT（簽到 +1 等）。 */
+export type ExpLogInsertPayload = Pick<
+  Database["public"]["Tables"]["exp_logs"]["Insert"],
+  "user_id" | "unique_key" | "source"
+>;
 
 /** 與 Postgres `23505` unique_violation 對應之業務訊息（Layer 3 可再包裝） */
 export const DUPLICATE_EXP_REWARD_MESSAGE = "你已經領取過這份獎勵了喵！";
@@ -36,7 +41,21 @@ export function isUniqueConstraintError(error: unknown): boolean {
  * Layer 2：寫入 exp_logs（admin client）。
  * 若觸發 unique_key 衝突（重複領獎），拋出 {@link DuplicateExpRewardError}。
  */
-export async function insertExpLog(data: ExpLogInsert): Promise<ExpLogRow> {
+function logSupabaseError(context: string, error: unknown) {
+  console.error(`❌ ${context} — raw error:`, error);
+  if (error && typeof error === "object") {
+    const o = error as Record<string, unknown>;
+    console.error(`❌ ${context} — keys:`, Object.keys(o));
+    console.error(
+      `❌ ${context} — serialized:`,
+      JSON.stringify(error, Object.getOwnPropertyNames(error as object)),
+    );
+  }
+}
+
+export async function insertExpLog(
+  data: ExpLogInsertPayload,
+): Promise<ExpLogRow> {
   const admin = createAdminClient();
   const { data: row, error } = await admin
     .from("exp_logs")
@@ -45,6 +64,7 @@ export async function insertExpLog(data: ExpLogInsert): Promise<ExpLogRow> {
     .single();
 
   if (error) {
+    logSupabaseError("insertExpLog", error);
     if (isUniqueConstraintError(error)) {
       throw new DuplicateExpRewardError();
     }

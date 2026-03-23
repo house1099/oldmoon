@@ -11,11 +11,10 @@ import {
 } from "@/components/auth/auth-styles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Eye, EyeOff, Hash, Instagram, Lock, Mail } from "lucide-react";
+import { Hash, Instagram, Lock, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { registerStep1Schema } from "@/lib/validation/register-step1";
 import { friendlyAuthErrorMessage } from "@/lib/utils/auth-errors";
-import { cn } from "@/lib/utils";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -26,7 +25,6 @@ export function RegisterForm() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -97,6 +95,12 @@ export function RegisterForm() {
     >
       <form onSubmit={onSubmit} className="flex flex-col gap-6">
         <div className="space-y-2">
+          <label
+            htmlFor="reg-email"
+            className="text-sm font-medium text-zinc-100"
+          >
+            Email
+          </label>
           <div className="relative">
             <Mail
               className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-zinc-500"
@@ -110,8 +114,7 @@ export function RegisterForm() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email"
-              aria-label="Email"
+              placeholder="adventurer@example.com"
               className={guildAuthInputClass}
               aria-invalid={Boolean(fieldErrors.email)}
             />
@@ -122,6 +125,12 @@ export function RegisterForm() {
         </div>
 
         <div className="space-y-2">
+          <label
+            htmlFor="reg-password"
+            className="text-sm font-medium text-zinc-100"
+          >
+            密碼
+          </label>
           <div className="relative">
             <Lock
               className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-zinc-500"
@@ -130,28 +139,15 @@ export function RegisterForm() {
             <Input
               id="reg-password"
               name="password"
-              type={showPassword ? "text" : "password"}
+              type="password"
               autoComplete="new-password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="密碼（至少 6 字，需含英文與數字）"
-              aria-label="密碼"
-              className={cn(guildAuthInputClass, "pr-12")}
+              placeholder="至少 6 字，需含英文與數字"
+              className={guildAuthInputClass}
               aria-invalid={Boolean(fieldErrors.password)}
             />
-            <button
-              type="button"
-              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-zinc-900/50 p-1.5 text-zinc-500 transition-colors hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-violet-500/60"
-              onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? "隱藏密碼" : "顯示密碼"}
-            >
-              {showPassword ? (
-                <EyeOff className="size-4 shrink-0" aria-hidden />
-              ) : (
-                <Eye className="size-4 shrink-0" aria-hidden />
-              )}
-            </button>
           </div>
           {fieldErrors.password ? (
             <p className="text-xs text-red-300">{fieldErrors.password}</p>

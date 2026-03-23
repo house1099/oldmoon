@@ -132,7 +132,8 @@ export interface Database {
         Insert: {
           id?: string;
           user_id: string;
-          delta_exp: number;
+          /** 省略時由資料庫 DEFAULT 補上（避免 PGRST204／快取與欄位不一致） */
+          delta_exp?: number;
           source: string;
           unique_key: string;
           metadata?: Json | null;

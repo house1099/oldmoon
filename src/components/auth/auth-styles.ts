@@ -14,9 +14,9 @@ export const guildAuthInputStandaloneClass = `${guildAuthInputBaseClass} px-4`;
 export const guildAuthPrimaryButtonClass =
   "min-h-[3.5rem] w-full rounded-full border border-zinc-700/90 bg-gradient-to-r from-zinc-800 to-zinc-700 py-6 text-base font-medium text-white shadow-lg transition hover:from-zinc-700 hover:to-zinc-600";
 
-/** Google 與 Input 同高（h-11）的淺色膠囊按鈕（白底＋彩色 G，辨識度最高） */
+/** Google 與 Input 同高（h-11）的淺色膠囊按鈕 */
 export const guildAuthOAuthButtonClass =
-  "flex h-11 w-full items-center justify-center gap-2.5 rounded-full border border-zinc-200/80 bg-white px-4 text-sm font-medium text-zinc-900 shadow-sm transition hover:bg-zinc-50";
+  "flex h-11 w-full items-center justify-center gap-2.5 rounded-full border-0 bg-zinc-100 px-4 text-sm font-medium text-zinc-900 shadow-sm transition hover:bg-white";
 
 /** SelectTrigger：與 Input 同級深色邊框與紫色 focus ring */
 export const guildAuthSelectTriggerClass =

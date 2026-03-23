@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DAILY_CHECKIN_ALREADY_TODAY } from "@/lib/constants/daily-checkin";
 import { claimDailyCheckin } from "@/services/daily-checkin.action";
@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   CalendarCheck,
+  Camera,
   ChevronRight,
   LogOut,
   PencilLine,
@@ -105,12 +106,13 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   const [igPublic, setIgPublic] = useState(profile.ig_public);
   const [mood, setMood] = useState(profile.mood ?? "");
   const [editOpen, setEditOpen] = useState(false);
-  const [confirmField, setConfirmField] = useState<
-    "mood" | "bio" | "ig" | null
-  >(null);
-  const [savingField, setSavingField] = useState<
-    "mood" | "bio" | "ig" | null
-  >(null);
+  const [confirmField, setConfirmField] = useState<"mood" | "bio" | null>(
+    null,
+  );
+  const [savingField, setSavingField] = useState<"mood" | "bio" | null>(null);
+  const [igSaving, setIgSaving] = useState(false);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [checkinLoading, setCheckinLoading] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
 
@@ -125,28 +127,84 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     const field = confirmField;
     setSavingField(field);
     try {
-      const payload =
-        field === "mood"
-          ? { mood }
-          : field === "bio"
-            ? { bio }
-            : { ig_public: igPublic };
+      const payload = field === "mood" ? { mood } : { bio };
       const result = await updateMyProfile(payload);
       if (result.ok === false) {
         toast.error(result.error);
         return;
       }
-      const msg =
-        field === "mood"
-          ? "今日心情已更新"
-          : field === "bio"
-            ? "自白已更新"
-            : "IG 公開設定已更新";
+      const msg = field === "mood" ? "今日心情已更新" : "自白已更新";
       toast.success(msg);
       setConfirmField(null);
       router.refresh();
     } finally {
       setSavingField(null);
+    }
+  }
+
+  async function onIgPublicChange(checked: boolean) {
+    const prev = igPublic;
+    setIgPublic(checked);
+    setIgSaving(true);
+    try {
+      const result = await updateMyProfile({ ig_public: checked });
+      if (result.ok === false) {
+        setIgPublic(prev);
+        toast.error(result.error);
+        return;
+      }
+      toast.success("IG 公開狀態已更新");
+      router.refresh();
+    } finally {
+      setIgSaving(false);
+    }
+  }
+
+  async function onAvatarFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("請選擇圖片檔案");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("圖片請小於 5MB");
+      return;
+    }
+    setAvatarBusy(true);
+    try {
+      const supabase = createClient();
+      const rawExt = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const ext =
+        rawExt.replace(/[^a-z0-9]/g, "").slice(0, 8) || "jpg";
+      const objectPath = `${profile.id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("avatars")
+        .upload(objectPath, file, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: file.type || "image/jpeg",
+        });
+      if (upErr) {
+        console.error("❌ avatars storage upload:", upErr);
+        toast.error(
+          upErr.message || "上傳失敗，請確認已建立 avatars bucket 與上傳權限",
+        );
+        return;
+      }
+      const { data: pub } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(objectPath);
+      const result = await updateMyProfile({ avatar_url: pub.publicUrl });
+      if (result.ok === false) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("大頭貼已更新");
+      router.refresh();
+    } finally {
+      setAvatarBusy(false);
     }
   }
 
@@ -199,23 +257,47 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         />
 
         <div className="relative flex w-full flex-col items-center gap-5 text-center">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => void onAvatarFileChange(e)}
+          />
           <div className="relative mx-auto">
             <div className="absolute -inset-2 rounded-full bg-gradient-to-tr from-cyan-400/35 via-violet-400/25 to-fuchsia-500/35 blur-lg" />
-            <div className="relative mx-auto size-32 overflow-hidden rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] sm:size-36">
-              {avatarSrc ? (
-                <Image
-                  src={avatarSrc}
-                  alt=""
-                  width={144}
-                  height={144}
-                  className="h-full w-full object-cover"
-                  unoptimized
-                />
-              ) : (
-                <span className="flex h-full w-full items-center justify-center bg-gradient-to-b from-zinc-600/50 to-zinc-950 font-serif text-3xl text-amber-50 sm:text-4xl">
-                  {initial}
-                </span>
-              )}
+            <div className="group relative mx-auto size-32 sm:size-36">
+              <div className="relative mx-auto size-32 overflow-hidden rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] ring-offset-2 ring-offset-zinc-950 transition-shadow group-hover:ring-2 group-hover:ring-violet-500/35 sm:size-36">
+                {avatarSrc ? (
+                  <Image
+                    src={avatarSrc}
+                    alt=""
+                    width={144}
+                    height={144}
+                    className="h-full w-full object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  <span className="flex h-full w-full items-center justify-center bg-gradient-to-b from-zinc-600/50 to-zinc-950 font-serif text-3xl text-amber-50 sm:text-4xl">
+                    {initial}
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                disabled={avatarBusy}
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute bottom-0 right-0 z-[2] flex size-10 items-center justify-center rounded-full border border-white/25 bg-zinc-950/85 text-violet-200 shadow-lg backdrop-blur-md transition hover:border-violet-400/40 hover:bg-violet-950/90 hover:text-white disabled:pointer-events-none disabled:opacity-50"
+                aria-label="上傳大頭貼"
+              >
+                {avatarBusy ? (
+                  <span className="text-[10px] font-medium text-zinc-200">
+                    …
+                  </span>
+                ) : (
+                  <Camera className="size-4 shrink-0" aria-hidden />
+                )}
+              </button>
             </div>
           </div>
 
@@ -267,7 +349,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               今日心情
             </AccordionTrigger>
             <AccordionContent className="px-2 text-zinc-200">
-              <div className="mt-2 rounded-2xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
+              <div className="mt-2 rounded-xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
                 {moodVisible ? (
                   <p>{profile.mood}</p>
                 ) : (
@@ -284,7 +366,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               自白
             </AccordionTrigger>
             <AccordionContent className="px-2 text-zinc-200">
-              <div className="mt-2 rounded-2xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
+              <div className="mt-2 rounded-xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
                 {profile.bio?.trim() ? (
                   <p>{profile.bio}</p>
                 ) : (
@@ -299,7 +381,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               信譽與紀錄
             </AccordionTrigger>
             <AccordionContent className="px-2 text-zinc-200">
-              <div className="mt-2 rounded-2xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
+              <div className="mt-2 rounded-xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
                 <p className="font-mono text-lg text-cyan-300 tabular-nums">
                   {rep.toLocaleString("zh-TW")}
                 </p>
@@ -319,7 +401,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               興趣與價值觀
             </AccordionTrigger>
             <AccordionContent className="px-2 text-zinc-200">
-              <div className="mt-2 rounded-2xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
+              <div className="mt-2 rounded-xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
                 <p className="text-xs uppercase tracking-wide text-zinc-500">
                   興趣標籤
                 </p>
@@ -407,7 +489,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           <DialogHeader className="border-b border-white/10 px-4 pb-3 pt-4">
             <DialogTitle className="text-zinc-100">修改冒險者資料</DialogTitle>
             <DialogDescription className="text-zinc-400">
-              各欄位請分別按下「確認修改」；會先詢問是否更新，再同步至公會名冊。
+              心情與自白請分別按下「確認修改」。IG 公開開關會立即同步名冊。
             </DialogDescription>
           </DialogHeader>
           <div className="flex max-h-[min(70vh,520px)] flex-col gap-5 overflow-y-auto px-4 py-4">
@@ -482,30 +564,19 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                     IG 狀態：{igPublic ? "已公開" : "不公開"}
                   </p>
                   <p className="text-xs text-zinc-500">
-                    公開時於公會名片顯示 IG（@
+                    切換後立即寫入資料庫（@
                     {profile.instagram_handle ?? "—"}）
                   </p>
                 </div>
                 <Switch
                   checked={igPublic}
-                  onCheckedChange={setIgPublic}
+                  onCheckedChange={(v) => void onIgPublicChange(v)}
+                  disabled={igSaving || Boolean(savingField)}
                   className="shrink-0 data-checked:bg-violet-600"
                   aria-label={
                     igPublic ? "IG 狀態：已公開" : "IG 狀態：不公開"
                   }
                 />
-              </div>
-              <div className="mt-3 flex justify-end border-t border-zinc-800/50 pt-3">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="rounded-full bg-zinc-800 px-4 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 hover:text-zinc-100"
-                  disabled={Boolean(savingField)}
-                  onClick={() => setConfirmField("ig")}
-                >
-                  確認修改
-                </Button>
               </div>
             </div>
           </div>
@@ -514,7 +585,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             <Button
               type="button"
               variant="outline"
-              className="mx-auto w-full max-w-full rounded-full border-white/15 py-6 text-zinc-100"
+              className="mx-auto max-w-[80%] border-white/15 text-zinc-100"
               onClick={() => setEditOpen(false)}
             >
               關閉

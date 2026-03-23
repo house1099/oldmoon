@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { UserCard } from "@/components/cards/UserCard";
 import { getAuthStatus } from "@/services/auth.service";
 import { getMarketUsers } from "@/services/market.service";
@@ -20,13 +19,6 @@ export default async function MarketPage() {
       <div className="mx-auto max-w-6xl">
         <header className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <Link
-              href="/"
-              className="mb-4 inline-flex items-center gap-2 text-sm text-violet-300/90 transition-colors hover:text-amber-200/95"
-            >
-              <ArrowLeft className="h-4 w-4" aria-hidden />
-              返回公會大廳
-            </Link>
             <div className="flex items-center gap-3">
               <span
                 className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-400/40 bg-slate-950/80 shadow-inner"

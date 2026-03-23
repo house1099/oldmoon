@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Heart, MapPin, Sparkles, UserRound } from "lucide-react";
+import { MapPin, Sparkles, UserRound } from "lucide-react";
 import {
   GENDER_OPTIONS,
   INTEREST_TAG_OPTIONS,
@@ -287,22 +287,19 @@ export function UserDetailModal({
               type="button"
               variant="secondary"
               className={cn(
-                "group h-11 min-h-[2.75rem] min-w-0 flex-1 gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition-transform active:scale-95",
+                "h-11 min-h-[2.75rem] min-w-0 flex-1 gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition-transform active:scale-95",
                 likedByMe
                   ? "border-rose-500/55 bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-lg shadow-rose-950/40 hover:from-rose-500 hover:to-rose-600"
                   : "border-amber-800/40 bg-rose-950/40 text-amber-50 hover:bg-rose-900/45",
               )}
               disabled={pending}
               onClick={onLoveButtonClick}
+              aria-label={likedByMe ? "已送出緣分，點擊可收回" : "送出緣分"}
             >
-              <Heart
-                className={cn(
-                  "size-4 shrink-0 transition-transform group-active:scale-95",
-                  likedByMe && "fill-current text-rose-100",
-                )}
-                aria-hidden
-              />
-              {likedByMe ? "已送出緣分" : "❤️ 送出緣分"}
+              <span className="text-base leading-none" aria-hidden>
+                {likedByMe ? "💖" : "🤍"}
+              </span>
+              <span>{likedByMe ? "已送出緣分" : "送出緣分"}</span>
             </Button>
           </div>
         </DialogFooter>

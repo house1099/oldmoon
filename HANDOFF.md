@@ -285,11 +285,15 @@ alter table public.users
 
 - **Layer 5**：**`src/app/(auth)/login/login-form.tsx`** 為登入表單實作；**`src/components/auth/login-form.tsx`** 為同名 **re-export** 方便索引。移除 Email／密碼外顯 **Label**，改 **Placeholder**＋**`aria-label`**；密碼欄 **`Eye`／`EyeOff`**（**`right-4`**）切換顯示，**`pr-12`** 保留膠囊 **`rounded-full`**。**`/(app)/page.tsx`** 頂部 **`pt-[max(3rem,env(safe-area-inset-top,0px))]`**（至少 **pt-12**，適配瀏海／動態島）。**`guild-profile-home`** 編輯 Modal 底部「關閉」**`max-w-[80%]`** 置中（**IG 已為 `Switch`**）。**`UserDetailModal`**：內文與底部按鈕共用 **`max-w-[min(100%,22rem)]`**（**`sm:max-w-full`** 與內容等寬延展）；緣分按鈕文案 **「💖 送出緣分」**／已送出 **「已送出緣分」**。
 
-### 2025-03-23 — 任務 10：膠囊美學與社交邏輯（視覺完工）
+### 2025-03-23 — 任務 11：IG 即時儲存、頭像上傳、簽到與列表體驗
 
-- **Layer 5 — Auth**：**`auth-styles.ts`** 之 **`guildAuthOAuthButtonClass`** 改為 **白底**（**`bg-white`**、`border-zinc-200/80`、`hover:bg-zinc-50`）＋左側 **標準 Google 彩色 G SVG**（登入表單內 **`GoogleMark`**）；**`login-form`** 密碼 **Eye／EyeOff** 按鈕加上 **`bg-zinc-900/50`**（**`right-4`**、輸入 **`pr-12`**）。**`register-form`**：Email／密碼 **移除外層 Label**，改 **Placeholder + `aria-label`**，密碼欄同登入之 **眼睛切換** 與微透底。
-- **Layer 5 — 個人頁**：**`guild-profile-home`** 編輯 Modal 維持 **今日心情 → 自白 → IG**；**IG** 列為 **`Switch` 並排**，左側文案隨狀態顯示 **「IG 狀態：已公開」／「IG 狀態：不公開」**；底部 **「關閉」** 改為與內容區同寬 **`w-full rounded-full`** 並置中。**Accordion** 內文外層統一 **`rounded-2xl border border-zinc-800/50 bg-zinc-900/50 p-4`**。
-- **Layer 5 — 名片 Modal**：**`UserDetailModal`** 底部 **`flex flex-row items-center justify-center gap-4 px-6 pb-8`**；左 **「💬 聊聊」** 膠囊（**`flex-1`**）點擊 **Sonner**：「即將開啟私訊功能喵！」；右 **「❤️ 送出緣分」**／已送出 **實心 Heart +「已送出緣分」**；若已送出再點擊先開 **AlertDialog**：「你確定要結束這段緣分嗎？」確認後收回（**`toggleLikeAction`**）。Footer 暫移除 **申請血盟** 占位鈕以符合並排雙鈕規格。
-- **Layer 5 — 首頁安全區**：**`src/app/(app)/page.tsx`** 維持 **`pt-[max(3rem,env(safe-area-inset-top,0px))]`**，適配 iPhone 瀏海／動態島。
+- **Layer 5 — `guild-profile-home.tsx`**：**IG `Switch`** 改為 **`onCheckedChange` 直接呼叫 `updateMyProfile({ ig_public })`**，**移除** IG 區塊 **[確認修改]**；成功 **`toast.success("IG 公開狀態已更新")`**，失敗還原開關並 **toast.error**。大頭貼區 **相機鈕**＋隱藏 **`input type="file"`**，以 **`createClient()`（`@supabase/ssr` browser）** 上傳至 Storage **`avatars`** 路徑 **`{userId}/{timestamp}.{ext}`**，**`getPublicUrl`** 後經 **`updateMyProfile({ avatar_url })`** 寫入 **`users.avatar_url`**（**HTTPS** 驗證）。雲端須已建 **`avatars`** bucket（建議 **Public**）並設定 **authenticated** 可 **upload** 之 **RLS／Policy**。
+- **Layer 5 — 極簡導覽**：**`/village`**、**`/market`** 移除左上角 **「返回公會大廳」**。**`UserCard`** 移除 **`HoverCard`**，整卡 **`role="button"`** 點擊開 **UserDetailModal**。
+- **Layer 5 — `UserDetailModal`**：左 **💬 聊聊**、右 **🤍 送出緣分**／**💖 已送出緣分**（emoji＋文字，無額外 Lucide 愛心）；已送出再點先 **AlertDialog**「你確定要結束這段緣分嗎？」。
+- **Layer 3 — `daily-checkin.action.ts`**：catch 時 **`console.error`** 印出完整錯誤與 **`JSON.stringify`**（含 **keys**）。
+- **Layer 2 — `exp.repository.ts`**：**`insertExpLog`** 僅接受 **`{ user_id, unique_key, source }`**（**`ExpLogInsertPayload`**），**不傳 `delta_exp`**，交給 DB **DEFAULT**；錯誤時 **`logSupabaseError`**。**`database.types.ts`** 之 **`exp_logs.Insert.delta_exp`** 改為**可選**。
+- **Layer 3 — `profile-update.action.ts`**：支援 **`avatar_url`**；失敗時加強 **`console.error`**。
 
-*最後更新：2025-03-23 — **任務 10**：Google 白膠囊、密碼眼睛微透底、註冊 Email／密碼極簡、IG Switch 狀態文案、Accordion **rounded-2xl**、UserDetailModal 聊聊／緣分並排與收回緣分防呆、首頁 **safe-area-top**。*
+**🗄️ 雲端建議**：若簽到 insert 報缺少 **`delta_exp`**，請為 **`public.exp_logs.delta_exp`** 設定 **DEFAULT**（例如 **`1`**）與既有 Trigger 一致。
+
+*最後更新：2025-03-23 — **任務 11**：IG 自動儲存、Storage 大頭貼、`insertExpLog` 精簡欄位與除錯日誌、移除返回／Hover、Modal 緣分 emoji 與收回防呆。*
