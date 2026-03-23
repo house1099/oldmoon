@@ -2,13 +2,26 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { claimDailyCheckin } from "@/services/daily-checkin.action";
 import { updateMyProfile } from "@/services/profile-update.action";
 import { createClient } from "@/lib/supabase/client";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
@@ -19,7 +32,7 @@ import { LEVEL_MIN_EXP_BY_LEVEL, getLevelTierByExp } from "@/lib/constants/level
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 
 const EDIT_FOCUS =
-  "guild-energy-focus focus-visible:border-cyan-400 focus-visible:ring-cyan-400";
+  "guild-energy-focus focus-visible:border-cyan-400 focus-visible:ring-cyan-400 text-zinc-100 placeholder:text-zinc-500";
 
 function formatRegisteredAt(iso: string): string {
   return new Intl.DateTimeFormat("zh-TW", {
@@ -74,9 +87,16 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   const [bio, setBio] = useState(profile.bio ?? "");
   const [igPublic, setIgPublic] = useState(profile.ig_public);
   const [mood, setMood] = useState(profile.mood ?? "");
+  const [editOpen, setEditOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [checkinLoading, setCheckinLoading] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
+
+  useEffect(() => {
+    setBio(profile.bio ?? "");
+    setIgPublic(profile.ig_public);
+    setMood(profile.mood ?? "");
+  }, [profile]);
 
   async function onSaveProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -92,6 +112,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         return;
       }
       toast.success("資料已同步至公會名冊");
+      setEditOpen(false);
       router.refresh();
     } finally {
       setSaving(false);
@@ -132,7 +153,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
 
   return (
     <main className="flex w-full flex-col gap-4">
-      <section className="glass-panel relative p-6 sm:p-7">
+      <section className="glass-panel relative p-5 sm:p-6">
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.06]"
           style={{
@@ -142,10 +163,10 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           aria-hidden
         />
 
-        <div className="relative flex w-full flex-col items-center gap-5 text-center">
+        <div className="relative flex w-full flex-col items-center gap-4 text-center">
           <div className="relative mx-auto">
             <div className="absolute -inset-1 rounded-full bg-gradient-to-tr from-cyan-400/40 via-slate-200/30 to-violet-500/40 blur-md" />
-            <div className="relative mx-auto size-28 overflow-hidden rounded-full border-2 border-slate-200/50 bg-gradient-to-b from-slate-800/80 to-black shadow-[inset_0_2px_12px_rgba(255,255,255,0.12)]">
+            <div className="relative mx-auto size-24 overflow-hidden rounded-full border-2 border-slate-200/50 bg-gradient-to-b from-slate-800/80 to-black shadow-[inset_0_2px_12px_rgba(255,255,255,0.12)] sm:size-28">
               {avatarSrc ? (
                 <Image
                   src={avatarSrc}
@@ -156,32 +177,32 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                   unoptimized
                 />
               ) : (
-                <span className="flex h-full w-full items-center justify-center bg-gradient-to-b from-slate-600/40 to-slate-900 font-serif text-3xl text-amber-50">
+                <span className="flex h-full w-full items-center justify-center bg-gradient-to-b from-slate-600/40 to-slate-900 font-serif text-2xl text-amber-50 sm:text-3xl">
                   {initial}
                 </span>
               )}
             </div>
           </div>
 
-          <div className="w-full space-y-2">
-            <p className="font-serif text-xl tracking-wide text-slate-50">
+          <div className="w-full space-y-1">
+            <p className="font-serif text-lg tracking-wide text-zinc-100 sm:text-xl">
               {profile.nickname}
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-2">
+            <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-zinc-100">
               <span
-                className="inline-flex items-center rounded-md border border-slate-200/40 bg-gradient-to-b from-slate-100/20 to-slate-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-slate-100 shadow-[0_0_16px_rgba(226,232,240,0.15)]"
+                className="inline-flex items-center rounded-md border border-slate-200/40 bg-gradient-to-b from-slate-100/20 to-slate-400/10 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-zinc-100"
                 title="等級徽章"
               >
                 Lv.{profile.level}
               </span>
-              <span className="text-sm text-violet-200/90">
+              <span className="text-violet-200/95">
                 {tier.symbol} {tier.title}
               </span>
             </div>
           </div>
 
-          <div className="w-full max-w-md space-y-1.5 text-left sm:text-center">
-            <div className="flex justify-between gap-2 text-xs text-slate-400 sm:justify-center sm:gap-6">
+          <div className="w-full max-w-md space-y-1.5">
+            <div className="flex justify-between gap-2 text-[11px] text-zinc-400 sm:text-xs">
               <span className="tabular-nums text-cyan-200/90">
                 total_exp {profile.total_exp.toLocaleString("zh-TW")}
               </span>
@@ -198,129 +219,121 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               />
             </div>
           </div>
-
-          <div className="grid w-full max-w-md grid-cols-2 gap-4 border-t border-white/10 pt-4 text-sm">
-            <div className="text-center">
-              <p className="text-xs uppercase tracking-wide text-slate-500">
-                信譽分數
-              </p>
-              <p className="mt-1 font-mono text-lg text-cyan-300 tabular-nums drop-shadow-[0_0_8px_rgba(34,211,238,0.35)]">
-                {rep.toLocaleString("zh-TW")}
-              </p>
-              <p className="mt-0.5 text-[0.65rem] text-slate-500">
-                Lv×1000 + total_exp
-              </p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs uppercase tracking-wide text-slate-500">
-                註冊時間
-              </p>
-              <p className="mt-1 text-slate-200">
-                {formatRegisteredAt(profile.created_at)}
-              </p>
-            </div>
-          </div>
-
-          <div className="w-full max-w-md rounded-xl border border-violet-500/20 bg-black/25 px-3 py-3 text-center backdrop-blur-sm">
-            <p className="text-xs font-medium uppercase tracking-wider text-violet-300/80">
-              每日心情
-            </p>
-            {moodVisible ? (
-              <p className="mt-1.5 text-sm leading-relaxed text-slate-200">
-                {profile.mood}
-              </p>
-            ) : (
-              <p className="mt-1.5 text-sm text-slate-400">
-                💭 今天還沒寫心情喵～
-              </p>
-            )}
-          </div>
         </div>
       </section>
 
-      <Tabs defaultValue="status" className="w-full gap-4">
-        <TabsList
-          variant="default"
-          className="glass-panel !grid h-auto w-full grid-cols-2 gap-1 !bg-black/30 p-1 [&_[data-slot=tabs-trigger]]:after:hidden"
-        >
-          <TabsTrigger
-            value="status"
-            className="min-h-10 rounded-lg data-active:border data-active:border-cyan-500/35 data-active:bg-cyan-950/40 data-active:text-cyan-100 data-active:shadow-[0_0_14px_rgba(34,211,238,0.18)]"
-          >
-            我的狀態
-          </TabsTrigger>
-          <TabsTrigger
-            value="edit"
-            className="min-h-10 rounded-lg data-active:border data-active:border-violet-500/35 data-active:bg-violet-950/40 data-active:text-violet-100 data-active:shadow-[0_0_14px_rgba(167,139,250,0.2)]"
-          >
-            修改資料
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="status" className="flex flex-col gap-5 pt-2">
-          <div className="rounded-xl border border-white/10 bg-black/20 p-4 backdrop-blur-sm">
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              自白
-            </p>
-            {profile.bio?.trim() ? (
-              <p className="mt-2 text-sm leading-relaxed text-slate-300">
-                {profile.bio}
-              </p>
-            ) : (
-              <p className="mt-2 text-sm text-slate-500">尚未寫下冒險宣言…</p>
-            )}
-          </div>
-
-          <div className="rounded-xl border border-white/10 bg-black/20 p-4 backdrop-blur-sm">
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-              標籤
-            </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {interestSlugs.length ? (
-                interestSlugs.map((slug) => (
-                  <span key={slug} className="tag-gold text-[0.7rem]">
-                    {interestLabel(slug)}
-                  </span>
-                ))
+      <section className="glass-panel overflow-hidden p-0">
+        <p className="border-b border-white/10 px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-400">
+          我的狀態
+        </p>
+        <Accordion className="px-2 pb-1">
+          <AccordionItem value="mood" className="border-white/10">
+            <AccordionTrigger className="px-2 text-zinc-100 hover:no-underline">
+              今日心情
+            </AccordionTrigger>
+            <AccordionContent className="px-2 text-zinc-200">
+              {moodVisible ? (
+                <p className="text-sm leading-relaxed">{profile.mood}</p>
               ) : (
-                <span className="text-xs text-slate-500">尚未標記</span>
+                <p className="text-sm text-zinc-500">
+                  💭 今天還沒寫心情喵～（可從「修改資料」補上）
+                </p>
               )}
-            </div>
-          </div>
+            </AccordionContent>
+          </AccordionItem>
 
-          {coreLabels.length ? (
-            <div className="rounded-xl border border-white/10 bg-black/20 p-4 backdrop-blur-sm">
-              <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                價值觀印記
+          <AccordionItem value="bio" className="border-white/10">
+            <AccordionTrigger className="px-2 text-zinc-100 hover:no-underline">
+              自白
+            </AccordionTrigger>
+            <AccordionContent className="px-2 text-zinc-200">
+              {profile.bio?.trim() ? (
+                <p className="text-sm leading-relaxed">{profile.bio}</p>
+              ) : (
+                <p className="text-sm text-zinc-500">尚未寫下冒險宣言…</p>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="rep" className="border-white/10">
+            <AccordionTrigger className="px-2 text-zinc-100 hover:no-underline">
+              信譽與紀錄
+            </AccordionTrigger>
+            <AccordionContent className="px-2 text-zinc-200">
+              <p className="font-mono text-lg text-cyan-300 tabular-nums">
+                {rep.toLocaleString("zh-TW")}
               </p>
-              <ul className="mt-2 space-y-1 text-left text-xs text-slate-300">
-                {coreLabels.map((label, i) => (
-                  <li key={i}>· {label}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
+              <p className="mt-1 text-xs text-zinc-500">Lv×1000 + total_exp</p>
+              <p className="mt-3 text-xs uppercase tracking-wide text-zinc-500">
+                註冊時間
+              </p>
+              <p className="text-sm text-zinc-200">
+                {formatRegisteredAt(profile.created_at)}
+              </p>
+            </AccordionContent>
+          </AccordionItem>
 
-          <Button
-            type="button"
-            size="lg"
-            disabled={checkinLoading}
-            onClick={onCheckin}
-            className="w-full border border-amber-200/30 bg-gradient-to-r from-amber-500/20 via-violet-600/25 to-cyan-600/20 text-amber-50 shadow-[0_0_24px_rgba(251,191,36,0.15)] hover:from-amber-400/30 hover:to-cyan-500/25"
-          >
-            {checkinLoading ? "⏳ 時空連線中..." : "每日簽到（+1 EXP）"}
-          </Button>
-        </TabsContent>
+          <AccordionItem value="tags" className="border-white/10 border-b-0">
+            <AccordionTrigger className="px-2 text-zinc-100 hover:no-underline">
+              興趣與價值觀
+            </AccordionTrigger>
+            <AccordionContent className="px-2 text-zinc-200">
+              <p className="text-xs uppercase tracking-wide text-zinc-500">
+                興趣標籤
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {interestSlugs.length ? (
+                  interestSlugs.map((slug) => (
+                    <span key={slug} className="tag-gold text-[0.7rem]">
+                      {interestLabel(slug)}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-zinc-500">尚未標記</span>
+                )}
+              </div>
+              {coreLabels.length ? (
+                <>
+                  <p className="mt-4 text-xs uppercase tracking-wide text-zinc-500">
+                    價值觀印記
+                  </p>
+                  <ul className="mt-2 space-y-1 text-left text-xs text-zinc-300">
+                    {coreLabels.map((label, i) => (
+                      <li key={i}>· {label}</li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      </section>
 
-        <TabsContent value="edit" className="space-y-4 pt-2">
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full border-violet-500/35 bg-violet-950/30 text-zinc-100 hover:bg-violet-950/45 hover:text-zinc-50"
+        onClick={() => setEditOpen(true)}
+      >
+        修改資料
+      </Button>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-h-[min(90vh,560px)] max-w-[calc(100%-2rem)] gap-0 overflow-hidden border-white/10 bg-zinc-950/98 p-0 text-zinc-100 sm:max-w-md">
+          <DialogHeader className="border-b border-white/10 px-4 pb-3 pt-4">
+            <DialogTitle className="text-zinc-100">修改冒險者資料</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              自介、IG 公開與今日心情；儲存後將同步至公會名冊。
+            </DialogDescription>
+          </DialogHeader>
           <form
             onSubmit={onSaveProfile}
-            className="space-y-4 rounded-xl border border-white/10 bg-black/25 p-4 backdrop-blur-sm"
+            className="flex max-h-[min(70vh,480px)] flex-col gap-4 overflow-y-auto px-4 py-4"
           >
             <div className="space-y-2">
               <label
                 htmlFor="profile-bio"
-                className="text-sm font-medium text-slate-200"
+                className="text-sm font-medium text-zinc-100"
               >
                 自白
               </label>
@@ -333,10 +346,10 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                 rows={5}
                 className={EDIT_FOCUS}
               />
-              <p className="text-xs text-slate-500">{bio.length}/500</p>
+              <p className="text-xs text-zinc-500">{bio.length}/500</p>
             </div>
 
-            <div className="flex items-start gap-3 rounded-lg border border-cyan-500/20 bg-cyan-950/15 px-3 py-3">
+            <div className="flex items-start gap-3 rounded-lg border border-cyan-500/25 bg-cyan-950/20 px-3 py-3">
               <input
                 id="profile-ig-public"
                 type="checkbox"
@@ -346,11 +359,12 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               />
               <label
                 htmlFor="profile-ig-public"
-                className="cursor-pointer text-left text-sm text-slate-100"
+                className="cursor-pointer text-left text-sm text-zinc-100"
               >
                 <span className="font-medium">IG 公開顯示</span>
-                <span className="mt-0.5 block text-xs text-slate-500">
-                  開啟後於公會名片揭露 IG（@{profile.instagram_handle ?? "—"}）
+                <span className="mt-0.5 block text-xs text-zinc-500">
+                  開啟後於公會名片揭露 IG（@
+                  {profile.instagram_handle ?? "—"}）
                 </span>
               </label>
             </div>
@@ -358,7 +372,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             <div className="space-y-2">
               <label
                 htmlFor="profile-mood"
-                className="text-sm font-medium text-slate-200"
+                className="text-sm font-medium text-zinc-100"
               >
                 今日心情
               </label>
@@ -371,27 +385,47 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                 rows={3}
                 className={EDIT_FOCUS}
               />
-              <p className="text-xs text-slate-500">
-                儲存後 24 小時內會顯示在頂部「每日心情」
+              <p className="text-xs text-zinc-500">
+                儲存後 24 小時內會顯示在「今日心情」
               </p>
             </div>
 
-            <Button
-              type="submit"
-              className="w-full border border-violet-400/30 bg-violet-950/40 shadow-[0_0_20px_rgba(139,92,246,0.2)]"
-              disabled={saving}
-            >
-              {saving ? "⏳ 時空連線中..." : "儲存變更"}
-            </Button>
+            <DialogFooter className="flex-col gap-2 border-t border-white/10 bg-black/20 px-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:flex-row">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-white/15 text-zinc-100 sm:w-auto"
+                onClick={() => setEditOpen(false)}
+              >
+                取消
+              </Button>
+              <Button
+                type="submit"
+                className="w-full border-violet-500/35 bg-violet-950/50 text-zinc-100 sm:w-auto"
+                disabled={saving}
+              >
+                {saving ? "⏳ 同步中…" : "儲存變更"}
+              </Button>
+            </DialogFooter>
           </form>
-        </TabsContent>
-      </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      <Button
+        type="button"
+        size="lg"
+        disabled={checkinLoading}
+        onClick={onCheckin}
+        className="w-full border border-amber-200/30 bg-gradient-to-r from-amber-500/20 via-violet-600/25 to-cyan-600/20 text-zinc-100 shadow-[0_0_24px_rgba(251,191,36,0.15)] hover:from-amber-400/30 hover:to-cyan-500/25"
+      >
+        {checkinLoading ? "⏳ 時空連線中..." : "每日簽到（+1 EXP）"}
+      </Button>
 
       <Button
         type="button"
         variant="outline"
         className={cn(
-          "w-full border-red-500/35 bg-red-950/20 text-red-100 hover:bg-red-950/35 hover:text-red-50",
+          "w-full border-red-500/35 bg-red-950/20 text-zinc-100 hover:bg-red-950/35 hover:text-zinc-50",
         )}
         disabled={logoutLoading}
         onClick={onLogout}

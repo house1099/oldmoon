@@ -99,7 +99,7 @@ export function LoginForm() {
     >
       {banned ? (
         <p
-          className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          className="rounded-lg border border-red-500/45 bg-red-950/40 px-3 py-2 text-sm text-zinc-100"
           role="alert"
         >
           你的帳號已被放逐，無法進入公會。如有疑問請聯絡管理員。
@@ -107,19 +107,19 @@ export function LoginForm() {
       ) : null}
       {authError ? (
         <p
-          className="mb-4 rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"
+          className="rounded-lg border border-amber-500/40 bg-amber-950/35 px-3 py-2 text-sm text-zinc-100"
           role="alert"
         >
           第三方登入未完成或已取消，請再試一次。
         </p>
       ) : null}
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         <Button
           type="button"
           size="lg"
           className={cn(
-            "btn-guild-metal h-10 w-full disabled:opacity-70",
+            "btn-guild-metal h-10 w-full text-zinc-100 disabled:opacity-70",
             oauthLoading &&
               "relative overflow-hidden before:pointer-events-none before:absolute before:inset-0 before:animate-pulse before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent",
           )}
@@ -129,19 +129,19 @@ export function LoginForm() {
           {oauthLoading ? "⏳ 時空連線中..." : "使用 Google 登入"}
         </Button>
 
-        <div className="relative py-1 text-center text-xs text-muted-foreground">
-          <span className="relative z-[1] bg-card px-2">或使用 Email</span>
+        <div className="relative py-0.5 text-center text-xs text-zinc-400">
+          <span className="relative z-[1] bg-black/50 px-2">或使用 Email</span>
           <span
-            className="absolute left-0 right-0 top-1/2 z-0 h-px -translate-y-1/2 bg-border"
+            className="absolute left-0 right-0 top-1/2 z-0 h-px -translate-y-1/2 bg-white/15"
             aria-hidden
           />
         </div>
 
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <form onSubmit={onSubmit} className="flex flex-col gap-3">
           <div className="space-y-2">
             <label
               htmlFor="email"
-              className="text-sm font-medium text-foreground"
+              className="text-sm font-medium text-zinc-100"
             >
               Email
             </label>
@@ -154,13 +154,13 @@ export function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="adventurer@example.com"
-              className="guild-energy-focus rounded-xl"
+              className="guild-energy-focus rounded-xl text-zinc-100 placeholder:text-zinc-500"
             />
           </div>
           <div className="space-y-2">
             <label
               htmlFor="password"
-              className="text-sm font-medium text-foreground"
+              className="text-sm font-medium text-zinc-100"
             >
               密碼
             </label>
@@ -173,10 +173,10 @@ export function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="guild-energy-focus rounded-xl"
+              className="guild-energy-focus rounded-xl text-zinc-100 placeholder:text-zinc-500"
             />
           </div>
-          <div className="flex items-start gap-3 rounded-xl border border-violet-500/25 bg-violet-950/20 px-3 py-2.5 transition-colors hover:border-violet-400/35 hover:bg-violet-950/30">
+          <div className="flex items-start gap-3 rounded-xl border border-violet-500/30 bg-violet-950/25 px-3 py-2.5 transition-colors hover:border-violet-400/40 hover:bg-violet-950/35">
             <input
               id="remember-me"
               type="checkbox"
@@ -184,9 +184,9 @@ export function LoginForm() {
               onChange={(e) => setRememberMe(e.target.checked)}
               className="mt-0.5 h-4 w-4 shrink-0 rounded border-violet-500/60 bg-background text-violet-600 accent-violet-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
             />
-            <label htmlFor="remember-me" className="cursor-pointer text-sm text-foreground">
+            <label htmlFor="remember-me" className="cursor-pointer text-sm text-zinc-100">
               <span className="font-medium">記住我的冒險者身分</span>
-              <span className="mt-0.5 block text-xs text-muted-foreground">
+              <span className="mt-0.5 block text-xs text-zinc-400">
                 僅在此裝置記住 Email，密碼不會被儲存
               </span>
             </label>
@@ -194,7 +194,7 @@ export function LoginForm() {
           <Button
             type="submit"
             className={cn(
-              "btn-guild-metal mt-2 h-10 w-full",
+              "btn-guild-metal mt-1 h-10 w-full text-zinc-100",
               loading &&
                 "relative overflow-hidden before:pointer-events-none before:absolute before:inset-0 before:animate-pulse before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent",
             )}
@@ -206,11 +206,11 @@ export function LoginForm() {
         </form>
       </div>
 
-      <p className="mt-6 text-center text-sm text-muted-foreground">
+      <p className="border-t border-white/10 pt-4 text-center text-sm text-zinc-300">
         尚未成為冒險者？{" "}
         <Link
           href="/register"
-          className="font-medium text-violet-300 underline-offset-4 hover:text-violet-200 hover:underline"
+          className="font-medium text-zinc-100 underline decoration-violet-400/80 underline-offset-4 hover:decoration-violet-300"
         >
           建立帳號
         </Link>

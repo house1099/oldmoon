@@ -94,7 +94,7 @@
 |------|------|
 | ✅ 已接線 | Layer 2 **`findActiveUsers`**、**`findMarketUsers`**（語意分域，內容同活躍列表） |
 | ✅ 已接線 | Layer 3 **`getVillageUsers`**：依與自己的 **`interests` 重疊數**排序，同分 **`last_seen_at`** |
-| ✅ 已接線 | Layer 3 **`getMarketUsers`**、**`evaluatePerfectMatch`**：**我想要的∩他提供的** 與 **他想要的∩我提供的** 皆非空 → **`isPerfectMatch`**；市集優先讀 **`skills_want`／`skills_offer`**，空則退回 **`interests`** |
+| ✅ 已接線 | Layer 3 **`getMarketUsers`**、**`evaluatePerfectMatch`**：**我想要的∩他提供的** 與 **他想要的∩我提供的** 皆非空 → **`isPerfectMatch`**；市集僅以 **`skills_want`／`skills_offer`** 計算（**不**退回 `interests`） |
 | ✅ 已接線 | Layer 5 **`/village`**、**`/market`**；**`UserCard`**（**`tag-gold`**、**`LevelFrame`**、**`hover-card`**；市集 **Perfect Match** 時 **白金外環**） |
 | ✅ 交接確認 | **`users`** 須 **`interests` 為 `text[]`**，並建議具 **`bio`**、**`skills_offer`**、**`skills_want`**（見 🗄️）；DDL 後必要時 **重載 API Schema** |
 
@@ -119,7 +119,7 @@
 1. 未登入造訪受保護路由 → Middleware → `/login`（可帶 `next=`）。
 2. `/register` 註冊後（視專案是否開信箱驗證）→ 導向 `/register/profile` 補 **nickname + 問卷**（OAuth 若無 IG metadata，同頁 **動態補填 IG**）。
 3. `completeAdventurerProfile` 以 **admin client** 寫入 `users`（**不帶 `bio`**；**`instagram_handle`** metadata 優先）；**`bio`** 於個人頁 **`profile-update`** 填寫。失敗時 **`console.error("❌ 伺服器寫入失敗詳細原因:", error)`**。
-4. Profile 就緒後 → 首頁 `src/app/(app)/page.tsx` 載入 **`GuildProfileHome`**（頭像首字、等級、`total_exp` 進度條、信譽、心情、Tabs「我的狀態／修改資料」、簽到、登出）。
+4. Profile 就緒後 → 首頁 `src/app/(app)/page.tsx` 載入 **`GuildProfileHome`**（精簡頭像卡＋等級進度；**Accordion** 收合「今日心情／自白／信譽與紀錄／興趣與價值觀」；**「修改資料」** 改為 **Dialog Modal** 編輯自介／IG 公開／心情；簽到、登出；頁面容器 **`pb-32` + `safe-area-inset-bottom`** 防 Navbar 遮擋）。
 
 ### Admin／環境
 
@@ -145,7 +145,10 @@
 
 - [x] `.cursorrules`、`HANDOFF.md`、`.env.example`
 - [x] Next.js 14（App Router、TS、Tailwind v3、ESLint、`src/`）
-- [x] 套件：Supabase、`zustand`、`zod`、`lucide-react`、shadcn（button、input、dialog、sonner、**select**、**tabs**、**textarea**）
+- [x] 套件：Supabase、`zustand`、`zod`、`lucide-react`、shadcn（button、input、dialog、sonner、**select**、**tabs**、**textarea**、**accordion**）
+- [x] **PWA（standalone）**：根目錄 **`public/manifest.json`**（**`display": "standalone"`**、`start_url` **`/`**、`theme_color` **`#000000`**；圖示暫用 **`/favicon.ico`**，可另補 192／512 PNG）；**`src/app/layout.tsx`** 設 **`metadata.manifest: "/manifest.json"`**、**`appleWebApp`**（**`capable: true`**、**`statusBarStyle: "black-translucent"`**）、**`viewport.themeColor`** 與 manifest 對齊；**`middleware`** 放行 **`/manifest.json`** 免被 Session 擋下。
+- [x] **Auth UI（單一面板）**：**`GuildAuthShell`** 將標題與表單收進**同一 `.glass-panel`**；登入／註冊表單 **Label／Input／Button** 統一 **高對比 `text-zinc-100`**，動線集中、減少上下留白分離。
+- [x] **個人頁 V1 風格**：**`guild-profile-home.tsx`** 改 **Accordion + Dialog**（移除 Tabs）；首頁容器 **`pb-[max(8rem,calc(8rem+env(safe-area-inset-bottom,0px)))]`**。
 - [x] `src/types/database.types.ts`（`users`：問卷 + **`bio`**、**`core_values`**、**`skills_offer`**、**`skills_want`**、**`instagram_handle`**、**`ig_public`**、**`mood`**、**`mood_at`**、**`total_exp`**、**`level`**、**`status`**、**`last_seen_at`**、**`interests`**；**`likes`**、**`alliances`**、`exp_logs` 等）
 - [x] `src/lib/constants/levels.ts`（稱號與 EXP 門檻 — 見下方 **SSOT**）
 - [x] `src/lib/constants/adventurer-questionnaire.ts`（問卷英文 value／繁中 label）

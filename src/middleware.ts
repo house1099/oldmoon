@@ -15,6 +15,7 @@ function isApiOrStatic(pathname: string) {
     pathname.startsWith("/static/") ||
     pathname === "/static" ||
     pathname === "/favicon.ico" ||
+    pathname === "/manifest.json" ||
     /\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?)$/.test(pathname)
   );
 }

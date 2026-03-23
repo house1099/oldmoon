@@ -1,0 +1,19 @@
+{
+  "name": "月老事務所：傳奇公會",
+  "short_name": "傳奇公會",
+  "description": "冒險者社交與公會 PWA 體驗",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#000000",
+  "background_color": "#000000",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon",
+      "purpose": "any"
+    }
+  ]
+}

@@ -88,11 +88,11 @@ export function RegisterForm() {
       title="加入傳奇公會"
       subtitle="註冊後將引導你補上冒險者名冊"
     >
-      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <form onSubmit={onSubmit} className="flex flex-col gap-3">
         <div className="space-y-2">
           <label
             htmlFor="reg-email"
-            className="text-sm font-medium text-foreground"
+            className="text-sm font-medium text-zinc-100"
           >
             Email
           </label>
@@ -105,18 +105,18 @@ export function RegisterForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="adventurer@example.com"
-            className="guild-energy-focus rounded-xl"
+            className="guild-energy-focus rounded-xl text-zinc-100 placeholder:text-zinc-500"
             aria-invalid={Boolean(fieldErrors.email)}
           />
           {fieldErrors.email ? (
-            <p className="text-xs text-destructive">{fieldErrors.email}</p>
+            <p className="text-xs text-red-300">{fieldErrors.email}</p>
           ) : null}
         </div>
 
         <div className="space-y-2">
           <label
             htmlFor="reg-password"
-            className="text-sm font-medium text-foreground"
+            className="text-sm font-medium text-zinc-100"
           >
             密碼
           </label>
@@ -129,13 +129,13 @@ export function RegisterForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="至少 6 字，需含英文與數字"
-            className="guild-energy-focus rounded-xl"
+            className="guild-energy-focus rounded-xl text-zinc-100 placeholder:text-zinc-500"
             aria-invalid={Boolean(fieldErrors.password)}
           />
           {fieldErrors.password ? (
-            <p className="text-xs text-destructive">{fieldErrors.password}</p>
+            <p className="text-xs text-red-300">{fieldErrors.password}</p>
           ) : (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-zinc-400">
               至少 6 字元，且需同時包含英文字母與數字
             </p>
           )}
@@ -144,7 +144,7 @@ export function RegisterForm() {
         <div className="space-y-2">
           <label
             htmlFor="reg-ig"
-            className="text-sm font-medium text-foreground"
+            className="text-sm font-medium text-zinc-100"
           >
             IG 帳號
           </label>
@@ -157,18 +157,18 @@ export function RegisterForm() {
             value={instagram}
             onChange={(e) => setInstagram(e.target.value)}
             placeholder="不含空白，例：oldmoon.guild"
-            className="guild-energy-focus rounded-xl"
+            className="guild-energy-focus rounded-xl text-zinc-100 placeholder:text-zinc-500"
             aria-invalid={Boolean(fieldErrors.instagram)}
           />
           {fieldErrors.instagram ? (
-            <p className="text-xs text-destructive">{fieldErrors.instagram}</p>
+            <p className="text-xs text-red-300">{fieldErrors.instagram}</p>
           ) : null}
         </div>
 
         <div className="space-y-2">
           <label
             htmlFor="reg-invite"
-            className="text-sm font-medium text-foreground"
+            className="text-sm font-medium text-zinc-100"
           >
             邀請碼（選填）
           </label>
@@ -179,11 +179,11 @@ export function RegisterForm() {
             value={inviteCode}
             onChange={(e) => setInviteCode(e.target.value)}
             placeholder="目前僅留存紀錄，無額外效果"
-            className="guild-energy-focus rounded-xl"
+            className="guild-energy-focus rounded-xl text-zinc-100 placeholder:text-zinc-500"
           />
         </div>
 
-        <div className="flex items-start gap-3 rounded-xl border border-violet-500/25 bg-violet-950/20 px-3 py-2.5 transition-colors hover:border-violet-400/35 hover:bg-violet-950/30">
+        <div className="flex items-start gap-3 rounded-xl border border-violet-500/30 bg-violet-950/25 px-3 py-2.5 transition-colors hover:border-violet-400/40 hover:bg-violet-950/35">
           <input
             id="reg-terms"
             type="checkbox"
@@ -192,20 +192,20 @@ export function RegisterForm() {
             className="mt-0.5 h-4 w-4 shrink-0 rounded border-violet-500/60 bg-background accent-violet-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
             aria-invalid={Boolean(fieldErrors.termsAccepted)}
           />
-          <label htmlFor="reg-terms" className="cursor-pointer text-sm text-foreground">
+          <label htmlFor="reg-terms" className="cursor-pointer text-sm text-zinc-100">
             <span className="font-medium">同意冒險者公會使用條款</span>
-            <span className="mt-0.5 block text-xs text-muted-foreground">
+            <span className="mt-0.5 block text-xs text-zinc-400">
               必須勾選才能建立誓約帳號
             </span>
           </label>
         </div>
         {fieldErrors.termsAccepted ? (
-          <p className="text-xs text-destructive">{fieldErrors.termsAccepted}</p>
+          <p className="text-xs text-red-300">{fieldErrors.termsAccepted}</p>
         ) : null}
 
         <Button
           type="submit"
-          className="btn-guild-metal mt-2 h-10 w-full"
+          className="btn-guild-metal mt-1 h-10 w-full text-zinc-100"
           size="lg"
           disabled={loading}
         >
@@ -213,11 +213,11 @@ export function RegisterForm() {
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-muted-foreground">
+      <p className="border-t border-white/10 pt-4 text-center text-sm text-zinc-300">
         已有帳號？{" "}
         <Link
           href="/login"
-          className="font-medium text-violet-300 underline-offset-4 hover:text-violet-200 hover:underline"
+          className="font-medium text-zinc-100 underline decoration-violet-400/80 underline-offset-4 hover:decoration-violet-300"
         >
           回到登入
         </Link>

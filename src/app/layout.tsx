@@ -12,6 +12,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "傳奇公會",
   description: "月老事務所：傳奇公會 — 冒險者社交與 PWA 體驗",
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#020617",
+  themeColor: "#000000",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
