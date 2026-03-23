@@ -7,7 +7,7 @@ import { completeAdventurerProfile } from "@/services/adventurer-profile.action"
 import { GuildAuthShell } from "@/components/auth/guild-auth-shell";
 import {
   guildAuthFieldErrorClass,
-  guildAuthInputClass,
+  guildAuthInputStandaloneClass,
   guildAuthPrimaryButtonClass,
   guildAuthSelectContentClass,
   guildAuthSelectTriggerClass,
@@ -234,7 +234,7 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
                 placeholder="在公會使用的稱呼"
                 maxLength={32}
                 className={cn(
-                  guildAuthInputClass,
+                  guildAuthInputStandaloneClass,
                   nicknameError &&
                     "border-red-500/50 focus-visible:ring-red-500/40",
                 )}
@@ -277,7 +277,7 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
                   }}
                   placeholder="不含空白，例：oldmoon.guild"
                   className={cn(
-                    guildAuthInputClass,
+                    guildAuthInputStandaloneClass,
                     instagramError &&
                       "border-red-500/50 focus-visible:ring-red-500/40",
                   )}

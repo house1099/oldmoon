@@ -13,7 +13,6 @@ import {
   getLikeStatusForTargetAction,
   toggleLikeAction,
 } from "@/services/social.action";
-import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -59,14 +58,14 @@ function TagBlock({
 }) {
   const list = slugs.filter(Boolean);
   return (
-    <div>
+    <div className="rounded-xl border border-amber-900/25 bg-zinc-950/40 p-4">
       <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-violet-400/85">
         {title}
       </p>
       {list.length === 0 ? (
         <p className="text-xs text-muted-foreground">尚無標籤</p>
       ) : (
-        <ul className="flex flex-wrap gap-1.5">
+        <ul className="flex flex-wrap gap-3">
           {list.map((tag) => (
             <li key={tag}>
               <span className="tag-gold">{tagLabel(tag)}</span>
@@ -152,27 +151,25 @@ export function UserDetailModal({
       >
         <DialogHeader className="relative border-b border-amber-900/35 bg-zinc-950/95 px-4 pb-4 pt-5">
           <div className="flex gap-4 pr-8">
-            <div className="relative w-[4.5rem] shrink-0 overflow-hidden rounded-xl border border-amber-800/45 bg-slate-900/90">
-              <AspectRatio ratio={1}>
-                {user.avatar_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- 頭像可能為任意 HTTPS 網址
-                  <img
-                    src={user.avatar_url}
-                    alt=""
-                    className="absolute inset-0 h-full w-full object-cover"
+            <div className="relative aspect-square size-[4.5rem] shrink-0 overflow-hidden rounded-full border-2 border-zinc-800 bg-slate-900/90">
+              {user.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element -- 頭像可能為任意 HTTPS 網址
+                <img
+                  src={user.avatar_url}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-slate-900">
+                  <UserRound
+                    className="h-10 w-10 text-amber-200/60"
+                    aria-hidden
                   />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
-                    <UserRound
-                      className="h-10 w-10 text-amber-200/60"
-                      aria-hidden
-                    />
-                  </div>
-                )}
-              </AspectRatio>
+                </div>
+              )}
               <span
                 className={cn(
-                  "absolute bottom-1 right-1 h-2.5 w-2.5 rounded-full ring-2 ring-slate-950",
+                  "absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-zinc-950",
                   active ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.85)]" : "bg-slate-600",
                 )}
                 title={active ? "近期活躍" : "離線或未更新活躍狀態"}
@@ -236,17 +233,19 @@ export function UserDetailModal({
 
           <Separator className="bg-amber-900/35" />
 
-          <TagBlock title="興趣" slugs={user.interests ?? []} />
-          <TagBlock title="可提供的技能" slugs={user.skills_offer ?? []} />
-          <TagBlock title="想尋找的共學" slugs={user.skills_want ?? []} />
+          <div className="flex flex-col gap-3">
+            <TagBlock title="興趣" slugs={user.interests ?? []} />
+            <TagBlock title="可提供的技能" slugs={user.skills_offer ?? []} />
+            <TagBlock title="想尋找的共學" slugs={user.skills_want ?? []} />
+          </div>
         </div>
 
-        <DialogFooter className="border-t border-amber-900/35 bg-zinc-950 px-4 py-3 sm:flex-row sm:justify-stretch sm:gap-2">
+        <DialogFooter className="flex flex-col gap-3 border-t border-amber-900/35 bg-zinc-950 px-4 py-4 sm:flex-row sm:justify-stretch">
           <Button
             type="button"
             variant="secondary"
             className={cn(
-              "flex-1 gap-2 rounded-2xl border font-medium transition",
+              "group flex-1 gap-2 rounded-full border px-5 py-2.5 font-medium transition-transform active:scale-95",
               likedByMe
                 ? "border-rose-500/55 bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-lg shadow-rose-950/40 hover:from-rose-500 hover:to-rose-600"
                 : "border-amber-800/40 bg-rose-950/40 text-amber-50 hover:bg-rose-900/45",
@@ -256,7 +255,7 @@ export function UserDetailModal({
           >
             <Heart
               className={cn(
-                "size-4 shrink-0 transition",
+                "size-4 shrink-0 transition-transform group-active:scale-95",
                 likedByMe && "fill-current text-rose-100",
               )}
               aria-hidden
@@ -270,7 +269,7 @@ export function UserDetailModal({
             <Button
               type="button"
               variant="outline"
-              className="w-full border-rose-900/50 text-rose-200/90"
+              className="w-full rounded-full border-rose-900/50 px-5 py-2.5 text-rose-200/90"
               disabled
             >
               🩸 申請血盟

@@ -11,6 +11,7 @@ import {
 } from "@/components/auth/auth-styles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Hash, Instagram, Lock, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { registerStep1Schema } from "@/lib/validation/register-step1";
 import { friendlyAuthErrorMessage } from "@/lib/utils/auth-errors";
@@ -100,18 +101,24 @@ export function RegisterForm() {
           >
             Email
           </label>
-          <Input
-            id="reg-email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="adventurer@example.com"
-            className={guildAuthInputClass}
-            aria-invalid={Boolean(fieldErrors.email)}
-          />
+          <div className="relative">
+            <Mail
+              className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-zinc-500"
+              aria-hidden
+            />
+            <Input
+              id="reg-email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="adventurer@example.com"
+              className={guildAuthInputClass}
+              aria-invalid={Boolean(fieldErrors.email)}
+            />
+          </div>
           {fieldErrors.email ? (
             <p className="text-xs text-red-300">{fieldErrors.email}</p>
           ) : null}
@@ -124,18 +131,24 @@ export function RegisterForm() {
           >
             密碼
           </label>
-          <Input
-            id="reg-password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="至少 6 字，需含英文與數字"
-            className={guildAuthInputClass}
-            aria-invalid={Boolean(fieldErrors.password)}
-          />
+          <div className="relative">
+            <Lock
+              className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-zinc-500"
+              aria-hidden
+            />
+            <Input
+              id="reg-password"
+              name="password"
+              type="password"
+              autoComplete="new-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="至少 6 字，需含英文與數字"
+              className={guildAuthInputClass}
+              aria-invalid={Boolean(fieldErrors.password)}
+            />
+          </div>
           {fieldErrors.password ? (
             <p className="text-xs text-red-300">{fieldErrors.password}</p>
           ) : (
@@ -152,18 +165,24 @@ export function RegisterForm() {
           >
             IG 帳號
           </label>
-          <Input
-            id="reg-ig"
-            name="instagram"
-            type="text"
-            autoComplete="username"
-            required
-            value={instagram}
-            onChange={(e) => setInstagram(e.target.value)}
-            placeholder="不含空白，例：oldmoon.guild"
-            className={guildAuthInputClass}
-            aria-invalid={Boolean(fieldErrors.instagram)}
-          />
+          <div className="relative">
+            <Instagram
+              className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-zinc-500"
+              aria-hidden
+            />
+            <Input
+              id="reg-ig"
+              name="instagram"
+              type="text"
+              autoComplete="username"
+              required
+              value={instagram}
+              onChange={(e) => setInstagram(e.target.value)}
+              placeholder="不含空白，例：oldmoon.guild"
+              className={guildAuthInputClass}
+              aria-invalid={Boolean(fieldErrors.instagram)}
+            />
+          </div>
           {fieldErrors.instagram ? (
             <p className="text-xs text-red-300">{fieldErrors.instagram}</p>
           ) : null}
@@ -176,15 +195,21 @@ export function RegisterForm() {
           >
             邀請碼（選填）
           </label>
-          <Input
-            id="reg-invite"
-            name="inviteCode"
-            type="text"
-            value={inviteCode}
-            onChange={(e) => setInviteCode(e.target.value)}
-            placeholder="目前僅留存紀錄，無額外效果"
-            className={guildAuthInputClass}
-          />
+          <div className="relative">
+            <Hash
+              className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-zinc-500"
+              aria-hidden
+            />
+            <Input
+              id="reg-invite"
+              name="inviteCode"
+              type="text"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              placeholder="目前僅留存紀錄，無額外效果"
+              className={guildAuthInputClass}
+            />
+          </div>
         </div>
 
         <div className="flex items-start gap-3 rounded-xl border border-violet-500/30 bg-violet-950/25 px-3 py-2.5 transition-colors hover:border-violet-400/40 hover:bg-violet-950/35">

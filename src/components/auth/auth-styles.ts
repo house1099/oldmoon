@@ -1,14 +1,22 @@
 /**
  * Layer 5：認證表單共用樣式（與 GuildAuthShell 搭配）。
+ * 膠囊輸入：rounded-full、半透明底、placeholder 層次。
  */
-export const guildAuthInputClass =
-  "h-11 w-full rounded-xl border border-zinc-800/60 bg-zinc-900 text-zinc-100 placeholder:text-zinc-500 shadow-none transition-[box-shadow,border-color] focus-visible:border-zinc-800 focus-visible:ring-1 focus-visible:ring-purple-500/50 focus-visible:ring-offset-0 focus-visible:outline-none";
+export const guildAuthInputBaseClass =
+  "h-11 w-full rounded-full border border-zinc-800/60 bg-zinc-900/50 text-zinc-100 placeholder:text-zinc-600 shadow-none transition-[box-shadow,border-color] focus-visible:border-zinc-800 focus-visible:ring-1 focus-visible:ring-purple-500/50 focus-visible:ring-offset-0 focus-visible:outline-none";
+
+/** 左側內嵌圖示時搭配 `pl-11` */
+export const guildAuthInputClass = `${guildAuthInputBaseClass} pl-11`;
+
+/** 無內嵌圖示（例：註冊 Step2 暱稱／IG） */
+export const guildAuthInputStandaloneClass = `${guildAuthInputBaseClass} px-4`;
 
 export const guildAuthPrimaryButtonClass =
   "min-h-[3.5rem] w-full rounded-full border border-zinc-700/90 bg-gradient-to-r from-zinc-800 to-zinc-700 py-6 text-base font-medium text-white shadow-lg transition hover:from-zinc-700 hover:to-zinc-600";
 
+/** Google 與 Input 同高（h-11）的淺色膠囊按鈕 */
 export const guildAuthOAuthButtonClass =
-  "min-h-[3.5rem] w-full rounded-full border border-zinc-800 bg-zinc-900 text-zinc-100 shadow-sm transition hover:bg-zinc-800/90";
+  "flex h-11 w-full items-center justify-center gap-2.5 rounded-full border-0 bg-zinc-100 px-4 text-sm font-medium text-zinc-900 shadow-sm transition hover:bg-white";
 
 /** SelectTrigger：與 Input 同級深色邊框與紫色 focus ring */
 export const guildAuthSelectTriggerClass =

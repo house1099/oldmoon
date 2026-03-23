@@ -22,6 +22,16 @@ import {
   PencilLine,
 } from "lucide-react";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -29,6 +39,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   CORE_VALUES_QUESTIONS,
@@ -94,7 +105,12 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   const [igPublic, setIgPublic] = useState(profile.ig_public);
   const [mood, setMood] = useState(profile.mood ?? "");
   const [editOpen, setEditOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [confirmField, setConfirmField] = useState<
+    "mood" | "bio" | "ig" | null
+  >(null);
+  const [savingField, setSavingField] = useState<
+    "mood" | "bio" | "ig" | null
+  >(null);
   const [checkinLoading, setCheckinLoading] = useState(false);
   const [logoutLoading, setLogoutLoading] = useState(false);
 
@@ -104,24 +120,33 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     setMood(profile.mood ?? "");
   }, [profile]);
 
-  async function onSaveProfile(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
+  async function runConfirmedSave() {
+    if (!confirmField) return;
+    const field = confirmField;
+    setSavingField(field);
     try {
-      const result = await updateMyProfile({
-        bio,
-        ig_public: igPublic,
-        mood,
-      });
+      const payload =
+        field === "mood"
+          ? { mood }
+          : field === "bio"
+            ? { bio }
+            : { ig_public: igPublic };
+      const result = await updateMyProfile(payload);
       if (result.ok === false) {
         toast.error(result.error);
         return;
       }
-      toast.success("資料已同步至公會名冊");
-      setEditOpen(false);
+      const msg =
+        field === "mood"
+          ? "今日心情已更新"
+          : field === "bio"
+            ? "自白已更新"
+            : "IG 公開設定已更新";
+      toast.success(msg);
+      setConfirmField(null);
       router.refresh();
     } finally {
-      setSaving(false);
+      setSavingField(null);
     }
   }
 
@@ -242,13 +267,15 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               今日心情
             </AccordionTrigger>
             <AccordionContent className="px-2 text-zinc-200">
-              {moodVisible ? (
-                <p className="text-sm leading-relaxed">{profile.mood}</p>
-              ) : (
-                <p className="text-sm text-zinc-500">
-                  💭 今天還沒寫心情喵～（可從「修改資料」補上）
-                </p>
-              )}
+              <div className="mt-2 rounded-xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
+                {moodVisible ? (
+                  <p>{profile.mood}</p>
+                ) : (
+                  <p className="text-zinc-500">
+                    💭 今天還沒寫心情喵～（可從「修改資料」補上）
+                  </p>
+                )}
+              </div>
             </AccordionContent>
           </AccordionItem>
 
@@ -257,11 +284,13 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               自白
             </AccordionTrigger>
             <AccordionContent className="px-2 text-zinc-200">
-              {profile.bio?.trim() ? (
-                <p className="text-sm leading-relaxed">{profile.bio}</p>
-              ) : (
-                <p className="text-sm text-zinc-500">尚未寫下冒險宣言…</p>
-              )}
+              <div className="mt-2 rounded-xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
+                {profile.bio?.trim() ? (
+                  <p>{profile.bio}</p>
+                ) : (
+                  <p className="text-zinc-500">尚未寫下冒險宣言…</p>
+                )}
+              </div>
             </AccordionContent>
           </AccordionItem>
 
@@ -270,16 +299,18 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               信譽與紀錄
             </AccordionTrigger>
             <AccordionContent className="px-2 text-zinc-200">
-              <p className="font-mono text-lg text-cyan-300 tabular-nums">
-                {rep.toLocaleString("zh-TW")}
-              </p>
-              <p className="mt-1 text-xs text-zinc-500">Lv×1000 + total_exp</p>
-              <p className="mt-3 text-xs uppercase tracking-wide text-zinc-500">
-                註冊時間
-              </p>
-              <p className="text-sm text-zinc-200">
-                {formatRegisteredAt(profile.created_at)}
-              </p>
+              <div className="mt-2 rounded-xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
+                <p className="font-mono text-lg text-cyan-300 tabular-nums">
+                  {rep.toLocaleString("zh-TW")}
+                </p>
+                <p className="mt-1 text-xs text-zinc-500">Lv×1000 + total_exp</p>
+                <p className="mt-3 text-xs uppercase tracking-wide text-zinc-500">
+                  註冊時間
+                </p>
+                <p className="text-zinc-200">
+                  {formatRegisteredAt(profile.created_at)}
+                </p>
+              </div>
             </AccordionContent>
           </AccordionItem>
 
@@ -288,32 +319,34 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               興趣與價值觀
             </AccordionTrigger>
             <AccordionContent className="px-2 text-zinc-200">
-              <p className="text-xs uppercase tracking-wide text-zinc-500">
-                興趣標籤
-              </p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {interestSlugs.length ? (
-                  interestSlugs.map((slug) => (
-                    <span key={slug} className="tag-gold text-[0.7rem]">
-                      {interestLabel(slug)}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-xs text-zinc-500">尚未標記</span>
-                )}
+              <div className="mt-2 rounded-xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
+                <p className="text-xs uppercase tracking-wide text-zinc-500">
+                  興趣標籤
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {interestSlugs.length ? (
+                    interestSlugs.map((slug) => (
+                      <span key={slug} className="tag-gold text-[0.7rem]">
+                        {interestLabel(slug)}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-zinc-500">尚未標記</span>
+                  )}
+                </div>
+                {coreLabels.length ? (
+                  <>
+                    <p className="mt-4 text-xs uppercase tracking-wide text-zinc-500">
+                      價值觀印記
+                    </p>
+                    <ul className="mt-2 space-y-1 text-left text-xs text-zinc-300">
+                      {coreLabels.map((label, i) => (
+                        <li key={i}>· {label}</li>
+                      ))}
+                    </ul>
+                  </>
+                ) : null}
               </div>
-              {coreLabels.length ? (
-                <>
-                  <p className="mt-4 text-xs uppercase tracking-wide text-zinc-500">
-                    價值觀印記
-                  </p>
-                  <ul className="mt-2 space-y-1 text-left text-xs text-zinc-300">
-                    {coreLabels.map((label, i) => (
-                      <li key={i}>· {label}</li>
-                    ))}
-                  </ul>
-                </>
-              ) : null}
             </AccordionContent>
           </AccordionItem>
         </Accordion>
@@ -374,52 +407,10 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           <DialogHeader className="border-b border-white/10 px-4 pb-3 pt-4">
             <DialogTitle className="text-zinc-100">修改冒險者資料</DialogTitle>
             <DialogDescription className="text-zinc-400">
-              自介、IG 公開與今日心情；儲存後將同步至公會名冊。
+              各欄位請分別按下「確認修改」；會先詢問是否更新，再同步至公會名冊。
             </DialogDescription>
           </DialogHeader>
-          <form
-            onSubmit={onSaveProfile}
-            className="flex max-h-[min(70vh,480px)] flex-col gap-4 overflow-y-auto px-4 py-4"
-          >
-            <div className="space-y-2">
-              <label
-                htmlFor="profile-bio"
-                className="text-sm font-medium text-zinc-100"
-              >
-                自白
-              </label>
-              <Textarea
-                id="profile-bio"
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                placeholder="寫下你的冒險宣言…"
-                maxLength={500}
-                rows={5}
-                className={EDIT_FOCUS}
-              />
-              <p className="text-xs text-zinc-500">{bio.length}/500</p>
-            </div>
-
-            <div className="flex items-start gap-3 rounded-lg border border-cyan-500/25 bg-cyan-950/20 px-3 py-3">
-              <input
-                id="profile-ig-public"
-                type="checkbox"
-                checked={igPublic}
-                onChange={(e) => setIgPublic(e.target.checked)}
-                className="mt-1 h-4 w-4 shrink-0 rounded border-cyan-500/50 accent-cyan-400"
-              />
-              <label
-                htmlFor="profile-ig-public"
-                className="cursor-pointer text-left text-sm text-zinc-100"
-              >
-                <span className="font-medium">IG 公開顯示</span>
-                <span className="mt-0.5 block text-xs text-zinc-500">
-                  開啟後於公會名片揭露 IG（@
-                  {profile.instagram_handle ?? "—"}）
-                </span>
-              </label>
-            </div>
-
+          <div className="flex max-h-[min(70vh,520px)] flex-col gap-5 overflow-y-auto px-4 py-4">
             <div className="space-y-2">
               <label
                 htmlFor="profile-mood"
@@ -437,30 +428,129 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                 className={EDIT_FOCUS}
               />
               <p className="text-xs text-zinc-500">
-                儲存後 24 小時內會顯示在「今日心情」
+                確認後 24 小時內會顯示在「今日心情」
               </p>
+              <div className="flex justify-end pt-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-full bg-zinc-800 px-4 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 hover:text-zinc-100"
+                  disabled={Boolean(savingField)}
+                  onClick={() => setConfirmField("mood")}
+                >
+                  確認修改
+                </Button>
+              </div>
             </div>
 
-            <DialogFooter className="flex-col gap-2 border-t border-white/10 bg-black/20 px-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:flex-row">
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full border-white/15 text-zinc-100 sm:w-auto"
-                onClick={() => setEditOpen(false)}
+            <div className="space-y-2">
+              <label
+                htmlFor="profile-bio"
+                className="text-sm font-medium text-zinc-100"
               >
-                取消
-              </Button>
-              <Button
-                type="submit"
-                className="w-full border-violet-500/35 bg-violet-950/50 text-zinc-100 sm:w-auto"
-                disabled={saving}
-              >
-                {saving ? "⏳ 同步中…" : "儲存變更"}
-              </Button>
-            </DialogFooter>
-          </form>
+                自白
+              </label>
+              <Textarea
+                id="profile-bio"
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="寫下你的冒險宣言…"
+                maxLength={500}
+                rows={5}
+                className={EDIT_FOCUS}
+              />
+              <p className="text-xs text-zinc-500">{bio.length}/500</p>
+              <div className="flex justify-end pt-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-full bg-zinc-800 px-4 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 hover:text-zinc-100"
+                  disabled={Boolean(savingField)}
+                  onClick={() => setConfirmField("bio")}
+                >
+                  確認修改
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="text-sm font-medium text-zinc-100">
+                    IG 公開顯示
+                  </p>
+                  <p className="text-xs text-zinc-500">
+                    開啟後於公會名片揭露 IG（@
+                    {profile.instagram_handle ?? "—"}）
+                  </p>
+                </div>
+                <Switch
+                  checked={igPublic}
+                  onCheckedChange={setIgPublic}
+                  className="mt-0.5 shrink-0 data-checked:bg-violet-600"
+                  aria-label="IG 公開顯示"
+                />
+              </div>
+              <div className="mt-3 flex justify-end border-t border-zinc-800/50 pt-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-full bg-zinc-800 px-4 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 hover:text-zinc-100"
+                  disabled={Boolean(savingField)}
+                  onClick={() => setConfirmField("ig")}
+                >
+                  確認修改
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="border-t border-white/10 bg-black/20 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-white/15 text-zinc-100 sm:w-auto"
+              onClick={() => setEditOpen(false)}
+            >
+              關閉
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={confirmField !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirmField(null);
+        }}
+      >
+        <AlertDialogContent className="border-zinc-800 bg-zinc-950 text-zinc-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle>更新資料</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              確定要更新此項資料嗎？
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="border-zinc-800 bg-zinc-900/50">
+            <AlertDialogCancel className="border-zinc-700 bg-transparent text-zinc-200 hover:bg-zinc-800">
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-violet-600 text-white hover:bg-violet-500"
+              disabled={Boolean(savingField)}
+              onClick={(e) => {
+                e.preventDefault();
+                void runConfirmedSave();
+              }}
+            >
+              {savingField ? "同步中…" : "確認"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }
