@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 import { registerStep1Schema } from "@/lib/validation/register-step1";
+import { friendlyAuthErrorMessage } from "@/lib/utils/auth-errors";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -63,7 +64,9 @@ export function RegisterForm() {
     setLoading(false);
 
     if (error) {
-      toast.error(error.message || "註冊失敗");
+      toast.error(
+        friendlyAuthErrorMessage(error.message, "註冊失敗，請稍後再試或換一組 Email。"),
+      );
       return;
     }
 
@@ -102,7 +105,7 @@ export function RegisterForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="adventurer@example.com"
-            className="guild-energy-focus"
+            className="guild-energy-focus rounded-xl"
             aria-invalid={Boolean(fieldErrors.email)}
           />
           {fieldErrors.email ? (
@@ -126,7 +129,7 @@ export function RegisterForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="至少 6 字，需含英文與數字"
-            className="guild-energy-focus"
+            className="guild-energy-focus rounded-xl"
             aria-invalid={Boolean(fieldErrors.password)}
           />
           {fieldErrors.password ? (
@@ -154,7 +157,7 @@ export function RegisterForm() {
             value={instagram}
             onChange={(e) => setInstagram(e.target.value)}
             placeholder="不含空白，例：oldmoon.guild"
-            className="guild-energy-focus"
+            className="guild-energy-focus rounded-xl"
             aria-invalid={Boolean(fieldErrors.instagram)}
           />
           {fieldErrors.instagram ? (
@@ -176,32 +179,33 @@ export function RegisterForm() {
             value={inviteCode}
             onChange={(e) => setInviteCode(e.target.value)}
             placeholder="目前僅留存紀錄，無額外效果"
-            className="guild-energy-focus"
+            className="guild-energy-focus rounded-xl"
           />
         </div>
 
-        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-violet-500/25 bg-violet-950/20 px-3 py-2.5 text-sm text-foreground transition-colors hover:border-violet-400/35 hover:bg-violet-950/30">
+        <div className="flex items-start gap-3 rounded-xl border border-violet-500/25 bg-violet-950/20 px-3 py-2.5 transition-colors hover:border-violet-400/35 hover:bg-violet-950/30">
           <input
+            id="reg-terms"
             type="checkbox"
             checked={termsAccepted}
             onChange={(e) => setTermsAccepted(e.target.checked)}
             className="mt-0.5 h-4 w-4 shrink-0 rounded border-violet-500/60 bg-background accent-violet-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
             aria-invalid={Boolean(fieldErrors.termsAccepted)}
           />
-          <span>
+          <label htmlFor="reg-terms" className="cursor-pointer text-sm text-foreground">
             <span className="font-medium">同意冒險者公會使用條款</span>
             <span className="mt-0.5 block text-xs text-muted-foreground">
               必須勾選才能建立誓約帳號
             </span>
-          </span>
-        </label>
+          </label>
+        </div>
         {fieldErrors.termsAccepted ? (
           <p className="text-xs text-destructive">{fieldErrors.termsAccepted}</p>
         ) : null}
 
         <Button
           type="submit"
-          className="mt-2 w-full"
+          className="btn-guild-metal mt-2 h-10 w-full"
           size="lg"
           disabled={loading}
         >

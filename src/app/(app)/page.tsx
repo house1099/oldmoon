@@ -9,7 +9,7 @@ export default async function AppHomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-zinc-950 via-violet-950/25 to-black">
+    <div className="flex w-full flex-col gap-4 px-4 pb-24 pt-8">
       <GuildProfileHome
         key={auth.profile.updated_at}
         profile={auth.profile}

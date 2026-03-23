@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -132,10 +131,10 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     isMoodFresh(profile.mood_at) && (profile.mood?.trim().length ?? 0) > 0;
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-col gap-6 px-4 pb-10 pt-8">
-      <section className="guild-breathe-ring relative overflow-hidden rounded-2xl border border-slate-300/25 bg-gradient-to-b from-zinc-900/90 via-black/50 to-violet-950/30 p-6 shadow-[0_0_40px_rgba(148,163,184,0.12)] backdrop-blur-md">
+    <main className="flex w-full flex-col gap-4">
+      <section className="glass-panel relative p-6 sm:p-7">
         <div
-          className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          className="pointer-events-none absolute inset-0 opacity-[0.06]"
           style={{
             backgroundImage:
               "radial-gradient(circle at 20% 20%, #fff 0, transparent 45%), radial-gradient(circle at 80% 80%, #a78bfa 0, transparent 40%)",
@@ -143,10 +142,10 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           aria-hidden
         />
 
-        <div className="relative flex flex-col items-center gap-4">
-          <div className="relative">
+        <div className="relative flex w-full flex-col items-center gap-5 text-center">
+          <div className="relative mx-auto">
             <div className="absolute -inset-1 rounded-full bg-gradient-to-tr from-cyan-400/40 via-slate-200/30 to-violet-500/40 blur-md" />
-            <div className="relative size-28 overflow-hidden rounded-full border-2 border-slate-200/50 bg-gradient-to-b from-slate-800/80 to-black shadow-[inset_0_2px_12px_rgba(255,255,255,0.12)]">
+            <div className="relative mx-auto size-28 overflow-hidden rounded-full border-2 border-slate-200/50 bg-gradient-to-b from-slate-800/80 to-black shadow-[inset_0_2px_12px_rgba(255,255,255,0.12)]">
               {avatarSrc ? (
                 <Image
                   src={avatarSrc}
@@ -164,11 +163,11 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             </div>
           </div>
 
-          <div className="text-center">
+          <div className="w-full space-y-2">
             <p className="font-serif text-xl tracking-wide text-slate-50">
               {profile.nickname}
             </p>
-            <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+            <div className="flex flex-wrap items-center justify-center gap-2">
               <span
                 className="inline-flex items-center rounded-md border border-slate-200/40 bg-gradient-to-b from-slate-100/20 to-slate-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-slate-100 shadow-[0_0_16px_rgba(226,232,240,0.15)]"
                 title="等級徽章"
@@ -181,8 +180,8 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             </div>
           </div>
 
-          <div className="w-full space-y-1.5">
-            <div className="flex justify-between text-xs text-slate-400">
+          <div className="w-full max-w-md space-y-1.5 text-left sm:text-center">
+            <div className="flex justify-between gap-2 text-xs text-slate-400 sm:justify-center sm:gap-6">
               <span className="tabular-nums text-cyan-200/90">
                 total_exp {profile.total_exp.toLocaleString("zh-TW")}
               </span>
@@ -200,29 +199,29 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             </div>
           </div>
 
-          <dl className="grid w-full grid-cols-2 gap-3 border-t border-white/10 pt-4 text-sm">
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-slate-500">
+          <div className="grid w-full max-w-md grid-cols-2 gap-4 border-t border-white/10 pt-4 text-sm">
+            <div className="text-center">
+              <p className="text-xs uppercase tracking-wide text-slate-500">
                 信譽分數
-              </dt>
-              <dd className="font-mono text-base text-cyan-300 tabular-nums drop-shadow-[0_0_8px_rgba(34,211,238,0.35)]">
+              </p>
+              <p className="mt-1 font-mono text-lg text-cyan-300 tabular-nums drop-shadow-[0_0_8px_rgba(34,211,238,0.35)]">
                 {rep.toLocaleString("zh-TW")}
-              </dd>
+              </p>
               <p className="mt-0.5 text-[0.65rem] text-slate-500">
                 Lv×1000 + total_exp
               </p>
             </div>
-            <div>
-              <dt className="text-xs uppercase tracking-wide text-slate-500">
+            <div className="text-center">
+              <p className="text-xs uppercase tracking-wide text-slate-500">
                 註冊時間
-              </dt>
-              <dd className="text-slate-200">
+              </p>
+              <p className="mt-1 text-slate-200">
                 {formatRegisteredAt(profile.created_at)}
-              </dd>
+              </p>
             </div>
-          </dl>
+          </div>
 
-          <div className="w-full rounded-xl border border-violet-500/20 bg-black/25 px-3 py-3 text-left">
+          <div className="w-full max-w-md rounded-xl border border-violet-500/20 bg-black/25 px-3 py-3 text-center backdrop-blur-sm">
             <p className="text-xs font-medium uppercase tracking-wider text-violet-300/80">
               每日心情
             </p>
@@ -241,18 +240,18 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
 
       <Tabs defaultValue="status" className="w-full gap-4">
         <TabsList
-          variant="line"
-          className="w-full justify-stretch border-b border-white/10 bg-transparent p-0"
+          variant="default"
+          className="glass-panel !grid h-auto w-full grid-cols-2 gap-1 !bg-black/30 p-1 [&_[data-slot=tabs-trigger]]:after:hidden"
         >
           <TabsTrigger
             value="status"
-            className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-cyan-400 data-[state=active]:bg-transparent data-[state=active]:text-cyan-100 data-[state=active]:shadow-[0_0_18px_rgba(34,211,238,0.2)]"
+            className="min-h-10 rounded-lg data-active:border data-active:border-cyan-500/35 data-active:bg-cyan-950/40 data-active:text-cyan-100 data-active:shadow-[0_0_14px_rgba(34,211,238,0.18)]"
           >
             我的狀態
           </TabsTrigger>
           <TabsTrigger
             value="edit"
-            className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-violet-400 data-[state=active]:bg-transparent data-[state=active]:text-violet-100 data-[state=active]:shadow-[0_0_18px_rgba(167,139,250,0.2)]"
+            className="min-h-10 rounded-lg data-active:border data-active:border-violet-500/35 data-active:bg-violet-950/40 data-active:text-violet-100 data-active:shadow-[0_0_14px_rgba(167,139,250,0.2)]"
           >
             修改資料
           </TabsTrigger>
@@ -311,25 +310,6 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           >
             {checkinLoading ? "⏳ 時空連線中..." : "每日簽到（+1 EXP）"}
           </Button>
-
-          <Link
-            href="/village"
-            className="group relative w-full overflow-hidden rounded-xl border border-white/25 px-6 py-4 text-center text-base font-semibold tracking-wide text-slate-900 shadow-[0_4px_24px_rgba(255,255,255,0.12),inset_0_1px_0_rgba(255,255,255,0.85)] transition-[transform,box-shadow] duration-200 hover:scale-[1.01] active:scale-[0.99]"
-            style={{
-              background:
-                "linear-gradient(165deg, #f8fafc 0%, #e2e8f0 22%, #ffffff 45%, #cbd5e1 72%, #94a3b8 100%)",
-            }}
-          >
-            <span
-              className="pointer-events-none absolute inset-0 opacity-40 mix-blend-overlay transition-opacity duration-200 group-hover:opacity-55"
-              style={{
-                background:
-                  "linear-gradient(105deg, transparent 0%, rgba(255,255,255,0.95) 42%, transparent 58%)",
-              }}
-              aria-hidden
-            />
-            <span className="relative">🏘️ 進入興趣村莊</span>
-          </Link>
         </TabsContent>
 
         <TabsContent value="edit" className="space-y-4 pt-2">
@@ -356,22 +336,24 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               <p className="text-xs text-slate-500">{bio.length}/500</p>
             </div>
 
-            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-cyan-500/20 bg-cyan-950/15 px-3 py-3">
+            <div className="flex items-start gap-3 rounded-lg border border-cyan-500/20 bg-cyan-950/15 px-3 py-3">
               <input
+                id="profile-ig-public"
                 type="checkbox"
                 checked={igPublic}
                 onChange={(e) => setIgPublic(e.target.checked)}
                 className="mt-1 h-4 w-4 shrink-0 rounded border-cyan-500/50 accent-cyan-400"
               />
-              <span>
-                <span className="text-sm font-medium text-slate-100">
-                  IG 公開顯示
-                </span>
+              <label
+                htmlFor="profile-ig-public"
+                className="cursor-pointer text-left text-sm text-slate-100"
+              >
+                <span className="font-medium">IG 公開顯示</span>
                 <span className="mt-0.5 block text-xs text-slate-500">
                   開啟後於公會名片揭露 IG（@{profile.instagram_handle ?? "—"}）
                 </span>
-              </span>
-            </label>
+              </label>
+            </div>
 
             <div className="space-y-2">
               <label

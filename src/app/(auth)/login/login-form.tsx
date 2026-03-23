@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 import { getSiteOrigin } from "@/lib/app-url";
+import { friendlyAuthErrorMessage } from "@/lib/utils/auth-errors";
 import { cn } from "@/lib/utils";
 
 const REMEMBER_STORAGE_KEY = "guild-login-remember";
@@ -52,7 +53,9 @@ export function LoginForm() {
       },
     });
     if (error) {
-      toast.error(error.message || "Google 登入失敗");
+      toast.error(
+        friendlyAuthErrorMessage(error.message, "Google 登入失敗，請稍後再試。"),
+      );
       setOauthLoading(false);
     }
   }
@@ -68,7 +71,7 @@ export function LoginForm() {
     setLoading(false);
 
     if (error) {
-      toast.error(error.message || "登入失敗");
+      toast.error(friendlyAuthErrorMessage(error.message, "登入失敗，請檢查帳密後再試。"));
       return;
     }
 
@@ -116,9 +119,9 @@ export function LoginForm() {
           type="button"
           size="lg"
           className={cn(
-            "w-full border-0 bg-gradient-to-r from-orange-500 via-orange-600 to-red-600 text-white shadow-[0_0_20px_rgba(234,88,12,0.35)] hover:from-orange-400 hover:via-orange-500 hover:to-red-500 hover:text-white disabled:opacity-70",
+            "btn-guild-metal h-10 w-full disabled:opacity-70",
             oauthLoading &&
-              "relative overflow-hidden shadow-[0_0_28px_rgba(234,88,12,0.5)] before:pointer-events-none before:absolute before:inset-0 before:animate-pulse before:bg-gradient-to-r before:from-transparent before:via-white/15 before:to-transparent",
+              "relative overflow-hidden before:pointer-events-none before:absolute before:inset-0 before:animate-pulse before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent",
           )}
           disabled={loading || oauthLoading}
           onClick={onGoogleSignIn}
@@ -151,7 +154,7 @@ export function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="adventurer@example.com"
-              className="guild-energy-focus"
+              className="guild-energy-focus rounded-xl"
             />
           </div>
           <div className="space-y-2">
@@ -170,29 +173,30 @@ export function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="guild-energy-focus"
+              className="guild-energy-focus rounded-xl"
             />
           </div>
-          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-violet-500/25 bg-violet-950/20 px-3 py-2.5 text-sm text-foreground transition-colors hover:border-violet-400/35 hover:bg-violet-950/30">
+          <div className="flex items-start gap-3 rounded-xl border border-violet-500/25 bg-violet-950/20 px-3 py-2.5 transition-colors hover:border-violet-400/35 hover:bg-violet-950/30">
             <input
+              id="remember-me"
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
               className="mt-0.5 h-4 w-4 shrink-0 rounded border-violet-500/60 bg-background text-violet-600 accent-violet-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
             />
-            <span>
-              <span className="font-medium">[v] 記住我的冒險者身分</span>
+            <label htmlFor="remember-me" className="cursor-pointer text-sm text-foreground">
+              <span className="font-medium">記住我的冒險者身分</span>
               <span className="mt-0.5 block text-xs text-muted-foreground">
                 僅在此裝置記住 Email，密碼不會被儲存
               </span>
-            </span>
-          </label>
+            </label>
+          </div>
           <Button
             type="submit"
             className={cn(
-              "mt-2 w-full",
+              "btn-guild-metal mt-2 h-10 w-full",
               loading &&
-                "relative overflow-hidden shadow-[0_0_24px_rgba(139,92,246,0.35)] before:pointer-events-none before:absolute before:inset-0 before:animate-pulse before:bg-gradient-to-r before:from-transparent before:via-violet-200/10 before:to-transparent",
+                "relative overflow-hidden before:pointer-events-none before:absolute before:inset-0 before:animate-pulse before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent",
             )}
             size="lg"
             disabled={loading || oauthLoading}

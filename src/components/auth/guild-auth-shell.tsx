@@ -24,12 +24,7 @@ export function GuildAuthShell({
           <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
         ) : null}
       </div>
-      <div
-        className={cn(
-          "w-full rounded-xl border-2 border-violet-500/40 bg-card/90 p-6 shadow-2xl backdrop-blur-sm guild-breathe-ring",
-          className ?? "max-w-md",
-        )}
-      >
+      <div className={cn("glass-panel w-full p-6 sm:p-8", className ?? "max-w-md")}>
         {children}
       </div>
     </div>

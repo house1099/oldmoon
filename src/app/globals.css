@@ -4,6 +4,42 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  /** 公會深色毛玻璃面板（登入／個人頁區塊等） */
+  .glass-panel {
+    @apply overflow-hidden rounded-2xl border border-white/10 bg-black/40 shadow-xl backdrop-blur-md;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /** 認證表單主按鈕：低調鋅色金屬漸層 */
+  .btn-guild-metal {
+    @apply border border-zinc-700/80 bg-gradient-to-b from-zinc-800 to-zinc-950 text-zinc-100 shadow-md transition-[border-color,background-color] hover:border-zinc-600/70 hover:from-zinc-700 hover:to-zinc-900;
+  }
+
+  /** 路由載入：輕量呼吸光球（非全螢幕遮擋） */
+  .guild-route-loading-orb {
+    @apply size-14 rounded-full bg-gradient-to-br from-violet-400/45 via-fuchsia-500/25 to-cyan-400/30;
+    box-shadow:
+      0 0 28px rgba(167, 139, 250, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    animation: guild-route-loading-breathe 2.2s ease-in-out infinite;
+  }
+}
+
+@keyframes guild-route-loading-breathe {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+    filter: brightness(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+    filter: brightness(1.15);
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
