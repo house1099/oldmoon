@@ -24,6 +24,7 @@ export async function findProfileById(id: string): Promise<UserRow | null> {
 
 /**
  * 新增 `public.users` 一列。欄位須與雲端一致（`nickname`、`gender`、`region`、`orientation`、`offline_ok` 等，勿使用不存在的 `bio`）。
+ * 累積經驗值欄位名為 **`total_exp`**（勿傳 `exp`）。
  */
 export async function createProfile(data: UserInsert): Promise<UserRow> {
   const admin = createAdminClient();

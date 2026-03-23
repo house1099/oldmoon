@@ -27,7 +27,7 @@ export interface Database {
           avatar_url: string | null;
           /** active：正常；banned：已放逐（路由層強制登出） */
           status: "active" | "banned";
-          /** 由 Trigger 依 exp_logs 聚合／規則維護 */
+          /** 累積經驗值（欄位名必為 `total_exp`，勿使用不存在的 `exp` 欄位）；由 Trigger／exp_logs 等規則維護 */
           total_exp: number;
           /** 由 Trigger 依 total_exp 與等級門檻維護 */
           level: number;
@@ -43,6 +43,7 @@ export interface Database {
           offline_ok?: boolean;
           avatar_url?: string | null;
           status?: "active" | "banned";
+          /** 累積經驗值，欄位名 `total_exp` */
           total_exp?: number;
           level?: number;
           created_at?: string;
@@ -57,6 +58,7 @@ export interface Database {
           offline_ok?: boolean;
           avatar_url?: string | null;
           status?: "active" | "banned";
+          /** 累積經驗值，欄位名 `total_exp` */
           total_exp?: number;
           level?: number;
           created_at?: string;
