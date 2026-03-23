@@ -18,7 +18,7 @@ export async function updateMyProfile(input: {
   bio?: string;
   ig_public?: boolean;
   mood?: string;
-  /** 大頭貼公開 URL（通常來自 Storage `avatars` bucket） */
+  /** 大頭貼公開 HTTPS URL（例如 Cloudinary **`secure_url`** 或 Storage） */
   avatar_url?: string | null;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   if (

@@ -11,6 +11,7 @@ import {
   getDailyCheckinCooldownInfo,
 } from "@/services/daily-checkin.action";
 import { updateMyProfile } from "@/services/profile-update.action";
+import { uploadAvatarToCloudinary } from "@/lib/utils/cloudinary";
 import { createClient } from "@/lib/supabase/client";
 import {
   Accordion,
@@ -132,7 +133,10 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   );
   const [savingField, setSavingField] = useState<"mood" | "bio" | null>(null);
   const [igSaving, setIgSaving] = useState(false);
-  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(() =>
+    profile.avatar_url?.trim() || null,
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [checkinLoading, setCheckinLoading] = useState(false);
   const [checkinDoneToday, setCheckinDoneToday] = useState(false);
@@ -143,6 +147,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     setBio(profile.bio ?? "");
     setIgPublic(profile.ig_public);
     setMood(profile.mood ?? "");
+    setAvatarUrl(profile.avatar_url?.trim() || null);
   }, [profile]);
 
   const syncCheckinCooldown = useCallback(async () => {
@@ -203,7 +208,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     void onIgPublicChange(!igPublic);
   }
 
-  async function onAvatarFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
@@ -215,39 +220,22 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
       toast.error("圖片請小於 5MB");
       return;
     }
-    setAvatarBusy(true);
+    setUploading(true);
     try {
-      const supabase = createClient();
-      const rawExt = (file.name.split(".").pop() || "jpg").toLowerCase();
-      const ext =
-        rawExt.replace(/[^a-z0-9]/g, "").slice(0, 8) || "jpg";
-      const objectPath = `${profile.id}/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from("avatars")
-        .upload(objectPath, file, {
-          cacheControl: "3600",
-          upsert: true,
-          contentType: file.type || "image/jpeg",
-        });
-      if (upErr) {
-        console.error("❌ avatars storage upload:", upErr);
-        toast.error(
-          upErr.message || "上傳失敗，請確認已建立 avatars bucket 與上傳權限",
-        );
-        return;
-      }
-      const { data: pub } = supabase.storage
-        .from("avatars")
-        .getPublicUrl(objectPath);
-      const result = await updateMyProfile({ avatar_url: pub.publicUrl });
+      const url = await uploadAvatarToCloudinary(file);
+      const result = await updateMyProfile({ avatar_url: url });
       if (result.ok === false) {
         toast.error(result.error);
         return;
       }
+      setAvatarUrl(url);
       toast.success("大頭貼已更新");
       router.refresh();
+    } catch (err) {
+      console.error("❌ Cloudinary 上傳:", err);
+      toast.error(err instanceof Error ? err.message : "上傳失敗");
     } finally {
-      setAvatarBusy(false);
+      setUploading(false);
     }
   }
 
@@ -287,7 +275,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     }
   }
 
-  const avatarSrc = profile.avatar_url?.trim() || null;
+  const avatarSrc = avatarUrl?.trim() || null;
   const initial = (profile.nickname ?? "?").slice(0, 1).toUpperCase();
   const moodVisible =
     isMoodFresh(profile.mood_at) && (profile.mood?.trim().length ?? 0) > 0;
@@ -310,12 +298,18 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={(e) => void onAvatarFileChange(e)}
+            onChange={(e) => void handleAvatarChange(e)}
           />
           <div className="relative mx-auto">
             <div className="absolute -inset-2 rounded-full bg-gradient-to-tr from-cyan-400/35 via-violet-400/25 to-fuchsia-500/35 blur-lg" />
             <div className="group relative mx-auto size-32 sm:size-36">
-              <div className="relative mx-auto size-32 overflow-hidden rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] ring-offset-2 ring-offset-zinc-950 transition-shadow group-hover:ring-2 group-hover:ring-violet-500/35 sm:size-36">
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+                className="relative mx-auto block size-32 cursor-pointer overflow-hidden rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] ring-offset-2 ring-offset-zinc-950 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50 enabled:group-hover:ring-2 enabled:group-hover:ring-violet-500/35 disabled:cursor-not-allowed sm:size-36"
+                aria-label="更換大頭貼"
+              >
                 {avatarSrc ? (
                   <Image
                     src={avatarSrc}
@@ -330,21 +324,25 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                     {initial}
                   </span>
                 )}
-              </div>
-              <button
-                type="button"
-                disabled={avatarBusy}
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 z-[2] flex size-10 items-center justify-center rounded-full border border-white/25 bg-zinc-950/85 text-violet-200 shadow-lg backdrop-blur-md transition hover:border-violet-400/40 hover:bg-violet-950/90 hover:text-white disabled:pointer-events-none disabled:opacity-50"
-                aria-label="上傳大頭貼"
-              >
-                {avatarBusy ? (
-                  <span className="text-[10px] font-medium text-zinc-200">
-                    …
-                  </span>
+                {uploading ? (
+                  <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60">
+                    <span className="text-xs font-medium text-white">
+                      上傳中…
+                    </span>
+                  </div>
                 ) : (
-                  <Camera className="size-4 shrink-0" aria-hidden />
+                  <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+                    <span className="text-xs font-medium text-white">
+                      更換
+                    </span>
+                  </div>
                 )}
+                <span
+                  className="pointer-events-none absolute bottom-0 right-0 z-[2] flex size-10 items-center justify-center rounded-full border border-white/25 bg-zinc-950/85 text-violet-200 shadow-lg backdrop-blur-md"
+                  aria-hidden
+                >
+                  <Camera className="size-4 shrink-0" />
+                </span>
               </button>
             </div>
           </div>
