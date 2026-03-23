@@ -8,6 +8,29 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  /** 暗黑奇幻：登入／表單卡片的呼吸燈邊框 */
+  .guild-breathe-ring {
+    animation: guild-border-glow 3.5s ease-in-out infinite;
+  }
+}
+
+@keyframes guild-border-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 14px rgba(168, 85, 247, 0.35),
+      0 0 28px rgba(234, 179, 8, 0.12),
+      inset 0 0 20px rgba(88, 28, 135, 0.15);
+    border-color: rgba(192, 132, 252, 0.45);
+  }
+  50% {
+    box-shadow:
+      0 0 24px rgba(168, 85, 247, 0.55),
+      0 0 48px rgba(234, 179, 8, 0.28),
+      inset 0 0 28px rgba(88, 28, 135, 0.25);
+    border-color: rgba(233, 213, 255, 0.75);
+  }
 }
 
 @layer base {
