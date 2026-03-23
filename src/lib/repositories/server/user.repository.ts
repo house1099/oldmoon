@@ -22,6 +22,9 @@ export async function findProfileById(id: string): Promise<UserRow | null> {
   return data as UserRow | null;
 }
 
+/**
+ * 新增 `public.users` 一列。欄位名稱須與雲端 SQL／Supabase 型別一致（例如 `nickname`）。
+ */
 export async function createProfile(data: UserInsert): Promise<UserRow> {
   const admin = createAdminClient();
   const { data: row, error } = await admin

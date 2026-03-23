@@ -17,7 +17,8 @@ export interface Database {
       users: {
         Row: {
           id: string;
-          display_name: string;
+          /** 冒險者暱稱（與雲端 `users.nickname` 欄位一致） */
+          nickname: string;
           bio: string | null;
           avatar_url: string | null;
           /** active：正常；banned：已放逐（路由層強制登出） */
@@ -31,7 +32,7 @@ export interface Database {
         };
         Insert: {
           id: string;
-          display_name: string;
+          nickname: string;
           bio?: string | null;
           avatar_url?: string | null;
           status?: "active" | "banned";
@@ -42,7 +43,7 @@ export interface Database {
         };
         Update: {
           id?: string;
-          display_name?: string;
+          nickname?: string;
           bio?: string | null;
           avatar_url?: string | null;
           status?: "active" | "banned";

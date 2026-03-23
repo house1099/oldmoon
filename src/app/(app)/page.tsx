@@ -7,7 +7,7 @@ export default async function AppHomePage() {
     return null;
   }
 
-  const name = auth.profile.display_name;
+  const name = auth.profile.nickname;
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-6 py-16">

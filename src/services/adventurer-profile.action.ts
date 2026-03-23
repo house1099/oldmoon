@@ -18,9 +18,10 @@ function serializeBio(extra: AdventurerQuestionnaire): string {
 
 /**
  * Layer 3：補齊公會檔（users 列）；問卷欄位暫存於 `bio` JSON（雲端若新增專欄可再遷移）。
+ * 插入欄位與 `users` 表一致：`nickname`、`total_exp`／`level` 初值依 SSOT（Lv1 起算）。
  */
 export async function completeAdventurerProfile(input: {
-  displayName: string;
+  nickname: string;
   questionnaire: AdventurerQuestionnaire;
 }) {
   const supabase = createClient();
@@ -32,22 +33,37 @@ export async function completeAdventurerProfile(input: {
     redirect("/login?next=/register/profile");
   }
 
-  const display_name = input.displayName.trim();
-  if (!display_name) {
+  const nickname = input.nickname.trim();
+  if (!nickname) {
     return { ok: false as const, error: "請填寫暱稱。" };
   }
 
   try {
     await createProfile({
       id: user.id,
-      display_name,
+      nickname,
       bio: serializeBio(input.questionnaire),
       status: "active",
+      total_exp: 0,
+      level: 1,
     });
   } catch (e) {
-    const code = e && typeof e === "object" && "code" in e ? String((e as { code?: string }).code) : "";
+    const err = e as { code?: string; message?: string };
+    const code = err.code ? String(err.code) : "";
     if (code === "23505") {
       return { ok: false as const, error: "公會名冊已有你的紀錄，請重新整理或聯絡管理員。" };
+    }
+    if (code === "42703" || err.message?.includes("does not exist")) {
+      return {
+        ok: false as const,
+        error: "資料庫欄位與程式不一致，請聯絡管理員檢查 users 表結構。",
+      };
+    }
+    if (code === "23502") {
+      return {
+        ok: false as const,
+        error: "缺少必要欄位，請聯絡管理員檢查 users 表 NOT NULL／預設值。",
+      };
     }
     return { ok: false as const, error: "建立檔案時發生錯誤，請稍後再試。" };
   }

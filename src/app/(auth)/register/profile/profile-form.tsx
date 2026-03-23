@@ -50,7 +50,7 @@ const OFFLINE = [
 ] as const;
 
 export function ProfileForm() {
-  const [displayName, setDisplayName] = useState("");
+  const [nickname, setNickname] = useState("");
   const [gender, setGender] = useState<string>(GENDER[0].value);
   const [region, setRegion] = useState<string>(REGION[0].value);
   const [orientation, setOrientation] = useState<string>(ORIENTATION[0].value);
@@ -62,7 +62,7 @@ export function ProfileForm() {
     setLoading(true);
     try {
       const result = await completeAdventurerProfile({
-        displayName,
+        nickname,
         questionnaire: {
           gender,
           region,
@@ -86,15 +86,15 @@ export function ProfileForm() {
     >
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <div className="space-y-2">
-          <label htmlFor="displayName" className="text-sm font-medium text-foreground">
+          <label htmlFor="nickname" className="text-sm font-medium text-foreground">
             暱稱
           </label>
           <Input
-            id="displayName"
-            name="displayName"
+            id="nickname"
+            name="nickname"
             required
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
             placeholder="在公會使用的稱呼"
             maxLength={32}
           />
