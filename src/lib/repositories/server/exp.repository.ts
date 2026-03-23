@@ -53,13 +53,43 @@ function logSupabaseError(context: string, error: unknown) {
   }
 }
 
+/**
+ * 該使用者最近一次 **`source = daily_checkin`** 的紀錄（依 **`created_at`** 降序）。
+ * 用於簽到前台北曆日預檢，與 **`unique_key`** 格式 `daily_checkin:{YYYY-MM-DD}:{user_id}` 對齊。
+ */
+export async function findLatestDailyCheckinByUserId(
+  userId: string,
+): Promise<ExpLogRow | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("exp_logs")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("source", "daily_checkin")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    logSupabaseError("findLatestDailyCheckinByUserId", error);
+    throw error;
+  }
+
+  return (data as ExpLogRow) ?? null;
+}
+
 export async function insertExpLog(
   data: ExpLogInsertPayload,
 ): Promise<ExpLogRow> {
+  const payload = {
+    user_id: data.user_id,
+    unique_key: data.unique_key,
+    source: data.source,
+  };
   const admin = createAdminClient();
   const { data: row, error } = await admin
     .from("exp_logs")
-    .insert(data)
+    .insert(payload)
     .select()
     .single();
 

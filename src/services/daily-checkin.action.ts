@@ -4,14 +4,114 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import {
   DuplicateExpRewardError,
+  findLatestDailyCheckinByUserId,
   insertExpLog,
   isUniqueConstraintError,
+  type ExpLogRow,
 } from "@/lib/repositories/server/exp.repository";
 import { DAILY_CHECKIN_ALREADY_TODAY } from "@/lib/constants/daily-checkin";
-import { taipeiCalendarDateKey } from "@/lib/utils/date";
+import {
+  nextTaipeiCalendarDateAfter,
+  taipeiCalendarDateKey,
+} from "@/lib/utils/date";
+
+function logCheckinRawError(error: unknown) {
+  try {
+    console.error("❌ 簽到原始錯誤物件:", JSON.stringify(error, null, 2));
+  } catch {
+    try {
+      console.error(
+        "❌ 簽到原始錯誤物件:",
+        JSON.stringify(error, Object.getOwnPropertyNames(Object(error)), 2),
+      );
+    } catch {
+      console.error("❌ 簽到原始錯誤物件 (無法 JSON 序列化):", error);
+    }
+  }
+}
+
+function formatCheckinErrorForClient(error: unknown): string {
+  if (error instanceof DuplicateExpRewardError) {
+    return DAILY_CHECKIN_ALREADY_TODAY;
+  }
+  if (error && typeof error === "object") {
+    const e = error as {
+      message?: string;
+      code?: string;
+      details?: string;
+      hint?: string;
+    };
+    const parts = [e.code, e.message, e.details, e.hint].filter(
+      (x): x is string => typeof x === "string" && x.length > 0,
+    );
+    if (parts.length > 0) return parts.join(" — ");
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return String(error);
+}
+
+/** 從 **`daily_checkin:{YYYY-MM-DD}:{uuid}`** 取出曆日鍵；格式異常時退回 **`created_at`** 的台北曆日。 */
+function dailyCheckinCalendarDayFromLog(log: ExpLogRow): string {
+  const m = /^daily_checkin:([^:]+):/.exec(log.unique_key);
+  if (m?.[1]) return m[1];
+  return taipeiCalendarDateKey(new Date(log.created_at));
+}
+
+export type DailyCheckinCooldownResult =
+  | {
+      ok: true;
+      checkedToday: boolean;
+      /** 今日已簽到時，下一個可簽到的台北曆日鍵 */
+      nextEligibleDateKey: string | null;
+    }
+  | { ok: false; error: string };
+
+/**
+ * Layer 3：讀取今日是否已簽到（依 **`exp_logs`** 最近一筆 **`daily_checkin`** + 台北曆日），供 UI 鎖定按鈕。
+ */
+export async function getDailyCheckinCooldownInfo(): Promise<DailyCheckinCooldownResult> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { ok: false, error: "請先登入。" };
+  }
+
+  const dayTaipei = taipeiCalendarDateKey();
+
+  try {
+    const latest = await findLatestDailyCheckinByUserId(user.id);
+    if (!latest) {
+      return {
+        ok: true,
+        checkedToday: false,
+        nextEligibleDateKey: null,
+      };
+    }
+    const lastDay = dailyCheckinCalendarDayFromLog(latest);
+    if (lastDay === dayTaipei) {
+      return {
+        ok: true,
+        checkedToday: true,
+        nextEligibleDateKey: nextTaipeiCalendarDateAfter(dayTaipei),
+      };
+    }
+    return {
+      ok: true,
+      checkedToday: false,
+      nextEligibleDateKey: null,
+    };
+  } catch (error) {
+    logCheckinRawError(error);
+    return { ok: false, error: formatCheckinErrorForClient(error) };
+  }
+}
 
 /**
  * Layer 3：每日簽到 +1 EXP（`exp_logs.unique_key` 同日僅能領一次）。
+ * 先以台北曆日預檢，避免無謂 insert；失敗時 **`error`** 帶回真實 **`code`／`message`** 供除錯。
  */
 export async function claimDailyCheckin(): Promise<
   { ok: true } | { ok: false; error: string }
@@ -29,6 +129,14 @@ export async function claimDailyCheckin(): Promise<
   const unique_key = `daily_checkin:${dayTaipei}:${user.id}`;
 
   try {
+    const latest = await findLatestDailyCheckinByUserId(user.id);
+    if (latest) {
+      const lastDay = dailyCheckinCalendarDayFromLog(latest);
+      if (lastDay === dayTaipei) {
+        return { ok: false, error: DAILY_CHECKIN_ALREADY_TODAY };
+      }
+    }
+
     await insertExpLog({
       user_id: user.id,
       source: "daily_checkin",
@@ -41,14 +149,8 @@ export async function claimDailyCheckin(): Promise<
     ) {
       return { ok: false, error: DAILY_CHECKIN_ALREADY_TODAY };
     }
-    console.error("❌ claimDailyCheckin — caught error:", error);
-    if (error && typeof error === "object") {
-      console.error(
-        "❌ claimDailyCheckin — serialized:",
-        JSON.stringify(error, Object.getOwnPropertyNames(error)),
-      );
-    }
-    return { ok: false, error: "簽到失敗，請稍後再試。" };
+    logCheckinRawError(error);
+    return { ok: false, error: formatCheckinErrorForClient(error) };
   }
 
   revalidatePath("/");

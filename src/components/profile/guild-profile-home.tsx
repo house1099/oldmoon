@@ -2,10 +2,14 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DAILY_CHECKIN_ALREADY_TODAY } from "@/lib/constants/daily-checkin";
-import { claimDailyCheckin } from "@/services/daily-checkin.action";
+import { formatTaipeiDateKeyForDisplay } from "@/lib/utils/date";
+import {
+  claimDailyCheckin,
+  getDailyCheckinCooldownInfo,
+} from "@/services/daily-checkin.action";
 import { updateMyProfile } from "@/services/profile-update.action";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -19,6 +23,7 @@ import {
   CalendarCheck,
   Camera,
   ChevronRight,
+  Lock,
   LogOut,
   PencilLine,
 } from "lucide-react";
@@ -48,6 +53,7 @@ import {
 } from "@/lib/constants/adventurer-questionnaire";
 import { LEVEL_MIN_EXP_BY_LEVEL, getLevelTierByExp } from "@/lib/constants/levels";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
+import { cn } from "@/lib/utils";
 
 const EDIT_FOCUS =
   "guild-energy-focus focus-visible:border-cyan-400 focus-visible:ring-cyan-400 text-zinc-100 placeholder:text-zinc-500";
@@ -114,6 +120,8 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   const [avatarBusy, setAvatarBusy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [checkinLoading, setCheckinLoading] = useState(false);
+  const [checkinDoneToday, setCheckinDoneToday] = useState(false);
+  const [checkinNextLabel, setCheckinNextLabel] = useState<string | null>(null);
   const [logoutLoading, setLogoutLoading] = useState(false);
 
   useEffect(() => {
@@ -121,6 +129,21 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     setIgPublic(profile.ig_public);
     setMood(profile.mood ?? "");
   }, [profile]);
+
+  const syncCheckinCooldown = useCallback(async () => {
+    const r = await getDailyCheckinCooldownInfo();
+    if (r.ok === false) return;
+    setCheckinDoneToday(r.checkedToday);
+    setCheckinNextLabel(
+      r.checkedToday && r.nextEligibleDateKey
+        ? formatTaipeiDateKeyForDisplay(r.nextEligibleDateKey)
+        : null,
+    );
+  }, []);
+
+  useEffect(() => {
+    void syncCheckinCooldown();
+  }, [profile.id, profile.updated_at, syncCheckinCooldown]);
 
   async function runConfirmedSave() {
     if (!confirmField) return;
@@ -213,14 +236,19 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     try {
       const result = await claimDailyCheckin();
       if (result.ok === false) {
-        if (result.error === DAILY_CHECKIN_ALREADY_TODAY) {
-          toast.success("今日已簽到過了喵！");
+        if (
+          result.error === DAILY_CHECKIN_ALREADY_TODAY ||
+          /duplicate/i.test(result.error)
+        ) {
+          toast.success("今日已經簽到過了喵！");
+          await syncCheckinCooldown();
           return;
         }
         toast.error(result.error);
         return;
       }
       toast.success("簽到成功！獲得 +1 EXP");
+      await syncCheckinCooldown();
       router.refresh();
     } finally {
       setCheckinLoading(false);
@@ -451,19 +479,46 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
 
         <button
           type="button"
-          disabled={checkinLoading}
+          disabled={checkinLoading || checkinDoneToday}
           onClick={onCheckin}
-          className="mb-3 flex w-full items-center justify-between rounded-2xl border border-white/5 bg-zinc-900/50 p-4 text-left text-zinc-100 transition hover:border-amber-500/30 hover:bg-zinc-900/70 disabled:pointer-events-none disabled:opacity-60"
+          className={cn(
+            "mb-3 flex w-full items-center justify-between rounded-2xl border p-4 text-left text-zinc-100 transition disabled:pointer-events-none disabled:opacity-60",
+            checkinDoneToday
+              ? "border-amber-500/30 bg-zinc-900/70"
+              : "border-white/5 bg-zinc-900/50 hover:border-amber-500/30 hover:bg-zinc-900/70",
+          )}
         >
-          <span className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-xl bg-amber-950/40 text-amber-200">
-              <CalendarCheck className="size-5" aria-hidden />
+          <span className="flex min-w-0 flex-1 items-center gap-3">
+            <span
+              className={cn(
+                "flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-950/40 text-amber-200",
+                checkinDoneToday && "ring-1 ring-amber-500/35",
+              )}
+            >
+              {checkinDoneToday ? (
+                <Lock className="size-5" aria-hidden />
+              ) : (
+                <CalendarCheck className="size-5" aria-hidden />
+              )}
             </span>
-            <span className="font-medium">
-              {checkinLoading ? "連線中…" : "每日簽到（+1 EXP）"}
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="font-medium">
+                {checkinLoading
+                  ? "連線中…"
+                  : checkinDoneToday
+                    ? "今日已簽到（冷卻中）"
+                    : "每日簽到（+1 EXP）"}
+              </span>
+              {checkinDoneToday && checkinNextLabel ? (
+                <span className="text-xs font-normal leading-snug text-amber-200/85">
+                  下次可簽到：{checkinNextLabel}（台北曆日切換後）
+                </span>
+              ) : null}
             </span>
           </span>
-          <ChevronRight className="size-5 shrink-0 text-zinc-500" aria-hidden />
+          {!checkinDoneToday ? (
+            <ChevronRight className="size-5 shrink-0 text-zinc-500" aria-hidden />
+          ) : null}
         </button>
 
         <button
