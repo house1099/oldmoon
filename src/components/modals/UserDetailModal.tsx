@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { getMoodCountdown, isMoodActive } from "@/lib/utils/mood";
 
 function labelFor(
   options: readonly { value: string; label: string }[],
@@ -43,13 +44,6 @@ function labelFor(
 
 function tagLabel(slug: string): string {
   return INTEREST_TAG_OPTIONS.find((o) => o.value === slug)?.label ?? slug;
-}
-
-function isMoodFresh(moodAt: string | null): boolean {
-  if (!moodAt) return false;
-  const t = new Date(moodAt).getTime();
-  if (Number.isNaN(t)) return false;
-  return Date.now() - t < 24 * 60 * 60 * 1000;
 }
 
 function isRecentlyActive(lastSeen: string | null, withinMs: number): boolean {
@@ -101,6 +95,9 @@ export function UserDetailModal({
   const [pending, startTransition] = useTransition();
   const [likedByMe, setLikedByMe] = useState(false);
   const [unlikeConfirmOpen, setUnlikeConfirmOpen] = useState(false);
+  const [moodCountdownLabel, setMoodCountdownLabel] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -115,8 +112,21 @@ export function UserDetailModal({
     };
   }, [open, user.id]);
 
-  const moodVisible =
-    isMoodFresh(user.mood_at) && (user.mood?.trim().length ?? 0) > 0;
+  useEffect(() => {
+    if (
+      !open ||
+      !isMoodActive(user.mood_at) ||
+      !(user.mood?.trim().length ?? 0)
+    ) {
+      setMoodCountdownLabel(null);
+      return;
+    }
+    const tick = () => setMoodCountdownLabel(getMoodCountdown(user.mood_at));
+    tick();
+    const id = setInterval(tick, 60000);
+    return () => clearInterval(id);
+  }, [open, user.mood_at, user.mood]);
+
   const active = isRecentlyActive(user.last_seen_at, 15 * 60 * 1000);
 
   function handleLike() {
@@ -248,14 +258,17 @@ export function UserDetailModal({
               </p>
             </div>
 
-            <div>
-              <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-violet-400/85">
-                今日心情
-              </p>
-              <p className="text-sm leading-relaxed text-slate-200/95">
-                {moodVisible ? user.mood : "尚未更新或已超過 24 小時。"}
-              </p>
-            </div>
+            {isMoodActive(user.mood_at) && user.mood?.trim() ? (
+              <div className="glass-panel p-4 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-400">今日心情</span>
+                  <span className="text-xs text-zinc-500">
+                    {moodCountdownLabel ?? getMoodCountdown(user.mood_at)}
+                  </span>
+                </div>
+                <p className="text-sm text-white">{user.mood}</p>
+              </div>
+            ) : null}
 
             <Separator className="bg-amber-900/35" />
 

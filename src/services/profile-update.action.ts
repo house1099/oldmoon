@@ -10,14 +10,27 @@ import {
 
 /**
  * Layer 3：編輯公會名片（自介、IG 公開、每日心情）。
- * 可傳入部分欄位；僅在 **`mood` 出現在 input** 時更新 `mood_at`（避免只改自介卻刷新心情時間）。
+ * 可傳入部分欄位；**`mood` 出現在 input** 時一併寫入 **`mood_at`**（可傳 `mood_at` ISO 字串，否則伺服端用當下時間）。
  */
 const AVATAR_URL_MAX = 2048;
+
+function coerceMoodAtIso(raw: string | undefined): string {
+  if (raw === undefined || raw.trim() === "") {
+    return new Date().toISOString();
+  }
+  const t = Date.parse(raw);
+  if (Number.isNaN(t)) {
+    return new Date().toISOString();
+  }
+  return new Date(t).toISOString();
+}
 
 export async function updateMyProfile(input: {
   bio?: string;
   ig_public?: boolean;
   mood?: string;
+  /** 與 `mood` 一併寫入；省略時由伺服端設為當下時間 */
+  mood_at?: string | null;
   /** 大頭貼公開 HTTPS URL（**Cloudinary `secure_url`**；**勿**經 Supabase Storage 上傳） */
   avatar_url?: string | null;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -55,7 +68,12 @@ export async function updateMyProfile(input: {
   if (input.mood !== undefined) {
     const moodTrimmed = input.mood.trim();
     patch.mood = moodTrimmed.length > 0 ? moodTrimmed : null;
-    patch.mood_at = moodTrimmed.length > 0 ? new Date().toISOString() : null;
+    patch.mood_at =
+      moodTrimmed.length > 0
+        ? input.mood_at != null && String(input.mood_at).trim() !== ""
+          ? coerceMoodAtIso(String(input.mood_at))
+          : new Date().toISOString()
+        : null;
   }
   if (input.avatar_url !== undefined) {
     const u = input.avatar_url?.trim() ?? "";

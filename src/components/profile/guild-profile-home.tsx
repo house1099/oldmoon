@@ -57,6 +57,7 @@ import {
 import { LEVEL_MIN_EXP_BY_LEVEL, getLevelTierByExp } from "@/lib/constants/levels";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { cn } from "@/lib/utils";
+import { getMoodCountdown } from "@/lib/utils/mood";
 
 const EDIT_FOCUS =
   "guild-energy-focus focus-visible:border-cyan-400 focus-visible:ring-cyan-400 text-zinc-100 placeholder:text-zinc-500";
@@ -84,13 +85,6 @@ function levelProgressPercent(level: number, totalExp: number): number {
     100,
     Math.max(0, ((totalExp - cur) / (next - cur)) * 100),
   );
-}
-
-function isMoodFresh(moodAt: string | null): boolean {
-  if (!moodAt) return false;
-  const t = new Date(moodAt).getTime();
-  if (Number.isNaN(t)) return false;
-  return Date.now() - t < 24 * 60 * 60 * 1000;
 }
 
 function interestLabel(slug: string): string {
@@ -129,12 +123,13 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
 
   const [bio, setBio] = useState(profile.bio ?? "");
   const [igPublic, setIgPublic] = useState(profile.ig_public);
-  const [mood, setMood] = useState(profile.mood ?? "");
+  const [moodInput, setMoodInput] = useState(profile.mood ?? "");
+  const [moodAt, setMoodAt] = useState<string | null>(profile.mood_at ?? null);
+  const [savingMood, setSavingMood] = useState(false);
+  const [countdown, setCountdown] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const [confirmField, setConfirmField] = useState<"mood" | "bio" | null>(
-    null,
-  );
-  const [savingField, setSavingField] = useState<"mood" | "bio" | null>(null);
+  const [confirmField, setConfirmField] = useState<"bio" | null>(null);
+  const [savingField, setSavingField] = useState<"bio" | null>(null);
   const [igSaving, setIgSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(() =>
@@ -156,9 +151,17 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   useEffect(() => {
     setBio(profile.bio ?? "");
     setIgPublic(profile.ig_public);
-    setMood(profile.mood ?? "");
+    setMoodInput(profile.mood ?? "");
+    setMoodAt(profile.mood_at ?? null);
     setAvatarUrl(profile.avatar_url?.trim() || null);
   }, [profile]);
+
+  useEffect(() => {
+    const update = () => setCountdown(getMoodCountdown(moodAt));
+    update();
+    const timer = setInterval(update, 60000);
+    return () => clearInterval(timer);
+  }, [moodAt]);
 
   const syncCheckinCooldown = useCallback(async () => {
     const r = await getDailyCheckinCooldownInfo();
@@ -201,21 +204,39 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
 
   async function runConfirmedSave() {
     if (!confirmField) return;
-    const field = confirmField;
-    setSavingField(field);
+    setSavingField("bio");
     try {
-      const payload = field === "mood" ? { mood } : { bio };
-      const result = await updateMyProfile(payload);
+      const result = await updateMyProfile({ bio });
       if (result.ok === false) {
         toast.error(result.error);
         return;
       }
-      const msg = field === "mood" ? "今日心情已更新" : "自白已更新";
-      toast.success(msg);
+      toast.success("自白已更新");
       setConfirmField(null);
       router.refresh();
     } finally {
       setSavingField(null);
+    }
+  }
+
+  async function handleSaveMood() {
+    if (!moodInput.trim()) return;
+    setSavingMood(true);
+    const now = new Date().toISOString();
+    try {
+      const result = await updateMyProfile({
+        mood: moodInput.trim(),
+        mood_at: now,
+      });
+      if (result.ok === false) {
+        toast.error(result.error);
+        return;
+      }
+      setMoodAt(now);
+      toast.success("今日心情已更新");
+      router.refresh();
+    } finally {
+      setSavingMood(false);
     }
   }
 
@@ -238,7 +259,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   }
 
   function handleIgToggle() {
-    if (igSaving || savingField) return;
+    if (igSaving || savingField || savingMood) return;
     void onIgPublicChange(!igPublic);
   }
 
@@ -330,8 +351,6 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
 
   const avatarSrc = avatarUrl?.trim() || null;
   const initial = (profile.nickname ?? "?").slice(0, 1).toUpperCase();
-  const moodVisible =
-    isMoodFresh(profile.mood_at) && (profile.mood?.trim().length ?? 0) > 0;
 
   return (
     <main className="flex w-full flex-col gap-6">
@@ -444,24 +463,43 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         <p className="border-b border-white/10 px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-400">
           我的狀態
         </p>
-        <Accordion className="px-2 pb-1">
-          <AccordionItem value="mood" className="border-white/10">
-            <AccordionTrigger className="px-2 text-zinc-100 hover:no-underline">
-              今日心情
-            </AccordionTrigger>
-            <AccordionContent className="px-2 text-zinc-200">
-              <div className="mt-2 rounded-xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
-                {moodVisible ? (
-                  <p>{profile.mood}</p>
-                ) : (
-                  <p className="text-zinc-500">
-                    💭 今天還沒寫心情喵～（可從「修改資料」補上）
-                  </p>
-                )}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
+        <div className="border-b border-white/10 p-4">
+          <div className="glass-panel p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-white">今日心情</span>
+              {countdown && (
+                <span className="text-xs text-zinc-400">{countdown}</span>
+              )}
+              {!countdown && moodAt && (
+                <span className="text-xs text-zinc-500">已過期</span>
+              )}
+            </div>
 
+            <textarea
+              value={moodInput}
+              onChange={(e) => setMoodInput(e.target.value)}
+              placeholder="今天的心情是..."
+              maxLength={50}
+              rows={2}
+              className="w-full bg-zinc-900/60 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white placeholder:text-zinc-600 resize-none focus:outline-none focus:border-white/30 transition-colors"
+            />
+
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-zinc-600">
+                {moodInput.length}/50
+              </span>
+              <button
+                type="button"
+                onClick={() => void handleSaveMood()}
+                disabled={savingMood || !moodInput.trim()}
+                className="px-5 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-all disabled:opacity-40 active:scale-95"
+              >
+                {savingMood ? "更新中…" : "確認"}
+              </button>
+            </div>
+          </div>
+        </div>
+        <Accordion className="px-2 pb-1">
           <AccordionItem value="bio" className="border-white/10">
             <AccordionTrigger className="px-2 text-zinc-100 hover:no-underline">
               自白
@@ -619,43 +657,11 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           <DialogHeader className="border-b border-white/10 px-4 pb-3 pt-4">
             <DialogTitle className="text-zinc-100">修改冒險者資料</DialogTitle>
             <DialogDescription className="text-zinc-400">
-              心情與自白請分別按下「確認修改」。IG 公開開關會立即同步名冊。
+              自白請按下「確認修改」。今日心情請在上方「我的狀態」區塊編輯。IG
+              公開開關會立即同步名冊。
             </DialogDescription>
           </DialogHeader>
           <div className="flex max-h-[min(70vh,520px)] flex-col gap-5 overflow-y-auto px-4 py-4">
-            <div className="space-y-2">
-              <label
-                htmlFor="profile-mood"
-                className="text-sm font-medium text-zinc-100"
-              >
-                今日心情
-              </label>
-              <Textarea
-                id="profile-mood"
-                value={mood}
-                onChange={(e) => setMood(e.target.value)}
-                placeholder="寫一句給今天的自己…"
-                maxLength={200}
-                rows={3}
-                className={EDIT_FOCUS}
-              />
-              <p className="text-xs text-zinc-500">
-                確認後 24 小時內會顯示在「今日心情」
-              </p>
-              <div className="flex justify-end pt-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="rounded-full bg-zinc-800 px-4 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 hover:text-zinc-100"
-                  disabled={Boolean(savingField)}
-                  onClick={() => setConfirmField("mood")}
-                >
-                  確認修改
-                </Button>
-              </div>
-            </div>
-
             <div className="space-y-2">
               <label
                 htmlFor="profile-bio"
@@ -679,7 +685,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                   variant="ghost"
                   size="sm"
                   className="rounded-full bg-zinc-800 px-4 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 hover:text-zinc-100"
-                  disabled={Boolean(savingField)}
+                  disabled={Boolean(savingField) || savingMood}
                   onClick={() => setConfirmField("bio")}
                 >
                   確認修改
@@ -703,7 +709,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                 role="switch"
                 aria-checked={igPublic}
                 aria-label={igPublic ? "IG 狀態：公開" : "IG 狀態：不公開"}
-                disabled={igSaving || Boolean(savingField)}
+                disabled={igSaving || Boolean(savingField) || savingMood}
                 onClick={handleIgToggle}
                 className={cn(
                   "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 disabled:pointer-events-none disabled:opacity-50",
@@ -752,7 +758,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-violet-600 text-white hover:bg-violet-500"
-              disabled={Boolean(savingField)}
+              disabled={Boolean(savingField) || savingMood}
               onClick={(e) => {
                 e.preventDefault();
                 void runConfirmedSave();
