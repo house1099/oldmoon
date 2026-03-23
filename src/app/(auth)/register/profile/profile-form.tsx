@@ -24,6 +24,10 @@ import {
   type RegionValue,
 } from "@/lib/constants/adventurer-questionnaire";
 
+/**
+ * 選單：`SelectItem` 的 `value` 為英文 slug（送 Server Action／DB），
+ * 顯示文字為繁體中文，定義於 `@/lib/constants/adventurer-questionnaire` 的 `label`。
+ */
 export function ProfileForm() {
   const [nickname, setNickname] = useState("");
   const [gender, setGender] = useState<GenderValue>(GENDER_OPTIONS[0].value);
@@ -37,6 +41,7 @@ export function ProfileForm() {
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
+    console.log("表單開始送出...");
     e.preventDefault();
     setLoading(true);
     try {

@@ -55,8 +55,9 @@ export async function completeAdventurerProfile(input: {
       total_exp: 0,
       level: 1,
     });
-  } catch (e) {
-    const err = e as { code?: string; message?: string };
+  } catch (error) {
+    console.error("❌ 伺服器寫入失敗詳細原因:", error);
+    const err = error as { code?: string; message?: string };
     const code = err.code ? String(err.code) : "";
     if (code === "23505") {
       return { ok: false as const, error: "公會名冊已有你的紀錄，請重新整理或聯絡管理員。" };
