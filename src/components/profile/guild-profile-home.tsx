@@ -57,11 +57,14 @@ import { cn } from "@/lib/utils";
 const EDIT_FOCUS =
   "guild-energy-focus focus-visible:border-cyan-400 focus-visible:ring-cyan-400 text-zinc-100 placeholder:text-zinc-500";
 
-function formatRegisteredAt(iso: string): string {
+function formatRegisteredAt(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
   return new Intl.DateTimeFormat("zh-TW", {
     dateStyle: "medium",
     timeStyle: "short",
-  }).format(new Date(iso));
+  }).format(d);
 }
 
 function reputationScore(level: number, totalExp: number): number {
@@ -99,11 +102,24 @@ function coreValueLabels(values: string[] | null): string[] {
   });
 }
 
+function normalizeTotalExp(v: UserRow["total_exp"]): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function normalizeLevel(v: UserRow["level"]): number {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.min(10, Math.floor(n));
+}
+
 export function GuildProfileHome({ profile }: { profile: UserRow }) {
   const router = useRouter();
-  const tier = getLevelTierByExp(profile.total_exp);
-  const rep = reputationScore(profile.level, profile.total_exp);
-  const progress = levelProgressPercent(profile.level, profile.total_exp);
+  const totalExpSafe = normalizeTotalExp(profile.total_exp);
+  const levelSafe = normalizeLevel(profile.level);
+  const tier = getLevelTierByExp(totalExpSafe);
+  const rep = reputationScore(levelSafe, totalExpSafe);
+  const progress = levelProgressPercent(levelSafe, totalExpSafe);
   const coreLabels = coreValueLabels(profile.core_values);
   const interestSlugs = profile.interests ?? [];
 
@@ -272,7 +288,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   }
 
   const avatarSrc = profile.avatar_url?.trim() || null;
-  const initial = profile.nickname.slice(0, 1).toUpperCase();
+  const initial = (profile.nickname ?? "?").slice(0, 1).toUpperCase();
   const moodVisible =
     isMoodFresh(profile.mood_at) && (profile.mood?.trim().length ?? 0) > 0;
 
@@ -342,7 +358,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                 className="inline-flex items-center gap-1.5 rounded-full border border-violet-400/35 bg-gradient-to-r from-violet-950/80 to-zinc-900/90 px-3 py-1 text-xs font-semibold tabular-nums tracking-wide text-violet-100 shadow-md shadow-violet-950/40"
                 title="等級徽章"
               >
-                Lv.{profile.level}
+                Lv.{levelSafe}
               </span>
               <span className="text-violet-200/95">
                 {tier.symbol} {tier.title}
@@ -353,11 +369,13 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           <div className="w-full max-w-md space-y-1.5">
             <div className="flex justify-between gap-2 text-[11px] text-zinc-400 sm:text-xs">
               <span className="tabular-nums text-cyan-200/90">
-                total_exp {profile.total_exp.toLocaleString("zh-TW")}
+                total_exp {totalExpSafe.toLocaleString("zh-TW")}
               </span>
               <span>
-                {profile.level < 10
-                  ? `下一階 ${LEVEL_MIN_EXP_BY_LEVEL[profile.level]?.toLocaleString("zh-TW")} EXP`
+                {levelSafe < 10
+                  ? `下一階 ${(
+                      LEVEL_MIN_EXP_BY_LEVEL[levelSafe] ?? 0
+                    ).toLocaleString("zh-TW")} EXP`
                   : "已達傳奇之巔"}
               </span>
             </div>

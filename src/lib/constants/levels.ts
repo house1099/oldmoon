@@ -36,9 +36,10 @@ export const LEVEL_TIERS: readonly LevelTier[] = [
 
 /** 依累積 EXP 取得目前階（無匹配時回傳最低階） */
 export function getLevelTierByExp(totalExp: number): LevelTier {
+  const exp = Number.isFinite(totalExp) ? totalExp : 0;
   let current = LEVEL_TIERS[0];
   for (const tier of LEVEL_TIERS) {
-    if (totalExp >= tier.minExp) current = tier;
+    if (exp >= tier.minExp) current = tier;
   }
   return current;
 }
