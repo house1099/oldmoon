@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -25,7 +24,6 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   CalendarCheck,
-  Camera,
   ChevronRight,
   Lock,
   LogOut,
@@ -365,59 +363,46 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         />
 
         <div className="relative flex w-full flex-col items-center gap-5 text-center">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => void handleAvatarChange(e)}
-          />
-          <div className="relative mx-auto">
-            <div className="absolute -inset-2 rounded-full bg-gradient-to-tr from-cyan-400/35 via-violet-400/25 to-fuchsia-500/35 blur-lg" />
-            <div className="group relative mx-auto size-32 sm:size-36">
-              <button
-                type="button"
-                disabled={uploading || cropOpen}
-                onClick={() => fileInputRef.current?.click()}
-                className="relative mx-auto block size-32 cursor-pointer overflow-hidden rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] ring-offset-2 ring-offset-zinc-950 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50 enabled:group-hover:ring-2 enabled:group-hover:ring-violet-500/35 disabled:cursor-not-allowed sm:size-36"
-                aria-label="更換大頭貼"
-              >
-                {avatarSrc ? (
-                  <Image
-                    src={avatarSrc}
-                    alt=""
-                    width={144}
-                    height={144}
-                    className="h-full w-full object-cover"
-                    unoptimized
-                  />
-                ) : (
-                  <span className="flex h-full w-full items-center justify-center bg-gradient-to-b from-zinc-600/50 to-zinc-950 font-serif text-3xl text-amber-50 sm:text-4xl">
-                    {initial}
-                  </span>
-                )}
-                {uploading ? (
-                  <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60">
-                    <span className="text-xs font-medium text-white">
-                      上傳中…
-                    </span>
-                  </div>
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-                    <span className="text-xs font-medium text-white">
-                      更換
-                    </span>
-                  </div>
-                )}
-                <span
-                  className="pointer-events-none absolute bottom-0 right-0 z-[2] flex size-10 items-center justify-center rounded-full border border-white/25 bg-zinc-950/85 text-violet-200 shadow-lg backdrop-blur-md"
-                  aria-hidden
-                >
-                  <Camera className="size-4 shrink-0" />
-                </span>
-              </button>
-            </div>
-          </div>
+          <button
+            type="button"
+            disabled={uploading || cropOpen}
+            onClick={() => fileInputRef.current?.click()}
+            className="relative mx-auto block h-24 w-24 cursor-pointer overflow-hidden rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50 disabled:cursor-not-allowed"
+            aria-label="更換大頭貼"
+          >
+            {avatarSrc ? (
+              // eslint-disable-next-line @next/next/no-img-element -- 頭像為任意 HTTPS URL
+              <img
+                src={avatarSrc}
+                alt="avatar"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center bg-gradient-to-b from-zinc-600/50 to-zinc-950 font-serif text-2xl text-amber-50">
+                {initial}
+              </span>
+            )}
+
+            {uploading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                <span className="text-xs text-white">上傳中…</span>
+              </div>
+            )}
+
+            {!uploading && (
+              <div className="absolute inset-0 hidden items-center justify-center bg-black/40 opacity-0 transition-opacity md:flex md:hover:opacity-100">
+                <span className="text-xs font-medium text-white">更換</span>
+              </div>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => void handleAvatarChange(e)}
+            />
+          </button>
 
           <div className="w-full space-y-2">
             <p className="font-serif text-xl tracking-wide text-zinc-100 sm:text-2xl">
