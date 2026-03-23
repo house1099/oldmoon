@@ -9,18 +9,16 @@ import {
   claimDailyCheckin,
   getDailyCheckinCooldownInfo,
 } from "@/services/daily-checkin.action";
+import {
+  getMyRecentExpLogsAction,
+  type ExpLogProfileEntry,
+} from "@/services/exp-logs.action";
 import { updateMyProfile } from "@/services/profile-update.action";
 import { uploadAvatarToCloudinary } from "@/lib/utils/cloudinary";
 import { getCroppedImg } from "@/lib/utils/cropImage";
 import { createClient } from "@/lib/supabase/client";
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import {
   CalendarCheck,
@@ -48,10 +46,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  CORE_VALUES_QUESTIONS,
-  INTEREST_TAG_OPTIONS,
-} from "@/lib/constants/adventurer-questionnaire";
+import { INTEREST_TAG_OPTIONS } from "@/lib/constants/adventurer-questionnaire";
 import { LEVEL_MIN_EXP_BY_LEVEL, getLevelTierByExp } from "@/lib/constants/levels";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { cn } from "@/lib/utils";
@@ -59,20 +54,6 @@ import { getMoodCountdown } from "@/lib/utils/mood";
 
 const EDIT_FOCUS =
   "guild-energy-focus focus-visible:border-cyan-400 focus-visible:ring-cyan-400 text-zinc-100 placeholder:text-zinc-500";
-
-function formatRegisteredAt(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return new Intl.DateTimeFormat("zh-TW", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(d);
-}
-
-function reputationScore(level: number, totalExp: number): number {
-  return level * 1000 + totalExp;
-}
 
 function levelProgressPercent(level: number, totalExp: number): number {
   if (level >= 10) return 100;
@@ -87,15 +68,6 @@ function levelProgressPercent(level: number, totalExp: number): number {
 
 function interestLabel(slug: string): string {
   return INTEREST_TAG_OPTIONS.find((o) => o.value === slug)?.label ?? slug;
-}
-
-function coreValueLabels(values: string[] | null): string[] {
-  if (!values?.length) return [];
-  return values.map((slug, i) => {
-    const q = CORE_VALUES_QUESTIONS[i];
-    const opt = q?.options.find((o) => o.value === slug);
-    return opt?.label ?? slug;
-  });
 }
 
 function normalizeTotalExp(v: UserRow["total_exp"]): number {
@@ -114,12 +86,13 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   const totalExpSafe = normalizeTotalExp(profile.total_exp);
   const levelSafe = normalizeLevel(profile.level);
   const tier = getLevelTierByExp(totalExpSafe);
-  const rep = reputationScore(levelSafe, totalExpSafe);
   const progress = levelProgressPercent(levelSafe, totalExpSafe);
-  const coreLabels = coreValueLabels(profile.core_values);
-  const interestSlugs = profile.interests ?? [];
 
   const [bio, setBio] = useState(profile.bio ?? "");
+  const [bioVillage, setBioVillage] = useState(profile.bio_village ?? "");
+  const [bioMarket, setBioMarket] = useState(profile.bio_market ?? "");
+  const [savingBioVillage, setSavingBioVillage] = useState(false);
+  const [savingBioMarket, setSavingBioMarket] = useState(false);
   const [igPublic, setIgPublic] = useState(profile.ig_public);
   const [moodInput, setMoodInput] = useState(profile.mood ?? "");
   const [moodAt, setMoodAt] = useState<string | null>(profile.mood_at ?? null);
@@ -145,14 +118,29 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   const [checkinDoneToday, setCheckinDoneToday] = useState(false);
   const [checkinNextLabel, setCheckinNextLabel] = useState<string | null>(null);
   const [logoutLoading, setLogoutLoading] = useState(false);
+  const [expLogs, setExpLogs] = useState<ExpLogProfileEntry[]>([]);
 
   useEffect(() => {
     setBio(profile.bio ?? "");
+    setBioVillage(profile.bio_village ?? "");
+    setBioMarket(profile.bio_market ?? "");
     setIgPublic(profile.ig_public);
     setMoodInput(profile.mood ?? "");
     setMoodAt(profile.mood_at ?? null);
     setAvatarUrl(profile.avatar_url?.trim() || null);
   }, [profile]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const r = await getMyRecentExpLogsAction();
+      if (cancelled) return;
+      if (r.ok) setExpLogs(r.logs);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile.id, profile.updated_at]);
 
   useEffect(() => {
     const update = () => setCountdown(getMoodCountdown(moodAt));
@@ -238,6 +226,40 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     }
   }
 
+  async function handleSaveBio(type: "village" | "market") {
+    if (type === "village") {
+      setSavingBioVillage(true);
+      try {
+        const result = await updateMyProfile({
+          bio_village: bioVillage.trim(),
+        });
+        if (result.ok === false) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success("興趣自白已更新");
+        router.refresh();
+      } finally {
+        setSavingBioVillage(false);
+      }
+    } else {
+      setSavingBioMarket(true);
+      try {
+        const result = await updateMyProfile({
+          bio_market: bioMarket.trim(),
+        });
+        if (result.ok === false) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success("技能自白已更新");
+        router.refresh();
+      } finally {
+        setSavingBioMarket(false);
+      }
+    }
+  }
+
   async function onIgPublicChange(checked: boolean) {
     const prev = igPublic;
     setIgPublic(checked);
@@ -257,7 +279,15 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   }
 
   function handleIgToggle() {
-    if (igSaving || savingField || savingMood) return;
+    if (
+      igSaving ||
+      savingField ||
+      savingMood ||
+      savingBioVillage ||
+      savingBioMarket
+    ) {
+      return;
+    }
     void onIgPublicChange(!igPublic);
   }
 
@@ -484,78 +514,183 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             </div>
           </div>
         </div>
-        <Accordion className="px-2 pb-1">
-          <AccordionItem value="bio" className="border-white/10">
-            <AccordionTrigger className="px-2 text-zinc-100 hover:no-underline">
-              自白
-            </AccordionTrigger>
-            <AccordionContent className="px-2 text-zinc-200">
-              <div className="mt-2 rounded-xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
-                {profile.bio?.trim() ? (
-                  <p>{profile.bio}</p>
-                ) : (
-                  <p className="text-zinc-500">尚未寫下冒險宣言…</p>
-                )}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
 
-          <AccordionItem value="rep" className="border-white/10">
-            <AccordionTrigger className="px-2 text-zinc-100 hover:no-underline">
-              信譽與紀錄
-            </AccordionTrigger>
-            <AccordionContent className="px-2 text-zinc-200">
-              <div className="mt-2 rounded-xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
-                <p className="font-mono text-lg text-cyan-300 tabular-nums">
-                  {rep.toLocaleString("zh-TW")}
-                </p>
-                <p className="mt-1 text-xs text-zinc-500">Lv×1000 + total_exp</p>
-                <p className="mt-3 text-xs uppercase tracking-wide text-zinc-500">
-                  註冊時間
-                </p>
-                <p className="text-zinc-200">
-                  {formatRegisteredAt(profile.created_at)}
-                </p>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
+        <div className="border-b border-white/10 p-4">
+          <div className="glass-panel space-y-4 p-4">
+            <p className="text-sm font-semibold text-white">自白</p>
 
-          <AccordionItem value="tags" className="border-white/10 border-b-0">
-            <AccordionTrigger className="px-2 text-zinc-100 hover:no-underline">
-              興趣與價值觀
-            </AccordionTrigger>
-            <AccordionContent className="px-2 text-zinc-200">
-              <div className="mt-2 rounded-xl border border-zinc-800/50 bg-zinc-900/50 p-4 text-sm leading-relaxed text-zinc-300">
-                <p className="text-xs uppercase tracking-wide text-zinc-500">
-                  興趣標籤
-                </p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {interestSlugs.length ? (
-                    interestSlugs.map((slug) => (
-                      <span key={slug} className="tag-gold text-[0.7rem]">
-                        {interestLabel(slug)}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-xs text-zinc-500">尚未標記</span>
-                  )}
+            <div className="space-y-2">
+              <p className="text-xs text-zinc-400">興趣自白</p>
+              <textarea
+                value={bioVillage}
+                onChange={(e) => setBioVillage(e.target.value)}
+                placeholder="說說你的興趣..."
+                maxLength={200}
+                rows={3}
+                className="w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-sm text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-zinc-600">
+                  {bioVillage.length}/200
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void handleSaveBio("village")}
+                  disabled={savingBioVillage}
+                  className="rounded-full bg-white/10 px-5 py-2 text-sm font-medium text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-40"
+                >
+                  {savingBioVillage ? "更新中…" : "確認修改"}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-zinc-400">技能自白</p>
+              <textarea
+                value={bioMarket}
+                onChange={(e) => setBioMarket(e.target.value)}
+                placeholder="說說你能提供的技能..."
+                maxLength={200}
+                rows={3}
+                className="w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-sm text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-zinc-600">
+                  {bioMarket.length}/200
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void handleSaveBio("market")}
+                  disabled={savingBioMarket}
+                  className="rounded-full bg-white/10 px-5 py-2 text-sm font-medium text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-40"
+                >
+                  {savingBioMarket ? "更新中…" : "確認修改"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-b border-white/10 p-4">
+          <div className="glass-panel space-y-4 p-4">
+            <p className="text-sm font-semibold text-white">信譽與紀錄</p>
+
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-zinc-400">註冊時間</span>
+                <span className="text-white">
+                  {profile.created_at
+                    ? new Date(profile.created_at).toLocaleDateString("zh-TW")
+                    : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-zinc-400">邀請碼</span>
+                <span className="font-mono text-white">
+                  {profile.invite_code ?? "尚未生成"}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-zinc-400">推薦人</span>
+                <span className="text-white">
+                  {profile.invited_by ?? "—"}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-zinc-400">近三個月經驗值紀錄</p>
+              <div className="overflow-x-auto">
+                <div
+                  className="flex gap-2 pb-2"
+                  style={{ minWidth: "max-content" }}
+                >
+                  {expLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="flex-shrink-0 rounded-2xl border border-white/10 bg-zinc-900/60 px-3 py-2 text-center"
+                    >
+                      <p className="text-xs text-zinc-400">
+                        {new Date(log.created_at).toLocaleDateString("zh-TW", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </p>
+                      <p className="text-sm font-medium text-white">
+                        {log.delta_exp >= 0 ? "+" : ""}
+                        {log.delta_exp} EXP
+                      </p>
+                      <p className="text-xs text-zinc-500">{log.source}</p>
+                    </div>
+                  ))}
+                  {expLogs.length === 0 ? (
+                    <p className="text-xs text-zinc-500">尚無紀錄</p>
+                  ) : null}
                 </div>
-                {coreLabels.length ? (
-                  <>
-                    <p className="mt-4 text-xs uppercase tracking-wide text-zinc-500">
-                      價值觀印記
-                    </p>
-                    <ul className="mt-2 space-y-1 text-left text-xs text-zinc-300">
-                      {coreLabels.map((label, i) => (
-                        <li key={i}>· {label}</li>
-                      ))}
-                    </ul>
-                  </>
-                ) : null}
               </div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4">
+          <div className="glass-panel space-y-4 p-4">
+            <p className="text-sm font-semibold text-white">興趣與技能標籤</p>
+
+            {profile.interests && profile.interests.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-xs text-zinc-400">興趣村莊</p>
+                <div className="flex flex-wrap gap-2">
+                  {profile.interests.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full border border-violet-500/30 bg-violet-500/20 px-3 py-1 text-xs text-violet-300"
+                    >
+                      {interestLabel(tag)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {profile.skills_offer && profile.skills_offer.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-xs text-zinc-400">技能市集（提供）</p>
+                <div className="flex flex-wrap gap-2">
+                  {profile.skills_offer.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full border border-amber-500/30 bg-amber-500/20 px-3 py-1 text-xs text-amber-300"
+                    >
+                      {interestLabel(tag)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {profile.skills_want && profile.skills_want.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-xs text-zinc-400">技能市集（想學）</p>
+                <div className="flex flex-wrap gap-2">
+                  {profile.skills_want.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full border border-sky-500/30 bg-sky-500/20 px-3 py-1 text-xs text-sky-300"
+                    >
+                      {interestLabel(tag)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {!profile.interests?.length &&
+            !profile.skills_offer?.length &&
+            !profile.skills_want?.length ? (
+              <p className="text-xs text-zinc-500">尚未填寫任何標籤</p>
+            ) : null}
+          </div>
+        </div>
       </section>
 
       <nav className="flex w-full flex-col gap-0" aria-label="個人頁操作">
@@ -642,7 +777,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           <DialogHeader className="border-b border-white/10 px-4 pb-3 pt-4">
             <DialogTitle className="text-zinc-100">修改冒險者資料</DialogTitle>
             <DialogDescription className="text-zinc-400">
-              自白請按下「確認修改」。今日心情請在上方「我的狀態」區塊編輯。IG
+              此處為通用自白（bio）。興趣／技能分域自白請在「我的狀態」內編輯。今日心情亦於該區。IG
               公開開關會立即同步名冊。
             </DialogDescription>
           </DialogHeader>
@@ -670,7 +805,12 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                   variant="ghost"
                   size="sm"
                   className="rounded-full bg-zinc-800 px-4 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 hover:text-zinc-100"
-                  disabled={Boolean(savingField) || savingMood}
+                  disabled={
+                    Boolean(savingField) ||
+                    savingMood ||
+                    savingBioVillage ||
+                    savingBioMarket
+                  }
                   onClick={() => setConfirmField("bio")}
                 >
                   確認修改
@@ -694,7 +834,13 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                 role="switch"
                 aria-checked={igPublic}
                 aria-label={igPublic ? "IG 狀態：公開" : "IG 狀態：不公開"}
-                disabled={igSaving || Boolean(savingField) || savingMood}
+                disabled={
+                  igSaving ||
+                  Boolean(savingField) ||
+                  savingMood ||
+                  savingBioVillage ||
+                  savingBioMarket
+                }
                 onClick={handleIgToggle}
                 className={cn(
                   "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 disabled:pointer-events-none disabled:opacity-50",
@@ -743,7 +889,12 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-violet-600 text-white hover:bg-violet-500"
-              disabled={Boolean(savingField) || savingMood}
+              disabled={
+                Boolean(savingField) ||
+                savingMood ||
+                savingBioVillage ||
+                savingBioMarket
+              }
               onClick={(e) => {
                 e.preventDefault();
                 void runConfirmedSave();

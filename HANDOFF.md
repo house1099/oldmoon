@@ -26,9 +26,22 @@
 - [x] **Phase 2.1（核心已交付）**：**`/village`** 興趣村莊（重疊排序＋`UserCard`）；**`/market`** 技能市集 **`getMarketUsers`**、**`evaluatePerfectMatch`**、**Perfect Match** 卡片高光；Layer 2 **`findMarketUsers`**。可持續打磨 UX／篩選／RLS。
 - [ ] **Phase 2.2（進行中／下一波）**：**Likes**、**Alliances** 業務與 UI、詳情 Modal、互動解鎖規則；雲端 **RLS** 與型別對齊。
 
+## Phase 2.1 首頁個人卡重構（完成）
+
+- **今日心情**：獨立區塊，24h 倒數，IG 限時動態風格
+- **自白**：**`bio_village`**（興趣自白）+ **`bio_market`**（技能自白），各自獨立確認按鈕
+- **信譽與紀錄**：**`created_at`**、**`invite_code`**、**`invited_by`**、**`exp_logs`** 近三個月橫向滑動（Layer 3 **`getMyRecentExpLogsAction`** → Layer 2 **`findRecentExpLogsForUser`**）
+- **興趣與技能標籤**：**`interests[]`**、**`skills_offer[]`**、**`skills_want[]`**，純顯示；無該類標籤則不顯示該區塊
+
+## DB 欄位 SSOT 確認
+
+- **經驗值**：**`total_exp`**（SSOT），**`exp`** 欄位廢棄勿用
+- **IG**：**`instagram_handle`**（SSOT），**`ig_handle`** 欄位廢棄勿用
+- **自白**：**`bio_village`** = 興趣自白，**`bio_market`** = 技能自白，**`bio`** 欄位暫保留（通用自白／Modal）
+
 ### 🗄️ 資料庫異動紀錄（交接必備）
 
-- **`users`**：**`bio`**（text，可 null）、**`interests`**（**須為 `text[]`**，勿用單一 text）、**`skills_offer`**／**`skills_want`**（`text[]`，建議 **`default '{}'`**）、以及 **`instagram_handle`**、**`ig_public`**、**`mood`**、**`mood_at`**、**`last_seen_at`** 等與 **`database.types.ts`** 一致。
+- **`users`**：**`bio`**（text，可 null）、**`bio_village`**／**`bio_market`**（興趣／技能分域自白）、**`invite_code`**、**`invited_by`**（uuid）、**`interests`**（**須為 `text[]`**，勿用單一 text）、**`skills_offer`**／**`skills_want`**（`text[]`，建議 **`default '{}'`**）、以及 **`instagram_handle`**、**`ig_public`**、**`mood`**、**`mood_at`**、**`last_seen_at`** 等與 **`database.types.ts`** 一致。
 - **註冊建檔**：**`completeAdventurerProfile`** 為避免 PostgREST／欄位快取問題，**insert 不帶 `bio`**（自介於個人頁 **`profile-update`** 填寫）。
 - DDL 變更後若仍報「找不到欄位」，至 Supabase **Settings → API** 嘗試 **重新載入 Schema**。
 - **`likes`**、**`alliances`**：雲端建表後維持型別與 **RLS**；Phase 2.2 於 Layer 2／3 接線。
@@ -57,7 +70,8 @@
 | OAuth callback | `src/app/auth/callback/route.ts` |
 | 補名冊（含 IG） | `src/services/adventurer-profile.action.ts`（註冊 insert **不帶 `bio`**） |
 | 每日簽到 +1 EXP | `src/services/daily-checkin.action.ts`；**`findDailyCheckinForUserOnTaipeiDay`**／**`insertExpLog`（`delta`+`delta_exp`）** 見 `exp.repository.ts`；機讀錯誤 **`DAILY_CHECKIN_ALREADY_TODAY`** 見 `daily-checkin.ts`；日鍵 SSOT：`date.ts`（`taipeiCalendarDateKey`） |
-| 編輯自介／IG 公開／心情 | `src/services/profile-update.action.ts`（**支援部分欄位 patch**，僅在傳入 `mood` 時更新 `mood_at`） |
+| 編輯自介／分域自白／IG 公開／心情 | `src/services/profile-update.action.ts`（**支援部分欄位 patch**；**`mood`** 時更新 **`mood_at`**；**`bio_village`**／**`bio_market`**） |
+| 個人頁 EXP 紀錄 | `src/services/exp-logs.action.ts`（**`getMyRecentExpLogsAction`**）→ **`exp.repository`** **`findRecentExpLogsForUser`** |
 | 首頁個人頁 UI | `src/app/(app)/page.tsx` → `src/components/profile/guild-profile-home.tsx` |
 | 頭像裁切＋Cloudinary | **`react-easy-crop`** 全螢幕裁切；**`src/lib/utils/cropImage.ts`**（**`getCroppedImg`**）；**`src/lib/utils/cloudinary.ts`**（**`uploadAvatarToCloudinary`**）→ **`updateMyProfile({ avatar_url })`**（**禁止** **`supabase.storage`** 上傳頭像） |
 | 底部導航 | `src/components/layout/Navbar.tsx` |
@@ -248,6 +262,21 @@ alter table public.users
 
 alter table public.users
   add column if not exists mood_at timestamptz null;
+```
+
+### 🗄️ 首頁個人卡：分域自白與邀請欄位（`public.users`）
+
+若尚無下列欄位，於 SQL Editor 執行（或套用 **`supabase/migrations/20260323140000_users_bio_split_invite.sql`**）：
+
+🗄️
+```sql
+ALTER TABLE public.users
+  ADD COLUMN IF NOT EXISTS bio_village text,
+  ADD COLUMN IF NOT EXISTS bio_market text,
+  ADD COLUMN IF NOT EXISTS invite_code text,
+  ADD COLUMN IF NOT EXISTS invited_by uuid;
+
+NOTIFY pgrst, 'reload schema';
 ```
 
 # 待解決問題 (Known Issues)

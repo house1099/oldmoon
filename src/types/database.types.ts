@@ -20,6 +20,10 @@ export interface Database {
           nickname: string;
           /** 自介；雲端需有 `bio` 欄位（text, nullable） */
           bio: string | null;
+          /** 興趣村莊用自白 */
+          bio_village: string | null;
+          /** 技能市集用自白 */
+          bio_market: string | null;
           /** 核心價值觀三題答案 slug，順序對應問卷；雲端建議 `text[]` */
           core_values: string[] | null;
           /** 英文 slug，與問卷常數一致 */
@@ -51,6 +55,10 @@ export interface Database {
           skills_want: string[] | null;
           /** IG 帳號（註冊時寫入；不含 @ 亦可） */
           instagram_handle: string | null;
+          /** 邀請碼（可為 null 待生成） */
+          invite_code: string | null;
+          /** 推薦人 user id（uuid） */
+          invited_by: string | null;
           /** 是否在公會公開 IG（隱私開關） */
           ig_public: boolean;
           /** 每日心情內文 */
@@ -64,6 +72,8 @@ export interface Database {
           id: string;
           nickname: string;
           bio?: string | null;
+          bio_village?: string | null;
+          bio_market?: string | null;
           core_values?: string[];
           gender: string;
           region: string;
@@ -80,6 +90,8 @@ export interface Database {
           skills_offer?: string[] | null;
           skills_want?: string[] | null;
           instagram_handle?: string | null;
+          invite_code?: string | null;
+          invited_by?: string | null;
           ig_public?: boolean;
           mood?: string | null;
           mood_at?: string | null;
@@ -90,6 +102,8 @@ export interface Database {
           id?: string;
           nickname?: string;
           bio?: string | null;
+          bio_village?: string | null;
+          bio_market?: string | null;
           core_values?: string[];
           gender?: string;
           region?: string;
@@ -106,6 +120,8 @@ export interface Database {
           skills_offer?: string[] | null;
           skills_want?: string[] | null;
           instagram_handle?: string | null;
+          invite_code?: string | null;
+          invited_by?: string | null;
           ig_public?: boolean;
           mood?: string | null;
           mood_at?: string | null;

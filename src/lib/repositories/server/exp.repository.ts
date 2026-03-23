@@ -3,6 +3,12 @@ import type { Database } from "@/types/database.types";
 
 export type ExpLogRow = Database["public"]["Tables"]["exp_logs"]["Row"];
 
+/** 個人頁 EXP 橫向列表用（近三個月） */
+export type ExpLogProfileEntry = Pick<
+  ExpLogRow,
+  "id" | "source" | "delta_exp" | "created_at"
+>;
+
 /**
  * 寫入 exp_logs：**`delta`**／**`delta_exp`** 預設 **1**（簽到），避免雲端 **`delta`** NOT NULL（23502）。
  * 其他來源可於呼叫端覆寫。
@@ -112,4 +118,29 @@ export async function insertExpLog(
   }
 
   return row as ExpLogRow;
+}
+
+/**
+ * 列出使用者在 **`since`（含）之後**的 exp_logs，新到舊。
+ */
+export async function findRecentExpLogsForUser(
+  userId: string,
+  options: { since: string; limit?: number },
+): Promise<ExpLogProfileEntry[]> {
+  const limit = options.limit ?? 50;
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("exp_logs")
+    .select("id, source, delta_exp, created_at")
+    .eq("user_id", userId)
+    .gte("created_at", options.since)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    logSupabaseError("findRecentExpLogsForUser", error);
+    throw error;
+  }
+
+  return (data ?? []) as ExpLogProfileEntry[];
 }

@@ -9,7 +9,7 @@ import {
 } from "@/lib/repositories/server/user.repository";
 
 /**
- * Layer 3：編輯公會名片（自介、IG 公開、每日心情）。
+ * Layer 3：編輯公會名片（自介、分域自白、IG 公開、每日心情）。
  * 可傳入部分欄位；**`mood` 出現在 input** 時一併寫入 **`mood_at`**（可傳 `mood_at` ISO 字串，否則伺服端用當下時間）。
  */
 const AVATAR_URL_MAX = 2048;
@@ -27,6 +27,8 @@ function coerceMoodAtIso(raw: string | undefined): string {
 
 export async function updateMyProfile(input: {
   bio?: string;
+  bio_village?: string;
+  bio_market?: string;
   ig_public?: boolean;
   mood?: string;
   /** 與 `mood` 一併寫入；省略時由伺服端設為當下時間 */
@@ -36,6 +38,8 @@ export async function updateMyProfile(input: {
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   if (
     input.bio === undefined &&
+    input.bio_village === undefined &&
+    input.bio_market === undefined &&
     input.ig_public === undefined &&
     input.mood === undefined &&
     input.avatar_url === undefined
@@ -61,6 +65,14 @@ export async function updateMyProfile(input: {
   if (input.bio !== undefined) {
     const bioTrimmed = input.bio.trim();
     patch.bio = bioTrimmed.length > 0 ? bioTrimmed : null;
+  }
+  if (input.bio_village !== undefined) {
+    const t = input.bio_village.trim();
+    patch.bio_village = t.length > 0 ? t : null;
+  }
+  if (input.bio_market !== undefined) {
+    const t = input.bio_market.trim();
+    patch.bio_market = t.length > 0 ? t : null;
   }
   if (input.ig_public !== undefined) {
     patch.ig_public = input.ig_public;
@@ -101,7 +113,7 @@ export async function updateMyProfile(input: {
       return {
         ok: false,
         error:
-          "資料庫尚未對齊（例如缺少 bio／ig_public／mood 欄位），請聯絡管理員。",
+          "資料庫尚未對齊（例如缺少 bio／bio_village／bio_market／ig_public／mood 欄位），請聯絡管理員。",
       };
     }
     return { ok: false, error: "儲存失敗，請稍後再試。" };
