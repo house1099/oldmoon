@@ -1,3 +1,5 @@
+import { Navbar } from "@/components/layout/Navbar";
+
 export default function AppGroupLayout({
   children,
 }: Readonly<{
@@ -5,7 +7,10 @@ export default function AppGroupLayout({
 }>) {
   return (
     <div className="dark min-h-screen bg-[radial-gradient(ellipse_100%_55%_at_50%_0%,rgba(88,28,135,0.38),#020617_52%)] text-foreground">
-      {children}
+      <div className="min-h-screen pb-[calc(4rem+env(safe-area-inset-bottom,0px))]">
+        {children}
+      </div>
+      <Navbar />
     </div>
   );
 }

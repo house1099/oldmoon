@@ -40,3 +40,25 @@ export async function createProfile(data: UserInsert): Promise<UserRow> {
 
   return row as UserRow;
 }
+
+/**
+ * 列出 **`status === 'active'`** 且**非目前使用者**的冒險者（村莊列表用）。
+ * 排序：**`last_seen_at` 降序**（最活躍在前；未上線 `null` 排在後）。
+ */
+export async function findActiveUsers(
+  currentUserId: string,
+): Promise<UserRow[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("users")
+    .select("*")
+    .eq("status", "active")
+    .neq("id", currentUserId)
+    .order("last_seen_at", { ascending: false, nullsFirst: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as UserRow[];
+}

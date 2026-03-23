@@ -13,6 +13,15 @@
   .guild-breathe-ring {
     animation: guild-border-glow 3.5s ease-in-out infinite;
   }
+
+  /** 村莊：興趣標籤（金色邊框） */
+  .tag-gold {
+    @apply inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium;
+    border-color: rgba(234, 179, 8, 0.55);
+    color: rgba(254, 243, 199, 0.95);
+    background: rgba(66, 32, 6, 0.45);
+    box-shadow: inset 0 1px 0 rgba(251, 191, 36, 0.12);
+  }
 }
 
 @keyframes guild-border-glow {

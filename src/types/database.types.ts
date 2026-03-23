@@ -31,6 +31,10 @@ export interface Database {
           total_exp: number;
           /** 由 Trigger 依 total_exp 與等級門檻維護 */
           level: number;
+          /** 最後上線／活躍時間（村莊排序用）；未上線可為 null */
+          last_seen_at: string | null;
+          /** 興趣 slug 或標籤列表（雲端建議 `text[]` 或 jsonb，與型別一致） */
+          interests: string[] | null;
           created_at: string;
           updated_at: string;
         };
@@ -46,6 +50,8 @@ export interface Database {
           /** 累積經驗值，欄位名 `total_exp` */
           total_exp?: number;
           level?: number;
+          last_seen_at?: string | null;
+          interests?: string[] | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -61,6 +67,8 @@ export interface Database {
           /** 累積經驗值，欄位名 `total_exp` */
           total_exp?: number;
           level?: number;
+          last_seen_at?: string | null;
+          interests?: string[] | null;
           created_at?: string;
           updated_at?: string;
         };

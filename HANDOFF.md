@@ -11,7 +11,16 @@
 | ✅ 已完成 | 專案骨架、五層目錄、Layer 1 連線、Schema 型別與常數、**守衛（`src/middleware.ts`）**、SSOT 等級門檻、`exp_logs` 防重複領獎（Layer 2） |
 | ✅ 已完成 | **Auth 全流程**：`/login`、`/register`、`/register/profile`、首頁 `/(app)/`；Email／密碼經 Supabase Auth；補齊 profile 經 **`completeAdventurerProfile`**（admin `createProfile`）；**Vercel 部署可成功登入並進入公會** |
 
-**Phase 2／Phase 3**：待產品規劃後於此文件更新。
+**Phase 2：社交核心**（🚧 **進行中** — 興趣村莊 `/village` 已接線）
+
+| 狀態 | 說明 |
+|------|------|
+| ✅ 已接線 | Layer 2 **`findActiveUsers(currentUserId)`**：`status = active`、排除自己、依 **`last_seen_at`** 降序（最活躍在前） |
+| ✅ 已接線 | Layer 3 **`getVillageUsers(currentUserId)`**：呼叫 Repository，並依**與自己的 `interests` 重疊數**優先排序（進階），同分再依 **`last_seen_at`** |
+| ✅ 已接線 | Layer 5 **`UserCard`**（`src/components/cards/UserCard.tsx`）：暗黑 RPG、**`tag-gold`** 興趣標籤、**`guild-breathe-ring`** 呼吸燈邊框；shadcn **aspect-ratio**／**separator**／**hover-card** |
+| ⏳ 雲端待對齊 | `users` 需具備 **`last_seen_at`**（`timestamptz`，可 null）、**`interests`**（建議 `text[]` 或與程式一致之 jsonb 陣列）；見下方 🗄️ **Phase 2 欄位補齊** |
+
+**Phase 3**：待產品規劃後於此文件更新。
 
 ---
 
@@ -24,6 +33,7 @@
 - **累積經驗值**：欄位名必為 **`total_exp`**（**勿**使用不存在的 `exp` 欄位名；Trigger／函式亦須對齊 `total_exp`）。
 - **等級**：`level`；新建 profile 時 insert 帶入 `total_exp: 0`、`level: 1` 初值（真實數值仍由雲端 Trigger／規則為準）。
 - **狀態**：`status`（`active`／`banned`），Middleware 會處理放逐流程。
+- **Phase 2 社交**：**`last_seen_at`**（最後活躍，村莊排序）；**`interests`**（興趣 slug／標籤列表，與自己交集越多排序越前）。型別見 **`src/types/database.types.ts`**。
 
 ### 登入與補資料流程（簡述）
 
@@ -43,10 +53,10 @@
 | 層級 | 路徑／約定 | 目前進度 |
 |------|------------|----------|
 | **Layer 1** 連線 | `src/lib/supabase/` | ✅ `client.ts`、`server.ts`、`admin.ts`；`Database` 型別已注入 client |
-| **Layer 2** 資料 | `src/lib/repositories/server/` | ✅ `user.repository.ts`（`findProfileById`、`createProfile`）、`exp.repository.ts`（admin）；`client/` 尚空 |
-| **Layer 3** 業務 | `src/services/` | ✅ `auth-status.ts`、`auth.service.ts`、**`adventurer-profile.action.ts`**；EXP／領獎等用例待建 |
+| **Layer 2** 資料 | `src/lib/repositories/server/` | ✅ `user.repository.ts`（`findProfileById`、`createProfile`、**`findActiveUsers(currentUserId)`**）、`exp.repository.ts`（admin）；`client/` 尚空 |
+| **Layer 3** 業務 | `src/services/` | ✅ `auth-status.ts`、`auth.service.ts`、**`adventurer-profile.action.ts`**、**`village.service.ts`（`getVillageUsers`）**；EXP／領獎等用例待建 |
 | **Layer 4** 狀態 | `src/lib/hooks/`、`src/store/` | ⏳ 目錄已建，Zustand／hooks 尚未實作 |
-| **Layer 5** UI | `src/components/*`、`src/app/*` | ✅ shadcn（含 **select**）、`Providers`+`Toaster`；**暗黑奇幻登入／註冊／補資料 UI**、`GuildAuthShell`、首頁歡迎 |
+| **Layer 5** UI | `src/components/*`、`src/app/*` | ✅ shadcn（含 **select**、**aspect-ratio**、**separator**、**hover-card**）、`Providers`+`Toaster`；**暗黑奇幻登入／註冊／補資料 UI**、`GuildAuthShell`、首頁歡迎、**`/village` + `UserCard`** |
 
 **規則重申**：UI 不得直連 Supabase／SQL；僅 Layer 1 建立 client；寫入 `exp_logs` 等應經 Layer 2 → Layer 3。
 
@@ -57,7 +67,7 @@
 - [x] `.cursorrules`、`HANDOFF.md`、`.env.example`
 - [x] Next.js 14（App Router、TS、Tailwind v3、ESLint、`src/`）
 - [x] 套件：Supabase、`zustand`、`lucide-react`、shadcn（button、input、dialog、sonner、**select**）
-- [x] `src/types/database.types.ts`（`users`：`nickname`、`gender`、`region`、`orientation`、`offline_ok`、`total_exp`、`level`、**`status`**；`exp_logs` 含 **`unique_key`** 等）
+- [x] `src/types/database.types.ts`（`users`：`nickname`、`gender`、`region`、`orientation`、`offline_ok`、`total_exp`、`level`、**`status`**、**`last_seen_at`**、**`interests`**；`exp_logs` 含 **`unique_key`** 等）
 - [x] `src/lib/constants/levels.ts`（稱號與 EXP 門檻 — 見下方 **SSOT**）
 - [x] `src/lib/constants/adventurer-questionnaire.ts`（問卷英文 value／繁中 label）
 - [x] Step 3 Schema（雲端）：Trigger 維護 **`users.total_exp`**、**`users.level`**；**`exp_logs.unique_key` UNIQUE**（見下方 **Unique Key**）
@@ -103,11 +113,31 @@
 
 # 進行中任務
 
-- （無 — Phase 1 已封板）
+- **Phase 2**：興趣村莊 **`/village`**（列表、卡片、興趣排序）；雲端補上 **`last_seen_at`／`interests`** 後即可完整啟用排序與標籤資料。
 
 # 下一步（Phase 2 建議方向）
 
-- 依產品規劃擴充 Layer 3／4／5（EXP 領獎、社交、公會 UI 等）；雲端 Schema 變更時同步 `database.types.ts`。
+- 雲端執行 🗄️ **Phase 2 欄位補齊**（或對齊既有欄位名／型別），並視需要以 Edge Function／登入心跳更新 **`last_seen_at`**。
+- 補「編輯興趣」表單（Layer 5）與寫入用例（Layer 3 → Layer 2）。
+- 依產品規劃擴充 EXP 領獎、私訊／按讚等；Schema 變更時同步 `database.types.ts`。
+
+---
+
+## 🗄️ Phase 2 欄位補齊（`public.users`）
+
+若 Supabase 尚無下列欄位，可於 SQL Editor 執行（**與 `database.types.ts` 對齊後再跑**）：
+
+🗄️
+```sql
+alter table public.users
+  add column if not exists last_seen_at timestamptz null;
+
+alter table public.users
+  add column if not exists interests text[] not null default '{}';
+```
+
+- **`interests`** 若改為 **jsonb** 陣列，請同步調整 **`database.types.ts`** 與讀寫邏輯。
+- 既有使用者：`last_seen_at` 為 null 時，村莊查詢會將其排在**較後**（`nullsFirst: false`）。
 
 # 待解決問題 (Known Issues)
 
@@ -124,4 +154,4 @@
 
 ---
 
-*最後更新：Phase 1 封板 — Auth／profile 與雲端 `users` 對齊（`nickname`、`total_exp`、問卷欄位）、Vercel 可成功登入*
+*最後更新：Phase 2 開端 — `/village`、`findActiveUsers`／`getVillageUsers`、`UserCard`；`total_exp` 等 SSOT 不變；雲端待補 `last_seen_at`／`interests`*
