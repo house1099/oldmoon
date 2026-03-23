@@ -5,11 +5,19 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createProfile } from "@/lib/repositories/server/user.repository";
 
+import type {
+  GenderValue,
+  OfflineIntentValue,
+  OrientationValue,
+  RegionValue,
+} from "@/lib/constants/adventurer-questionnaire";
+
+/** 問卷值皆為英文 slug（與 `adventurer-questionnaire` 常數一致），寫入 `bio` JSON。 */
 export type AdventurerQuestionnaire = {
-  gender: string;
-  region: string;
-  orientation: string;
-  offlineIntent: string;
+  gender: GenderValue;
+  region: RegionValue;
+  orientation: OrientationValue;
+  offlineIntent: OfflineIntentValue;
 };
 
 function serializeBio(extra: AdventurerQuestionnaire): string {

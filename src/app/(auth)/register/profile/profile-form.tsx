@@ -6,55 +6,34 @@ import { completeAdventurerProfile } from "@/services/adventurer-profile.action"
 import { GuildAuthShell } from "@/components/auth/guild-auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-
-const selectClass = cn(
-  "flex h-8 w-full min-w-0 appearance-none rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm shadow-sm outline-none transition-colors",
-  "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
-  "disabled:cursor-not-allowed disabled:opacity-50",
-  "dark:bg-input/30",
-);
-
-const GENDER = [
-  { value: "male", label: "男" },
-  { value: "female", label: "女" },
-  { value: "non_binary", label: "非二元" },
-  { value: "prefer_not", label: "不便透露" },
-] as const;
-
-const REGION = [
-  { value: "north_tw", label: "台灣 · 北部" },
-  { value: "central_tw", label: "台灣 · 中部" },
-  { value: "south_tw", label: "台灣 · 南部" },
-  { value: "east_tw", label: "台灣 · 東部" },
-  { value: "islands_tw", label: "台灣 · 離島" },
-  { value: "overseas", label: "海外" },
-  { value: "other", label: "其他" },
-] as const;
-
-const ORIENTATION = [
-  { value: "straight", label: "異性戀" },
-  { value: "gay", label: "男同志" },
-  { value: "lesbian", label: "女同志" },
-  { value: "bisexual", label: "雙性戀" },
-  { value: "pan", label: "泛性戀" },
-  { value: "asexual", label: "無性戀" },
-  { value: "questioning", label: "探索中" },
-  { value: "prefer_not", label: "不便透露" },
-] as const;
-
-const OFFLINE = [
-  { value: "yes", label: "願意參與線下活動" },
-  { value: "online_only", label: "傾向線上互動" },
-  { value: "undecided", label: "尚未決定" },
-] as const;
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  GENDER_OPTIONS,
+  OFFLINE_INTENT_OPTIONS,
+  ORIENTATION_OPTIONS,
+  REGION_OPTIONS,
+  type GenderValue,
+  type OfflineIntentValue,
+  type OrientationValue,
+  type RegionValue,
+} from "@/lib/constants/adventurer-questionnaire";
 
 export function ProfileForm() {
   const [nickname, setNickname] = useState("");
-  const [gender, setGender] = useState<string>(GENDER[0].value);
-  const [region, setRegion] = useState<string>(REGION[0].value);
-  const [orientation, setOrientation] = useState<string>(ORIENTATION[0].value);
-  const [offlineIntent, setOfflineIntent] = useState<string>(OFFLINE[0].value);
+  const [gender, setGender] = useState<GenderValue>(GENDER_OPTIONS[0].value);
+  const [region, setRegion] = useState<RegionValue>(REGION_OPTIONS[0].value);
+  const [orientation, setOrientation] = useState<OrientationValue>(
+    ORIENTATION_OPTIONS[0].value,
+  );
+  const [offlineIntent, setOfflineIntent] = useState<OfflineIntentValue>(
+    OFFLINE_INTENT_OPTIONS[0].value,
+  );
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
@@ -101,82 +80,120 @@ export function ProfileForm() {
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="gender" className="text-sm font-medium text-foreground">
+          <span id="gender-label" className="text-sm font-medium text-foreground">
             性別
-          </label>
-          <select
-            id="gender"
+          </span>
+          <Select
             name="gender"
-            className={selectClass}
             value={gender}
-            onChange={(e) => setGender(e.target.value)}
+            onValueChange={(v) => setGender((v ?? GENDER_OPTIONS[0].value) as GenderValue)}
           >
-            {GENDER.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger
+              id="gender"
+              className="w-full"
+              aria-labelledby="gender-label"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {GENDER_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="region" className="text-sm font-medium text-foreground">
+          <span id="region-label" className="text-sm font-medium text-foreground">
             地區
-          </label>
-          <select
-            id="region"
+          </span>
+          <Select
             name="region"
-            className={selectClass}
             value={region}
-            onChange={(e) => setRegion(e.target.value)}
+            onValueChange={(v) =>
+              setRegion((v ?? REGION_OPTIONS[0].value) as RegionValue)
+            }
           >
-            {REGION.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger
+              id="region"
+              className="w-full"
+              aria-labelledby="region-label"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {REGION_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-2">
-          <label
-            htmlFor="orientation"
+          <span
+            id="orientation-label"
             className="text-sm font-medium text-foreground"
           >
             性向
-          </label>
-          <select
-            id="orientation"
+          </span>
+          <Select
             name="orientation"
-            className={selectClass}
             value={orientation}
-            onChange={(e) => setOrientation(e.target.value)}
+            onValueChange={(v) =>
+              setOrientation(
+                (v ?? ORIENTATION_OPTIONS[0].value) as OrientationValue,
+              )
+            }
           >
-            {ORIENTATION.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger
+              id="orientation"
+              className="w-full"
+              aria-labelledby="orientation-label"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ORIENTATION_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="offline" className="text-sm font-medium text-foreground">
+          <span id="offline-label" className="text-sm font-medium text-foreground">
             線下意願
-          </label>
-          <select
-            id="offline"
-            name="offline"
-            className={selectClass}
+          </span>
+          <Select
+            name="offlineIntent"
             value={offlineIntent}
-            onChange={(e) => setOfflineIntent(e.target.value)}
+            onValueChange={(v) =>
+              setOfflineIntent(
+                (v ?? OFFLINE_INTENT_OPTIONS[0].value) as OfflineIntentValue,
+              )
+            }
           >
-            {OFFLINE.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger
+              id="offline"
+              className="w-full"
+              aria-labelledby="offline-label"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {OFFLINE_INTENT_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <Button type="submit" className="mt-2 w-full" size="lg" disabled={loading}>
