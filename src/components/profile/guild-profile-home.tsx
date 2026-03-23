@@ -4,7 +4,10 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { claimDailyCheckin } from "@/services/daily-checkin.action";
+import {
+  claimDailyCheckin,
+  DAILY_CHECKIN_ALREADY_TODAY,
+} from "@/services/daily-checkin.action";
 import { updateMyProfile } from "@/services/profile-update.action";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -15,6 +18,12 @@ import {
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import {
+  CalendarCheck,
+  ChevronRight,
+  LogOut,
+  PencilLine,
+} from "lucide-react";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -23,7 +32,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import {
   CORE_VALUES_QUESTIONS,
   INTEREST_TAG_OPTIONS,
@@ -124,6 +132,10 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     try {
       const result = await claimDailyCheckin();
       if (result.ok === false) {
+        if (result.error === DAILY_CHECKIN_ALREADY_TODAY) {
+          toast.success("今日已簽到過了喵！");
+          return;
+        }
         toast.error(result.error);
         return;
       }
@@ -152,8 +164,8 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     isMoodFresh(profile.mood_at) && (profile.mood?.trim().length ?? 0) > 0;
 
   return (
-    <main className="flex w-full flex-col gap-4">
-      <section className="glass-panel relative p-5 sm:p-6">
+    <main className="flex w-full flex-col gap-6">
+      <section className="glass-panel relative p-6 sm:p-8">
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.06]"
           style={{
@@ -163,34 +175,34 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           aria-hidden
         />
 
-        <div className="relative flex w-full flex-col items-center gap-4 text-center">
+        <div className="relative flex w-full flex-col items-center gap-5 text-center">
           <div className="relative mx-auto">
-            <div className="absolute -inset-1 rounded-full bg-gradient-to-tr from-cyan-400/40 via-slate-200/30 to-violet-500/40 blur-md" />
-            <div className="relative mx-auto size-24 overflow-hidden rounded-full border-2 border-slate-200/50 bg-gradient-to-b from-slate-800/80 to-black shadow-[inset_0_2px_12px_rgba(255,255,255,0.12)] sm:size-28">
+            <div className="absolute -inset-2 rounded-full bg-gradient-to-tr from-cyan-400/35 via-violet-400/25 to-fuchsia-500/35 blur-lg" />
+            <div className="relative mx-auto size-32 overflow-hidden rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] sm:size-36">
               {avatarSrc ? (
                 <Image
                   src={avatarSrc}
                   alt=""
-                  width={112}
-                  height={112}
+                  width={144}
+                  height={144}
                   className="h-full w-full object-cover"
                   unoptimized
                 />
               ) : (
-                <span className="flex h-full w-full items-center justify-center bg-gradient-to-b from-slate-600/40 to-slate-900 font-serif text-2xl text-amber-50 sm:text-3xl">
+                <span className="flex h-full w-full items-center justify-center bg-gradient-to-b from-zinc-600/50 to-zinc-950 font-serif text-3xl text-amber-50 sm:text-4xl">
                   {initial}
                 </span>
               )}
             </div>
           </div>
 
-          <div className="w-full space-y-1">
-            <p className="font-serif text-lg tracking-wide text-zinc-100 sm:text-xl">
+          <div className="w-full space-y-2">
+            <p className="font-serif text-xl tracking-wide text-zinc-100 sm:text-2xl">
               {profile.nickname}
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-zinc-100">
+            <div className="flex flex-wrap items-center justify-center gap-2.5 text-sm">
               <span
-                className="inline-flex items-center rounded-md border border-slate-200/40 bg-gradient-to-b from-slate-100/20 to-slate-400/10 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-zinc-100"
+                className="inline-flex items-center gap-1.5 rounded-full border border-violet-400/35 bg-gradient-to-r from-violet-950/80 to-zinc-900/90 px-3 py-1 text-xs font-semibold tabular-nums tracking-wide text-violet-100 shadow-md shadow-violet-950/40"
                 title="等級徽章"
               >
                 Lv.{profile.level}
@@ -222,7 +234,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         </div>
       </section>
 
-      <section className="glass-panel overflow-hidden p-0">
+      <section className="glass-panel overflow-hidden p-0 shadow-xl">
         <p className="border-b border-white/10 px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-400">
           我的狀態
         </p>
@@ -309,17 +321,58 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         </Accordion>
       </section>
 
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full border-violet-500/35 bg-violet-950/30 text-zinc-100 hover:bg-violet-950/45 hover:text-zinc-50"
-        onClick={() => setEditOpen(true)}
-      >
-        修改資料
-      </Button>
+      <nav className="flex w-full flex-col gap-0" aria-label="個人頁操作">
+        <button
+          type="button"
+          onClick={() => setEditOpen(true)}
+          className="mb-3 flex w-full items-center justify-between rounded-2xl border border-white/5 bg-zinc-900/50 p-4 text-left text-zinc-100 transition hover:border-violet-500/25 hover:bg-zinc-900/70"
+        >
+          <span className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-xl bg-violet-950/50 text-violet-200">
+              <PencilLine className="size-5" aria-hidden />
+            </span>
+            <span className="font-medium">修改資料</span>
+          </span>
+          <ChevronRight className="size-5 shrink-0 text-zinc-500" aria-hidden />
+        </button>
+
+        <button
+          type="button"
+          disabled={checkinLoading}
+          onClick={onCheckin}
+          className="mb-3 flex w-full items-center justify-between rounded-2xl border border-white/5 bg-zinc-900/50 p-4 text-left text-zinc-100 transition hover:border-amber-500/30 hover:bg-zinc-900/70 disabled:pointer-events-none disabled:opacity-60"
+        >
+          <span className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-xl bg-amber-950/40 text-amber-200">
+              <CalendarCheck className="size-5" aria-hidden />
+            </span>
+            <span className="font-medium">
+              {checkinLoading ? "連線中…" : "每日簽到（+1 EXP）"}
+            </span>
+          </span>
+          <ChevronRight className="size-5 shrink-0 text-zinc-500" aria-hidden />
+        </button>
+
+        <button
+          type="button"
+          disabled={logoutLoading}
+          onClick={onLogout}
+          className="flex w-full items-center justify-between rounded-2xl border border-white/5 bg-zinc-900/50 p-4 text-left text-zinc-100 transition hover:border-red-500/35 hover:bg-red-950/25 disabled:pointer-events-none disabled:opacity-60"
+        >
+          <span className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-xl bg-red-950/35 text-red-200">
+              <LogOut className="size-5" aria-hidden />
+            </span>
+            <span className="font-medium">
+              {logoutLoading ? "連線中…" : "結束連線（登出）"}
+            </span>
+          </span>
+          <ChevronRight className="size-5 shrink-0 text-zinc-500" aria-hidden />
+        </button>
+      </nav>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-h-[min(90vh,560px)] max-w-[calc(100%-2rem)] gap-0 overflow-hidden border-white/10 bg-zinc-950/98 p-0 text-zinc-100 sm:max-w-md">
+        <DialogContent className="max-w-[calc(100%-2rem)] gap-0 overflow-hidden p-0 sm:max-w-md">
           <DialogHeader className="border-b border-white/10 px-4 pb-3 pt-4">
             <DialogTitle className="text-zinc-100">修改冒險者資料</DialogTitle>
             <DialogDescription className="text-zinc-400">
@@ -410,28 +463,6 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           </form>
         </DialogContent>
       </Dialog>
-
-      <Button
-        type="button"
-        size="lg"
-        disabled={checkinLoading}
-        onClick={onCheckin}
-        className="w-full border border-amber-200/30 bg-gradient-to-r from-amber-500/20 via-violet-600/25 to-cyan-600/20 text-zinc-100 shadow-[0_0_24px_rgba(251,191,36,0.15)] hover:from-amber-400/30 hover:to-cyan-500/25"
-      >
-        {checkinLoading ? "⏳ 時空連線中..." : "每日簽到（+1 EXP）"}
-      </Button>
-
-      <Button
-        type="button"
-        variant="outline"
-        className={cn(
-          "w-full border-red-500/35 bg-red-950/20 text-zinc-100 hover:bg-red-950/35 hover:text-zinc-50",
-        )}
-        disabled={logoutLoading}
-        onClick={onLogout}
-      >
-        {logoutLoading ? "⏳ 時空連線中..." : "🚫 結束連線 (登出)"}
-      </Button>
     </main>
   );
 }

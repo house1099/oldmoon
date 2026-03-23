@@ -7,7 +7,7 @@
 @layer components {
   /** 公會深色毛玻璃面板（登入／個人頁區塊等） */
   .glass-panel {
-    @apply overflow-hidden rounded-2xl border border-white/10 bg-black/40 shadow-xl backdrop-blur-md;
+    @apply overflow-hidden rounded-3xl border border-white/10 bg-zinc-950/80 text-zinc-100 shadow-2xl backdrop-blur-xl;
     -webkit-font-smoothing: antialiased;
   }
 

@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { GuildAuthShell } from "@/components/auth/guild-auth-shell";
+import {
+  guildAuthInputClass,
+  guildAuthPrimaryButtonClass,
+} from "@/components/auth/auth-styles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
@@ -88,7 +92,7 @@ export function RegisterForm() {
       title="加入傳奇公會"
       subtitle="註冊後將引導你補上冒險者名冊"
     >
-      <form onSubmit={onSubmit} className="flex flex-col gap-3">
+      <form onSubmit={onSubmit} className="flex flex-col gap-6">
         <div className="space-y-2">
           <label
             htmlFor="reg-email"
@@ -105,7 +109,7 @@ export function RegisterForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="adventurer@example.com"
-            className="guild-energy-focus rounded-xl text-zinc-100 placeholder:text-zinc-500"
+            className={guildAuthInputClass}
             aria-invalid={Boolean(fieldErrors.email)}
           />
           {fieldErrors.email ? (
@@ -129,7 +133,7 @@ export function RegisterForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="至少 6 字，需含英文與數字"
-            className="guild-energy-focus rounded-xl text-zinc-100 placeholder:text-zinc-500"
+            className={guildAuthInputClass}
             aria-invalid={Boolean(fieldErrors.password)}
           />
           {fieldErrors.password ? (
@@ -157,7 +161,7 @@ export function RegisterForm() {
             value={instagram}
             onChange={(e) => setInstagram(e.target.value)}
             placeholder="不含空白，例：oldmoon.guild"
-            className="guild-energy-focus rounded-xl text-zinc-100 placeholder:text-zinc-500"
+            className={guildAuthInputClass}
             aria-invalid={Boolean(fieldErrors.instagram)}
           />
           {fieldErrors.instagram ? (
@@ -179,7 +183,7 @@ export function RegisterForm() {
             value={inviteCode}
             onChange={(e) => setInviteCode(e.target.value)}
             placeholder="目前僅留存紀錄，無額外效果"
-            className="guild-energy-focus rounded-xl text-zinc-100 placeholder:text-zinc-500"
+            className={guildAuthInputClass}
           />
         </div>
 
@@ -205,7 +209,7 @@ export function RegisterForm() {
 
         <Button
           type="submit"
-          className="btn-guild-metal mt-1 h-10 w-full text-zinc-100"
+          className={guildAuthPrimaryButtonClass}
           size="lg"
           disabled={loading}
         >
@@ -213,7 +217,7 @@ export function RegisterForm() {
         </Button>
       </form>
 
-      <p className="border-t border-white/10 pt-4 text-center text-sm text-zinc-300">
+      <p className="border-t border-white/10 pt-6 text-center text-sm text-zinc-300">
         已有帳號？{" "}
         <Link
           href="/login"

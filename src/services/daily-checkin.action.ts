@@ -5,8 +5,12 @@ import { createClient } from "@/lib/supabase/server";
 import {
   DuplicateExpRewardError,
   insertExpLog,
+  isUniqueConstraintError,
 } from "@/lib/repositories/server/exp.repository";
 import { taipeiCalendarDateKey } from "@/lib/utils/date";
+
+/** 與前端比對用：重複簽到時回傳此字串（顯示改為 success toast）。 */
+export const DAILY_CHECKIN_ALREADY_TODAY = "今日已簽到" as const;
 
 /**
  * Layer 3：每日簽到 +1 EXP（`exp_logs.unique_key` 同日僅能領一次）。
@@ -34,8 +38,11 @@ export async function claimDailyCheckin(): Promise<
       unique_key,
     });
   } catch (error) {
-    if (error instanceof DuplicateExpRewardError) {
-      return { ok: false, error: error.message };
+    if (
+      error instanceof DuplicateExpRewardError ||
+      isUniqueConstraintError(error)
+    ) {
+      return { ok: false, error: DAILY_CHECKIN_ALREADY_TODAY };
     }
     console.error("❌ 每日簽到失敗:", error);
     return { ok: false, error: "簽到失敗，請稍後再試。" };

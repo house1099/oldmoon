@@ -4,8 +4,36 @@ import type { Database } from "@/types/database.types";
 export type LikeInsert = Database["public"]["Tables"]["likes"]["Insert"];
 export type LikeRow = Database["public"]["Tables"]["likes"]["Row"];
 
+/** 將 PostgREST／Postgres 錯誤轉成使用者可讀文案（Layer 3 可再包裝）。 */
+export function mapLikeRepositoryError(error: unknown): string {
+  if (!error || typeof error !== "object") {
+    return "有緣分操作失敗，請稍後再試。";
+  }
+  const e = error as { code?: string; message?: string };
+  const msg = typeof e.message === "string" ? e.message : "";
+  if (
+    e.code === "23505" ||
+    msg.includes("23505") ||
+    (msg.includes("duplicate") && msg.includes("unique"))
+  ) {
+    return "你已經對這位冒險者送出有緣分了喵！";
+  }
+  if (e.code === "23503" || msg.toLowerCase().includes("foreign key")) {
+    return "找不到對應的冒險者資料。";
+  }
+  if (
+    e.code === "42501" ||
+    msg.toLowerCase().includes("permission denied") ||
+    msg.toLowerCase().includes("row-level security")
+  ) {
+    return "目前無法送出有緣分，請稍後再試。";
+  }
+  return "有緣分操作失敗，請稍後再試。";
+}
+
 /**
  * Layer 2：寫入 **`likes`**（伺服端 admin client）。
+ * `from_user_id`＝按讚者（目前使用者），`to_user_id`＝被按讚者；與 **`database.types`** 一致。
  */
 export async function insertLike(
   fromUserId: string,

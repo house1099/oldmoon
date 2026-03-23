@@ -16,7 +16,8 @@ export class DuplicateExpRewardError extends Error {
   }
 }
 
-function isUniqueViolation(error: unknown): boolean {
+/** Postgres unique_violation（23505）或等效訊息；Layer 3 簽到等可重用。 */
+export function isUniqueConstraintError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const e = error as { code?: string; message?: string };
   if (e.code === "23505") return true;
@@ -44,7 +45,7 @@ export async function insertExpLog(data: ExpLogInsert): Promise<ExpLogRow> {
     .single();
 
   if (error) {
-    if (isUniqueViolation(error)) {
+    if (isUniqueConstraintError(error)) {
       throw new DuplicateExpRewardError();
     }
     throw error;

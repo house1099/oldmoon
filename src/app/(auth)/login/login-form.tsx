@@ -5,6 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { GuildAuthShell } from "@/components/auth/guild-auth-shell";
+import {
+  guildAuthInputClass,
+  guildAuthOAuthButtonClass,
+  guildAuthPrimaryButtonClass,
+} from "@/components/auth/auth-styles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
@@ -114,12 +119,13 @@ export function LoginForm() {
         </p>
       ) : null}
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-6">
         <Button
           type="button"
           size="lg"
           className={cn(
-            "btn-guild-metal h-10 w-full text-zinc-100 disabled:opacity-70",
+            guildAuthOAuthButtonClass,
+            "disabled:opacity-70",
             oauthLoading &&
               "relative overflow-hidden before:pointer-events-none before:absolute before:inset-0 before:animate-pulse before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent",
           )}
@@ -130,14 +136,16 @@ export function LoginForm() {
         </Button>
 
         <div className="relative py-0.5 text-center text-xs text-zinc-400">
-          <span className="relative z-[1] bg-black/50 px-2">或使用 Email</span>
+          <span className="relative z-[1] rounded-md bg-zinc-950/90 px-2 text-zinc-300">
+            或使用 Email
+          </span>
           <span
             className="absolute left-0 right-0 top-1/2 z-0 h-px -translate-y-1/2 bg-white/15"
             aria-hidden
           />
         </div>
 
-        <form onSubmit={onSubmit} className="flex flex-col gap-3">
+        <form onSubmit={onSubmit} className="flex flex-col gap-6">
           <div className="space-y-2">
             <label
               htmlFor="email"
@@ -154,7 +162,7 @@ export function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="adventurer@example.com"
-              className="guild-energy-focus rounded-xl text-zinc-100 placeholder:text-zinc-500"
+              className={guildAuthInputClass}
             />
           </div>
           <div className="space-y-2">
@@ -173,7 +181,7 @@ export function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="guild-energy-focus rounded-xl text-zinc-100 placeholder:text-zinc-500"
+              className={guildAuthInputClass}
             />
           </div>
           <div className="flex items-start gap-3 rounded-xl border border-violet-500/30 bg-violet-950/25 px-3 py-2.5 transition-colors hover:border-violet-400/40 hover:bg-violet-950/35">
@@ -194,7 +202,7 @@ export function LoginForm() {
           <Button
             type="submit"
             className={cn(
-              "btn-guild-metal mt-1 h-10 w-full text-zinc-100",
+              guildAuthPrimaryButtonClass,
               loading &&
                 "relative overflow-hidden before:pointer-events-none before:absolute before:inset-0 before:animate-pulse before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent",
             )}
@@ -206,7 +214,7 @@ export function LoginForm() {
         </form>
       </div>
 
-      <p className="border-t border-white/10 pt-4 text-center text-sm text-zinc-300">
+      <p className="border-t border-white/10 pt-6 text-center text-sm text-zinc-300">
         尚未成為冒險者？{" "}
         <Link
           href="/register"

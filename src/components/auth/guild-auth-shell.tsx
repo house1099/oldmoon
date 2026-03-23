@@ -18,7 +18,7 @@ export function GuildAuthShell({
   className,
 }: GuildAuthShellProps) {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center px-4 py-6 sm:py-8">
+    <div className="flex w-full flex-col justify-center py-4 sm:py-6">
       <div
         className={cn(
           "glass-panel w-full text-zinc-100",
@@ -33,7 +33,7 @@ export function GuildAuthShell({
             <p className="mt-1.5 text-sm text-zinc-300">{subtitle}</p>
           ) : null}
         </div>
-        <div className="space-y-4 px-5 py-5 sm:px-6 sm:pb-6">{children}</div>
+        <div className="space-y-6 px-5 py-6 sm:px-6 sm:pb-8">{children}</div>
       </div>
     </div>
   );
