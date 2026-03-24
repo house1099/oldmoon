@@ -4,9 +4,7 @@ import { useState } from "react";
 import { MapPin, Sparkles, UserRound } from "lucide-react";
 import {
   GENDER_OPTIONS,
-  LEGACY_ORIENTATION_MAP,
   LEGACY_REGION_MAP,
-  ORIENTATION_OPTIONS,
   REGION_OPTIONS,
   resolveLegacyLabel,
   resolveOfflineOkLabel,
@@ -36,11 +34,6 @@ export function UserCard({
     user.region,
     REGION_OPTIONS,
     LEGACY_REGION_MAP,
-  );
-  const orientationLabel = resolveLegacyLabel(
-    user.orientation,
-    ORIENTATION_OPTIONS,
-    LEGACY_ORIENTATION_MAP,
   );
   const offlineLabel = resolveOfflineOkLabel(user.offline_ok);
 
@@ -111,12 +104,6 @@ export function UserCard({
                   <MapPin className="h-3.5 w-3.5 shrink-0 text-violet-400/90" />
                   <dt className="sr-only">地區</dt>
                   <dd className="truncate">{regionLabel}</dd>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <dt className="sr-only">性向</dt>
-                  <dd className="truncate text-slate-400/90">
-                    {orientationLabel}
-                  </dd>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <dt className="sr-only">線下意願</dt>

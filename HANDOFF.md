@@ -88,9 +88,9 @@
 | EXP 寫入 | `src/lib/repositories/server/exp.repository.ts` |
 | 等級 SSOT | `src/lib/constants/levels.ts` |
 | 問卷選項 | `src/lib/constants/adventurer-questionnaire.ts` |
-| 興趣／技能標籤選項（分類＋內建標籤） | `src/lib/constants/interests.ts`、`src/lib/constants/skills.ts` |
-| 註冊標籤步驟 UI | `src/components/onboarding/TagSelector.tsx`；路由 **`/register/interests`** → **`/register/skills-offer`** → **`/register/skills-want`** → 首頁 |
-| 登入後編輯標籤 | `src/app/(app)/profile/edit-tags/page.tsx`（三 Tab：興趣／能教／想學） |
+| 興趣／技能標籤選項（分類＋內建標籤） | SSOT **`src/lib/constants/tags.ts`**（**`ALL_INTEREST_TAGS`／`ALL_SKILL_TAGS`**）；**`interests.ts`／`skills.ts`** 僅 re-export |
+| 註冊標籤 Step3〜4 | **`src/components/register/TagSelector.tsx`**（分類手風琴＋自訂標籤）；路由 **`/register/interests`**（興趣，`sessionStorage` **`reg_interests`**）→ **`/register/skills`**（我能教／我想學分頁，`completeRegistration` 一次寫入）→ **`/`** 或 **`/register/matchmaking`**（預留） |
+| 登入後編輯標籤 | **`/profile/edit-tags`**（**`edit-tags-client.tsx`**）；與註冊共用 **`register/TagSelector.tsx`** + **`tags.ts`**；三 Tab（興趣／能教／想學），**`updateMyProfile`** 分開儲存 |
 | Zod／不雅字／IG 格式 | `src/lib/validation/*.ts`、`src/lib/utils/forbidden-words.ts` |
 | DB 型別 | `src/types/database.types.ts`（含 **`ig_change_requests`**、**`users.role`**、**`skills_offer`**／**`skills_want`**） |
 | 市集 Perfect Match 高光 | `src/app/globals.css`（**`.perfect-match-market-shell`**） |
@@ -133,7 +133,11 @@
 
 - **暱稱**：`nickname`（**非** `display_name`）。
 - **問卷欄位**（與「自介」分開）：`gender`、`region`、`orientation`、`offline_ok`（boolean）；**自介**為獨立欄位 **`users.bio`**（text，可 null）。**`gender`／性向／線下意願**為英文 slug + 繁中 label；**`region`** 新制為**繁中縣市或 `海外・{自填}`** 直接寫入 DB（舊資料可能仍為區域 slug）。定義於 **`src/lib/constants/adventurer-questionnaire.ts`**。
-- **Phase 1.5 擴充欄位**：**`instagram_handle`**、**`ig_public`**、**`mood`**、**`mood_at`**（見下方 🗄️）；**`orientation`** 為隱私，公會公開 UI 不應展示。
+- **Phase 1.5 擴充欄位**：**`instagram_handle`**、**`ig_public`**、**`mood`**、**`mood_at`**（見下方 🗄️）。
+- **性向（`orientation`）隱私與用途（產品規則）**：
+  - **私密欄位**：**絕對禁止**在 **`UserDetailModal`**、**`UserCard`**（村莊／市集列表卡）顯示性向；**僅**在 **`guild-profile-home.tsx`**（本人首頁）顯示給自己看。
+  - **配對**：後台可依 **`orientation`** 自動篩選配對邏輯；**前端不呈現**任何依性向的篩選條件或外露說明。
+  - **DB 語意**：**`users.orientation`** 為**配對用途、非展示欄位**（展示面僅本人首頁例外）。
 - **累積經驗值**：欄位名必為 **`total_exp`**（**勿**使用不存在的 `exp` 欄位名；Trigger／函式亦須對齊 `total_exp`）。
 - **等級**：`level`；新建 profile 時 insert 帶入 `total_exp: 0`、`level: 1` 初值（真實數值仍由雲端 Trigger／規則為準）。
 - **狀態**：`status`（`active`／`banned`），Middleware 會處理放逐流程。
@@ -144,7 +148,7 @@
 1. 未登入造訪受保護路由 → Middleware → `/login`（可帶 `next=`）。
 2. `/register` 註冊後（視專案是否開信箱驗證）→ 導向 `/register/profile` 補 **nickname + 問卷**（OAuth 若無 IG metadata，同頁 **動態補填 IG**）。
 3. `completeAdventurerProfile` 以 **admin client** 寫入 `users`（**不帶 `bio`**；**`instagram_handle`** metadata 優先）；通用 **`bio`** 首頁未提供表單，仍可由 **`updateMyProfile({ bio })`** 等管道寫入。失敗時 **`console.error("❌ 伺服器寫入失敗詳細原因:", error)`**。
-4. Profile 就緒後 → **`/register/interests`** 起三步選擇 **繁中標籤**（興趣／能教／想學），完成後進入首頁 `src/app/(app)/page.tsx` 載入 **`GuildProfileHome`**（精簡頭像卡＋等級進度；**今日心情**為獨立頂層卡片；**我的狀態**內自白／信譽與紀錄／興趣與技能標籤為**手風琴**預設收折；**「帳號設定」** **Dialog** 僅 **IG 帳號**＋**`ig_public`**；簽到、登出；頁面容器 **`pb-32` + `safe-area-inset-bottom`** 防 Navbar 遮擋）。
+4. Profile 就緒後 → **`/register/interests`**（Step3 興趣）→ **`/register/skills`**（Step4 能教＋想學，可跳過技能）→ 首頁 **`/`**（或 **`/register/matchmaking`** 預留）；興趣於 Step4 經 **`completeRegistration`** 與技能一併寫入 DB（精簡頭像卡＋等級進度；**今日心情**為獨立頂層卡片；**我的狀態**內自白／信譽與紀錄／興趣與技能標籤為**手風琴**預設收折；**「帳號設定」** **Dialog** 僅 **IG 帳號**＋**`ig_public`**；簽到、登出；頁面容器 **`pb-32` + `safe-area-inset-bottom`** 防 Navbar 遮擋）。
 
 ### Admin／環境
 
@@ -220,7 +224,7 @@
 
 # 進行中任務
 
-- **Phase 2.2（優先）**：**`like.repository`**／**`social.action`**（互讚、互讚檢查）、**UserDetailModal**（Bio／心情／標籤，**不展示 `orientation`**）、血盟申請解鎖規則；**RLS** 與 **`messages`** 若需一併規劃則列入手冊。
+- **Phase 2.2（優先）**：**`like.repository`**／**`social.action`**（互讚、互讚檢查）、**UserDetailModal**（Bio／心情／標籤；**性向已自 Modal 移除**，見上「性向隱私」）、血盟申請解鎖規則；**RLS** 與 **`messages`** 若需一併規劃則列入手冊。
 - **打磨（可並行）**：**`/village`**／**`/market`** 篩選、編輯 **技能供需** 表單（Layer 5 → Layer 3 → Layer 2）、登入心跳更新 **`last_seen_at`**。
 
 # 下一步（Phase 2 建議方向）
@@ -387,7 +391,7 @@ NOTIFY pgrst, 'reload schema';
 ### 2025-03-24 — 舊問卷資料顯示相容與遷移 SQL（待手動執行）
 
 - **Layer 4 — `adventurer-questionnaire.ts`**：**`resolveLegacyLabel`**（新選項 → **`LEGACY_*_MAP`** → 原字串）、**`resolveOfflineOkLabel`**（**`offline_ok` boolean**）；**`LEGACY_REGION_MAP`**（含 **`island`／`islands`**）、**`LEGACY_ORIENTATION_MAP`**、**`LEGACY_OFFLINE_MAP`**。
-- **Layer 5**：**`UserDetailModal`**、**`UserCard`**、**`guild-profile-home`** 之地區／性向／線下顯示皆經 **`resolveLegacyLabel`**／**`resolveOfflineOkLabel`**；首頁頭像卡下新增一行**自己**的問卷摘要（性別・地區・性向・線下）。
+- **Layer 5**：**`UserDetailModal`**、**`UserCard`** 之地區／線下顯示經 **`resolveLegacyLabel`**／**`resolveOfflineOkLabel`**（**不**顯示性向）；**`guild-profile-home`** 本人問卷摘要含性別・地區・性向・線下（性向僅此處展示）。
 - **🗄️**：**`supabase/migrations/20260324150000_migrate_legacy_region_orientation.sql`** 已產生，**請確認後再在 Supabase 手動執行**，勿當作自動部署唯一依賴。
 
 ### 2025-03-24 — 註冊問卷 UI（Step1／2）與 UserDetailModal 緣分
@@ -399,9 +403,11 @@ NOTIFY pgrst, 'reload schema';
 
 ### 2025-03-24 — 註冊標籤三步與編輯頁（`interests`／`skills_offer`／`skills_want`）
 
-- **Layer 4**：**`src/lib/constants/interests.ts`**（**`TagCategory`**、**`INTEREST_CATEGORIES`**）、**`src/lib/constants/skills.ts`**（**`SKILL_CATEGORIES`**）。
-- **Layer 5**：共用 **`TagSelector`**（**`src/components/onboarding/TagSelector.tsx`**）— 分類手風琴、內建標籤多選（**`variant`**：紫／琥珀／天藍）、自訂標籤（**`maxCustom`**，逾限 **Sonner** 提示）。
-- **註冊動線**：名冊完成後導向 **`/register/interests`**（步驟 3／5）→ **`/register/skills-offer`**（4／5）→ **`/register/skills-want`**（5／5）→ **`/`**；**`middleware`** 要求此三路徑須已登入且**已建 profile**。
+- **Layer 4**：**`src/lib/constants/tags.ts`**（**`TagCategory`**、**`INTEREST_CATEGORIES`／`SKILL_CATEGORIES`**、**`ALL_*_TAGS`**）；**`interests.ts`／`skills.ts`** re-export。
+- **Layer 5 — 註冊**：**`src/components/register/TagSelector.tsx`**（預覽已選、手風琴、可選自訂標籤）；**`/register/interests`**、**`/register/skills`**、**`/register/matchmaking`**（預留）。
+- **Layer 5 — 事後編輯**（歷史）：曾用 **`onboarding/TagSelector`**；已於後續改為與註冊相同之 **`register/TagSelector`**（見 **2025-03-24 — edit-tags／Git 規則**）。
+- **Layer 3**：**`register.action.ts`** 之 **`completeRegistration`** 經 **`user.repository`** **`updateProfile`** 寫入 **`interests`／`skills_offer`／`skills_want`**。
+- **註冊動線**：**`middleware`** 放行 **`/register/interests`**、**`/register/skills`**、**`/register/matchmaking`**，以及舊路徑 **`/register/skills-offer`／`skills-want`**（**`redirect`** 至 **`/register/skills`**）；須已登入且**已建 profile**。
 - **事後修改**：**`/profile/edit-tags`** 三 Tab（興趣／能教／想學），各 Tab 獨立 **「儲存」**；首頁 **「興趣與技能標籤」** 手風琴標題列 **✏️ 編輯** 連結至此頁。
 - **Layer 3**：**`updateMyProfile`**（**`profile-update.action.ts`**）支援 **`interests`／`skills_offer`／`skills_want`**；**`revalidatePath('/profile/edit-tags')`**。
 - **配對語意**：市集 **Perfect Match** 仍以 **我想要的 ∩ 對方提供的** 與 **對方想要的 ∩ 我提供的** 為基礎（**`skills_want` ↔ `skills_offer`** 互相呼應）；村莊排序仍用 **`interests`** 重疊。
@@ -411,6 +417,24 @@ NOTIFY pgrst, 'reload schema';
 - **Layer 5 — `UserDetailModal.tsx`**：頂部資訊區**下方**顯示**今日心情**（**`isMoodActive` + `getMoodCountdown`**，僅有效期內）；自白改為 **`bio_village`**／**`bio_market`** 雙欄，移除單一 **`bio`** 區；興趣／技能改為**雙區抬頭**（**興趣村莊**紫標、**技能市集**琥珀／天藍標籤合併）。緣分按鈕：**`getLikeStatusForTargetAction`** 載入初始狀態（**`likeLoading`**）、**`toggleLikeAction`** 更新 **已送出／送出**；已送出時再點以 **`AlertDialog`** 二次確認「你確定要結束這段緣分嗎？」後才取消。呼叫端傳入之 **`UserRow`** 須含 **`mood`、`mood_at`、`bio_village`、`bio_market`、`interests`、`skills_offer`、`skills_want`**（**`findActiveUsers`／`findMarketUsers`** 為 **`select('*')`** 已涵蓋）。
 - **Layer 5 — `UserCard.tsx`（村莊／市集共用）**：列表頭像改 **48px 正圓**（**`rounded-full` + `object-cover`**），無頭像時 **首字**占位。
 - **Layer 5 — `guild-profile-home.tsx`**：等級列旁數值標籤由 **`total_exp`** 改為 **`EXP`**（數值仍為 **`total_exp`**）。
+
+### 2025-03-24 — `.cursorrules` Git 自動推送；**`/profile/edit-tags`** 統一 **`register/TagSelector`**；移除 **`onboarding/TagSelector`**
+
+- **`.cursorrules`**：**「Git 自動推送規則」** — 任務完成／修改完畢／已實作／已更新時，預設執行 **`git add -A`** → **`git commit -m "feat/fix: …"`** → **`git push`**（使用者明令不要推送時除外）。
+- **Layer 5**：**`edit-tags-client.tsx`** 改為 **`import TagSelector from '@/components/register/TagSelector'`**，分類自 **`@/lib/constants/tags`**；興趣與能教／想學皆 **`customAllowed`**、**`maxCustom={3}`**；仍 **`updateMyProfile`**。
+- **移除**：**`src/components/onboarding/TagSelector.tsx`**（已無引用）。
+
+### 2025-03-24 — 註冊標籤：`tags.ts`、`register/TagSelector`、合併 Step4 **`/register/skills`**
+
+- **Layer 4**：新增 **`src/lib/constants/tags.ts`**（興趣／技能分類與內建標籤、**`ALL_INTEREST_TAGS`／`ALL_SKILL_TAGS`**）；**`interests.ts`／`skills.ts`** 改為自 **`tags.ts`** re-export。
+- **Layer 5**：新增 **`src/components/register/TagSelector.tsx`**（已選預覽、分類手風琴、可選自訂標籤）；**`/register/interests`**（Step3，興趣暫存 **`sessionStorage.reg_interests`**）→ **`/register/skills`**（Step4，**我能教／我想學**切換）→ **`/`** 或 **`/register/matchmaking`**（月老預留頁）。
+- **Layer 3**：新增 **`src/services/register.action.ts`** **`completeRegistration`**（**`updateProfile`** 一次寫入三欄位）。
+- **相容**：**`/register/skills-offer`／`skills-want`** 改為 **`redirect('/register/skills')`**；**`middleware`** 補登 **`/register/skills`**、**`/register/matchmaking`**。
+
+### 2025-03-24 — 性向隱私：`UserDetailModal`／`UserCard` 移除展示
+
+- **Layer 5**：**`UserDetailModal.tsx`**、**`UserCard.tsx`** 完全移除性向列；**`guild-profile-home.tsx`** 仍顯示本人性向（見「`public.users` 與程式約定」之**性向隱私與用途**）。
+- **文件**：**`HANDOFF.md`** 補充 **`orientation`** 為配對用非展示欄位、後台可篩選但前端不呈現篩選條件。
 
 ### 2025-03-23 — iOS textarea 與帳號設定 Dialog
 

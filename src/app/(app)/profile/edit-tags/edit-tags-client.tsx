@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { TagSelector } from "@/components/onboarding/TagSelector";
-import { INTEREST_CATEGORIES } from "@/lib/constants/interests";
-import { SKILL_CATEGORIES } from "@/lib/constants/skills";
+import TagSelector from "@/components/register/TagSelector";
+import { INTEREST_CATEGORIES, SKILL_CATEGORIES } from "@/lib/constants/tags";
 import { updateMyProfile } from "@/services/profile-update.action";
 
 type TabId = "interests" | "skills_offer" | "skills_want";
@@ -107,6 +106,8 @@ export function EditTagsClient({
             categories={INTEREST_CATEGORIES}
             selected={interests}
             onChange={setInterests}
+            customAllowed
+            maxCustom={3}
           />
           <button
             type="button"
@@ -125,7 +126,8 @@ export function EditTagsClient({
             categories={SKILL_CATEGORIES}
             selected={skillsOffer}
             onChange={setSkillsOffer}
-            variant="amber"
+            customAllowed
+            maxCustom={3}
           />
           <button
             type="button"
@@ -144,7 +146,8 @@ export function EditTagsClient({
             categories={SKILL_CATEGORIES}
             selected={skillsWant}
             onChange={setSkillsWant}
-            variant="sky"
+            customAllowed
+            maxCustom={3}
           />
           <button
             type="button"

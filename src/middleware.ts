@@ -95,8 +95,10 @@ export async function middleware(request: NextRequest) {
 
   const registerTagOnboardingPaths = new Set([
     "/register/interests",
+    "/register/skills",
     "/register/skills-offer",
     "/register/skills-want",
+    "/register/matchmaking",
   ]);
   if (registerTagOnboardingPaths.has(pathname)) {
     if (!user) {
