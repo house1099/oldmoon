@@ -16,13 +16,11 @@ import { cn } from "@/lib/utils";
 import {
   CORE_VALUES_QUESTIONS,
   GENDER_OPTIONS,
-  INTEREST_TAG_OPTIONS,
   OFFLINE_INTENT_OPTIONS,
   ORIENTATION_OPTIONS,
   OVERSEAS_REGION_OPTION_VALUE,
   REGION_OPTIONS,
   type GenderValue,
-  type InterestTagValue,
   type OfflineIntentValue,
   type OrientationValue,
   type RegionSelectValue,
@@ -55,7 +53,6 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
     "",
     "",
   ]);
-  const [interests, setInterests] = useState<InterestTagValue[]>([]);
   const [nicknameError, setNicknameError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -67,14 +64,7 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
     });
   }
 
-  function toggleInterest(tag: InterestTagValue) {
-    setInterests((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
-    );
-  }
-
   const step2Ok = coreValues.every((v) => v.length > 0);
-  const step3Ok = interests.length >= 1 && interests.length <= 12;
 
   function resolveRegionForSubmit(): string | null {
     if (!region) return null;
@@ -141,7 +131,7 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
       toast.error("請完成三題核心價值觀。");
       return;
     }
-    setStep((s) => Math.min(3, s + 1));
+    setStep((s) => Math.min(2, s + 1));
   }
 
   function goBack() {
@@ -170,10 +160,6 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
       }
       setInstagramError(null);
     }
-    if (!step3Ok) {
-      toast.error("請選擇 1～12 個興趣標籤。");
-      return;
-    }
     if (!gender || !orientation || !offlineIntent) {
       toast.error("請完成問卷必填項目。");
       if (!gender || !region) setStep(1);
@@ -201,7 +187,7 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
           offlineIntent: offlineIntent as OfflineIntentValue,
         },
         coreValues: [...coreValues],
-        interests: [...interests],
+        interests: [],
         instagramHandleFromForm: needsProfileInstagram
           ? instagramHandle
           : undefined,
@@ -210,7 +196,7 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
         toast.error("❌ 操作失敗，請稍後再試");
         return;
       }
-      toast.success("名冊已建立，接著選擇興趣與技能標籤！");
+      toast.success("名冊已建立，接著選擇興趣標籤！");
       router.push("/register/interests");
       router.refresh();
     } finally {
@@ -514,39 +500,8 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
           </>
         ) : null}
 
-        {step === 3 ? (
-          <div className="glass-panel space-y-3 rounded-2xl border border-white/10 p-4">
-            <p className="text-sm font-medium text-zinc-100">
-              技能與興趣（點選標籤，至少 1 個、最多 12 個）
-            </p>
-            <p className="text-xs text-zinc-400">
-              已選 {interests.length} 個
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {INTEREST_TAG_OPTIONS.map((o) => {
-                const on = interests.includes(o.value);
-                return (
-                  <button
-                    key={o.value}
-                    type="button"
-                    onClick={() => toggleInterest(o.value)}
-                    className={cn(
-                      "rounded-full border px-3 py-1.5 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-500/50",
-                      on
-                        ? "border-violet-400/55 bg-violet-950/50 text-violet-100 shadow-md shadow-violet-950/20"
-                        : "tag-gold border-amber-600/45",
-                    )}
-                  >
-                    {o.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ) : null}
-
         <div className="mt-6 flex gap-3 border-t border-white/10 pt-4">
-          {step < 3 ? (
+          {step < 2 ? (
             <>
               {step > 1 ? (
                 <button

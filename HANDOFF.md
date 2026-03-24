@@ -4,7 +4,7 @@
 
 ## 🌕 目前開發階段：Phase 2 — 社交核心（進行中）
 
-**下一視窗／下一階段預設焦點**：**Phase 2.2** — **Likes（有緣分）**、**Alliances（血盟）**、使用者詳情 Modal、雲端 **RLS** 與型別對齊。註冊 **名冊三步＋`/register/interests`（興趣）→ `/register/skills`（技能，可跳過）**、**五步指示器（1—5）**、性別僅 **男／女**，與 **`/profile/edit-tags`** 已接線；Phase 2.1 村莊＋市集已接線，見下表與「關鍵檔案索引」。
+**下一視窗／下一階段預設焦點**：**Phase 2.2** — **Likes（有緣分）**、**Alliances（血盟）**、使用者詳情 Modal、雲端 **RLS** 與型別對齊。註冊 **名冊兩步＋`/register/interests`（興趣）→ `/register/skills`（技能，可跳過）**、**五步指示器（1—5）**、性別僅 **男／女**，與 **`/profile/edit-tags`** 已接線；Phase 2.1 村莊＋市集已接線，見下表與「關鍵檔案索引」。
 
 ### 🛠️ 核心工具基準（Layer 4）
 
@@ -390,6 +390,14 @@ NOTIFY pgrst, 'reload schema';
 - **🗄️**：**`supabase/migrations/20260324120000_users_last_checkin_at.sql`**（**`users.last_checkin_at`**）。
 - **常數**：**`DAILY_CHECKIN_ALREADY_CLAIMED`**（**`already_claimed`**）；**`DAILY_CHECKIN_ALREADY_TODAY`** 為別名（相容舊引用）。
 
+### 2025-03-24 — 註冊 UX：移除名冊內重複興趣步、指示器縮小、`TagSelector` 預設收折、卡片加寬
+
+- **Layer 5 — `profile-form.tsx`**：移除第三步「技能與興趣」標籤區（與 **`/register/interests`** 重複）；名冊僅兩步（基本資料＋性向／線下／核心價值），**「完成並進入公會」**於第二步送出；**`completeAdventurerProfile`** 傳 **`interests: []`**。
+- **Layer 3 — `adventurer-profile.action.ts`**：建檔允許 **`interests` 為空陣列**（興趣改由 Step4／**`completeRegistration`** 寫入）；仍限制最多 **12** 個。
+- **Layer 5 — `registration-step-indicator.tsx`**：數字圈 **w-6 h-6**、**`text-[10px]`**、連接線 **w-4**、**`gap-1`**，外層 **px-2 py-3** 利於窄螢幕。
+- **Layer 5 — `TagSelector.tsx`**：新增 **`defaultOpenCategory?: string | null`**（**`null`**＝全部分類預設收折；未傳則維持展開第一個分類）。
+- **Layer 5 — `/register/interests`、`/register/skills`**：兩頁 **`TagSelector`** 皆 **`defaultOpenCategory={null}`**；外層 **max-w-xl**、**px-3**。
+
 ### 2025-03-24 — 註冊條款 Modal（`terms.ts`／`TermsModal`）
 
 - **Layer 4**：新增 **`src/lib/constants/terms.ts`**，匯出 **`TERMS_OF_SERVICE`**（傳奇公會使用者條款全文）。
@@ -471,7 +479,7 @@ NOTIFY pgrst, 'reload schema';
 
 ### 2025-03-24 — 註冊四步指示器、帳號頁膠囊與名冊 Step2 下拉樣式
 
-- **Layer 5 — 全線步驟語意**（已延伸為 **五步**，見 **2025-03-24 — 註冊五步／Step5 Modal**）：**`1`**＝**`/register`**；**`2`—`4`**＝**`/register/profile`** 內三步（暱稱／問卷／興趣標籤）；**`5`**＝**`/register/skills`**。歷史稿曾寫「四步」僅涵蓋名冊單頁內之 **1〜4** 圈；現行 UI 為 **1—2—3—4—5**。
+- **Layer 5 — 全線步驟語意**（五步指示器）：**`1`**＝**`/register`**；**`2`—`3`**＝**`/register/profile`** 內兩步（暱稱／問卷＋核心價值）；**`4`**＝**`/register/interests`**；**`5`**＝**`/register/skills`**。名冊內已不再含第三段興趣標籤（已移除與 Step4 重複之「技能與興趣」區）。
 - **Layer 5 — `register-form.tsx`**：標題 **「加入傳奇公會」**、副標 **「建立你的冒險者帳號」**；**Email／密碼／確認密碼／IG／邀請碼** 為登入同款**膠囊原生 `input`**（**`bg-zinc-900/50`**、**`rounded-full`**、**`pl-11`**、**`text-base`**）；密碼與確認欄 **Eye／EyeOff** 切換；**送出前**檢查兩次密碼一致、**至少 6 字且含英文＋數字**（不符則 **toast**，不呼叫 **signUp**）；IG 輸入即時 **`replace` 空白**。
 - **Layer 5 — `profile-form.tsx`**：性別、地區下拉改 **膠囊形原生 `<select>`**（**`rounded-full`**、**`bg-zinc-900/50`**、**`ChevronDown`** 右側裝飾、**`colorScheme: dark`**）；性向／線下維持原 **rounded-2xl** 原生選單（內容不變）。
 

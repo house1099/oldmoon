@@ -15,6 +15,8 @@ export interface TagSelectorProps {
   maxSelect?: number;
   customAllowed?: boolean;
   maxCustom?: number;
+  /** 預設展開的分類 id；傳 `null` 表示全部收折。未傳時預設展開第一個分類 */
+  defaultOpenCategory?: string | null;
 }
 
 export default function TagSelector({
@@ -24,9 +26,12 @@ export default function TagSelector({
   maxSelect,
   customAllowed = false,
   maxCustom = 3,
+  defaultOpenCategory,
 }: TagSelectorProps) {
   const [openCategory, setOpenCategory] = useState<string | null>(
-    categories[0]?.id ?? null,
+    defaultOpenCategory !== undefined
+      ? defaultOpenCategory
+      : (categories[0]?.id ?? null),
   );
   const [customInput, setCustomInput] = useState("");
   const builtInTags = categories.flatMap((c) => c.tags);

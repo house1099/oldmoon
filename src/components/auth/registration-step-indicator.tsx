@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 type RegistrationStepIndicatorProps = {
-  /** 目前步驟 1〜5（僅該數字為紫色高亮） */
+  /** 目前步驟 1〜5 */
   activeStep: 1 | 2 | 3 | 4 | 5;
   className?: string;
 };
@@ -13,27 +13,29 @@ export function RegistrationStepIndicator({
   return (
     <div
       className={cn(
-        "glass-panel mb-6 flex items-center justify-center gap-2 px-4 py-4",
+        "glass-panel mb-6 flex items-center justify-center gap-1 px-2 py-3 sm:px-3",
         className,
       )}
     >
-      {[1, 2, 3, 4, 5].map((n) => (
-        <div key={n} className="flex items-center gap-2">
+      {[1, 2, 3, 4, 5].map((step, i) => (
+        <div key={step} className="flex items-center gap-1">
           <div
             className={cn(
-              "flex size-8 items-center justify-center rounded-full text-xs font-semibold transition-colors",
-              activeStep === n
-                ? "bg-violet-500/25 text-violet-100 ring-1 ring-violet-400/45"
-                : "bg-zinc-800/80 text-zinc-500",
+              "flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-colors",
+              activeStep === step
+                ? "bg-violet-600 text-white"
+                : activeStep > step
+                  ? "bg-violet-900/60 text-violet-300"
+                  : "bg-zinc-800 text-zinc-500",
             )}
           >
-            {n}
+            {step}
           </div>
-          {n < 5 ? (
+          {i < 4 ? (
             <div
               className={cn(
-                "h-px w-6",
-                activeStep > n ? "bg-violet-400/40" : "bg-zinc-700/60",
+                "h-px w-4 flex-shrink-0",
+                activeStep > step ? "bg-violet-500" : "bg-zinc-700",
               )}
             />
           ) : null}

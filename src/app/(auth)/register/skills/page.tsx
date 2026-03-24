@@ -73,8 +73,8 @@ export default function SkillsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 px-4 py-8">
-      <div className="glass-panel mx-auto max-w-lg space-y-5 p-6">
+    <div className="min-h-screen bg-zinc-950 px-3 py-8">
+      <div className="glass-panel mx-auto max-w-xl space-y-5 p-6">
         <RegistrationStepIndicator activeStep={5} />
 
         <div className="space-y-1 text-center">
@@ -102,6 +102,7 @@ export default function SkillsPage() {
             onChange={setSkillsOffer}
             customAllowed
             maxCustom={3}
+            defaultOpenCategory={null}
           />
         </div>
 
@@ -122,6 +123,7 @@ export default function SkillsPage() {
             onChange={setSkillsWant}
             customAllowed
             maxCustom={3}
+            defaultOpenCategory={null}
           />
         </div>
 

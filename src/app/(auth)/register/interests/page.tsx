@@ -44,8 +44,8 @@ export default function InterestsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 px-4 py-8">
-      <div className="glass-panel mx-auto max-w-lg space-y-5 p-6">
+    <div className="min-h-screen bg-zinc-950 px-3 py-8">
+      <div className="glass-panel mx-auto max-w-xl space-y-5 p-6">
         <RegistrationStepIndicator activeStep={4} />
 
         <div className="space-y-1 text-center">
@@ -72,6 +72,7 @@ export default function InterestsPage() {
             customAllowed
             maxCustom={3}
             maxSelect={12}
+            defaultOpenCategory={null}
           />
         </div>
 

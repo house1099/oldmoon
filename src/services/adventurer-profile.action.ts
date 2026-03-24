@@ -32,7 +32,7 @@ export async function completeAdventurerProfile(input: {
   questionnaire: AdventurerQuestionnaire;
   /** 三題核心價值觀，依序對應 `CORE_VALUES_QUESTIONS` */
   coreValues: string[];
-  /** 興趣 slug 列表（`users.interests`） */
+  /** 興趣 slug 列表（users.interests）；建檔可為空，於 /register/interests、completeRegistration 補齊 */
   interests: string[];
   /**
    * OAuth（如 Google）略過註冊 Step1 時，`user_metadata` 可能無 IG；
@@ -78,10 +78,6 @@ export async function completeAdventurerProfile(input: {
 
   if (input.coreValues.length !== 3) {
     return { ok: false, error: "請完成三題核心價值觀。" };
-  }
-
-  if (input.interests.length < 1) {
-    return { ok: false, error: "請至少選擇一個興趣標籤。" };
   }
 
   if (input.interests.length > 12) {
