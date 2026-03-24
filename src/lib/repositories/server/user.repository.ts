@@ -110,12 +110,60 @@ export async function findActiveUsers(
 }
 
 /**
- * 技能市集：列出其他 **`active`** 冒險者（語意與 **`findActiveUsers`** 相同，便於 Layer 3 分域）。
+ * 興趣村莊：同縣市、**`active`**，排除自己（Layer 3 再篩性向／排序）。
  */
-export async function findMarketUsers(
-  currentUserId: string,
-): Promise<UserRow[]> {
-  return findActiveUsers(currentUserId);
+export async function findVillageUsers(params: {
+  currentUserId: string;
+  region: string;
+}): Promise<UserRow[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("users")
+    .select(
+      `
+      id, nickname, gender, region, orientation,
+      avatar_url, level, mood, mood_at,
+      interests, skills_offer, skills_want,
+      bio_village, bio_market, last_seen_at,
+      instagram_handle, ig_public
+    `,
+    )
+    .eq("region", params.region)
+    .eq("status", "active")
+    .neq("id", params.currentUserId);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as UserRow[];
+}
+
+/**
+ * 技能市集：全台其他 **`active`** 冒險者（排除自己）；不含 IG 欄位。
+ */
+export async function findMarketUsers(params: {
+  currentUserId: string;
+}): Promise<UserRow[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("users")
+    .select(
+      `
+      id, nickname, gender, region, orientation,
+      avatar_url, level, mood, mood_at,
+      interests, skills_offer, skills_want,
+      bio_village, bio_market, last_seen_at
+    `,
+    )
+    .eq("status", "active")
+    .neq("id", params.currentUserId);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as UserRow[];
 }
 
 /** 簽到成功後寫入 **`last_checkin_at`**（24h 冷卻 SSOT）。 */

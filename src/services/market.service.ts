@@ -1,25 +1,20 @@
-import {
-  findMarketUsers,
-  findProfileById,
-} from "@/lib/repositories/server/user.repository";
+"use server";
+
+import { createClient } from "@/lib/supabase/server";
+import { findMarketUsers } from "@/lib/repositories/server/user.repository";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
+import { calcSkillScore } from "@/lib/utils/matching";
 
 function normalizeTags(raw: string[] | null | undefined): string[] {
   if (!raw?.length) return [];
   return Array.from(new Set(raw.filter(Boolean)));
 }
 
-/**
- * 由使用者列推算「技能市集」語意下的**可提供的**標籤（僅 **`skills_offer`**）。
- */
-export function marketOffersFromUser(user: UserRow): string[] {
+function marketOffersFromUser(user: UserRow): string[] {
   return normalizeTags(user.skills_offer);
 }
 
-/**
- * 由使用者列推算「技能市集」語意下的**想尋找的**標籤（僅 **`skills_want`**）。
- */
-export function marketWantsFromUser(user: UserRow): string[] {
+function marketWantsFromUser(user: UserRow): string[] {
   return normalizeTags(user.skills_want);
 }
 
@@ -32,7 +27,7 @@ function intersectNonEmpty(a: string[], b: string[]): boolean {
 /**
  * 完美匹配：(**我想要的** ∩ **他提供的**) 與 (**他想要的** ∩ **我提供的**) 皆不為空。
  */
-export function evaluatePerfectMatch(
+function evaluatePerfectMatch(
   currentUser: UserRow,
   targetUser: UserRow,
 ): { isPerfectMatch: boolean } {
@@ -48,43 +43,71 @@ export function evaluatePerfectMatch(
   return { isPerfectMatch };
 }
 
-function compareLastSeenDesc(
-  a: string | null | undefined,
-  b: string | null | undefined,
-): number {
-  const ta = a ? new Date(a).getTime() : Number.NEGATIVE_INFINITY;
-  const tb = b ? new Date(b).getTime() : Number.NEGATIVE_INFINITY;
-  return tb - ta;
-}
-
-export type MarketUserEntry = {
-  user: UserRow;
+export type MarketUserWithScores = UserRow & {
+  _complementScore: number;
+  _similarScore: number;
   isPerfectMatch: boolean;
 };
 
-/**
- * Layer 3：技能市集 — 活躍冒險者清單與 **Perfect Match** 旗標。
- * 排序：**完美匹配在前**，其餘依 **`last_seen_at`** 新到舊。
- */
-export async function getMarketUsers(
-  currentUserId: string,
-): Promise<MarketUserEntry[]> {
-  const [rows, me] = await Promise.all([
-    findMarketUsers(currentUserId),
-    findProfileById(currentUserId),
-  ]);
+export async function getMarketUsersAction(
+  searchQuery?: string,
+): Promise<{ ok: boolean; users: MarketUserWithScores[] }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, users: [] };
 
-  const entries: MarketUserEntry[] = rows.map((user) => {
-    if (!me) {
-      return { user, isPerfectMatch: false };
-    }
-    return { user, ...evaluatePerfectMatch(me, user) };
+  const { data: mePartial } = await supabase
+    .from("users")
+    .select("skills_offer, skills_want")
+    .eq("id", user.id)
+    .single();
+
+  const me = mePartial as Pick<UserRow, "skills_offer" | "skills_want"> | null;
+  if (!me) return { ok: true, users: [] };
+
+  const meForPerfect = me as UserRow;
+
+  let candidates = await findMarketUsers({
+    currentUserId: user.id,
   });
 
-  return entries.sort((a, b) => {
+  if (searchQuery?.trim()) {
+    const q = searchQuery.trim().toLowerCase();
+    candidates = candidates.filter(
+      (u) =>
+        u.nickname?.toLowerCase().includes(q) ||
+        u.skills_offer?.some((s) => s.toLowerCase().includes(q)) ||
+        u.skills_want?.some((s) => s.toLowerCase().includes(q)),
+    );
+  }
+
+  const scored: MarketUserWithScores[] = candidates.map((u) => {
+    const { complementScore, similarScore } = calcSkillScore(
+      me.skills_want ?? [],
+      me.skills_offer ?? [],
+      u.skills_offer ?? [],
+      u.skills_want ?? [],
+    );
+    const { isPerfectMatch } = evaluatePerfectMatch(meForPerfect, u);
+    return {
+      ...u,
+      _complementScore: complementScore,
+      _similarScore: similarScore,
+      isPerfectMatch,
+    };
+  });
+
+  scored.sort((a, b) => {
     if (a.isPerfectMatch !== b.isPerfectMatch) {
       return a.isPerfectMatch ? -1 : 1;
     }
-    return compareLastSeenDesc(a.user.last_seen_at, b.user.last_seen_at);
+    if (b._complementScore !== a._complementScore) {
+      return b._complementScore - a._complementScore;
+    }
+    return b._similarScore - a._similarScore;
   });
+
+  return { ok: true, users: scored };
 }

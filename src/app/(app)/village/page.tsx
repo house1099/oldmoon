@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { Castle } from "lucide-react";
 import { UserCard } from "@/components/cards/UserCard";
 import { getAuthStatus } from "@/services/auth.service";
-import { getVillageUsers } from "@/services/village.service";
+import { getVillageUsersAction } from "@/services/village.service";
+import type { UserRow } from "@/lib/repositories/server/user.repository";
 
 export default async function VillagePage() {
   const auth = await getAuthStatus();
@@ -11,7 +12,8 @@ export default async function VillagePage() {
     redirect("/login?next=/village");
   }
 
-  const adventurers = await getVillageUsers(auth.userId);
+  const { ok, users } = await getVillageUsersAction();
+  const adventurers = ok ? users : [];
 
   return (
     <main className="relative min-h-screen px-4 pb-20 pt-10 sm:px-8">
@@ -46,11 +48,15 @@ export default async function VillagePage() {
           </p>
         ) : (
           <ul className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-            {adventurers.map((a) => (
-              <li key={a.id}>
-                <UserCard user={a} />
-              </li>
-            ))}
+            {adventurers.map((row) => {
+              const cardUser = { ...row } as Record<string, unknown>;
+              delete cardUser._score;
+              return (
+                <li key={row.id}>
+                  <UserCard user={cardUser as UserRow} variant="village" />
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

@@ -1,18 +1,32 @@
-import { redirect } from "next/navigation";
-import { Sparkles } from "lucide-react";
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { Search, Sparkles } from "lucide-react";
 import { UserCard } from "@/components/cards/UserCard";
-import { getAuthStatus } from "@/services/auth.service";
-import { getMarketUsers } from "@/services/market.service";
+import { getMarketUsersAction } from "@/services/market.service";
+import type { MarketUserWithScores } from "@/services/market.service";
+import type { UserRow } from "@/lib/repositories/server/user.repository";
 
-export default async function MarketPage() {
-  const auth = await getAuthStatus();
+export default function MarketPage() {
+  const [query, setQuery] = useState("");
+  const [users, setUsers] = useState<MarketUserWithScores[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  if (auth.kind !== "authenticated") {
-    redirect("/login?next=/market");
-  }
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    const result = await getMarketUsersAction(query);
+    setUsers(result.ok ? result.users : []);
+    setLoading(false);
+  }, [query]);
 
-  const entries = await getMarketUsers(auth.userId);
-  const perfectCount = entries.filter((e) => e.isPerfectMatch).length;
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void fetchUsers();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [fetchUsers]);
+
+  const perfectCount = users.filter((u) => u.isPerfectMatch).length;
 
   return (
     <main className="relative min-h-screen px-4 pb-20 pt-10 sm:px-8">
@@ -37,7 +51,7 @@ export default async function MarketPage() {
             </div>
           </div>
           <div className="text-right text-xs text-slate-500/95">
-            <p>共 {entries.length} 位冒險者</p>
+            <p>共 {users.length} 位冒險者</p>
             {perfectCount > 0 ? (
               <p className="mt-1 text-amber-200/85">
                 ✦ 完美匹配 {perfectCount} 位
@@ -46,17 +60,42 @@ export default async function MarketPage() {
           </div>
         </header>
 
-        {entries.length === 0 ? (
+        <div className="relative mb-4">
+          <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="搜尋技能或冒險者名稱..."
+            className="w-full rounded-full border border-white/10 bg-zinc-900/60 py-3 pl-11 pr-4 text-base text-white placeholder:text-zinc-600 transition-colors focus:border-white/30 focus:outline-none"
+          />
+        </div>
+
+        {loading ? (
+          <p className="rounded-xl border border-dashed border-violet-500/30 bg-slate-950/50 px-6 py-16 text-center text-muted-foreground">
+            載入中…
+          </p>
+        ) : users.length === 0 ? (
           <p className="rounded-xl border border-dashed border-violet-500/30 bg-slate-950/50 px-6 py-16 text-center text-muted-foreground">
             市集裡還沒有其他冒險者 — 晚點再來逛逛吧 🐱
           </p>
         ) : (
           <ul className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-            {entries.map(({ user, isPerfectMatch }) => (
-              <li key={user.id}>
-                <UserCard user={user} perfectMatch={isPerfectMatch} />
-              </li>
-            ))}
+            {users.map((row) => {
+              const { isPerfectMatch, ...rest } = row;
+              const cardUser = { ...rest } as Record<string, unknown>;
+              delete cardUser._complementScore;
+              delete cardUser._similarScore;
+              return (
+                <li key={rest.id}>
+                  <UserCard
+                    user={cardUser as UserRow}
+                    perfectMatch={isPerfectMatch}
+                    variant="market"
+                  />
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>
