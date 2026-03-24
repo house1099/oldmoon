@@ -20,7 +20,7 @@ export default function SkillsPage() {
       let interests: string[] = [];
       try {
         const raw = sessionStorage.getItem("reg_interests");
-        interests = raw ? (JSON.parse(raw) as unknown) : [];
+        interests = raw ? (JSON.parse(raw) as string[]) : [];
         if (!Array.isArray(interests)) interests = [];
       } catch {
         interests = [];
