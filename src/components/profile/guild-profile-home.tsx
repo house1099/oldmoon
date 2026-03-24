@@ -24,6 +24,7 @@ import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import { Button } from "@/components/ui/button";
 import LoadingButton, { PendingLabel } from "@/components/ui/LoadingButton";
+import Avatar from "@/components/ui/Avatar";
 import {
   CalendarCheck,
   ChevronRight,
@@ -503,8 +504,6 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     }
   }
 
-  const avatarSrc = avatarUrl?.trim() || null;
-  const initial = (profile.nickname ?? "?").slice(0, 1).toUpperCase();
   const hasIg = Boolean(profile.instagram_handle?.trim());
   const genderLabel = resolveLegacyLabel(profile.gender, GENDER_OPTIONS);
   const regionLabel = resolveLegacyLabel(
@@ -532,34 +531,44 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         />
 
         <div className="relative flex w-full flex-col items-center gap-5 text-center">
-          <button
-            type="button"
-            disabled={uploading || cropOpen}
-            onClick={() => fileInputRef.current?.click()}
-            className="relative mx-auto block h-24 w-24 cursor-pointer overflow-hidden rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50 disabled:cursor-not-allowed"
+          <div
+            className={`relative mx-auto overflow-hidden rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50 ${
+              uploading || cropOpen
+                ? "cursor-not-allowed opacity-80"
+                : "cursor-pointer"
+            }`}
+            style={{ width: 96, height: 96 }}
+            role="button"
+            tabIndex={uploading || cropOpen ? -1 : 0}
             aria-label="更換大頭貼"
+            aria-disabled={uploading || cropOpen}
+            onClick={() => {
+              if (uploading || cropOpen) return;
+              fileInputRef.current?.click();
+            }}
+            onKeyDown={(e) => {
+              if (uploading || cropOpen) return;
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                fileInputRef.current?.click();
+              }
+            }}
           >
-            {avatarSrc ? (
-              // eslint-disable-next-line @next/next/no-img-element -- 頭像為任意 HTTPS URL
-              <img
-                src={avatarSrc}
-                alt="avatar"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span className="flex h-full w-full items-center justify-center bg-gradient-to-b from-zinc-600/50 to-zinc-950 font-serif text-2xl text-amber-50">
-                {initial}
-              </span>
-            )}
+            <Avatar
+              src={avatarUrl}
+              nickname={profile?.nickname}
+              size={96}
+              className="border-0 bg-transparent"
+            />
 
             {uploading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+              <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60">
                 <span className="text-xs text-white">上傳中…</span>
               </div>
             )}
 
             {!uploading && (
-              <div className="absolute inset-0 hidden items-center justify-center bg-black/40 opacity-0 transition-opacity md:flex md:hover:opacity-100">
+              <div className="absolute inset-0 hidden items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity md:flex md:hover:opacity-100">
                 <span className="text-xs font-medium text-white">更換</span>
               </div>
             )}
@@ -571,7 +580,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               className="hidden"
               onChange={(e) => void handleAvatarChange(e)}
             />
-          </button>
+          </div>
 
           <div className="w-full space-y-2">
             <p className="font-serif text-xl tracking-wide text-zinc-100 sm:text-2xl">

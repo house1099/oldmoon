@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { findAllianceBetween } from "@/lib/repositories/server/alliance.repository";
 import {
   checkMutualLike,
   deleteLike,
@@ -8,6 +9,88 @@ import {
   insertLike,
   mapLikeRepositoryError,
 } from "@/lib/repositories/server/like.repository";
+
+/** Modal 底部緣分／血盟區塊一次載入用 */
+export type ModalSocialStatus = {
+  isLiked: boolean;
+  isLikedByThem: boolean;
+  isMutualLike: boolean;
+  allianceStatus: "none" | "pending_sent" | "pending_received" | "accepted";
+  allianceId: string | null;
+  currentUserId: string | null;
+};
+
+const emptyModalSocialStatus = (): ModalSocialStatus => ({
+  isLiked: false,
+  isLikedByThem: false,
+  isMutualLike: false,
+  allianceStatus: "none",
+  allianceId: null,
+  currentUserId: null,
+});
+
+/**
+ * 一次 **`auth.getUser()`** 後並行查詢：雙向有緣分、雙人血盟列（供 **`UserDetailModal`**）。
+ */
+export async function getModalSocialStatusAction(
+  targetUserId: string,
+): Promise<ModalSocialStatus> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return emptyModalSocialStatus();
+  }
+
+  if (user.id === targetUserId) {
+    return { ...emptyModalSocialStatus(), currentUserId: user.id };
+  }
+
+  try {
+    const [myLike, theirLike, alliance] = await Promise.all([
+      findLike(user.id, targetUserId),
+      findLike(targetUserId, user.id),
+      findAllianceBetween(user.id, targetUserId),
+    ]);
+
+    const isLiked = Boolean(myLike);
+    const isLikedByThem = Boolean(theirLike);
+    const isMutualLike = isLiked && isLikedByThem;
+
+    let allianceStatus: ModalSocialStatus["allianceStatus"] = "none";
+    let allianceId: string | null = null;
+
+    if (
+      alliance &&
+      alliance.status !== "dissolved" &&
+      (alliance.status === "pending" || alliance.status === "accepted")
+    ) {
+      allianceId = alliance.id;
+      if (alliance.status === "accepted") {
+        allianceStatus = "accepted";
+      } else {
+        allianceStatus =
+          alliance.initiated_by === user.id
+            ? "pending_sent"
+            : "pending_received";
+      }
+    }
+
+    return {
+      isLiked,
+      isLikedByThem,
+      isMutualLike,
+      allianceStatus,
+      allianceId,
+      currentUserId: user.id,
+    };
+  } catch (error) {
+    console.error("getModalSocialStatusAction:", error);
+    return { ...emptyModalSocialStatus(), currentUserId: user.id };
+  }
+}
 
 export type ToggleLikeResult =
   | { success: true; isMatch: boolean; liked: boolean }

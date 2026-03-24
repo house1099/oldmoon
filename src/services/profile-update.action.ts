@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import {
   findProfileById,
@@ -8,6 +8,7 @@ import {
   type UserUpdate,
 } from "@/lib/repositories/server/user.repository";
 import { instagramHandleSchema } from "@/lib/validation/instagram-handle";
+import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
 
 /**
  * Layer 3：編輯公會名片（通用 bio、分域自白、**`instagram_handle`**、IG 公開、每日心情、頭像 URL、**`interests`／`skills_offer`／`skills_want`** 標籤陣列）。
@@ -155,5 +156,6 @@ export async function updateMyProfile(input: {
 
   revalidatePath("/");
   revalidatePath("/profile/edit-tags");
+  revalidateTag(profileCacheTag(user.id));
   return { ok: true };
 }

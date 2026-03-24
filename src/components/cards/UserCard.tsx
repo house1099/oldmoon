@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { LevelFrame } from "@/components/cards/LevelFrame";
 import { UserDetailModal } from "@/components/modals/UserDetailModal";
+import Avatar from "@/components/ui/Avatar";
 
 export type UserCardProps = {
   user: UserRow;
@@ -76,22 +77,11 @@ export function UserCard({
       >
         <LevelFrame level={user.level} className={frameClass}>
           <div className="flex gap-4">
-            {user.avatar_url ? (
-              <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full">
-                {/* eslint-disable-next-line @next/next/no-img-element -- 頭像可能為任意 HTTPS 網址 */}
-                <img
-                  src={user.avatar_url}
-                  alt={user.nickname}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            ) : (
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-zinc-700">
-                <span className="text-sm font-medium text-white">
-                  {user.nickname?.[0] ?? "?"}
-                </span>
-              </div>
-            )}
+            <Avatar
+              src={user.avatar_url}
+              nickname={user.nickname}
+              size={48}
+            />
 
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">

@@ -1,5 +1,5 @@
 import type { User } from "@supabase/supabase-js";
-import { findProfileById } from "@/lib/repositories/server/user.repository";
+import { getCachedProfile } from "@/lib/supabase/get-cached-profile";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 
 /**
@@ -18,7 +18,7 @@ export async function deriveAuthStatus(
     return { kind: "unauthenticated" };
   }
 
-  const profile = await findProfileById(user.id);
+  const profile = await getCachedProfile(user.id);
 
   if (!profile) {
     return { kind: "needs_profile", userId: user.id };

@@ -10,6 +10,7 @@ import type {
   MyAllianceListItem,
   PendingAllianceRequestItem,
 } from "@/services/alliance.action";
+import Avatar from "@/components/ui/Avatar";
 
 const tabs = ["血盟", "聊天", "信件"] as const;
 
@@ -112,20 +113,11 @@ function AllianceList({ onListsChanged }: { onListsChanged: () => void }) {
               className="flex items-center justify-between gap-2"
             >
               <div className="flex min-w-0 flex-1 items-center gap-3">
-                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-zinc-700">
-                  {r.requester.avatar_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- 頭像可能為任意 HTTPS 網址
-                    <img
-                      src={r.requester.avatar_url}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-sm text-white">
-                      {r.requester.nickname?.[0] ?? "?"}
-                    </div>
-                  )}
-                </div>
+                <Avatar
+                  src={r.requester.avatar_url}
+                  nickname={r.requester.nickname}
+                  size={40}
+                />
                 <div className="min-w-0">
                   <p className="truncate text-sm text-white">
                     {r.requester.nickname}
@@ -185,20 +177,11 @@ function AllianceList({ onListsChanged }: { onListsChanged: () => void }) {
               className="flex items-center justify-between border-b border-white/5 py-2 last:border-0"
             >
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-zinc-700">
-                  {a.partner.avatar_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- 頭像可能為任意 HTTPS 網址
-                    <img
-                      src={a.partner.avatar_url}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-sm text-white">
-                      {a.partner.nickname?.[0] ?? "?"}
-                    </div>
-                  )}
-                </div>
+                <Avatar
+                  src={a.partner?.avatar_url}
+                  nickname={a.partner?.nickname}
+                  size={40}
+                />
                 <div>
                   <p className="text-sm text-white">{a.partner.nickname}</p>
                   {a.partner.instagram_handle ? (

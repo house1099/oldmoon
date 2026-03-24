@@ -75,6 +75,7 @@
 | PWA／圖示 | **`public/manifest.json`**（**`theme_color`／`background_color`：`#0f0a1e`**；**`/icons/icon-192x192.png`**、**`icon-512x512.png`**、**`apple-touch-icon.png`**）；**`src/app/layout.tsx`** **`viewport.themeColor`** + **`metadata.icons.apple`** → **`theme-color`** meta、**`apple-touch-icon`** link |
 | Auth UI | `src/app/(auth)/login/*`、`register/*`、`register/profile/*`；註冊五步指示器 **`src/components/auth/registration-step-indicator.tsx`**（**`1`—`5`**）；**`register-form.tsx`** 條款勾選旁 **「冒險者公會使用者條款」** 可點開 **`TermsModal`**（內文 **`src/lib/constants/terms.ts`** **`TERMS_OF_SERVICE`**） |
 | OAuth callback | `src/app/auth/callback/route.ts` |
+| Keep-alive（監控／喚醒） | **`GET /api/ping`** — `src/app/api/ping/route.ts` 回傳 **`{ ok: true, time }`**（**`time`** 為伺服器 **`toISOString()`**）；供 Uptime、cron 或緩解無伺服器冷啟動 |
 | 補名冊（含 IG） | `src/services/adventurer-profile.action.ts`（註冊 insert **不帶 `bio`**） |
 | 每日簽到 +1 EXP | `src/services/daily-checkin.action.ts`（**`claimDailyCheckin`**；冷卻 **`users.last_checkin_at`**）；**`updateLastCheckinAt`** 見 `user.repository.ts`；**`insertExpLog`（`delta`+`delta_exp`）** 見 `exp.repository.ts`；機讀錯誤 **`DAILY_CHECKIN_ALREADY_CLAIMED`**（**`already_claimed`**）見 `daily-checkin.ts`；**`taipeiCalendarDateKey()`** 仍供其他日曆日用途，**簽到判斷已不採用** |
 | 編輯自介／分域自白／**`instagram_handle`**／IG 公開／心情 | `src/services/profile-update.action.ts`（**支援部分欄位 patch**；**`mood`** 時更新 **`mood_at`**；**`bio_village`**／**`bio_market`**；**`instagram_handle`** 經 **`instagramHandleSchema`**；空字串寫入 **null**） |
@@ -614,4 +615,8 @@ Phase 4 — 市集搜尋快取
 - **`getCachedMySkills`**（跟著 profile cache 失效）
 - **效果**：搜尋不重複查自己的技能
 
-*最後更新：2026-03-24 — **雙人血盟**、**效能 Phase 1—4**（Profile 快取／**Avatar**／Modal 合併查詢／**`getCachedMySkills`**）。*
+### 2026-03-24 — Keep-alive API（`/api/ping`）
+
+- **API**：**`src/app/api/ping/route.ts`** — **`GET /api/ping`** 回傳 **`{ ok: true, time }`**，**`time`** 為 **`new Date().toISOString()`**（UTC）；作為 keep-alive／健康檢查端點，見上表「關鍵檔案索引」。
+
+*最後更新：2026-03-24 — **`GET /api/ping` keep-alive**、**雙人血盟**、**效能 Phase 1—4**（Profile 快取／**Avatar**／Modal 合併查詢／**`getCachedMySkills`**）。*

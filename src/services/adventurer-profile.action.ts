@@ -1,8 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createProfile } from "@/lib/repositories/server/user.repository";
+import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
 
 import {
   offlineIntentToOfflineOk,
@@ -139,5 +140,6 @@ export async function completeAdventurerProfile(input: {
   }
 
   revalidatePath("/");
+  revalidateTag(profileCacheTag(user.id));
   return { ok: true };
 }

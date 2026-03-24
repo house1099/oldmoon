@@ -12,16 +12,14 @@ import {
   resolveOfflineOkLabel,
 } from "@/lib/constants/adventurer-questionnaire";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
-import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 import {
-  getAllianceStatusAction,
   requestAllianceAction,
   respondAllianceAction,
   dissolveAllianceAction,
 } from "@/services/alliance.action";
 import {
-  checkMutualLikeWithTargetAction,
-  getLikeStatusForTargetAction,
+  type ModalSocialStatus,
+  getModalSocialStatusAction,
   toggleLikeAction,
 } from "@/services/social.action";
 import { Button } from "@/components/ui/button";
@@ -44,6 +42,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import Avatar from "@/components/ui/Avatar";
 import { cn } from "@/lib/utils";
 import { getMoodCountdown, isMoodActive } from "@/lib/utils/mood";
 
@@ -69,102 +68,34 @@ export function UserDetailModal({
   open,
   onOpenChange,
 }: UserDetailModalProps) {
-  const [isLiked, setIsLiked] = useState(false);
-  const [likeLoading, setLikeLoading] = useState(true);
+  const [socialStatus, setSocialStatus] = useState<ModalSocialStatus>({
+    isLiked: false,
+    isLikedByThem: false,
+    isMutualLike: false,
+    allianceStatus: "none",
+    allianceId: null,
+    currentUserId: null,
+  });
+  const [socialLoading, setSocialLoading] = useState(true);
   const [likePending, setLikePending] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [moodCountdownLabel, setMoodCountdownLabel] = useState<string | null>(
     null,
   );
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [isMutualLike, setIsMutualLike] = useState(false);
-  const [allianceStatus, setAllianceStatus] = useState<
-    "none" | "pending_sent" | "pending_received" | "accepted"
-  >("none");
-  const [allianceId, setAllianceId] = useState<string | null>(null);
-  const [allianceLoading, setAllianceLoading] = useState(true);
 
   useEffect(() => {
     if (!open) return;
-    setLikeLoading(true);
+    setSocialLoading(true);
     let cancelled = false;
-    void getLikeStatusForTargetAction(user.id).then((r) => {
+    void getModalSocialStatusAction(user.id).then((status) => {
       if (cancelled) return;
-      if (r.success) {
-        setIsLiked(r.liked);
-      } else {
-        toast.error("❌ 操作失敗，請稍後再試");
-      }
-      setLikeLoading(false);
+      setSocialStatus(status);
+      setSocialLoading(false);
     });
     return () => {
       cancelled = true;
     };
   }, [open, user.id]);
-
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    void createBrowserSupabase()
-      .auth.getUser()
-      .then(({ data }) => {
-        if (cancelled) return;
-        setCurrentUserId(data.user?.id ?? null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    void checkMutualLikeWithTargetAction(user.id).then((r) => {
-      if (cancelled) return;
-      if (r.success) {
-        setIsMutualLike(r.mutual);
-      } else {
-        setIsMutualLike(false);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, user.id]);
-
-  useEffect(() => {
-    if (!open || !currentUserId) return;
-    if (!isMutualLike) {
-      setAllianceLoading(false);
-      setAllianceStatus("none");
-      setAllianceId(null);
-      return;
-    }
-    setAllianceLoading(true);
-    let cancelled = false;
-    void getAllianceStatusAction(user.id).then((a) => {
-      if (cancelled) return;
-      setAllianceLoading(false);
-      if (!a) {
-        setAllianceStatus("none");
-        setAllianceId(null);
-        return;
-      }
-      setAllianceId(a.id);
-      if (a.status === "accepted") {
-        setAllianceStatus("accepted");
-      } else if (a.status === "pending") {
-        setAllianceStatus(
-          a.initiated_by === currentUserId
-            ? "pending_sent"
-            : "pending_received",
-        );
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, user.id, currentUserId, isMutualLike]);
 
   useEffect(() => {
     if (
@@ -180,6 +111,13 @@ export function UserDetailModal({
     const id = setInterval(tick, 60000);
     return () => clearInterval(id);
   }, [open, user.mood_at, user.mood]);
+
+  const {
+    isLiked,
+    isMutualLike,
+    allianceStatus,
+    allianceId,
+  } = socialStatus;
 
   const active = isRecentlyActive(user.last_seen_at, 15 * 60 * 1000);
   const genderLabel = resolveLegacyLabel(user.gender, GENDER_OPTIONS);
@@ -212,7 +150,7 @@ export function UserDetailModal({
   }
 
   async function handleToggleLike() {
-    if (likeLoading || likePending) return;
+    if (socialLoading || likePending) return;
     if (isLiked) {
       setShowCancelDialog(true);
       return;
@@ -224,11 +162,8 @@ export function UserDetailModal({
         toast.error("❌ 操作失敗，請稍後再試");
         return;
       }
-      setIsLiked(result.liked);
-      const mutual = await checkMutualLikeWithTargetAction(user.id);
-      if (mutual.success) {
-        setIsMutualLike(mutual.mutual);
-      }
+      const updated = await getModalSocialStatusAction(user.id);
+      setSocialStatus(updated);
       applyToggleToasts(result.liked, result.isMatch);
     } finally {
       setLikePending(false);
@@ -243,16 +178,49 @@ export function UserDetailModal({
         toast.error("❌ 操作失敗，請稍後再試");
         return;
       }
-      setIsLiked(result.liked);
-      const mutual = await checkMutualLikeWithTargetAction(user.id);
-      if (mutual.success) {
-        setIsMutualLike(mutual.mutual);
-      }
+      const updated = await getModalSocialStatusAction(user.id);
+      setSocialStatus(updated);
       setShowCancelDialog(false);
       applyToggleToasts(result.liked, result.isMatch);
     } finally {
       setLikePending(false);
     }
+  }
+
+  async function handleRequestAlliance() {
+    const r = await requestAllianceAction(user.id);
+    if (r.ok) {
+      const updated = await getModalSocialStatusAction(user.id);
+      setSocialStatus(updated);
+      toast.success("⚔️ 血盟申請已送出");
+    } else {
+      toast.error(r.error ?? "申請失敗");
+    }
+  }
+
+  async function handleRespondAlliance(action: "accepted" | "dissolved") {
+    if (!allianceId) return;
+    const res = await respondAllianceAction(allianceId, action);
+    if (!res.ok) {
+      toast.error(res.error ?? "操作失敗");
+      return;
+    }
+    const updated = await getModalSocialStatusAction(user.id);
+    setSocialStatus(updated);
+    if (action === "accepted") {
+      toast.success("⚔️ 血盟成立！");
+    }
+  }
+
+  async function handleDissolveAlliance() {
+    const res = await dissolveAllianceAction(user.id);
+    if (!res.ok) {
+      toast.error(res.error ?? "解除失敗");
+      return;
+    }
+    const updated = await getModalSocialStatusAction(user.id);
+    setSocialStatus(updated);
+    toast("血盟已解除");
   }
 
   return (
@@ -264,22 +232,13 @@ export function UserDetailModal({
         >
           <DialogHeader className="relative border-b border-amber-900/35 bg-zinc-950/95 px-4 pb-4 pt-5">
             <div className="flex gap-4 pr-8">
-              <div className="relative aspect-square size-[4.5rem] shrink-0 overflow-hidden rounded-full border-2 border-zinc-800 bg-slate-900/90">
-                {user.avatar_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- 頭像可能為任意 HTTPS 網址
-                  <img
-                    src={user.avatar_url}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-slate-900">
-                    <UserRound
-                      className="h-10 w-10 text-amber-200/60"
-                      aria-hidden
-                    />
-                  </div>
-                )}
+              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-2 border-zinc-800 bg-slate-900/90">
+                <Avatar
+                  src={user.avatar_url}
+                  nickname={user.nickname}
+                  size={80}
+                  className="bg-slate-900"
+                />
                 <span
                   className={cn(
                     "absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-zinc-950",
@@ -441,9 +400,9 @@ export function UserDetailModal({
                     ? "bg-rose-500/80 text-white"
                     : "bg-white/10 text-white hover:bg-white/20",
                 )}
-                loading={likeLoading || likePending}
+                loading={socialLoading || likePending}
                 loadingText="處理中…"
-                disabled={likeLoading}
+                disabled={socialLoading}
                 onClick={handleToggleLike}
                 aria-label={isLiked ? "已送出緣分，點擊可收回" : "送出緣分"}
               >
@@ -453,19 +412,12 @@ export function UserDetailModal({
 
             {isMutualLike ? (
               <div className="mt-1 w-full max-w-[min(100%,22rem)] sm:max-w-full">
-                {allianceLoading ? (
+                {socialLoading ? (
                   <div className="h-10 animate-pulse rounded-full bg-zinc-800/50" />
                 ) : allianceStatus === "none" ? (
                   <button
                     type="button"
-                    onClick={async () => {
-                      const r = await requestAllianceAction(user.id);
-                      if (r.ok) {
-                        setAllianceStatus("pending_sent");
-                      } else {
-                        toast.error(r.error ?? "申請失敗");
-                      }
-                    }}
+                    onClick={() => void handleRequestAlliance()}
                     className="w-full rounded-full border border-amber-500/40 py-3 text-sm text-amber-300 transition-all hover:bg-amber-500/10 active:scale-95"
                   >
                     ⚔️ 申請血盟
@@ -477,19 +429,7 @@ export function UserDetailModal({
                 ) : allianceStatus === "pending_received" ? (
                   <button
                     type="button"
-                    onClick={async () => {
-                      if (!allianceId) return;
-                      const res = await respondAllianceAction(
-                        allianceId,
-                        "accepted",
-                      );
-                      if (!res.ok) {
-                        toast.error(res.error ?? "操作失敗");
-                        return;
-                      }
-                      setAllianceStatus("accepted");
-                      toast.success("⚔️ 血盟成立！");
-                    }}
+                    onClick={() => void handleRespondAlliance("accepted")}
                     className="w-full rounded-full bg-amber-600 py-3 text-sm font-medium text-white transition-all hover:bg-amber-500 active:scale-95"
                   >
                     ⚔️ 確認血盟申請
@@ -501,16 +441,7 @@ export function UserDetailModal({
                     </span>
                     <button
                       type="button"
-                      onClick={async () => {
-                        const res = await dissolveAllianceAction(user.id);
-                        if (!res.ok) {
-                          toast.error(res.error ?? "解除失敗");
-                          return;
-                        }
-                        setAllianceStatus("none");
-                        setAllianceId(null);
-                        toast("血盟已解除");
-                      }}
+                      onClick={() => void handleDissolveAlliance()}
                       className="text-xs text-zinc-600 transition-colors hover:text-rose-400"
                     >
                       解除
