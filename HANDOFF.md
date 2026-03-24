@@ -24,7 +24,7 @@
 
 - [x] **Phase 1.5**：帳號體系、Google 登入預留、暗黑視覺升級、時區校正（日鍵集中於 **`date.ts`**）。
 - [x] **Phase 2.1（核心已交付）**：探索 **Tab「興趣村莊」** 同縣市＋**性向雙向篩選**＋**興趣分數**排序、列表卡僅興趣（最多 3 +N）；**Tab「技能市集」** 全台＋**互補／同好分數**、**Perfect Match** 仍優先、**`getMarketUsersAction`** 搜尋；入口 **`/explore`**（**Server** 預載村莊、市集 **切 tab 才載入**）；**`village.service`** **`unstable_cache` 30s**、**`market.service`** 基礎列表 **60s**、**搜尋在快取外**；舊 **`/village`**／**`/market`** → **`redirect('/explore')`**；Layer 2 **`findVillageUsers`**／**`findMarketUsers`**；Layer 4 **`matching.ts`**。可持續打磨 UX／RLS。
-- [ ] **Phase 2.2（進行中）**：**Likes** 已接線；**雙人血盟**（**`user_alliances`**）UI 與 Layer 2／3 已接線；詳情 Modal 血盟四態＋IG 解鎖；**`/guild`** 血盟列表與 tab 徽章；雲端須套用遷移並 **Reload schema**；**RLS** 可後補。
+- [ ] **Phase 2.2（進行中）**：**Likes** 已接線；**雙人血盟**（**`public.alliances`**：`user_a`／`user_b`／`initiated_by`）UI 與 Layer 2／3 已接線；詳情 Modal 血盟四態＋IG 解鎖；**`/guild`** 血盟列表與 tab 徽章；**RLS** 可後補。
 
 ## Phase 2.1 首頁個人卡重構（完成）
 
@@ -49,7 +49,8 @@
 - **註冊建檔**：**`completeAdventurerProfile`** 為避免 PostgREST／欄位快取問題，**insert 不帶 `bio`**（自介於個人頁 **`profile-update`** 填寫）。
 - DDL 變更後若仍報「找不到欄位」，至 Supabase **Settings → API** 嘗試 **重新載入 Schema**。
 - **`likes`**：已接線（**`from_user`**／**`to_user`**）。
-- **`alliances`**：公會型預留（**`database.types.ts`**）；**雙人血盟**實表為 **`public.user_alliances`**（**`user_low`**／**`user_high`** 字典序、**`initiated_by`**、**`status`**：`pending`／`accepted`／`dissolved`）；遷移 **`supabase/migrations/20260325120000_user_alliances_pair.sql`**；**ENABLE RLS**（政策可後補）；Layer 2 **`alliance.repository.ts`**、Layer 3 **`alliance.action.ts`**。
+- **`alliances`**：**雙人血盟 SSOT**（**`user_a`**、**`user_b`**、**`initiated_by`**、**`status`**：`pending`／`accepted`／`dissolved`、`created_at`）；**`database.types.ts`** 與 Layer 2 **`alliance.repository.ts`**、Layer 3 **`alliance.action.ts`** 僅使用此表。
+- **`user_alliances`**：**已廢棄**（曾規劃之分表，勿建）；**`supabase/migrations/20260325120000_user_alliances_pair.sql`** 檔首已標 **DEPRECATED**，**請勿在 Supabase 執行**。
 
 ---
 
@@ -236,7 +237,7 @@
 
 # 進行中任務
 
-- **Phase 2.2（優先）**：**雙人血盟**（**`user_alliances`**）與 **Modal／冒險團** UI 已接線；續：**RLS 政策**、**`messages`**／私訊、雲端遷移落地與測試。
+- **Phase 2.2（優先）**：**雙人血盟**（**`public.alliances`**）與 **Modal／冒險團** UI 已接線；續：**RLS 政策**、**`messages`**／私訊、雲端 **alliances** 欄位與測試。
 - **打磨（可並行）**：**`/explore`** 內村莊／市集篩選、編輯 **技能供需** 表單（Layer 5 → Layer 3 → Layer 2）、登入心跳更新 **`last_seen_at`**。
 
 # 下一步（Phase 2 建議方向）
@@ -442,12 +443,13 @@ NOTIFY pgrst, 'reload schema';
 - **路由**：**`/village`**、**`/market`** → **`redirect('/explore')`**；**`/alliances`**、**`/inbox`** → **`redirect('/guild')`**。
 - **`app-shell-motion`**：底部留白改 **`pb-[calc(5.25rem+env(safe-area-inset-bottom))]`** 以配合五欄底欄。
 
-### 2026-03-24 — 雙人血盟（`user_alliances`）、Modal 與冒險團
+### 2026-03-24 — 雙人血盟（`alliances`）、Modal 與冒險團
 
-- **🗄️**：新增 **`public.user_alliances`**（**`user_low`**／**`user_high`** 字串字典序、**`initiated_by`**、**`status`**：`pending`／`accepted`／`dissolved`）；與既有公會型 **`public.alliances`** 分表；遷移 **`supabase/migrations/20260325120000_user_alliances_pair.sql`**；**ENABLE RLS**；部署後 **Reload schema**。
-- **型別**：**`database.types.ts`** 新增 **`user_alliances`**、**`UserAllianceRow`**。
-- **Layer 2**：**`alliance.repository.ts`** — 成對查詢、待確認（來件）、已接受列表與 **users** embed。
-- **Layer 3**：**`alliance.action.ts`** — **Modal** 用 **狀態／申請／回應／解除**；列表用 **我的血盟**／**待確認**。
+- **🗄️ SSOT**：**`public.alliances`**（**`user_a`**、**`user_b`**、**`initiated_by`**、**`status`**、`created_at`）；**`alliance.repository`** 僅 **`.from('alliances')`**；新列 **insert** 時 **`user_a`／`user_b`** 採字串字典序固定對，與雲端 **UNIQUE** 約束對齊。
+- **`user_alliances`**：**廢棄**；**`20260325120000_user_alliances_pair.sql`** 僅留 **DEPRECATED** 註解與註解掉的 DDL，**勿執行**。
+- **型別**：**`database.types.ts`** 之 **`alliances`** 已改為上列雙人血盟形狀；**`UserAllianceRow`／`user_alliances` 型別已移除**。
+- **Layer 2**：**`alliance.repository.ts`** — **`.from('alliances')`**、成對查詢（**`and(user_a…,user_b…)` OR 反向**）、待確認／已接受與 **users** embed（**`alliances_user_a_fkey`** 等）。
+- **Layer 3**：**`alliance.action.ts`** — **Modal** 用 **狀態／申請／回應／解除**；列表用 **我的血盟**／**待確認**；**`reactivateAllianceFromDissolved`** 處理 **`dissolved` → 再申請**（更新 **`initiated_by`**，型別 **`Update`** 仍僅 **`status`**，層級 2 以斷言寫入）。
 - **Layer 3 — `social.action.ts`**：**`checkMutualLikeWithTargetAction`**（雙向互讚，血盟區塊前置）。
 - **Layer 5 — `UserDetailModal.tsx`**：僅 **雙向互讚** 顯示血盟區；四態：**無**／**已送出**／**待確認**／**血盟夥伴**＋解除；**Instagram**：**`ig_public === true`** 或 **血盟已成立** 且 **`instagram_handle`** 有值時顯示 **@**。
 - **Layer 5 — `/guild`**：**`AllianceList`** 待確認申請（接受／拒絕）＋血盟夥伴列表；**血盟** tab **角標**顯示待確認筆數（切 tab／列表變更時刷新）。
@@ -567,4 +569,4 @@ NOTIFY pgrst, 'reload schema';
 - **Layer 3 — `profile-update.action.ts`**：僅接受 **HTTPS** **`avatar_url`**；註解已標明**不**經 Supabase Storage。
 - **專案內** **`guild-profile-home`／`updateMyProfile`** 已**無** **`supabase.storage`**／**`bucket`**／**`avatars` bucket** 上傳程式碼（**`createClient()`** 仍用於 **登出**）。
 
-*最後更新：2026-03-24 — **雙人血盟**（**`user_alliances`**）遷移＋**`alliance.repository`／`alliance.action`**；**`UserDetailModal`** 血盟四態與 **IG** 解鎖；**`/guild`** 列表與 tab 角標。*
+*最後更新：2026-03-24 — **雙人血盟**統一至 **`public.alliances`**（**`user_a`／`user_b`／`initiated_by`**）；**`user_alliances` 遷移勿執行**；**`alliance.repository`／`alliance.action`**；**`UserDetailModal`**、**`/guild`**。*

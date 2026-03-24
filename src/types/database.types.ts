@@ -1,6 +1,6 @@
 /**
  * 與 Supabase `public` schema 對齊的型別（手動維護，請在雲端 Schema 變更後同步更新）。
- * 表：users, exp_logs, likes, user_alliances, alliances, messages, ig_change_requests
+ * 表：users, exp_logs, likes, alliances（雙人血盟）, messages, ig_change_requests
  */
 
 export type Json =
@@ -268,87 +268,41 @@ export interface Database {
           },
         ];
       };
-      /** 雙人血盟（pending／accepted／dissolved）；與公會型 **`alliances`** 分表 */
-      user_alliances: {
-        Row: {
-          id: string;
-          /** 字典序較小之 participant uuid */
-          user_low: string;
-          /** 字典序較大之 participant uuid */
-          user_high: string;
-          initiated_by: string;
-          status: "pending" | "accepted" | "dissolved";
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_low: string;
-          user_high: string;
-          initiated_by: string;
-          status?: "pending" | "accepted" | "dissolved";
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_low?: string;
-          user_high?: string;
-          initiated_by?: string;
-          status?: "pending" | "accepted" | "dissolved";
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "user_alliances_user_low_fkey";
-            columns: ["user_low"];
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "user_alliances_user_high_fkey";
-            columns: ["user_high"];
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "user_alliances_initiated_by_fkey";
-            columns: ["initiated_by"];
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
+      /** 雙人血盟：`user_a`／`user_b` 為兩位使用者（無序對；查詢時兩向 OR） */
       alliances: {
         Row: {
           id: string;
-          name: string;
-          motto: string | null;
-          leader_id: string;
+          user_a: string;
+          user_b: string;
+          status: "pending" | "accepted" | "dissolved";
+          initiated_by: string;
           created_at: string;
-          updated_at: string;
         };
         Insert: {
-          id?: string;
-          name: string;
-          motto?: string | null;
-          leader_id: string;
-          created_at?: string;
-          updated_at?: string;
+          user_a: string;
+          user_b: string;
+          status?: string;
+          initiated_by: string;
         };
         Update: {
-          id?: string;
-          name?: string;
-          motto?: string | null;
-          leader_id?: string;
-          created_at?: string;
-          updated_at?: string;
+          status?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "alliances_leader_id_fkey";
-            columns: ["leader_id"];
+            foreignKeyName: "alliances_user_a_fkey";
+            columns: ["user_a"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "alliances_user_b_fkey";
+            columns: ["user_b"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "alliances_initiated_by_fkey";
+            columns: ["initiated_by"];
             referencedRelation: "users";
             referencedColumns: ["id"];
           },
@@ -407,7 +361,6 @@ export type PublicTables = Database["public"]["Tables"];
 export type UserRow = PublicTables["users"]["Row"];
 export type ExpLogRow = PublicTables["exp_logs"]["Row"];
 export type LikeRow = PublicTables["likes"]["Row"];
-export type UserAllianceRow = PublicTables["user_alliances"]["Row"];
 export type AllianceRow = PublicTables["alliances"]["Row"];
 export type MessageRow = PublicTables["messages"]["Row"];
 export type IgChangeRequestRow = PublicTables["ig_change_requests"]["Row"];

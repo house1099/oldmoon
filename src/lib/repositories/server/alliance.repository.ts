@@ -1,20 +1,14 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/types/database.types";
 
-export type UserAllianceRow = Database["public"]["Tables"]["user_alliances"]["Row"];
-export type UserAllianceInsert =
-  Database["public"]["Tables"]["user_alliances"]["Insert"];
+export type AllianceRow = Database["public"]["Tables"]["alliances"]["Row"];
+export type AllianceInsert = Database["public"]["Tables"]["alliances"]["Insert"];
+export type AllianceUpdate = Database["public"]["Tables"]["alliances"]["Update"];
 
-function orderedPair(a: string, b: string): [string, string] {
-  return a < b ? [a, b] : [b, a];
-}
-
-export async function findUserAllianceById(
-  id: string,
-): Promise<UserAllianceRow | null> {
+export async function findAllianceById(id: string): Promise<AllianceRow | null> {
   const admin = createAdminClient();
   const { data, error } = await admin
-    .from("user_alliances")
+    .from("alliances")
     .select("*")
     .eq("id", id)
     .maybeSingle();
@@ -23,35 +17,33 @@ export async function findUserAllianceById(
     throw error;
   }
 
-  return data as UserAllianceRow | null;
+  return data as AllianceRow | null;
 }
 
-export async function findUserAllianceBetween(
+export async function findAllianceBetween(
   userIdA: string,
   userIdB: string,
-): Promise<UserAllianceRow | null> {
-  const [low, high] = orderedPair(userIdA, userIdB);
+): Promise<AllianceRow | null> {
   const admin = createAdminClient();
   const { data, error } = await admin
-    .from("user_alliances")
+    .from("alliances")
     .select("*")
-    .eq("user_low", low)
-    .eq("user_high", high)
+    .or(
+      `and(user_a.eq.${userIdA},user_b.eq.${userIdB}),and(user_a.eq.${userIdB},user_b.eq.${userIdA})`,
+    )
     .maybeSingle();
 
   if (error) {
     throw error;
   }
 
-  return data as UserAllianceRow | null;
+  return data as AllianceRow | null;
 }
 
-export async function insertUserAlliance(
-  payload: UserAllianceInsert,
-): Promise<UserAllianceRow> {
+export async function insertAlliance(payload: AllianceInsert): Promise<AllianceRow> {
   const admin = createAdminClient();
   const { data, error } = await admin
-    .from("user_alliances")
+    .from("alliances")
     .insert(payload)
     .select()
     .single();
@@ -60,17 +52,17 @@ export async function insertUserAlliance(
     throw error;
   }
 
-  return data as UserAllianceRow;
+  return data as AllianceRow;
 }
 
-export async function updateUserAlliance(
+export async function updateAlliance(
   id: string,
-  patch: Database["public"]["Tables"]["user_alliances"]["Update"],
-): Promise<UserAllianceRow> {
+  patch: AllianceUpdate,
+): Promise<AllianceRow> {
   const admin = createAdminClient();
   const { data, error } = await admin
-    .from("user_alliances")
-    .update({ ...patch, updated_at: new Date().toISOString() })
+    .from("alliances")
+    .update(patch)
     .eq("id", id)
     .select()
     .single();
@@ -79,7 +71,30 @@ export async function updateUserAlliance(
     throw error;
   }
 
-  return data as UserAllianceRow;
+  return data as AllianceRow;
+}
+
+/** `dissolved` 後再次申請：重設為 pending 並改由目前使用者發起 */
+export async function reactivateAllianceFromDissolved(
+  id: string,
+  initiatedByUserId: string,
+): Promise<AllianceRow> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("alliances")
+    .update({
+      status: "pending",
+      initiated_by: initiatedByUserId,
+    } as AllianceUpdate)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as AllianceRow;
 }
 
 type UserMini = {
@@ -94,18 +109,18 @@ export async function findAcceptedAlliancesWithPartners(
 ): Promise<{ id: string; partner: UserMini }[]> {
   const admin = createAdminClient();
   const { data, error } = await admin
-    .from("user_alliances")
+    .from("alliances")
     .select(
       `
       id,
-      user_low,
-      user_high,
-      low_user:users!user_alliances_user_low_fkey(id, nickname, avatar_url, instagram_handle),
-      high_user:users!user_alliances_user_high_fkey(id, nickname, avatar_url, instagram_handle)
+      user_a,
+      user_b,
+      a_user:users!alliances_user_a_fkey(id, nickname, avatar_url, instagram_handle),
+      b_user:users!alliances_user_b_fkey(id, nickname, avatar_url, instagram_handle)
     `,
     )
     .eq("status", "accepted")
-    .or(`user_low.eq.${userId},user_high.eq.${userId}`);
+    .or(`user_a.eq.${userId},user_b.eq.${userId}`);
 
   if (error) {
     throw error;
@@ -113,15 +128,15 @@ export async function findAcceptedAlliancesWithPartners(
 
   const rows = (data ?? []) as {
     id: string;
-    user_low: string;
-    user_high: string;
-    low_user: UserMini | null;
-    high_user: UserMini | null;
+    user_a: string;
+    user_b: string;
+    a_user: UserMini | null;
+    b_user: UserMini | null;
   }[];
 
   return rows.map((r) => {
     const partner =
-      r.user_low === userId ? r.high_user ?? null : r.low_user ?? null;
+      r.user_a === userId ? r.b_user ?? null : r.a_user ?? null;
     return {
       id: r.id,
       partner: partner ?? {
@@ -139,19 +154,19 @@ export async function findPendingIncomingWithRequester(
 ): Promise<{ id: string; requester: UserMini }[]> {
   const admin = createAdminClient();
   const { data, error } = await admin
-    .from("user_alliances")
+    .from("alliances")
     .select(
       `
       id,
-      user_low,
-      user_high,
+      user_a,
+      user_b,
       initiated_by,
-      requester:users!user_alliances_initiated_by_fkey(id, nickname, avatar_url, instagram_handle)
+      requester:users!alliances_initiated_by_fkey(id, nickname, avatar_url, instagram_handle)
     `,
     )
     .eq("status", "pending")
     .neq("initiated_by", userId)
-    .or(`user_low.eq.${userId},user_high.eq.${userId}`);
+    .or(`user_a.eq.${userId},user_b.eq.${userId}`);
 
   if (error) {
     throw error;

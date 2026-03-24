@@ -3,11 +3,12 @@
 import { createClient } from "@/lib/supabase/server";
 import {
   findAcceptedAlliancesWithPartners,
+  findAllianceBetween,
+  findAllianceById,
   findPendingIncomingWithRequester,
-  findUserAllianceBetween,
-  findUserAllianceById,
-  insertUserAlliance,
-  updateUserAlliance,
+  insertAlliance,
+  reactivateAllianceFromDissolved,
+  updateAlliance,
 } from "@/lib/repositories/server/alliance.repository";
 import { checkMutualLike } from "@/lib/repositories/server/like.repository";
 
@@ -57,7 +58,7 @@ export async function getAllianceStatusAction(
   }
 
   try {
-    const row = await findUserAllianceBetween(user.id, targetUserId);
+    const row = await findAllianceBetween(user.id, targetUserId);
     if (!row || row.status === "dissolved") {
       return null;
     }
@@ -96,7 +97,7 @@ export async function requestAllianceAction(
       return { ok: false, error: "須雙向互讚才能申請血盟。" };
     }
 
-    const existing = await findUserAllianceBetween(user.id, targetUserId);
+    const existing = await findAllianceBetween(user.id, targetUserId);
     if (existing?.status === "accepted") {
       return { ok: false, error: "已是血盟夥伴。" };
     }
@@ -107,20 +108,17 @@ export async function requestAllianceAction(
       return { ok: false, error: "對方已送出申請，請至冒險團確認。" };
     }
     if (existing?.status === "dissolved") {
-      await updateUserAlliance(existing.id, {
-        status: "pending",
-        initiated_by: user.id,
-      });
+      await reactivateAllianceFromDissolved(existing.id, user.id);
       return { ok: true };
     }
 
-    const [low, high] =
+    const [ua, ub] =
       user.id < targetUserId
         ? [user.id, targetUserId]
         : [targetUserId, user.id];
-    await insertUserAlliance({
-      user_low: low,
-      user_high: high,
+    await insertAlliance({
+      user_a: ua,
+      user_b: ub,
       initiated_by: user.id,
       status: "pending",
     });
@@ -145,23 +143,22 @@ export async function respondAllianceAction(
   }
 
   try {
-    const row = await findUserAllianceById(allianceId);
+    const row = await findAllianceById(allianceId);
     if (!row) {
       return { ok: false, error: "找不到此申請。" };
     }
-    const r = row;
-    const inPair = r.user_low === user.id || r.user_high === user.id;
+    const inPair = row.user_a === user.id || row.user_b === user.id;
     if (!inPair) {
       return { ok: false, error: "無權操作此申請。" };
     }
-    if (r.status !== "pending") {
+    if (row.status !== "pending") {
       return { ok: false, error: "此申請已處理。" };
     }
-    if (r.initiated_by === user.id) {
+    if (row.initiated_by === user.id) {
       return { ok: false, error: "無法回應自己送出的申請。" };
     }
 
-    await updateUserAlliance(allianceId, { status: nextStatus });
+    await updateAlliance(allianceId, { status: nextStatus });
     return { ok: true };
   } catch (error) {
     console.error("respondAllianceAction:", error);
@@ -182,11 +179,11 @@ export async function dissolveAllianceAction(
   }
 
   try {
-    const row = await findUserAllianceBetween(user.id, partnerUserId);
+    const row = await findAllianceBetween(user.id, partnerUserId);
     if (!row || row.status !== "accepted") {
       return { ok: false, error: "目前沒有生效中的血盟。" };
     }
-    await updateUserAlliance(row.id, { status: "dissolved" });
+    await updateAlliance(row.id, { status: "dissolved" });
     return { ok: true };
   } catch (error) {
     console.error("dissolveAllianceAction:", error);
