@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { GuildAuthShell } from "@/components/auth/guild-auth-shell";
+import TermsModal from "@/components/auth/TermsModal";
 import { RegistrationStepIndicator } from "@/components/auth/registration-step-indicator";
 import { guildAuthPrimaryButtonClass } from "@/components/auth/auth-styles";
 import LoadingButton from "@/components/ui/LoadingButton";
@@ -33,6 +34,7 @@ export function RegisterForm() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
 
   async function handleRegisterClick() {
     setFieldErrors({});
@@ -111,6 +113,7 @@ export function RegisterForm() {
   }
 
   return (
+    <>
     <GuildAuthShell
       title="加入傳奇公會"
       subtitle="建立你的冒險者帳號"
@@ -267,15 +270,23 @@ export function RegisterForm() {
             className="mt-0.5 h-4 w-4 shrink-0 rounded border-violet-500/60 bg-background accent-violet-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
             aria-invalid={Boolean(fieldErrors.termsAccepted)}
           />
-          <label
-            htmlFor="reg-terms"
-            className="cursor-pointer text-sm text-zinc-100"
-          >
-            <span className="font-medium">同意冒險者公會使用條款</span>
+          <div className="min-w-0 text-sm">
+            <span className="text-zinc-300">
+              <label htmlFor="reg-terms" className="cursor-pointer">
+                我同意
+              </label>{" "}
+              <button
+                type="button"
+                onClick={() => setShowTerms(true)}
+                className="text-violet-400 underline transition-colors hover:text-violet-300"
+              >
+                冒險者公會使用者條款
+              </button>
+            </span>
             <span className="mt-0.5 block text-xs text-zinc-400">
               必須勾選才能建立誓約帳號
             </span>
-          </label>
+          </div>
         </div>
         {fieldErrors.termsAccepted ? (
           <p className="px-2 text-xs text-red-300">{fieldErrors.termsAccepted}</p>
@@ -300,5 +311,7 @@ export function RegisterForm() {
         </Link>
       </p>
     </GuildAuthShell>
+    <TermsModal open={showTerms} onClose={() => setShowTerms(false)} />
+    </>
   );
 }

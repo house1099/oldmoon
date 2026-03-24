@@ -4,7 +4,7 @@
 
 ## 🌕 目前開發階段：Phase 2 — 社交核心（進行中）
 
-**下一視窗／下一階段預設焦點**：**Phase 2.2** — **Likes（有緣分）**、**Alliances（血盟）**、使用者詳情 Modal、雲端 **RLS** 與型別對齊。註冊 **名冊三步＋`/register/interests` 單頁（興趣＋選填技能）** 與 **`/profile/edit-tags`** 已接線；Phase 2.1 村莊＋市集已接線，見下表與「關鍵檔案索引」。
+**下一視窗／下一階段預設焦點**：**Phase 2.2** — **Likes（有緣分）**、**Alliances（血盟）**、使用者詳情 Modal、雲端 **RLS** 與型別對齊。註冊 **名冊三步＋`/register/interests`（興趣）→ `/register/skills`（技能，可跳過）**、**五步指示器（1—5）**、性別僅 **男／女**，與 **`/profile/edit-tags`** 已接線；Phase 2.1 村莊＋市集已接線，見下表與「關鍵檔案索引」。
 
 ### 🛠️ 核心工具基準（Layer 4）
 
@@ -70,7 +70,7 @@
 | 主題 | 路徑 |
 |------|------|
 | 守衛／Session | `src/middleware.ts` |
-| Auth UI | `src/app/(auth)/login/*`、`register/*`、`register/profile/*`；註冊四步指示器 **`src/components/auth/registration-step-indicator.tsx`** |
+| Auth UI | `src/app/(auth)/login/*`、`register/*`、`register/profile/*`；註冊五步指示器 **`src/components/auth/registration-step-indicator.tsx`**（**`1`—`5`**）；**`register-form.tsx`** 條款勾選旁 **「冒險者公會使用者條款」** 可點開 **`TermsModal`**（內文 **`src/lib/constants/terms.ts`** **`TERMS_OF_SERVICE`**） |
 | OAuth callback | `src/app/auth/callback/route.ts` |
 | 補名冊（含 IG） | `src/services/adventurer-profile.action.ts`（註冊 insert **不帶 `bio`**） |
 | 每日簽到 +1 EXP | `src/services/daily-checkin.action.ts`（**`claimDailyCheckin`**；冷卻 **`users.last_checkin_at`**）；**`updateLastCheckinAt`** 見 `user.repository.ts`；**`insertExpLog`（`delta`+`delta_exp`）** 見 `exp.repository.ts`；機讀錯誤 **`DAILY_CHECKIN_ALREADY_CLAIMED`**（**`already_claimed`**）見 `daily-checkin.ts`；**`taipeiCalendarDateKey()`** 仍供其他日曆日用途，**簽到判斷已不採用** |
@@ -88,8 +88,9 @@
 | EXP 寫入 | `src/lib/repositories/server/exp.repository.ts` |
 | 等級 SSOT | `src/lib/constants/levels.ts` |
 | 問卷選項 | `src/lib/constants/adventurer-questionnaire.ts` |
+| 註冊條款內文 | **`src/lib/constants/terms.ts`**（**`TERMS_OF_SERVICE`**）；**`src/components/auth/TermsModal.tsx`** |
 | 興趣／技能標籤選項（分類＋內建標籤） | SSOT **`src/lib/constants/tags.ts`**（**`ALL_INTEREST_TAGS`／`ALL_SKILL_TAGS`**）；**`interests.ts`／`skills.ts`** 僅 re-export |
-| 註冊標籤 Step4 | **`src/components/register/TagSelector.tsx`**；**`/register/interests`** **單頁**含興趣（必選）＋技能市集（**勾選才展開** **`skills_offer`／`skills_want`**），**`completeRegistration`** 一次寫入；**`/register/skills`** 僅 **`redirect('/register/interests')`**；舊路徑 **`skills-offer`／`skills-want`** 同導向 **interests** |
+| 註冊標籤 Step4／Step5 | **`src/components/register/TagSelector.tsx`**；**`/register/interests`**（興趣必選，**`sessionStorage.reg_interests`**）完成後 **`router.push('/register/skills')`**；**`/register/skills`** 為完整頁面：**我能教**（上）／**我想學**（下）、**`completeRegistration`** 一次寫入，**可跳過**（技能空陣列）；**歡迎 Modal** 僅於 Step5；舊路徑 **`skills-offer`／`skills-want`** 仍 **`redirect('/register/interests')`**（建議先補興趣） |
 | 登入後編輯標籤 | **`/profile/edit-tags`**（**`edit-tags-client.tsx`**）；與註冊共用 **`register/TagSelector.tsx`** + **`tags.ts`**；三 Tab（興趣／能教／想學），**`updateMyProfile`** 分開儲存 |
 | Zod／不雅字／IG 格式 | `src/lib/validation/*.ts`、`src/lib/utils/forbidden-words.ts` |
 | DB 型別 | `src/types/database.types.ts`（含 **`ig_change_requests`**、**`users.role`**、**`skills_offer`**／**`skills_want`**） |
@@ -389,6 +390,21 @@ NOTIFY pgrst, 'reload schema';
 - **🗄️**：**`supabase/migrations/20260324120000_users_last_checkin_at.sql`**（**`users.last_checkin_at`**）。
 - **常數**：**`DAILY_CHECKIN_ALREADY_CLAIMED`**（**`already_claimed`**）；**`DAILY_CHECKIN_ALREADY_TODAY`** 為別名（相容舊引用）。
 
+### 2025-03-24 — 註冊條款 Modal（`terms.ts`／`TermsModal`）
+
+- **Layer 4**：新增 **`src/lib/constants/terms.ts`**，匯出 **`TERMS_OF_SERVICE`**（傳奇公會使用者條款全文）。
+- **Layer 5**：新增 **`src/components/auth/TermsModal.tsx`**（可滾動內文、關閉與「我已閱讀並同意條款」）。
+- **Layer 5 — `register-form.tsx`**：條款區改為 **「我同意」**（**`label`** 連結勾選框）＋可點 **「冒險者公會使用者條款」** **`button`** 開啟 **`TermsModal`**（避免連結包在 **`label`** 內誤觸勾選）。
+
+### 2025-03-24 — 註冊五步／Step5 Modal、性別二元、明確上一步路由
+
+- **Layer 4 — `adventurer-questionnaire.ts`**：**`GENDER_OPTIONS`** 僅 **`male`／`female`（男／女）**；舊值 **`non_binary`／`prefer_not`** 若仍在 DB，顯示可經 **`resolveLegacyLabel`**／原字串 fallback。
+- **Layer 5 — `registration-step-indicator.tsx`**：**`activeStep: 1 | 2 | 3 | 4 | 5`**，圈圈 **1—2—3—4—5**。
+- **Layer 5 — `/register/interests`**：**`RegistrationStepIndicator activeStep={4}`**；僅興趣 **`TagSelector`**；完成時 **`sessionStorage.setItem('reg_interests', …)`** 後 **`router.push('/register/skills')`**；**無**完成 Modal；**上一步** **`router.push('/register/profile')`**（**不使用** **`router.back()`**）。
+- **Layer 5 — `/register/skills`**：完整 **Client** 頁；讀 **`reg_interests`** 與 **`skillsOffer`／`skillsWant`**，呼叫 **`completeRegistration`**；**我能教**在上、**我想學**在下；**跳過**以空技能陣列完成；成功後**全螢幕歡迎 Modal**；**上一步** **`router.push('/register/interests')`**。
+- **Layer 5 — `profile-form.tsx`**：名冊第一步之**上一步** **`router.push('/register')`**；內部步驟仍 **`goBack`**（**`setStep`**）。
+- **Layer 3**：**`completeRegistration`** 仍於 Step5（或跳過）寫入 **`interests`／`skills_offer`／`skills_want`**。
+
 ### 2025-03-24 — 舊問卷資料顯示相容與遷移 SQL（待手動執行）
 
 - **Layer 4 — `adventurer-questionnaire.ts`**：**`resolveLegacyLabel`**（新選項 → **`LEGACY_*_MAP`** → 原字串）、**`resolveOfflineOkLabel`**（**`offline_ok` boolean**）；**`LEGACY_REGION_MAP`**（含 **`island`／`islands`**）、**`LEGACY_ORIENTATION_MAP`**、**`LEGACY_OFFLINE_MAP`**。
@@ -397,18 +413,18 @@ NOTIFY pgrst, 'reload schema';
 
 ### 2025-03-24 — 註冊問卷 UI（Step1／2）與 UserDetailModal 緣分
 
-- **Layer 4 — `adventurer-questionnaire.ts`**：**Step1** 性別維持英文 value、中文 label；**地區**改為完整台灣縣市（value／label 皆繁中），**海外（自填）**另填文字後存 **`海外・…`**；**Step2** 性向三選（**`heterosexual`／`homosexual`／`pansexual`**）；線下意願 **`in_person`／`online_only`／`both`**（**`offline_ok`**：`in_person` 或 `both` 為 **true**）。
-- **Layer 5 — `profile-form.tsx`**：上一步／下一步與完成鈕 **`flex-1` + `py-4`** 統一高度；**`/register/interests` 等標籤頁**主按鈕 **`py-4`**。性別、地區、性向、線下意願為**原生 `<select>`**（iOS／Android 系統選擇器可滾動）；**`@base-ui` Select** 已移除。性別／地區另見 **「註冊四步指示器…」** 之膠囊 **`rounded-full`** 樣式與全線 **1〜4** 步指示器。
+- **Layer 4 — `adventurer-questionnaire.ts`**：**Step1** 性別英文 value、中文 label（**僅** **`male`／`female`（男／女）**）；**地區**改為完整台灣縣市（value／label 皆繁中），**海外（自填）**另填文字後存 **`海外・…`**；**Step2** 性向三選（**`heterosexual`／`homosexual`／`pansexual`**）；線下意願 **`in_person`／`online_only`／`both`**（**`offline_ok`**：`in_person` 或 `both` 為 **true**）。
+- **Layer 5 — `profile-form.tsx`**：上一步／下一步與完成鈕 **`flex-1` + `py-4`** 統一高度；**`/register/interests` 等標籤頁**主按鈕 **`py-4`**。性別、地區、性向、線下意願為**原生 `<select>`**（iOS／Android 系統選擇器可滾動）；**`@base-ui` Select** 已移除。性別／地區另見 **「註冊五步指示器…」** 之膠囊 **`rounded-full`** 樣式與全線 **1〜5** 步指示器。
 - **Layer 3 — `adventurer-profile.action.ts`**：**`questionnaire.region`** 改為 **`string`**（已解析繁中）；伺服端檢查非空與長度。
 - **Layer 5 — `UserDetailModal.tsx`**：緣分鈕 **`handleToggleLike`／`confirmCancelLike`** 與 **`toggleLikeAction`**；**`AlertDialog`** 標題「確定取消緣分？」、**再想想／確定取消**（**`glass-panel`**）；初始狀態仍由 **`getLikeStatusForTargetAction`** 載入。
 
 ### 2025-03-24 — 註冊標籤三步與編輯頁（`interests`／`skills_offer`／`skills_want`）
 
 - **Layer 4**：**`src/lib/constants/tags.ts`**（**`TagCategory`**、**`INTEREST_CATEGORIES`／`SKILL_CATEGORIES`**、**`ALL_*_TAGS`**）；**`interests.ts`／`skills.ts`** re-export。
-- **Layer 5 — 註冊**：**`src/components/register/TagSelector.tsx`**（預覽已選、手風琴、可選自訂標籤）；**`/register/interests`**（興趣＋選填技能單頁）、**`/register/matchmaking`**（預留）。**`/register/skills`** → **`redirect('/register/interests')`**。
+- **Layer 5 — 註冊**（後續已拆 Step4／Step5，見下方 **2025-03-24 — 註冊五步／Step5 Modal**）：**`src/components/register/TagSelector.tsx`**；**`/register/interests`** → **`/register/skills`**；**`/register/matchmaking`**（預留）。
 - **Layer 5 — 事後編輯**（歷史）：曾用 **`onboarding/TagSelector`**；已於後續改為與註冊相同之 **`register/TagSelector`**（見 **2025-03-24 — edit-tags／Git 規則**）。
 - **Layer 3**：**`register.action.ts`** 之 **`completeRegistration`** 經 **`user.repository`** **`updateProfile`** 寫入 **`interests`／`skills_offer`／`skills_want`**。
-- **註冊動線**：**`middleware`** 放行 **`/register/interests`**、**`/register/skills`**（轉址）、**`/register/matchmaking`**，以及舊路徑 **`/register/skills-offer`／`skills-want`**（**`redirect`** 至 **`/register/interests`**）；須已登入且**已建 profile**。
+- **註冊動線**：**`middleware`** 放行 **`/register/interests`**、**`/register/skills`**（完整技能頁）、**`/register/matchmaking`**，以及舊路徑 **`/register/skills-offer`／`skills-want`**（**`redirect`** 至 **`/register/interests`**）；須已登入且**已建 profile**。
 - **事後修改**：**`/profile/edit-tags`** 三 Tab（興趣／能教／想學），各 Tab 獨立 **「儲存」**；首頁 **「興趣與技能標籤」** 手風琴標題列 **✏️ 編輯** 連結至此頁。
 - **Layer 3**：**`updateMyProfile`**（**`profile-update.action.ts`**）支援 **`interests`／`skills_offer`／`skills_want`**；**`revalidatePath('/profile/edit-tags')`**。
 - **配對語意**：市集 **Perfect Match** 仍以 **我想要的 ∩ 對方提供的** 與 **對方想要的 ∩ 我提供的** 為基礎（**`skills_want` ↔ `skills_offer`** 互相呼應）；村莊排序仍用 **`interests`** 重疊。
@@ -434,13 +450,12 @@ NOTIFY pgrst, 'reload schema';
 
 ### 2025-03-24 — `/register/interests` 單頁合併技能；**`/register/skills`** 改轉址
 
-- **Layer 5 — `interests/page.tsx`**：**興趣村莊**（必選，**`maxSelect={12}`**）＋**「我也想在技能市集交流」**勾選後才展開 **我能教／我想學**（**`TagSelector`** + **`SKILL_CATEGORIES`**）；**`RegistrationStepIndicator activeStep={4}`**；完成呼叫 **`completeRegistration`**（未勾技能則 **`skills_offer`／`skills_want`** 送空陣列）；成功後**全螢幕 Modal**：**進入傳奇公會** **`/`** 或 **月老配對** **`/register/matchmaking`**。可選保留讀取 **`sessionStorage.reg_interests`** 還原興趣。
-- **Layer 5**：**`/register/skills/page.tsx`** 改為 **`redirect('/register/interests')`**；**`skills-offer`／`skills-want`** 同步導向 **`/register/interests`**。
+- **（已由「註冊五步／Step5 Modal」取代）** 歷史：**`interests`** 曾合併技能勾選與 **`completeRegistration`**；**`/register/skills`** 曾改 **`redirect('/register/interests')`**。現行流程見上方 **2025-03-24 — 註冊五步／Step5 Modal、性別二元、明確上一步路由**。
 
 ### 2025-03-24 — `LoadingButton`、防連點與 Toast 統一
 
 - **Layer 5 — `src/components/ui/LoadingButton.tsx`**：共用 **`LoadingButton`**（內部 **`useRef` lock** 防連點；可選 **`loading` 受控**）＋ **`PendingLabel`**（spinner + 文案，預設 **「處理中…」**）；**`active:scale-95`**，**disabled** 時 **`disabled:active:scale-100`**；可轉傳 **`aria-label`** 等 button 屬性。
-- **套用處**：**`register-form`** 建立帳號；**`profile-form`** 下一步（**`LoadingButton`**）／完成（**`PendingLabel` + `loading`**）；**`/register/interests`** 完成；**`guild-profile-home`** 簽到列（**`PendingLabel`**）、今日心情／雙自白／帳號設定 IG／裁切確認；**`UserDetailModal`** 緣分鈕（**`LoadingButton`**，`likeLoading` 時 **disabled**）＋取消緣分 **AlertDialog** 確定鈕內 **PendingLabel**。
+- **套用處**：**`register-form`** 建立帳號；**`profile-form`** 下一步（**`LoadingButton`**）／完成（**`PendingLabel` + `loading`**）；**`/register/skills`** 完成（自管 **submitting**）；**`guild-profile-home`** 簽到列（**`PendingLabel`**）、今日心情／雙自白／帳號設定 IG／裁切確認；**`UserDetailModal`** 緣分鈕（**`LoadingButton`**，`likeLoading` 時 **disabled**）＋取消緣分 **AlertDialog** 確定鈕內 **PendingLabel**。
 - **註冊名冊**：**`profile-form`** 之 **「下一步」** 以 **`LoadingButton`** 包 **`goNext()`**（**`await Promise.resolve()`** 後執行，避免同幀連點）；完成送出維持 **`<button type="submit">`** + **`PendingLabel`**。
 - **Toast 規範（Sonner）**：簽到成功 **「+1 EXP！繼續加油 ⚔️」**；已簽／冷卻 **「還在冷卻中，明天再來！」**；送出緣分 **「💖 緣分已送出！」**（互有緣分仍保留 **🎉 互有緣分！**）；取消緣分 **「緣分已取消」**；自白成功 **「✅ 已更新」**；心情 **「今日心情已更新 ✨」**；IG 綁定 **「IG 帳號已綁定」**；IG 申請 **「申請已送出，等待管理員審核」**；上述流程之 API 失敗統一 **「❌ 操作失敗，請稍後再試」**（表單驗證類訊息仍可維持原 **toast.error** 具體文案）。
 
@@ -456,7 +471,7 @@ NOTIFY pgrst, 'reload schema';
 
 ### 2025-03-24 — 註冊四步指示器、帳號頁膠囊與名冊 Step2 下拉樣式
 
-- **Layer 5 — 全線步驟語意**：**`1`**＝**`/register`** 建立帳號；**`2`**＝**`/register/profile`** 暱稱＋性別＋地區（＋ OAuth 補 IG）；**`3`**＝同頁性向＋線下＋核心價值觀；**`4`**＝同頁興趣標籤。共用 **`RegistrationStepIndicator`**（**`activeStep` 僅該步紫色**，連線段依是否已通過前段著色）。
+- **Layer 5 — 全線步驟語意**（已延伸為 **五步**，見 **2025-03-24 — 註冊五步／Step5 Modal**）：**`1`**＝**`/register`**；**`2`—`4`**＝**`/register/profile`** 內三步（暱稱／問卷／興趣標籤）；**`5`**＝**`/register/skills`**。歷史稿曾寫「四步」僅涵蓋名冊單頁內之 **1〜4** 圈；現行 UI 為 **1—2—3—4—5**。
 - **Layer 5 — `register-form.tsx`**：標題 **「加入傳奇公會」**、副標 **「建立你的冒險者帳號」**；**Email／密碼／確認密碼／IG／邀請碼** 為登入同款**膠囊原生 `input`**（**`bg-zinc-900/50`**、**`rounded-full`**、**`pl-11`**、**`text-base`**）；密碼與確認欄 **Eye／EyeOff** 切換；**送出前**檢查兩次密碼一致、**至少 6 字且含英文＋數字**（不符則 **toast**，不呼叫 **signUp**）；IG 輸入即時 **`replace` 空白**。
 - **Layer 5 — `profile-form.tsx`**：性別、地區下拉改 **膠囊形原生 `<select>`**（**`rounded-full`**、**`bg-zinc-900/50`**、**`ChevronDown`** 右側裝飾、**`colorScheme: dark`**）；性向／線下維持原 **rounded-2xl** 原生選單（內容不變）。
 

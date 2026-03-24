@@ -4,8 +4,6 @@
 export const GENDER_OPTIONS = [
   { value: "male", label: "男" },
   { value: "female", label: "女" },
-  { value: "non_binary", label: "非二元／其他" },
-  { value: "prefer_not", label: "先不透露" },
 ] as const;
 
 /** 選到此列時表單顯示自填欄，送出時改寫為 `海外・{自填}` */

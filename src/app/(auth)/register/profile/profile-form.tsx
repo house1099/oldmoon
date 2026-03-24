@@ -225,7 +225,7 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
       subtitle="分步填寫，讓公會更懂你"
     >
       <RegistrationStepIndicator
-        activeStep={(step + 1) as 1 | 2 | 3 | 4}
+        activeStep={(step + 1) as 1 | 2 | 3 | 4 | 5}
       />
 
       <form onSubmit={onSubmit} className="flex flex-col gap-6">
@@ -557,11 +557,19 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
                 >
                   上一步
                 </button>
-              ) : null}
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => router.push("/register")}
+                  disabled={loading}
+                  className="flex-1 rounded-full bg-zinc-800 py-4 text-sm font-medium text-white transition-all hover:bg-zinc-700 active:scale-95 disabled:opacity-40"
+                >
+                  上一步
+                </button>
+              )}
               <LoadingButton
                 className={cn(
-                  "rounded-full bg-violet-600 py-4 text-sm font-medium text-white transition-all hover:bg-violet-500 disabled:opacity-40",
-                  step > 1 ? "flex-1" : "w-full",
+                  "flex-1 rounded-full bg-violet-600 py-4 text-sm font-medium text-white transition-all hover:bg-violet-500 disabled:opacity-40",
                 )}
                 loadingText="處理中…"
                 disabled={loading}

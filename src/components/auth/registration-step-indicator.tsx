@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils";
 
 type RegistrationStepIndicatorProps = {
-  /** 目前步驟 1〜4（僅該數字為紫色高亮） */
-  activeStep: 1 | 2 | 3 | 4;
+  /** 目前步驟 1〜5（僅該數字為紫色高亮） */
+  activeStep: 1 | 2 | 3 | 4 | 5;
   className?: string;
 };
 
@@ -17,7 +17,7 @@ export function RegistrationStepIndicator({
         className,
       )}
     >
-      {[1, 2, 3, 4].map((n) => (
+      {[1, 2, 3, 4, 5].map((n) => (
         <div key={n} className="flex items-center gap-2">
           <div
             className={cn(
@@ -29,7 +29,7 @@ export function RegistrationStepIndicator({
           >
             {n}
           </div>
-          {n < 4 ? (
+          {n < 5 ? (
             <div
               className={cn(
                 "h-px w-6",
