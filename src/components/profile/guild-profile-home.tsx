@@ -9,12 +9,8 @@ import {
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
-import { DAILY_CHECKIN_ALREADY_TODAY } from "@/lib/constants/daily-checkin";
-import { formatTaipeiDateKeyForDisplay } from "@/lib/utils/date";
-import {
-  claimDailyCheckin,
-  getDailyCheckinCooldownInfo,
-} from "@/services/daily-checkin.action";
+import { DAILY_CHECKIN_ALREADY_CLAIMED } from "@/lib/constants/daily-checkin";
+import { claimDailyCheckin } from "@/services/daily-checkin.action";
 import {
   getMyRecentExpLogsAction,
   type ExpLogProfileEntry,
@@ -84,28 +80,43 @@ function AccordionSection({
   openSection,
   setOpenSection,
   children,
+  titleRight,
 }: {
   id: string;
   title: string;
   openSection: string | null;
   setOpenSection: (v: string | null) => void;
   children: ReactNode;
+  titleRight?: ReactNode;
 }) {
   const isOpen = openSection === id;
+  function toggle() {
+    setOpenSection(isOpen ? null : id);
+  }
   return (
     <div className="border-t border-white/10">
-      <button
-        type="button"
-        onClick={() => setOpenSection(isOpen ? null : id)}
-        className="flex w-full items-center justify-between px-1 py-4 text-sm font-medium text-white"
-      >
-        {title}
-        <span
-          className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+      <div className="flex w-full items-center gap-2 px-1 py-4">
+        <button
+          type="button"
+          onClick={toggle}
+          className="min-w-0 flex-1 text-left text-sm font-medium text-white"
         >
-          ▼
-        </span>
-      </button>
+          {title}
+        </button>
+        {titleRight ? (
+          <div className="flex shrink-0 items-center gap-2">{titleRight}</div>
+        ) : null}
+        <button
+          type="button"
+          onClick={toggle}
+          aria-expanded={isOpen}
+          className="shrink-0 text-zinc-400 transition-transform duration-200 hover:text-white"
+        >
+          <span className={isOpen ? "inline-block rotate-180" : "inline-block"}>
+            ▼
+          </span>
+        </button>
+      </div>
       {isOpen ? <div className="pb-4">{children}</div> : null}
     </div>
   );
@@ -146,8 +157,11 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [checkinLoading, setCheckinLoading] = useState(false);
-  const [checkinDoneToday, setCheckinDoneToday] = useState(false);
-  const [checkinNextLabel, setCheckinNextLabel] = useState<string | null>(null);
+  const [checkinDone, setCheckinDone] = useState(false);
+  const [cooldown, setCooldown] = useState<{
+    hours: number;
+    mins: number;
+  } | null>(null);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [expLogs, setExpLogs] = useState<ExpLogProfileEntry[]>([]);
   const [openSection, setOpenSection] = useState<string | null>(null);
@@ -198,20 +212,44 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     return () => clearInterval(timer);
   }, [moodAt]);
 
-  const syncCheckinCooldown = useCallback(async () => {
-    const r = await getDailyCheckinCooldownInfo();
-    if (r.ok === false) return;
-    setCheckinDoneToday(r.checkedToday);
-    setCheckinNextLabel(
-      r.checkedToday && r.nextEligibleDateKey
-        ? formatTaipeiDateKeyForDisplay(r.nextEligibleDateKey)
-        : null,
-    );
-  }, []);
+  useEffect(() => {
+    const lastCheckin = profile.last_checkin_at
+      ? new Date(profile.last_checkin_at).getTime()
+      : 0;
+    const now = Date.now();
+    const remainMs = 24 * 60 * 60 * 1000 - (now - lastCheckin);
+
+    if (remainMs > 0) {
+      setCooldown({
+        hours: Math.floor(remainMs / (1000 * 60 * 60)),
+        mins: Math.floor((remainMs % (1000 * 60 * 60)) / (1000 * 60)),
+      });
+      setCheckinDone(true);
+    } else {
+      setCheckinDone(false);
+      setCooldown(null);
+    }
+  }, [profile.last_checkin_at]);
 
   useEffect(() => {
-    void syncCheckinCooldown();
-  }, [profile.id, profile.updated_at, syncCheckinCooldown]);
+    if (!checkinDone) return;
+    const timer = setInterval(() => {
+      const lastCheckin = profile.last_checkin_at
+        ? new Date(profile.last_checkin_at).getTime()
+        : 0;
+      const remainMs = 24 * 60 * 60 * 1000 - (Date.now() - lastCheckin);
+      if (remainMs <= 0) {
+        setCheckinDone(false);
+        setCooldown(null);
+      } else {
+        setCooldown({
+          hours: Math.floor(remainMs / (1000 * 60 * 60)),
+          mins: Math.floor((remainMs % (1000 * 60 * 60)) / (1000 * 60)),
+        });
+      }
+    }, 60000);
+    return () => clearInterval(timer);
+  }, [checkinDone, profile.last_checkin_at]);
 
   useEffect(() => {
     if (!cropOpen) return;
@@ -420,18 +458,23 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
       const result = await claimDailyCheckin();
       if (result.ok === false) {
         if (
-          result.error === DAILY_CHECKIN_ALREADY_TODAY ||
+          result.error === DAILY_CHECKIN_ALREADY_CLAIMED ||
           /duplicate/i.test(result.error)
         ) {
           toast.success("今日已經簽到過了喵！");
-          await syncCheckinCooldown();
+          setCheckinDone(true);
+          setCooldown({
+            hours: result.remainHours ?? 23,
+            mins: result.remainMins ?? 59,
+          });
           return;
         }
         toast.error(result.error);
         return;
       }
       toast.success("簽到成功！獲得 +1 EXP 喵！");
-      await syncCheckinCooldown();
+      setCheckinDone(true);
+      setCooldown({ hours: 23, mins: 59 });
       router.refresh();
     } finally {
       setCheckinLoading(false);
@@ -528,7 +571,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           <div className="w-full max-w-md space-y-1.5">
             <div className="flex justify-between gap-2 text-[11px] text-zinc-400 sm:text-xs">
               <span className="tabular-nums text-cyan-200/90">
-                total_exp {totalExpSafe.toLocaleString("zh-TW")}
+                EXP {totalExpSafe.toLocaleString("zh-TW")}
               </span>
               <span>
                 {levelSafe < 10
@@ -728,6 +771,15 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             title="興趣與技能標籤"
             openSection={openSection}
             setOpenSection={setOpenSection}
+            titleRight={
+              <button
+                type="button"
+                onClick={() => router.push("/profile/edit-tags")}
+                className="text-xs text-zinc-500 transition-colors hover:text-white"
+              >
+                ✏️ 編輯
+              </button>
+            }
           >
             <div className="space-y-4">
               {profile.interests && profile.interests.length > 0 ? (
@@ -802,25 +854,25 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
 
         <button
           type="button"
-          disabled={checkinLoading || checkinDoneToday}
+          disabled={checkinLoading || checkinDone}
           onClick={onCheckin}
           className={cn(
             "mb-3 flex w-full items-center justify-between rounded-2xl border p-4 text-left transition disabled:pointer-events-none",
-            checkinDoneToday
+            checkinDone
               ? "cursor-not-allowed border-zinc-700/50 bg-zinc-900/40 text-zinc-500 opacity-85 backdrop-blur-sm"
-              : "border-white/10 bg-gradient-to-r from-amber-950/55 via-zinc-900/55 to-violet-950/45 text-zinc-100 shadow-md shadow-black/25 hover:border-amber-400/30 hover:from-amber-900/50 hover:via-zinc-900/50 hover:to-violet-900/40",
+              : "border-white/10 bg-gradient-to-r from-amber-950/55 via-zinc-900/55 to-violet-950/45 text-zinc-100 shadow-md shadow-black/25 hover:border-amber-400/30 hover:from-amber-900/50 hover:via-zinc-900/50 hover:to-violet-900/40 active:scale-[0.99]",
           )}
         >
           <span className="flex min-w-0 flex-1 items-center gap-3">
             <span
               className={cn(
                 "flex size-10 shrink-0 items-center justify-center rounded-xl",
-                checkinDoneToday
+                checkinDone
                   ? "bg-zinc-800/80 text-zinc-500"
                   : "bg-amber-950/50 text-amber-200 ring-1 ring-amber-500/25",
               )}
             >
-              {checkinDoneToday ? (
+              {checkinDone ? (
                 <Lock className="size-5" aria-hidden />
               ) : (
                 <CalendarCheck className="size-5" aria-hidden />
@@ -830,18 +882,15 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               <span className="font-medium">
                 {checkinLoading
                   ? "連線中…"
-                  : checkinDoneToday
-                    ? "⏳ 回報冷卻中 (約 23 小時)"
-                    : "每日簽到（+1 EXP）"}
+                  : checkinDone && cooldown
+                    ? `⏳ 還有 ${cooldown.hours} 小時 ${cooldown.mins} 分`
+                    : checkinDone
+                      ? "⏳ 簽到冷卻中"
+                      : "📅 每日簽到（+1 EXP）"}
               </span>
-              {checkinDoneToday && checkinNextLabel ? (
-                <span className="text-[11px] font-normal leading-snug text-zinc-500">
-                  下次可簽到：{checkinNextLabel}（台北曆日切換後）
-                </span>
-              ) : null}
             </span>
           </span>
-          {!checkinDoneToday ? (
+          {!checkinDone ? (
             <ChevronRight className="size-5 shrink-0 text-zinc-500" aria-hidden />
           ) : null}
         </button>

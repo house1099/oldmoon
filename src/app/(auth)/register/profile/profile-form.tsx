@@ -165,8 +165,8 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
         toast.error(result.error);
         return;
       }
-      toast.success("名冊已建立，歡迎進入公會！");
-      router.push("/");
+      toast.success("名冊已建立，接著選擇興趣與技能標籤！");
+      router.push("/register/interests");
       router.refresh();
     } finally {
       setLoading(false);

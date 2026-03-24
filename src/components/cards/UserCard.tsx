@@ -7,7 +7,6 @@ import {
   REGION_OPTIONS,
 } from "@/lib/constants/adventurer-questionnaire";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
-import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { LevelFrame } from "@/components/cards/LevelFrame";
@@ -61,25 +60,22 @@ export function UserCard({
       >
         <LevelFrame level={user.level} className={frameClass}>
           <div className="flex gap-4">
-            <div className="w-[5.25rem] shrink-0 overflow-hidden rounded-xl border border-amber-800/45 bg-slate-900/90">
-              <AspectRatio ratio={1}>
-                {user.avatar_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- 頭像可能為任意 HTTPS 網址
-                  <img
-                    src={user.avatar_url}
-                    alt=""
-                    className="absolute inset-0 h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
-                    <UserRound
-                      className="h-10 w-10 text-amber-200/60"
-                      aria-hidden
-                    />
-                  </div>
-                )}
-              </AspectRatio>
-            </div>
+            {user.avatar_url ? (
+              <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full">
+                {/* eslint-disable-next-line @next/next/no-img-element -- 頭像可能為任意 HTTPS 網址 */}
+                <img
+                  src={user.avatar_url}
+                  alt={user.nickname}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-zinc-700">
+                <span className="text-sm font-medium text-white">
+                  {user.nickname?.[0] ?? "?"}
+                </span>
+              </div>
+            )}
 
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">

@@ -67,6 +67,8 @@ export interface Database {
           mood: string | null;
           /** 心情最後更新時間（ISO）；超過 24h 前端可不顯示內容 */
           mood_at: string | null;
+          /** 上次簽到時間（ISO）；24h 內不可再簽 */
+          last_checkin_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -98,6 +100,7 @@ export interface Database {
           role?: string;
           mood?: string | null;
           mood_at?: string | null;
+          last_checkin_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -129,6 +132,7 @@ export interface Database {
           role?: string;
           mood?: string | null;
           mood_at?: string | null;
+          last_checkin_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

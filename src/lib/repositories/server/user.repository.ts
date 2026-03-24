@@ -117,3 +117,16 @@ export async function findMarketUsers(
 ): Promise<UserRow[]> {
   return findActiveUsers(currentUserId);
 }
+
+/** 簽到成功後寫入 **`last_checkin_at`**（24h 冷卻 SSOT）。 */
+export async function updateLastCheckinAt(userId: string): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("users")
+    .update({ last_checkin_at: new Date().toISOString() })
+    .eq("id", userId);
+
+  if (error) {
+    throw error;
+  }
+}

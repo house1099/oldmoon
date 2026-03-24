@@ -10,7 +10,7 @@ import {
 import { instagramHandleSchema } from "@/lib/validation/instagram-handle";
 
 /**
- * Layer 3：編輯公會名片（通用 bio、分域自白、**`instagram_handle`**、IG 公開、每日心情、頭像 URL）。
+ * Layer 3：編輯公會名片（通用 bio、分域自白、**`instagram_handle`**、IG 公開、每日心情、頭像 URL、**`interests`／`skills_offer`／`skills_want`** 標籤陣列）。
  * 可傳入部分欄位；**`mood` 出現在 input** 時一併寫入 **`mood_at`**（可傳 `mood_at` ISO 字串，否則伺服端用當下時間）。
  */
 const AVATAR_URL_MAX = 2048;
@@ -37,6 +37,9 @@ export async function updateMyProfile(input: {
   mood_at?: string | null;
   /** 大頭貼公開 HTTPS URL（**Cloudinary `secure_url`**；**勿**經 Supabase Storage 上傳） */
   avatar_url?: string | null;
+  interests?: string[];
+  skills_offer?: string[];
+  skills_want?: string[];
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   if (
     input.bio === undefined &&
@@ -45,7 +48,10 @@ export async function updateMyProfile(input: {
     input.ig_public === undefined &&
     input.instagram_handle === undefined &&
     input.mood === undefined &&
-    input.avatar_url === undefined
+    input.avatar_url === undefined &&
+    input.interests === undefined &&
+    input.skills_offer === undefined &&
+    input.skills_want === undefined
   ) {
     return { ok: false, error: "沒有要更新的項目。" };
   }
@@ -116,6 +122,15 @@ export async function updateMyProfile(input: {
     }
     patch.avatar_url = u.length > 0 ? u : null;
   }
+  if (input.interests !== undefined) {
+    patch.interests = input.interests;
+  }
+  if (input.skills_offer !== undefined) {
+    patch.skills_offer = input.skills_offer;
+  }
+  if (input.skills_want !== undefined) {
+    patch.skills_want = input.skills_want;
+  }
 
   try {
     await updateProfile(user.id, patch);
@@ -139,5 +154,6 @@ export async function updateMyProfile(input: {
   }
 
   revalidatePath("/");
+  revalidatePath("/profile/edit-tags");
   return { ok: true };
 }

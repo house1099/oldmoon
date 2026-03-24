@@ -4,7 +4,7 @@
 
 ## 🌕 目前開發階段：Phase 2 — 社交核心（進行中）
 
-**下一視窗／下一階段預設焦點**：**Phase 2.2** — **Likes（有緣分）**、**Alliances（血盟）**、使用者詳情 Modal、註冊／個人頁是否補 **技能供需（`skills_offer`／`skills_want`）** 表單與 RLS。Phase 2.1 村莊＋市集已接線，見下表與「關鍵檔案索引」。
+**下一視窗／下一階段預設焦點**：**Phase 2.2** — **Likes（有緣分）**、**Alliances（血盟）**、使用者詳情 Modal、雲端 **RLS** 與型別對齊。註冊 **Step 3〜5** 與 **`/profile/edit-tags`** 已接線（興趣／能教／想學）；Phase 2.1 村莊＋市集已接線，見下表與「關鍵檔案索引」。
 
 ### 🛠️ 核心工具基準（Layer 4）
 
@@ -15,9 +15,9 @@
 ### 🏛️ 五層架構狀態（速覽）
 
 - **Layer 1（連線）**：Supabase Client／Server／Admin 已完備。
-- **Layer 2（資料）**：`user.repository.ts`、`exp.repository.ts` 支援 **`total_exp`**（SSOT）。
-- **Layer 3（業務）**：`daily-checkin.action.ts` 已校準時區（日鍵來自 **`date.ts`**）。
-- **Layer 4（狀態／常數）**：`levels.ts`（門檻 0〜1350）、Zod 驗證已就緒；**`date.ts`** 為日界 SSOT。
+- **Layer 2（資料）**：`user.repository.ts`（含 **`updateLastCheckinAt`**）、`exp.repository.ts` 支援 **`total_exp`**（SSOT）。
+- **Layer 3（業務）**：`daily-checkin.action.ts` 之 **`claimDailyCheckin`** 以 **`users.last_checkin_at`** 為簽到 **24h 滾動冷卻** SSOT；**`exp_logs.unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**。
+- **Layer 4（狀態／常數）**：`levels.ts`（門檻 0〜1350）、Zod 驗證已就緒；**`date.ts`** 之 **`taipeiCalendarDateKey()`** 仍為全系統**日曆日** SSOT（簽到冷卻**不再**依此判斷）。
 - **Layer 5（UI）**：**`Navbar.tsx`**、**`LevelFrame.tsx`**、**`UserCard`**（支援 **`perfectMatch`** 市集白金外環 **`perfect-match-market-shell`**）、**`/village`**、**`/market`**。
 
 ### 📈 開發進度
@@ -44,7 +44,7 @@
 
 ### 🗄️ 資料庫異動紀錄（交接必備）
 
-- **`users`**：**`role`**（**`text`**，預設 **`member`**；**`admin`**／**`leader`** 可審核 IG 申請）、**`bio`**（text，可 null）、**`bio_village`**／**`bio_market`**、**`invite_code`**、**`invited_by`**、**`interests`**（**`text[]`**）、**`skills_offer`**／**`skills_want`**、**`instagram_handle`**、**`ig_public`**、**`mood`**、**`mood_at`**、**`last_seen_at`** 等與 **`database.types.ts`** 一致。
+- **`users`**：**`role`**（**`text`**，預設 **`member`**；**`admin`**／**`leader`** 可審核 IG 申請）、**`bio`**（text，可 null）、**`bio_village`**／**`bio_market`**、**`invite_code`**、**`invited_by`**、**`interests`**（**`text[]`**）、**`skills_offer`**／**`skills_want`**、**`instagram_handle`**、**`ig_public`**、**`mood`**、**`mood_at`**、**`last_checkin_at`**（簽到 24h 冷卻 SSOT）、**`last_seen_at`** 等與 **`database.types.ts`** 一致。遷移見 **`supabase/migrations/20260324120000_users_last_checkin_at.sql`**。
 - **`ig_change_requests`**：**`user_id`**、**`old_handle`**、**`new_handle`**、**`status`**（**`pending`**／**`approved`**／**`rejected`**）、**`reviewed_by`**、**`reviewed_at`**、**`created_at`**；已 **ENABLE RLS**（政策可後補）；遷移見 **`supabase/migrations/20260324100000_ig_change_requests_and_user_role.sql`**。
 - **註冊建檔**：**`completeAdventurerProfile`** 為避免 PostgREST／欄位快取問題，**insert 不帶 `bio`**（自介於個人頁 **`profile-update`** 填寫）。
 - DDL 變更後若仍報「找不到欄位」，至 Supabase **Settings → API** 嘗試 **重新載入 Schema**。
@@ -73,7 +73,7 @@
 | Auth UI | `src/app/(auth)/login/*`、`register/*`、`register/profile/*` |
 | OAuth callback | `src/app/auth/callback/route.ts` |
 | 補名冊（含 IG） | `src/services/adventurer-profile.action.ts`（註冊 insert **不帶 `bio`**） |
-| 每日簽到 +1 EXP | `src/services/daily-checkin.action.ts`；**`findDailyCheckinForUserOnTaipeiDay`**／**`insertExpLog`（`delta`+`delta_exp`）** 見 `exp.repository.ts`；機讀錯誤 **`DAILY_CHECKIN_ALREADY_TODAY`** 見 `daily-checkin.ts`；日鍵 SSOT：`date.ts`（`taipeiCalendarDateKey`） |
+| 每日簽到 +1 EXP | `src/services/daily-checkin.action.ts`（**`claimDailyCheckin`**；冷卻 **`users.last_checkin_at`**）；**`updateLastCheckinAt`** 見 `user.repository.ts`；**`insertExpLog`（`delta`+`delta_exp`）** 見 `exp.repository.ts`；機讀錯誤 **`DAILY_CHECKIN_ALREADY_CLAIMED`**（**`already_claimed`**）見 `daily-checkin.ts`；**`taipeiCalendarDateKey()`** 仍供其他日曆日用途，**簽到判斷已不採用** |
 | 編輯自介／分域自白／**`instagram_handle`**／IG 公開／心情 | `src/services/profile-update.action.ts`（**支援部分欄位 patch**；**`mood`** 時更新 **`mood_at`**；**`bio_village`**／**`bio_market`**；**`instagram_handle`** 經 **`instagramHandleSchema`**；空字串寫入 **null**） |
 | IG 變更申請／審核 | `src/services/ig-request.action.ts`（**`requestIgChangeAction`**、**`reviewIgRequestAction`**、**`getPendingIgRequestsAction`**）→ **`src/lib/repositories/server/ig-request.repository.ts`**（**admin client** 寫入 **`ig_change_requests`**、核准時更新 **`users.instagram_handle`**） |
 | 管理：IG 待審 | `src/app/(app)/admin/ig-requests/page.tsx`（**role** 為 **admin／leader** 可進；其餘 **`redirect('/')`**） |
@@ -82,11 +82,15 @@
 | 頭像裁切＋Cloudinary | **`react-easy-crop`** 全螢幕裁切；**`src/lib/utils/cropImage.ts`**（**`getCroppedImg`**）；**`src/lib/utils/cloudinary.ts`**（**`uploadAvatarToCloudinary`**）→ **`updateMyProfile({ avatar_url })`**（**禁止** **`supabase.storage`** 上傳頭像） |
 | 底部導航 | `src/components/layout/Navbar.tsx` |
 | 村莊列表 | `src/app/(app)/village/*`、`src/services/village.service.ts`、`src/components/cards/UserCard.tsx`、`src/components/cards/LevelFrame.tsx` |
+| 使用者詳情 Modal | `src/components/modals/UserDetailModal.tsx`（今日心情、雙欄自白、雙區標籤、**`social.action`** 緣分＋**AlertDialog**） |
 | 技能市集 | `src/app/(app)/market/page.tsx`、`src/services/market.service.ts`（**`evaluatePerfectMatch`**、**`getMarketUsers`**） |
-| Users Repository | `src/lib/repositories/server/user.repository.ts`（**`findActiveUsers`**、**`findMarketUsers`**） |
+| Users Repository | `src/lib/repositories/server/user.repository.ts`（**`findActiveUsers`**、**`findMarketUsers`**、**`updateLastCheckinAt`**） |
 | EXP 寫入 | `src/lib/repositories/server/exp.repository.ts` |
 | 等級 SSOT | `src/lib/constants/levels.ts` |
 | 問卷選項 | `src/lib/constants/adventurer-questionnaire.ts` |
+| 興趣／技能標籤選項（分類＋內建標籤） | `src/lib/constants/interests.ts`、`src/lib/constants/skills.ts` |
+| 註冊標籤步驟 UI | `src/components/onboarding/TagSelector.tsx`；路由 **`/register/interests`** → **`/register/skills-offer`** → **`/register/skills-want`** → 首頁 |
+| 登入後編輯標籤 | `src/app/(app)/profile/edit-tags/page.tsx`（三 Tab：興趣／能教／想學） |
 | Zod／不雅字／IG 格式 | `src/lib/validation/*.ts`、`src/lib/utils/forbidden-words.ts` |
 | DB 型別 | `src/types/database.types.ts`（含 **`ig_change_requests`**、**`users.role`**、**`skills_offer`**／**`skills_want`**） |
 | 市集 Perfect Match 高光 | `src/app/globals.css`（**`.perfect-match-market-shell`**） |
@@ -107,7 +111,7 @@
 | 狀態 | 說明 |
 |------|------|
 | ✅ 已完成 | **OAuth IG 補填**：Google 等略過註冊 Step1 時，`user_metadata` 可能無 `instagram_handle`；`/register/profile` 由伺服端判斷 **`needsProfileInstagram`**，動態顯示必填 IG 欄位；**`completeAdventurerProfile`** 接受 **`instagramHandleFromForm`**，metadata 有值時優先採 metadata，否則驗證表單並寫入 **`users.instagram_handle`**。 |
-| ✅ 已完成 | **每日簽到時區**：**`claimDailyCheckin`**（`daily-checkin.action.ts`）產生 `unique_key` 之日期 **不可**使用 `toISOString()`（UTC）；已改為 **`Intl.DateTimeFormat` + `timeZone: 'Asia/Taipei'`** 取得 **`YYYY-MM-DD`**，與台灣日界一致。 |
+| ✅ 已完成 | **每日簽到**：**24h 滾動冷卻**以 **`users.last_checkin_at`** 為 SSOT；**`exp_logs.unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**。**`taipeiCalendarDateKey()`** 仍保留供其他日曆邏輯，**不再**作為簽到可否之依據。 |
 
 **Phase 2：社交核心**（🚧 **進行中** — **2.1 村莊＋市集已接線**；**2.2 互動／血盟為下一波**）
 
@@ -140,7 +144,7 @@
 1. 未登入造訪受保護路由 → Middleware → `/login`（可帶 `next=`）。
 2. `/register` 註冊後（視專案是否開信箱驗證）→ 導向 `/register/profile` 補 **nickname + 問卷**（OAuth 若無 IG metadata，同頁 **動態補填 IG**）。
 3. `completeAdventurerProfile` 以 **admin client** 寫入 `users`（**不帶 `bio`**；**`instagram_handle`** metadata 優先）；通用 **`bio`** 首頁未提供表單，仍可由 **`updateMyProfile({ bio })`** 等管道寫入。失敗時 **`console.error("❌ 伺服器寫入失敗詳細原因:", error)`**。
-4. Profile 就緒後 → 首頁 `src/app/(app)/page.tsx` 載入 **`GuildProfileHome`**（精簡頭像卡＋等級進度；**今日心情**為獨立頂層卡片；**我的狀態**內自白／信譽與紀錄／興趣與技能標籤為**手風琴**預設收折；**「帳號設定」** **Dialog** 僅 **IG 帳號**＋**`ig_public`**；簽到、登出；頁面容器 **`pb-32` + `safe-area-inset-bottom`** 防 Navbar 遮擋）。
+4. Profile 就緒後 → **`/register/interests`** 起三步選擇 **繁中標籤**（興趣／能教／想學），完成後進入首頁 `src/app/(app)/page.tsx` 載入 **`GuildProfileHome`**（精簡頭像卡＋等級進度；**今日心情**為獨立頂層卡片；**我的狀態**內自白／信譽與紀錄／興趣與技能標籤為**手風琴**預設收折；**「帳號設定」** **Dialog** 僅 **IG 帳號**＋**`ig_public`**；簽到、登出；頁面容器 **`pb-32` + `safe-area-inset-bottom`** 防 Navbar 遮擋）。
 
 ### Admin／環境
 
@@ -153,7 +157,7 @@
 | 層級 | 路徑／約定 | 目前進度 |
 |------|------------|----------|
 | **Layer 1** 連線 | `src/lib/supabase/` | ✅ `client.ts`、`server.ts`、`admin.ts`；`Database` 型別已注入 client |
-| **Layer 2** 資料 | `src/lib/repositories/server/` | ✅ `user.repository.ts`（`findProfileById`、`createProfile`、**`findActiveUsers`**、**`findMarketUsers`**）、`exp.repository.ts`（admin）；`client/` 尚空 |
+| **Layer 2** 資料 | `src/lib/repositories/server/` | ✅ `user.repository.ts`（`findProfileById`、`createProfile`、**`findActiveUsers`**、**`findMarketUsers`**、**`updateLastCheckinAt`**）、`exp.repository.ts`（admin）；`client/` 尚空 |
 | **Layer 3** 業務 | `src/services/` | ✅ 同上列 + **`market.service.ts`**（**`getMarketUsers`**、Perfect Match）、**`village.service.ts`** |
 | **Layer 4** 狀態 | `src/lib/hooks/`、`src/store/`、`src/lib/constants/`、`src/lib/validation/`、`src/lib/utils/` | ⏳ **hooks／Zustand** 尚未實作；✅ **常數、Zod schema、forbidden-words**；✅ **`src/lib/utils/date.ts`**（台灣日界 SSOT） |
 | **Layer 5** UI | `src/components/*`、`src/app/*` | ✅ shadcn；**`Navbar`**、**`/village`**、**`/market`**、**`UserCard`**（**`perfectMatch`**）、**`LevelFrame`**、個人頁與認證殼 |
@@ -203,14 +207,14 @@
 
 # Unique Key：防重複領獎與報錯處理
 
-**機制**：`exp_logs.unique_key` 欄位在 DB 為 **UNIQUE**；同一業務鍵（例如 `daily_checkin:2025-03-22:userId`）第二次插入會失敗。**每日簽到**之日期段為 **台灣日界**（`Asia/Taipei` 之 `YYYY-MM-DD`），**勿**用 UTC `toISOString().slice(0,10)` 當「當日」鍵。
+**機制**：`exp_logs.unique_key` 欄位在 DB 為 **UNIQUE**。**每日簽到**之 **`unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**（每次簽到一鍵，靠 **`users.last_checkin_at`** 的 **24h** 規則避免濫刷；舊曆日式 **`daily_checkin:{YYYY-MM-DD}:{userId}`** 可能仍存在於歷史列）。其他需「一日一鍵」之獎勵仍應以 **`taipeiCalendarDateKey()`** 拼鍵，**勿**用 UTC `toISOString().slice(0,10)` 當台灣日界。
 
 **應用層約定**（實作 EXP 領獎／任務時遵守）：
 
 1. **Layer 2**：`insertExpLog` 已將 **`23505`** 轉成 **`DuplicateExpRewardError`**（預設訊息：**「你已經領取過這份獎勵了喵！」**）；其餘錯誤原樣拋出。
 2. **Layer 3**：可再攔截 `DuplicateExpRewardError` 做冪等成功／toast；若自行呼叫 repository，亦可補攔 **`23505`**。
 3. **Layer 5**：只顯示友善文案（toast／dialog），**不**把原始 SQL 或內部 key 暴露給使用者。
-4. 產生 `unique_key` 的規則（前綴、**日曆日（含時區）**、user id）必須使用 **`src/lib/utils/date.ts` 之 `taipeiCalendarDateKey()`**（全系統唯一日界基準），避免各處字串拼裝不一致。
+4. 非簽到、需 **台灣日曆日** 之 `unique_key` 規則仍使用 **`src/lib/utils/date.ts` 之 `taipeiCalendarDateKey()`**；簽到專用鍵格式見上段。
 
 ---
 
@@ -369,6 +373,31 @@ NOTIFY pgrst, 'reload schema';
 - **Layer 2**：**`ig-request.repository.ts`** — **`insertIgChangeRequest`**、**`getPendingIgRequests`**（embed **`users!ig_change_requests_user_id_fkey`**）、**`reviewIgRequest`**（核准時先改 **`users.instagram_handle`** 再更新申請列）。
 - **Layer 3**：**`ig-request.action.ts`** — **`requestIgChangeAction`**（**`instagramHandleSchema`**）、**`reviewIgRequestAction`**、**`getPendingIgRequestsAction`**。
 - **Layer 5**：**`guild-profile-home`** 帳號設定 — 無 IG 直接綁定；有 IG 鎖定 + 展開輸入後送審。**`/admin/ig-requests`** 待審列表 + **核准／拒絕**。
+
+### 2025-03-24 — 簽到冷卻改為 24h 滾動（`last_checkin_at`）
+
+- **規格**：簽到冷卻為 **24 小時滾動**（非台北曆日切換）；**`users.last_checkin_at`** 為 SSOT。
+- **廢棄**：以 **`taipeiCalendarDateKey()`**／曆日 **`unique_key`** 作為「今日是否已簽」之判斷（**`taipeiCalendarDateKey()`** 函數**保留**，供其他日曆用途）。
+- **Layer 2**：**`user.repository.ts`** 新增 **`updateLastCheckinAt(userId)`**（admin 更新 **`last_checkin_at`**）。
+- **Layer 3**：**`claimDailyCheckin`** 讀寫 **`last_checkin_at`**、寫入 **`exp_logs`** 時 **`unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**；冷卻內回傳 **`error: DAILY_CHECKIN_ALREADY_CLAIMED`**（**`already_claimed`**）及 **`remainHours`／`remainMins`**。已移除 **`getDailyCheckinCooldownInfo`**（個人頁改由 **`profile.last_checkin_at`** 推算）。
+- **Layer 5**：**`guild-profile-home.tsx`** 進入頁面即以 **`profile.last_checkin_at`** 初始化冷卻 state；點擊簽到成功後**立刻**鎖定 UI 並顯示剩餘時分；**每分鐘**更新倒數。
+- **🗄️**：**`supabase/migrations/20260324120000_users_last_checkin_at.sql`**（**`users.last_checkin_at`**）。
+- **常數**：**`DAILY_CHECKIN_ALREADY_CLAIMED`**（**`already_claimed`**）；**`DAILY_CHECKIN_ALREADY_TODAY`** 為別名（相容舊引用）。
+
+### 2025-03-24 — 註冊標籤三步與編輯頁（`interests`／`skills_offer`／`skills_want`）
+
+- **Layer 4**：**`src/lib/constants/interests.ts`**（**`TagCategory`**、**`INTEREST_CATEGORIES`**）、**`src/lib/constants/skills.ts`**（**`SKILL_CATEGORIES`**）。
+- **Layer 5**：共用 **`TagSelector`**（**`src/components/onboarding/TagSelector.tsx`**）— 分類手風琴、內建標籤多選（**`variant`**：紫／琥珀／天藍）、自訂標籤（**`maxCustom`**，逾限 **Sonner** 提示）。
+- **註冊動線**：名冊完成後導向 **`/register/interests`**（步驟 3／5）→ **`/register/skills-offer`**（4／5）→ **`/register/skills-want`**（5／5）→ **`/`**；**`middleware`** 要求此三路徑須已登入且**已建 profile**。
+- **事後修改**：**`/profile/edit-tags`** 三 Tab（興趣／能教／想學），各 Tab 獨立 **「儲存」**；首頁 **「興趣與技能標籤」** 手風琴標題列 **✏️ 編輯** 連結至此頁。
+- **Layer 3**：**`updateMyProfile`**（**`profile-update.action.ts`**）支援 **`interests`／`skills_offer`／`skills_want`**；**`revalidatePath('/profile/edit-tags')`**。
+- **配對語意**：市集 **Perfect Match** 仍以 **我想要的 ∩ 對方提供的** 與 **對方想要的 ∩ 我提供的** 為基礎（**`skills_want` ↔ `skills_offer`** 互相呼應）；村莊排序仍用 **`interests`** 重疊。
+
+### 2025-03-24 — UserDetailModal／UserCard／首頁 EXP 文案
+
+- **Layer 5 — `UserDetailModal.tsx`**：頂部資訊區**下方**顯示**今日心情**（**`isMoodActive` + `getMoodCountdown`**，僅有效期內）；自白改為 **`bio_village`**／**`bio_market`** 雙欄，移除單一 **`bio`** 區；興趣／技能改為**雙區抬頭**（**興趣村莊**紫標、**技能市集**琥珀／天藍標籤合併）。緣分按鈕：**`getLikeStatusForTargetAction`** 載入初始狀態（**`likeLoading`**）、**`toggleLikeAction`** 更新 **已送出／送出**；已送出時再點以 **`AlertDialog`** 二次確認「你確定要結束這段緣分嗎？」後才取消。呼叫端傳入之 **`UserRow`** 須含 **`mood`、`mood_at`、`bio_village`、`bio_market`、`interests`、`skills_offer`、`skills_want`**（**`findActiveUsers`／`findMarketUsers`** 為 **`select('*')`** 已涵蓋）。
+- **Layer 5 — `UserCard.tsx`（村莊／市集共用）**：列表頭像改 **48px 正圓**（**`rounded-full` + `object-cover`**），無頭像時 **首字**占位。
+- **Layer 5 — `guild-profile-home.tsx`**：等級列旁數值標籤由 **`total_exp`** 改為 **`EXP`**（數值仍為 **`total_exp`**）。
 
 ### 2025-03-23 — iOS textarea 與帳號設定 Dialog
 

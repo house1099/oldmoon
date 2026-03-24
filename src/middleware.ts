@@ -93,6 +93,21 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  const registerTagOnboardingPaths = new Set([
+    "/register/interests",
+    "/register/skills-offer",
+    "/register/skills-want",
+  ]);
+  if (registerTagOnboardingPaths.has(pathname)) {
+    if (!user) {
+      loginUrl.searchParams.set("next", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    if (auth.kind === "needs_profile") {
+      return NextResponse.redirect(profileUrl);
+    }
+  }
+
   // --- 公開與補資料路徑 ---
   if (isPublicAuthPath(pathname)) {
     if (isProfileSetupPath(pathname)) {
