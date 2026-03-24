@@ -9,7 +9,7 @@ export function AppShellMotion({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="dark min-h-screen bg-[radial-gradient(ellipse_100%_55%_at_50%_0%,rgba(88,28,135,0.38),#020617_52%)] text-foreground">
-      <div className="min-h-screen pb-[calc(4rem+env(safe-area-inset-bottom,0px))]">
+      <div className="min-h-screen pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]">
         <AnimatePresence mode="wait">
           <motion.div
             key={pathname}

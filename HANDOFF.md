@@ -18,12 +18,12 @@
 - **Layer 2（資料）**：`user.repository.ts`（含 **`updateLastCheckinAt`**）、`exp.repository.ts` 支援 **`total_exp`**（SSOT）。
 - **Layer 3（業務）**：`daily-checkin.action.ts` 之 **`claimDailyCheckin`** 以 **`users.last_checkin_at`** 為簽到 **24h 滾動冷卻** SSOT；**`exp_logs.unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**。
 - **Layer 4（狀態／常數）**：`levels.ts`（門檻 0〜1350）、Zod 驗證已就緒；**`date.ts`** 之 **`taipeiCalendarDateKey()`** 仍為全系統**日曆日** SSOT（簽到冷卻**不再**依此判斷）。
-- **Layer 5（UI）**：**`Navbar.tsx`**、**`LevelFrame.tsx`**、**`UserCard`**（**`variant`** 村莊／市集分面；市集 **`perfectMatch`** 白金外環 **`perfect-match-market-shell`**）、**`/village`**、**`/market`**（市集頁 **Client** + 搜尋）。
+- **Layer 5（UI）**：**`Navbar.tsx`**（五項純文字底欄：**首頁／探索／冒險團／月老／商店**）、**`LevelFrame.tsx`**、**`UserCard`**（**`variant`** 村莊／市集分面；市集 **`perfectMatch`** 白金外環 **`perfect-match-market-shell`**）、**`/explore`**（村莊＋市集 **tab**）、**`/guild`**（血盟／聊天／信件 **tab**）、**`/matchmaking`**／**`/shop`**（預留）。
 
 ### 📈 開發進度
 
 - [x] **Phase 1.5**：帳號體系、Google 登入預留、暗黑視覺升級、時區校正（日鍵集中於 **`date.ts`**）。
-- [x] **Phase 2.1（核心已交付）**：**`/village`** 同縣市＋**性向雙向篩選**＋**興趣分數**排序、列表卡僅興趣（最多 3 +N）；**`/market`** 全台＋**互補／同好分數**、**Perfect Match** 仍優先、**`getMarketUsersAction`** 搜尋；Layer 2 **`findVillageUsers`**／**`findMarketUsers`**（精簡 **`select`**）；Layer 4 **`matching.ts`**。可持續打磨 UX／RLS。
+- [x] **Phase 2.1（核心已交付）**：探索 **Tab「興趣村莊」** 同縣市＋**性向雙向篩選**＋**興趣分數**排序、列表卡僅興趣（最多 3 +N）；**Tab「技能市集」** 全台＋**互補／同好分數**、**Perfect Match** 仍優先、**`getMarketUsersAction`** 搜尋；入口 **`/explore`**（舊 **`/village`**／**`/market`** → **`redirect('/explore')`**）；Layer 2 **`findVillageUsers`**／**`findMarketUsers`**；Layer 4 **`matching.ts`**。可持續打磨 UX／RLS。
 - [ ] **Phase 2.2（進行中／下一波）**：**Likes**、**Alliances** 業務與 UI、詳情 Modal、互動解鎖規則；雲端 **RLS** 與型別對齊。
 
 ## Phase 2.1 首頁個人卡重構（完成）
@@ -59,7 +59,7 @@
 | 1 | 讀 **`.cursorrules`**（五層禁則、回報格式、`total_exp` 等） |
 | 2 | 讀本檔 **「目前開發階段」→「關鍵檔案索引」→「雲端 DDL」** |
 | 3 | 實作時遵守：**UI 不直連 DB**；寫入經 **Layer 3 → Layer 2**；經驗值欄位僅 **`total_exp`** |
-| 4 | **Phase 2 戰場**：**`/village`** + **`/market`**（Perfect Match 已接線）；**下一波** **Phase 2.2**（Likes／Alliances／Modal） |
+| 4 | **Phase 2 戰場**：**`/explore`**（村莊＋市集）；**`/guild`**（血盟 tab 待接線）；**下一波** **Phase 2.2**（Likes／Alliances／Modal） |
 
 **Git**：`main` 含 Phase 1.5、**`date.ts`**、**LevelFrame**、**市集／村莊**、註冊 **`bio` insert 省略** 與 **`skills_*`** 型別對齊等。新架構若搬遷目錄，請同步更新本檔與 `.cursorrules`。
 
@@ -80,10 +80,13 @@
 | 個人頁 EXP 紀錄 | `src/services/exp-logs.action.ts`（**`getMyRecentExpLogsAction`**）→ **`exp.repository`** **`findRecentExpLogsForUser`** |
 | 首頁個人頁 UI | `src/app/(app)/page.tsx` → `src/components/profile/guild-profile-home.tsx` |
 | 頭像裁切＋Cloudinary | **`react-easy-crop`** 全螢幕裁切；**`src/lib/utils/cropImage.ts`**（**`getCroppedImg`**）；**`src/lib/utils/cloudinary.ts`**（**`uploadAvatarToCloudinary`**）→ **`updateMyProfile({ avatar_url })`**（**禁止** **`supabase.storage`** 上傳頭像） |
-| 底部導航 | `src/components/layout/Navbar.tsx` |
-| 村莊列表 | `src/app/(app)/village/*`、`src/services/village.service.ts`（**`getVillageUsersAction`**）、`src/components/cards/UserCard.tsx`、`src/components/cards/LevelFrame.tsx` |
+| 底部導航 | `src/components/layout/Navbar.tsx`（**五項純文字**、選中 **紫色短線**、**`bg-zinc-950/90` + `backdrop-blur-xl`**；首頁 **`/`** 僅 **`pathname === '/'`** 時亮） |
+| 探索（村莊＋市集） | `src/app/(app)/explore/page.tsx`、`src/components/explore/VillageContent.tsx`、`MarketContent.tsx`；**`village.service`**／**`market.service`** 同上 |
+| 冒險團 | `src/app/(app)/guild/page.tsx`（**血盟／聊天／信件** 三 tab；血盟列表 Phase 2.2 接線） |
+| 月老／商店預留 | `src/app/(app)/matchmaking/page.tsx`、`src/app/(app)/shop/page.tsx`（**即將開放**） |
+| 舊路由轉址 | **`/village`**、**`/market`** → **`/explore`**；**`/alliances`**、**`/inbox`** → **`/guild`** |
 | 使用者詳情 Modal | `src/components/modals/UserDetailModal.tsx`（今日心情、雙欄自白、雙區標籤、**`social.action`** 緣分＋**AlertDialog**） |
-| 技能市集 | `src/app/(app)/market/page.tsx`（**Client**、搜尋）、`src/services/market.service.ts`（**`getMarketUsersAction`**、檔內 **Perfect Match**） |
+| 技能市集（邏輯） | `src/services/market.service.ts`（**`getMarketUsersAction`**、檔內 **Perfect Match**）；UI 見 **`MarketContent`** |
 | 配對工具 | **`src/lib/utils/matching.ts`**（**`isOrientationMatch`**、**`calcInterestScore`**、**`calcSkillScore`**） |
 | Users Repository | `src/lib/repositories/server/user.repository.ts`（**`findActiveUsers`**、**`findVillageUsers`**、**`findMarketUsers`**、**`updateLastCheckinAt`**） |
 | EXP 寫入 | `src/lib/repositories/server/exp.repository.ts` |
@@ -123,7 +126,7 @@
 | ✅ 已接線 | Layer 2 **`findActiveUsers`**（通用活躍列表）；**`findVillageUsers`**（同縣市 **`active`**）；**`findMarketUsers`**（全台 **`active`**，精簡欄位） |
 | ✅ 已接線 | Layer 3 **`getVillageUsersAction`**：**`matching.isOrientationMatch`** 雙向篩選 → **`calcInterestScore`** 排序 |
 | ✅ 已接線 | Layer 3 **`getMarketUsersAction`**：**`calcSkillScore`**（互補優先、同好次之）＋檔內 **Perfect Match**（**`skills_want`／`skills_offer`**）優先浮上；**暱稱／技能標籤**關鍵字篩選 |
-| ✅ 已接線 | Layer 5 **`/village`**（**`UserCard`** **`variant="village"`**，列表**不**顯示技能）；**`/market`**（**Client**、搜尋框、**`variant="market"`**）；**`UserDetailModal`** 仍展示完整興趣／技能 |
+| ✅ 已接線 | Layer 5 **`/explore`** 頂部 **Switch**：村莊／市集；**`UserCard`** 分 **`variant`**；**`UserDetailModal`** 仍展示完整興趣／技能 |
 | ✅ 交接確認 | **`users`** 須 **`interests` 為 `text[]`**，並建議具 **`bio`**、**`skills_offer`**、**`skills_want`**（見 🗄️）；DDL 後必要時 **重載 API Schema** |
 
 **Phase 3**：待產品規劃後於此文件更新。
@@ -167,7 +170,7 @@
 | **Layer 2** 資料 | `src/lib/repositories/server/` | ✅ `user.repository.ts`（`findProfileById`、`createProfile`、**`findActiveUsers`**、**`findVillageUsers`**、**`findMarketUsers`**、**`updateLastCheckinAt`**）、`exp.repository.ts`（admin）；`client/` 尚空 |
 | **Layer 3** 業務 | `src/services/` | ✅ **`village.service.ts`**（**`getVillageUsersAction`**）、**`market.service.ts`**（**`getMarketUsersAction`**、檔內 Perfect Match） |
 | **Layer 4** 狀態 | `src/lib/hooks/`、`src/store/`、`src/lib/constants/`、`src/lib/validation/`、`src/lib/utils/` | ⏳ **hooks／Zustand** 尚未實作；✅ **常數、Zod schema、forbidden-words**；✅ **`date.ts`**（台灣日界 SSOT）；✅ **`matching.ts`**（性向／興趣／技能分數） |
-| **Layer 5** UI | `src/components/*`、`src/app/*` | ✅ shadcn；**`Navbar`**、**`/village`**、**`/market`**、**`UserCard`**（**`perfectMatch`**）、**`LevelFrame`**、個人頁與認證殼 |
+| **Layer 5** UI | `src/components/*`、`src/app/*` | ✅ shadcn；**`Navbar`**（五欄底欄）、**`/explore`**、**`/guild`**、**`/matchmaking`**、**`/shop`**、**`UserCard`**、**`LevelFrame`**、個人頁與認證殼 |
 
 **規則重申**：UI 不得直連 Supabase／SQL；僅 Layer 1 建立 client；寫入 `exp_logs` 等應經 Layer 2 → Layer 3。
 
@@ -228,7 +231,7 @@
 # 進行中任務
 
 - **Phase 2.2（優先）**：**`like.repository`**／**`social.action`**（互讚、互讚檢查）、**UserDetailModal**（Bio／心情／標籤；**性向已自 Modal 移除**，見上「性向隱私」）、血盟申請解鎖規則；**RLS** 與 **`messages`** 若需一併規劃則列入手冊。
-- **打磨（可並行）**：**`/village`**／**`/market`** 篩選、編輯 **技能供需** 表單（Layer 5 → Layer 3 → Layer 2）、登入心跳更新 **`last_seen_at`**。
+- **打磨（可並行）**：**`/explore`** 內村莊／市集篩選、編輯 **技能供需** 表單（Layer 5 → Layer 3 → Layer 2）、登入心跳更新 **`last_seen_at`**。
 
 # 下一步（Phase 2 建議方向）
 
@@ -335,7 +338,7 @@ NOTIFY pgrst, 'reload schema';
 ### 2025-03-23 — 任務 11：IG 即時儲存、頭像上傳、簽到與列表體驗
 
 - **Layer 5 — `guild-profile-home.tsx`（歷史）**：**IG** 即時寫入等見後續任務。**頭像**：已改為 **全螢幕黑底裁切 Modal**（**`react-easy-crop`**，**`aspect={1}`**、**`cropShape="round"`**、**`showGrid={false}`**，頂／底 **glass-panel**）；選圖後先裁切，**`getCroppedImg`**（**`cropImage.ts`**）輸出 **Blob** → **`File`** → **`uploadAvatarToCloudinary`** → **`updateMyProfile({ avatar_url })`**。**已移除** Supabase Storage **`avatars` bucket** 上傳路徑（**無** **`supabase.storage.from()`**）。
-- **Layer 5 — 極簡導覽**：**`/village`**、**`/market`** 移除左上角 **「返回公會大廳」**。**`UserCard`** 移除 **`HoverCard`**，整卡 **`role="button"`** 點擊開 **UserDetailModal**。
+- **Layer 5 — 極簡導覽**：探索／市集頁移除左上角 **「返回公會大廳」**（現統一於 **`/explore`**）。**`UserCard`** 移除 **`HoverCard`**，整卡 **`role="button"`** 點擊開 **UserDetailModal**。
 - **Layer 5 — `UserDetailModal`**：左 **💬 聊聊**、右 **🤍 送出緣分**／**💖 已送出緣分**（emoji＋文字，無額外 Lucide 愛心）；已送出再點先 **AlertDialog**「你確定要結束這段緣分嗎？」。
 - **Layer 3 — `daily-checkin.action.ts`**：catch 時 **`console.error`** 印出完整錯誤與 **`JSON.stringify`**（含 **keys**）。
 - **Layer 2 — `exp.repository.ts`**：**`insertExpLog`** 僅接受 **`{ user_id, unique_key, source }`**（**`ExpLogInsertPayload`**），**不傳 `delta_exp`**，交給 DB **DEFAULT**；錯誤時 **`logSupabaseError`**。**`database.types.ts`** 之 **`exp_logs.Insert.delta_exp`** 改為**可選**。
@@ -399,12 +402,21 @@ NOTIFY pgrst, 'reload schema';
 - **Layer 5 — `TagSelector.tsx`**：新增 **`defaultOpenCategory?: string | null`**（**`null`**＝全部分類預設收折；未傳則維持展開第一個分類）。
 - **Layer 5 — `/register/interests`、`/register/skills`**：兩頁 **`TagSelector`** 皆 **`defaultOpenCategory={null}`**；外層 **max-w-xl**、**px-3**。
 
+### 2025-03-24 — 底部導航五項、`/explore`／`/guild`、舊路由 redirect
+
+- **Layer 5 — `Navbar.tsx`**：**五項純文字**（無 icon）— **首頁／探索／冒險團／月老／商店**；**`bg-zinc-950/90 backdrop-blur-xl`**、**`border-t border-white/10`**、**`pb-[max(0.75rem,env(safe-area-inset-bottom))]`**；選中 **白字 + `font-semibold` + 底部 `w-6 h-0.5 bg-violet-500`**；**`/`** 僅 **`pathname === '/'`** 為 active，其餘 **`pathname.startsWith(href)`**。
+- **Layer 5 — `/explore`**：**Client**；頂部 **pill Switch**（🏡 興趣村莊／⚔️ 技能市集）；內容為 **`VillageContent`**、**`MarketContent`**（**`src/components/explore/`**）。
+- **Layer 5 — `/guild`**：**血盟／聊天／信件** 三 tab；血盟為佔位（待 **getMyAlliancesAction** 等）；聊天／信件預留文案。
+- **Layer 5 — `/matchmaking`**、**`/shop`**：**glass-panel**「即將開放」預留頁。
+- **路由**：**`/village`**、**`/market`** → **`redirect('/explore')`**；**`/alliances`**、**`/inbox`** → **`redirect('/guild')`**。
+- **`app-shell-motion`**：底部留白改 **`pb-[calc(5.25rem+env(safe-area-inset-bottom))]`** 以配合五欄底欄。
+
 ### 2025-03-24 — 村莊／市集：matching、Layer 2 分域、`getVillageUsersAction`／`getMarketUsersAction`
 
 - **Layer 4**：新增 **`src/lib/utils/matching.ts`** — **`isOrientationMatch`**（雙向 **`canSee`**）、**`calcInterestScore`**、**`calcSkillScore`**（互補／同好）。
 - **Layer 2**：**`findVillageUsers`**（同縣市、**`active`**、精簡 **`select`**，含 IG 欄）；**`findMarketUsers`** 改為全台 **`active`**、精簡 **`select`**（**不含** IG 欄）。
 - **Layer 3**：**`getVillageUsersAction`**、**`getMarketUsersAction`**（**`'use server'`**）；村莊：**性向篩選**＋**興趣分數**排序；市集：**互補優先、同好次之**，**Perfect Match** 仍優先浮上，**暱稱／技能**關鍵字篩選。
-- **Layer 5**：**`/village`** 列表 **不**顯示技能（**`UserCard`** **`variant="village"`**，興趣最多 **3 +N**）；**`/market`** 改 **Client**、頂部搜尋（**300ms debounce**）、**`variant="market"`**（**skills_offer** 琥珀、**skills_want** 天藍，各最多 **3 +N**）；完整技能與自白仍在 **`UserDetailModal`**。
+- **Layer 5**：**`VillageContent`** 列表 **不**顯示技能（**`UserCard`** **`variant="village"`**，興趣最多 **3 +N**）；**`MarketContent`** 搜尋（**300ms debounce**）、**`variant="market"`**（**skills_offer** 琥珀、**skills_want** 天藍，各最多 **3 +N**）；兩者併入 **`/explore`**；完整技能與自白仍在 **`UserDetailModal`**。
 
 ### 2025-03-24 — 註冊條款 Modal（`terms.ts`／`TermsModal`）
 
