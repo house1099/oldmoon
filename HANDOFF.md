@@ -81,7 +81,7 @@
 | 首頁個人頁 UI | `src/app/(app)/page.tsx` → `src/components/profile/guild-profile-home.tsx` |
 | 頭像裁切＋Cloudinary | **`react-easy-crop`** 全螢幕裁切；**`src/lib/utils/cropImage.ts`**（**`getCroppedImg`**）；**`src/lib/utils/cloudinary.ts`**（**`uploadAvatarToCloudinary`**）→ **`updateMyProfile({ avatar_url })`**（**禁止** **`supabase.storage`** 上傳頭像） |
 | 底部導航 | `src/components/layout/Navbar.tsx` |
-| 村莊列表 | `src/app/(app)/village/*`、`src/services/village.service.ts`、`src/components/cards/UserCard.tsx`、`src/components/cards/LevelFrame.tsx` |
+| 村莊列表 | `src/app/(app)/village/*`、`src/services/village.service.ts`（**`getVillageUsersAction`**）、`src/components/cards/UserCard.tsx`、`src/components/cards/LevelFrame.tsx` |
 | 使用者詳情 Modal | `src/components/modals/UserDetailModal.tsx`（今日心情、雙欄自白、雙區標籤、**`social.action`** 緣分＋**AlertDialog**） |
 | 技能市集 | `src/app/(app)/market/page.tsx`（**Client**、搜尋）、`src/services/market.service.ts`（**`getMarketUsersAction`**、檔內 **Perfect Match**） |
 | 配對工具 | **`src/lib/utils/matching.ts`**（**`isOrientationMatch`**、**`calcInterestScore`**、**`calcSkillScore`**） |
