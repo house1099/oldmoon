@@ -1,31 +1,42 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Search, Sparkles } from "lucide-react";
 import { UserCard } from "@/components/cards/UserCard";
 import UserCardSkeleton from "@/components/ui/UserCardSkeleton";
-import { getMarketUsersAction } from "@/services/market.service";
 import type { MarketUserWithScores } from "@/services/market.service";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 
-export function MarketContent() {
-  const [query, setQuery] = useState("");
-  const [users, setUsers] = useState<MarketUserWithScores[]>([]);
-  const [loading, setLoading] = useState(true);
+export interface MarketContentProps {
+  users: MarketUserWithScores[];
+  loading: boolean;
+  query: string;
+  onQueryChange: (q: string) => void | Promise<void>;
+}
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    const result = await getMarketUsersAction(query);
-    setUsers(result.ok ? result.users : []);
-    setLoading(false);
+export function MarketContent({
+  users,
+  loading,
+  query,
+  onQueryChange,
+}: MarketContentProps) {
+  const [inputValue, setInputValue] = useState(query);
+  const skipDebounceRef = useRef(true);
+
+  useEffect(() => {
+    setInputValue(query);
   }, [query]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      void fetchUsers();
+      if (skipDebounceRef.current) {
+        skipDebounceRef.current = false;
+        return;
+      }
+      void onQueryChange(inputValue);
     }, 300);
     return () => clearTimeout(timer);
-  }, [fetchUsers]);
+  }, [inputValue, onQueryChange]);
 
   const perfectCount = users.filter((u) => u.isPerfectMatch).length;
 
@@ -64,8 +75,8 @@ export function MarketContent() {
         <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
         <input
           type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
           placeholder="搜尋技能或冒險者名稱..."
           className="w-full rounded-full border border-white/10 bg-zinc-900/60 py-3 pl-11 pr-4 text-base text-white placeholder:text-zinc-600 transition-colors focus:border-white/30 focus:outline-none"
         />

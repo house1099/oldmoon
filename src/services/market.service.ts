@@ -1,5 +1,6 @@
 "use server";
 
+import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { findMarketUsers } from "@/lib/repositories/server/user.repository";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
@@ -65,13 +66,18 @@ export async function getMarketUsersAction(
     .single();
 
   const me = mePartial as Pick<UserRow, "skills_offer" | "skills_want"> | null;
-  if (!me) return { ok: true, users: [] };
+  const meForPerfect = (me ?? {
+    skills_offer: [],
+    skills_want: [],
+  }) as UserRow;
 
-  const meForPerfect = me as UserRow;
+  const getCachedMarketUsers = unstable_cache(
+    async () => findMarketUsers({ currentUserId: user.id }),
+    [`market-${user.id}`],
+    { revalidate: 60 },
+  );
 
-  let candidates = await findMarketUsers({
-    currentUserId: user.id,
-  });
+  let candidates = await getCachedMarketUsers();
 
   if (searchQuery?.trim()) {
     const q = searchQuery.trim().toLowerCase();
@@ -85,8 +91,8 @@ export async function getMarketUsersAction(
 
   const scored: MarketUserWithScores[] = candidates.map((u) => {
     const { complementScore, similarScore } = calcSkillScore(
-      me.skills_want ?? [],
-      me.skills_offer ?? [],
+      me?.skills_want ?? [],
+      me?.skills_offer ?? [],
       u.skills_offer ?? [],
       u.skills_want ?? [],
     );

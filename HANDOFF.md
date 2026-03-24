@@ -18,12 +18,12 @@
 - **Layer 2（資料）**：`user.repository.ts`（含 **`updateLastCheckinAt`**）、`exp.repository.ts` 支援 **`total_exp`**（SSOT）。
 - **Layer 3（業務）**：`daily-checkin.action.ts` 之 **`claimDailyCheckin`** 以 **`users.last_checkin_at`** 為簽到 **24h 滾動冷卻** SSOT；**`exp_logs.unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**。
 - **Layer 4（狀態／常數）**：`levels.ts`（門檻 0〜1350）、Zod 驗證已就緒；**`date.ts`** 之 **`taipeiCalendarDateKey()`** 仍為全系統**日曆日** SSOT（簽到冷卻**不再**依此判斷）。
-- **Layer 5（UI）**：**`Navbar.tsx`**（五項 **lucide** 圖示底欄：**Home／Compass／Swords／Heart／ShoppingBag**）、**`LevelFrame.tsx`**、**`UserCard`**、**`UserCardSkeleton`**（探索列表載入）、**`/explore`**（頂部 **safe-area**、村莊＋市集 **tab**）、**`/guild`**、**`/matchmaking`**／**`/shop`**（預留）。
+- **Layer 5（UI）**：**`Navbar.tsx`**（五項 **lucide** 圖示底欄：**Home／Compass／Swords／Heart／ShoppingBag**）、**`LevelFrame.tsx`**、**`UserCard`**、**`UserCardSkeleton`**（市集列表首次載入）、**`/explore`**（**Server Component** 預載村莊；**`ExploreClient`** 頂部 **safe-area**、村莊＋市集 **tab**、市集 **lazy load**）、**`/guild`**、**`/matchmaking`**／**`/shop`**（預留）。
 
 ### 📈 開發進度
 
 - [x] **Phase 1.5**：帳號體系、Google 登入預留、暗黑視覺升級、時區校正（日鍵集中於 **`date.ts`**）。
-- [x] **Phase 2.1（核心已交付）**：探索 **Tab「興趣村莊」** 同縣市＋**性向雙向篩選**＋**興趣分數**排序、列表卡僅興趣（最多 3 +N）；**Tab「技能市集」** 全台＋**互補／同好分數**、**Perfect Match** 仍優先、**`getMarketUsersAction`** 搜尋；入口 **`/explore`**（舊 **`/village`**／**`/market`** → **`redirect('/explore')`**）；Layer 2 **`findVillageUsers`**／**`findMarketUsers`**；Layer 4 **`matching.ts`**。可持續打磨 UX／RLS。
+- [x] **Phase 2.1（核心已交付）**：探索 **Tab「興趣村莊」** 同縣市＋**性向雙向篩選**＋**興趣分數**排序、列表卡僅興趣（最多 3 +N）；**Tab「技能市集」** 全台＋**互補／同好分數**、**Perfect Match** 仍優先、**`getMarketUsersAction`** 搜尋；入口 **`/explore`**（**Server** 預載村莊、市集 **切 tab 才載入**）；**`village.service`** **`unstable_cache` 30s**、**`market.service`** 基礎列表 **60s**、**搜尋在快取外**；舊 **`/village`**／**`/market`** → **`redirect('/explore')`**；Layer 2 **`findVillageUsers`**／**`findMarketUsers`**；Layer 4 **`matching.ts`**。可持續打磨 UX／RLS。
 - [ ] **Phase 2.2（進行中／下一波）**：**Likes**、**Alliances** 業務與 UI、詳情 Modal、互動解鎖規則；雲端 **RLS** 與型別對齊。
 
 ## Phase 2.1 首頁個人卡重構（完成）
@@ -82,13 +82,13 @@
 | 首頁個人頁 UI | `src/app/(app)/page.tsx` → `src/components/profile/guild-profile-home.tsx` |
 | 頭像裁切＋Cloudinary | **`react-easy-crop`** 全螢幕裁切；**`src/lib/utils/cropImage.ts`**（**`getCroppedImg`**）；**`src/lib/utils/cloudinary.ts`**（**`uploadAvatarToCloudinary`**）→ **`updateMyProfile({ avatar_url })`**（**禁止** **`supabase.storage`** 上傳頭像） |
 | 底部導航 | `src/components/layout/Navbar.tsx`（**五項 lucide**：**Home／Compass／Swords／Heart／ShoppingBag**；選中 **`text-violet-400`**、未選 **`text-zinc-500`**、**`text-[10px]`** 標籤；首頁 **`/`** 僅 **`pathname === '/'`** 為 active） |
-| 探索（村莊＋市集） | `explore/page.tsx`（**`pt-[max(1rem,env(safe-area-inset-top))]`** 避瀏海）；**`VillageContent`／`MarketContent`** 載入 **6×`UserCardSkeleton`** |
+| 探索（村莊＋市集） | **`explore/page.tsx`**（**Server Component**：**`getVillageUsersAction`** 預載村莊）；**`ExploreClient.tsx`**（tab、市集 **lazy load**）；**`VillageContent`／`MarketContent`**（props 餵列表）；市集載入中 **6×`UserCardSkeleton`**（村莊不顯示骨架） |
 | 列表骨架屏 | **`src/components/ui/UserCardSkeleton.tsx`**（**`animate-pulse`**） |
 | 冒險團 | `src/app/(app)/guild/page.tsx`（**血盟／聊天／信件** 三 tab；血盟列表 Phase 2.2 接線） |
 | 月老／商店預留 | `src/app/(app)/matchmaking/page.tsx`、`src/app/(app)/shop/page.tsx`（**即將開放**） |
 | 舊路由轉址 | **`/village`**、**`/market`** → **`/explore`**；**`/alliances`**、**`/inbox`** → **`/guild`** |
 | 使用者詳情 Modal | `src/components/modals/UserDetailModal.tsx`（今日心情、雙欄自白、雙區標籤、**`social.action`** 緣分＋**AlertDialog**） |
-| 技能市集（邏輯） | `src/services/market.service.ts`（**`getMarketUsersAction`**、檔內 **Perfect Match**）；UI 見 **`MarketContent`** |
+| 技能市集（邏輯） | `src/services/market.service.ts`（**`getMarketUsersAction`**、**`unstable_cache` 60s** 快取 **`findMarketUsers`**、**搜尋篩選在快取外**、檔內 **Perfect Match**）；UI 見 **`MarketContent`** |
 | 配對工具 | **`src/lib/utils/matching.ts`**（**`isOrientationMatch`**、**`calcInterestScore`**、**`calcSkillScore`**） |
 | Users Repository | `src/lib/repositories/server/user.repository.ts`（**`findActiveUsers`**、**`findVillageUsers`**、**`findMarketUsers`**、**`updateLastCheckinAt`**） |
 | EXP 寫入 | `src/lib/repositories/server/exp.repository.ts` |
@@ -126,9 +126,9 @@
 | 狀態 | 說明 |
 |------|------|
 | ✅ 已接線 | Layer 2 **`findActiveUsers`**（通用活躍列表）；**`findVillageUsers`**（同縣市 **`active`**）；**`findMarketUsers`**（全台 **`active`**，精簡欄位） |
-| ✅ 已接線 | Layer 3 **`getVillageUsersAction`**：**`matching.isOrientationMatch`** 雙向篩選 → **`calcInterestScore`** 排序 |
-| ✅ 已接線 | Layer 3 **`getMarketUsersAction`**：**`calcSkillScore`**（互補優先、同好次之）＋檔內 **Perfect Match**（**`skills_want`／`skills_offer`**）優先浮上；**暱稱／技能標籤**關鍵字篩選 |
-| ✅ 已接線 | Layer 5 **`/explore`** 頂部 **Switch**：村莊／市集；**`UserCard`** 分 **`variant`**；**`UserDetailModal`** 仍展示完整興趣／技能 |
+| ✅ 已接線 | Layer 3 **`getVillageUsersAction`**：**`matching.isOrientationMatch`** 雙向篩選 → **`calcInterestScore`** 排序；**`unstable_cache` 30s**（**`village-{userId}-{region}`**） |
+| ✅ 已接線 | Layer 3 **`getMarketUsersAction`**：**`calcSkillScore`**（互補優先、同好次之）＋檔內 **Perfect Match**（**`skills_want`／`skills_offer`**）優先浮上；**`findMarketUsers`** **60s** 快取、**關鍵字篩選在快取外** |
+| ✅ 已接線 | Layer 5 **`/explore`**：**Server** 預載村莊 → **`ExploreClient`**；頂部 **Switch** 村莊／市集（**市集切 tab 才載入**）；**`UserCard`** 分 **`variant`**；**`UserDetailModal`** 仍展示完整興趣／技能 |
 | ✅ 交接確認 | **`users`** 須 **`interests` 為 `text[]`**，並建議具 **`bio`**、**`skills_offer`**、**`skills_want`**（見 🗄️）；DDL 後必要時 **重載 API Schema** |
 
 **Phase 3**：待產品規劃後於此文件更新。
@@ -170,9 +170,9 @@
 |------|------------|----------|
 | **Layer 1** 連線 | `src/lib/supabase/` | ✅ `client.ts`、`server.ts`、`admin.ts`；`Database` 型別已注入 client |
 | **Layer 2** 資料 | `src/lib/repositories/server/` | ✅ `user.repository.ts`（`findProfileById`、`createProfile`、**`findActiveUsers`**、**`findVillageUsers`**、**`findMarketUsers`**、**`updateLastCheckinAt`**）、`exp.repository.ts`（admin）；`client/` 尚空 |
-| **Layer 3** 業務 | `src/services/` | ✅ **`village.service.ts`**（**`getVillageUsersAction`**）、**`market.service.ts`**（**`getMarketUsersAction`**、檔內 Perfect Match） |
+| **Layer 3** 業務 | `src/services/` | ✅ **`village.service.ts`**（**`getVillageUsersAction`**、**`unstable_cache` 30s**）、**`market.service.ts`**（**`getMarketUsersAction`**、列表 **60s** 快取、搜尋快取外、檔內 Perfect Match） |
 | **Layer 4** 狀態 | `src/lib/hooks/`、`src/store/`、`src/lib/constants/`、`src/lib/validation/`、`src/lib/utils/` | ⏳ **hooks／Zustand** 尚未實作；✅ **常數、Zod schema、forbidden-words**；✅ **`date.ts`**（台灣日界 SSOT）；✅ **`matching.ts`**（性向／興趣／技能分數） |
-| **Layer 5** UI | `src/components/*`、`src/app/*` | ✅ shadcn；**`Navbar`**（五欄底欄）、**`/explore`**、**`/guild`**、**`/matchmaking`**、**`/shop`**、**`UserCard`**、**`LevelFrame`**、個人頁與認證殼 |
+| **Layer 5** UI | `src/components/*`、`src/app/*` | ✅ shadcn；**`Navbar`**（五欄底欄）、**`/explore`**（**`ExploreClient`**）、**`/guild`**、**`/matchmaking`**、**`/shop`**、**`UserCard`**、**`LevelFrame`**、個人頁與認證殼 |
 
 **規則重申**：UI 不得直連 Supabase／SQL；僅 Layer 1 建立 client；寫入 `exp_logs` 等應經 Layer 2 → Layer 3。
 

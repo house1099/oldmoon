@@ -1,28 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import { Castle } from "lucide-react";
 import { UserCard } from "@/components/cards/UserCard";
-import UserCardSkeleton from "@/components/ui/UserCardSkeleton";
-import { getVillageUsersAction } from "@/services/village.service";
 import type { VillageUserWithScore } from "@/services/village.service";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 
-export function VillageContent() {
-  const [adventurers, setAdventurers] = useState<VillageUserWithScore[]>([]);
-  const [loading, setLoading] = useState(true);
+interface VillageContentProps {
+  users: VillageUserWithScore[];
+}
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const { ok, users } = await getVillageUsersAction();
-    setAdventurers(ok ? users : []);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
+export function VillageContent({ users }: VillageContentProps) {
   return (
     <div className="mx-auto max-w-6xl">
       <header className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -45,23 +32,17 @@ export function VillageContent() {
           </div>
         </div>
         <p className="text-right text-xs text-slate-500/95">
-          {loading ? "載入中…" : `共 ${adventurers.length} 位其他冒險者`}
+          共 {users.length} 位其他冒險者
         </p>
       </header>
 
-      {loading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <UserCardSkeleton key={i} />
-          ))}
-        </div>
-      ) : adventurers.length === 0 ? (
+      {users.length === 0 ? (
         <p className="rounded-xl border border-dashed border-violet-500/30 bg-slate-950/50 px-6 py-16 text-center text-muted-foreground">
           村莊裡還沒有其他冒險者，或大家尚未上線 — 晚點再來逛逛吧 🐱
         </p>
       ) : (
         <ul className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-          {adventurers.map((row) => {
+          {users.map((row) => {
             const cardUser = { ...row } as Record<string, unknown>;
             delete cardUser._score;
             return (

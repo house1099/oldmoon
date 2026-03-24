@@ -1,5 +1,6 @@
 "use server";
 
+import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { findVillageUsers } from "@/lib/repositories/server/user.repository";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
@@ -25,25 +26,31 @@ export async function getVillageUsersAction(): Promise<{
 
   if (!me?.region) return { ok: true, users: [] };
 
-  const candidates = await findVillageUsers({
-    currentUserId: user.id,
-    region: me.region,
-  });
-
-  const filtered = candidates.filter((u) =>
-    isOrientationMatch(
-      me.gender ?? "",
-      me.orientation ?? "",
-      u.gender ?? "",
-      u.orientation ?? "",
-    ),
+  const getCachedVillageUsers = unstable_cache(
+    async () => {
+      const candidates = await findVillageUsers({
+        currentUserId: user.id,
+        region: me.region,
+      });
+      const filtered = candidates.filter((u) =>
+        isOrientationMatch(
+          me.gender ?? "",
+          me.orientation ?? "",
+          u.gender ?? "",
+          u.orientation ?? "",
+        ),
+      );
+      const scored: VillageUserWithScore[] = filtered.map((u) => ({
+        ...u,
+        _score: calcInterestScore(me.interests ?? [], u.interests ?? []),
+      }));
+      scored.sort((a, b) => b._score - a._score);
+      return scored;
+    },
+    [`village-${user.id}-${me.region}`],
+    { revalidate: 30 },
   );
 
-  const scored: VillageUserWithScore[] = filtered.map((u) => ({
-    ...u,
-    _score: calcInterestScore(me.interests ?? [], u.interests ?? []),
-  }));
-  scored.sort((a, b) => b._score - a._score);
-
-  return { ok: true, users: scored };
+  const users = await getCachedVillageUsers();
+  return { ok: true, users };
 }
