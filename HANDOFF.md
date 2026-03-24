@@ -404,6 +404,13 @@ NOTIFY pgrst, 'reload schema';
 - **Layer 5 — `TagSelector.tsx`**：新增 **`defaultOpenCategory?: string | null`**（**`null`**＝全部分類預設收折；未傳則維持展開第一個分類）。
 - **Layer 5 — `/register/interests`、`/register/skills`**：兩頁 **`TagSelector`** 皆 **`defaultOpenCategory={null}`**；外層 **max-w-xl**、**px-3**。
 
+### 2026-03-24 — 探索頁 SSR 與 village／market 快取
+
+- **Layer 5 — `/explore`**：**`page.tsx`** 為 **Server Component**，伺服端 **`await getVillageUsersAction()`** 預載村莊列表，傳入 **`ExploreClient`**（**`initialVillageUsers`**）；**切換「技能市集」tab** 才 **`getMarketUsersAction('')`**（lazy，節省首次載入）。
+- **Layer 5 — `ExploreClient.tsx`**（client）：tab 狀態、市集列表／搜尋；**`VillageContent`** 僅收 **`users`**（無 **`useEffect`**／骨架）；**`MarketContent`** 收 **`users`／`loading`／`query`／`onQueryChange`**，搜尋 **300ms debounce**，首次市集載入 **6×`UserCardSkeleton`**。
+- **Layer 3 — `village.service.ts`**：**`unstable_cache`** 包住村莊查詢與篩選排序，**`revalidate: 30`**，key **`village-{userId}-{region}`**。
+- **Layer 3 — `market.service.ts`**：**`unstable_cache`** 僅包住 **`findMarketUsers`**，**`revalidate: 60`**，key **`market-{userId}`**；**關鍵字搜尋在快取回傳後篩選**（即時）；**Perfect Match** 與分數排序仍在快取外邏輯。
+
 ### 2025-03-24 — PWA manifest 圖示與主題色 **`#0f0a1e`**
 
 - **Layer 5／靜態**：**`public/manifest.json`** 更新 **icons**（192／512 **maskable**、180 **apple-touch**）、**`theme_color`／`background_color`** 皆 **`#0f0a1e`**。
@@ -415,12 +422,12 @@ NOTIFY pgrst, 'reload schema';
 - **Layer 5 — `Navbar.tsx`**：恢復 **lucide** 圖示（**Home、Compass、Swords、Heart、ShoppingBag**）；**`w-5 h-5`**；選中 **`text-violet-400`**、未選 **`text-zinc-500`**；標籤 **`text-[10px] mt-0.5`**；**`py-2 flex-1`** 欄位；**`/`** 僅 **`pathname === '/'`** 為 active。
 - **Layer 5 — `guild-profile-home.tsx`**：**今日心情**外層改 **深紫微光**（**`bg-violet-950/40`**、**`border-violet-500/20`**、**`rounded-3xl`**、**`shadow-2xl backdrop-blur-xl`**），與其他 **`glass-panel`** 區隔。
 - **Layer 5 — `/explore`**：sticky 頂欄 **`pt-[max(1rem,env(safe-area-inset-top))]`** 避 **iPhone 瀏海**。
-- **Layer 5**：新增 **`UserCardSkeleton`**；**`VillageContent`／`MarketContent`** 載入時 **6** 枚骨架取代純文字「載入中」。
+- **Layer 5**：新增 **`UserCardSkeleton`**；**`MarketContent`**（及舊版村莊載入）載入時 **6** 枚骨架取代純文字「載入中」。（後續：村莊改 SSR 後不再使用骨架，見下「探索頁 SSR」條。）
 
 ### 2025-03-24 — 底部導航五項、`/explore`／`/guild`、舊路由 redirect
 
 - **Layer 5 — `Navbar.tsx`**：（歷史）曾為五項純文字＋底線；現已改回 **lucide** 圖示（見上一則）。
-- **Layer 5 — `/explore`**：**Client**；頂部 **pill Switch**（🏡 興趣村莊／⚔️ 技能市集）；內容為 **`VillageContent`**、**`MarketContent`**（**`src/components/explore/`**）。
+- **Layer 5 — `/explore`**：（歷史）曾為**整頁 Client**；現已改為 **`explore/page.tsx` Server** ＋ **`ExploreClient`**（見 **2026-03-24 — 探索頁 SSR 與快取**）。頂部 **pill Switch**（🏡 興趣村莊／⚔️ 技能市集）；內容為 **`VillageContent`**、**`MarketContent`**（**`src/components/explore/`**）。
 - **Layer 5 — `/guild`**：**血盟／聊天／信件** 三 tab；血盟為佔位（待 **getMyAlliancesAction** 等）；聊天／信件預留文案。
 - **Layer 5 — `/matchmaking`**、**`/shop`**：**glass-panel**「即將開放」預留頁。
 - **路由**：**`/village`**、**`/market`** → **`redirect('/explore')`**；**`/alliances`**、**`/inbox`** → **`redirect('/guild')`**。
