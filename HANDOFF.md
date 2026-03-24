@@ -70,6 +70,7 @@
 | 主題 | 路徑 |
 |------|------|
 | 守衛／Session | `src/middleware.ts` |
+| PWA／圖示 | **`public/manifest.json`**（**`theme_color`／`background_color`：`#0f0a1e`**；**`/icons/icon-192x192.png`**、**`icon-512x512.png`**、**`apple-touch-icon.png`**）；**`src/app/layout.tsx`** **`viewport.themeColor`** + **`metadata.icons.apple`** → **`theme-color`** meta、**`apple-touch-icon`** link |
 | Auth UI | `src/app/(auth)/login/*`、`register/*`、`register/profile/*`；註冊五步指示器 **`src/components/auth/registration-step-indicator.tsx`**（**`1`—`5`**）；**`register-form.tsx`** 條款勾選旁 **「冒險者公會使用者條款」** 可點開 **`TermsModal`**（內文 **`src/lib/constants/terms.ts`** **`TERMS_OF_SERVICE`**） |
 | OAuth callback | `src/app/auth/callback/route.ts` |
 | 補名冊（含 IG） | `src/services/adventurer-profile.action.ts`（註冊 insert **不帶 `bio`**） |
@@ -182,7 +183,7 @@
 - [x] `.cursorrules`、`HANDOFF.md`、`.env.example`
 - [x] Next.js 14（App Router、TS、Tailwind v3、ESLint、`src/`）
 - [x] 套件：Supabase、`zustand`、`zod`、`lucide-react`、shadcn（button、input、dialog、sonner、**select**、**tabs**、**textarea**、**accordion**、**alert-dialog**、**switch**）
-- [x] **PWA（standalone）**：根目錄 **`public/manifest.json`**（**`display": "standalone"`**、`start_url` **`/`**、`theme_color` **`#000000`**；圖示暫用 **`/favicon.ico`**，可另補 192／512 PNG）；**`src/app/layout.tsx`** 設 **`metadata.manifest: "/manifest.json"`**、**`appleWebApp`**（**`capable: true`**、**`statusBarStyle: "black-translucent"`**）、**`viewport`**（**`themeColor`**、**`width: device-width`**、**`initialScale: 1`**、**`maximumScale: 1`**、**`viewportFit: cover`**；**勿** **`user-scalable=no`**）與 manifest 對齊；**`middleware`** 放行 **`/manifest.json`** 免被 Session 擋下。
+- [x] **PWA（standalone）**：**`public/manifest.json`**（**`display": "standalone"`**、`start_url` **`/`**、**`theme_color`／`background_color`：`#0f0a1e`**；**icons**：**`/icons/icon-192x192.png`**、**`icon-512x512.png`**、**`apple-touch-icon.png`**）；**`src/app/layout.tsx`**：**`metadata.manifest`**、**`metadata.icons.apple`**、**`viewport.themeColor: "#0f0a1e"`**、**`appleWebApp`**、**`viewportFit: cover`** 等；**`middleware`** 放行 **`/manifest.json`**。
 - [x] **Auth UI（單一面板）**：**`GuildAuthShell`** 將標題與表單收進**同一 `.glass-panel`**；登入／註冊表單 **Label／Input／Button** 統一 **高對比 `text-zinc-100`**，動線集中、減少上下留白分離。
 - [x] **個人頁 V1 風格**：**`guild-profile-home.tsx`** 為 **今日心情獨立卡**、**我的狀態手風琴** + **帳號設定 Dialog**（IG 帳號／公開開關）；首頁 **textarea** **`text-base`** + **`scrollIntoView` 聚焦** 減輕 iOS 鍵盤跳動；根 **`viewport.maximumScale: 1`**；首頁容器 **`pb-[max(8rem,calc(8rem+env(safe-area-inset-bottom,0px)))]`**。
 - [x] `src/types/database.types.ts`（`users`：問卷 + **`bio`**、**`core_values`**、**`skills_offer`**、**`skills_want`**、**`instagram_handle`**、**`ig_public`**、**`mood`**、**`mood_at`**、**`total_exp`**、**`level`**、**`status`**、**`last_seen_at`**、**`interests`**；**`likes`**、**`alliances`**、`exp_logs` 等）
@@ -402,6 +403,12 @@ NOTIFY pgrst, 'reload schema';
 - **Layer 5 — `registration-step-indicator.tsx`**：數字圈 **w-6 h-6**、**`text-[10px]`**、連接線 **w-4**、**`gap-1`**，外層 **px-2 py-3** 利於窄螢幕。
 - **Layer 5 — `TagSelector.tsx`**：新增 **`defaultOpenCategory?: string | null`**（**`null`**＝全部分類預設收折；未傳則維持展開第一個分類）。
 - **Layer 5 — `/register/interests`、`/register/skills`**：兩頁 **`TagSelector`** 皆 **`defaultOpenCategory={null}`**；外層 **max-w-xl**、**px-3**。
+
+### 2025-03-24 — PWA manifest 圖示與主題色 **`#0f0a1e`**
+
+- **Layer 5／靜態**：**`public/manifest.json`** 更新 **icons**（192／512 **maskable**、180 **apple-touch**）、**`theme_color`／`background_color`** 皆 **`#0f0a1e`**。
+- **Layer 5 — `app/layout.tsx`**：**`viewport.themeColor`**、**`metadata.icons.apple`**（**`/icons/apple-touch-icon.png`**），與 manifest 對齊。
+- **靜態資源**：由既有 **`icons/192.png`**、**`512.png`**、**`ios/180.png`** 複製為 manifest 路徑（**`icon-192x192.png`** 等），避免 404。
 
 ### 2025-03-24 — 底欄圖示還原、今日心情紫微光、探索 safe-area、列表骨架屏
 
