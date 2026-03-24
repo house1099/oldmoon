@@ -71,7 +71,7 @@
 
 | 主題 | 路徑 |
 |------|------|
-| 守衛／Session | `src/middleware.ts`（**`config.matcher`** 排除 **`api`**、**`_next/static`**、**`_next/image`**、**`favicon.ico`**、**`manifest.json`**、**`icons`**、含 **`.`** 之靜態路徑；**`/api/*`**（含 **`/api/ping`**）不進入 middleware）；**Profile 讀取快取** `src/lib/supabase/get-cached-profile.ts`（**`getCachedProfile`**，`unstable_cache` **30s**，與 **`deriveAuthStatus`**／首頁 **`getAuthStatus`** 共用） |
+| 守衛／Session | `src/middleware.ts`（**`config.matcher`** 排除 **`api`** 等）；**`deriveAuthStatus`** 僅 **`findProfileById`**（**Edge 不可用** **`unstable_cache`**）。**`getAuthStatus`**（`auth.service.ts`）另經 **`getCachedProfile`**（`get-cached-profile.ts`，**`unstable_cache` 30s**）供 RSC 換頁減查 |
 | PWA／圖示 | **`public/manifest.json`**（**`theme_color`／`background_color`：`#0f0a1e`**；**`/icons/icon-192x192.png`**、**`icon-512x512.png`**、**`apple-touch-icon.png`**）；**`src/app/layout.tsx`** **`viewport.themeColor`** + **`metadata.icons.apple`** → **`theme-color`** meta、**`apple-touch-icon`** link |
 | Auth UI | `src/app/(auth)/login/*`、`register/*`、`register/profile/*`；註冊五步指示器 **`src/components/auth/registration-step-indicator.tsx`**（**`1`—`5`**）；**`register-form.tsx`** 條款勾選旁 **「冒險者公會使用者條款」** 可點開 **`TermsModal`**（內文 **`src/lib/constants/terms.ts`** **`TERMS_OF_SERVICE`**） |
 | OAuth callback | `src/app/auth/callback/route.ts` |
@@ -573,7 +573,7 @@ NOTIFY pgrst, 'reload schema';
 ### 2026-03-24 — 效能修復 Phase 1：Middleware／RSC 重複查詢 Profile
 
 - **Layer 1／快取**：新增 **`src/lib/supabase/get-cached-profile.ts`** — **`getCachedProfile(userId)`** 以 **`unstable_cache`** 包住 **`findProfileById`**，**`revalidate: 30`**，**`tags: [\`profile-${userId}\`]`**（與 **`revalidateTag`** 對齊）。
-- **Layer 3 — `auth-status.ts`**：**`deriveAuthStatus`** 改為 **`getCachedProfile(user.id)`**，供 **`src/middleware.ts`** 與 **`getAuthStatus`**（**`auth.service.ts`**）共用；同一 **`userId`** 在 TTL 內換頁僅打一筆 profile DB（理論上與 Next Data Cache 行為一致）。
+- **Layer 3 — `auth-status.ts`／`auth.service.ts`**：**`deriveAuthStatus`**（Middleware）僅 **`findProfileById`**；**`getAuthStatus`**（RSC）使用 **`getCachedProfile`**（**`unstable_cache` 30s**）。**禁止**在 Middleware 鏈上 import **`next/cache`**，否則 Edge 報 **`incrementalCache missing in unstable_cache`**／**`MIDDLEWARE_INVOCATION_FAILED`**。
 - **Layer 3**：**`updateMyProfile`**（**`profile-update.action.ts`**）成功後 **`revalidateTag(profileCacheTag(user.id))`**；**`completeAdventurerProfile`**（**`adventurer-profile.action.ts`**）成功後同樣 **`revalidateTag`**，避免更新後仍讀舊快取。**`updateMyProfile`** 內驗證用 **`findProfileById`** 仍為即時讀取（未改為快取）。
 
 ### 2026-03-24 — 效能修復 Phase 2：頭像優化（Avatar／Cloudinary／next/image）
@@ -623,4 +623,10 @@ Phase 4 — 市集搜尋快取
 
 - **`src/middleware.ts`**：**`export const config.matcher`** 負向先行斷言含 **`api`**（並含 **`manifest.json`**、**`icons`**、**`.*\..*`** 等），**`/api/*`** 整段不掛載 middleware，**`/api/ping`** 不經 Session／Profile 流程；函式內 **`isApiOrStatic`**（**`pathname.startsWith("/api/")`**）仍保留，雙重保險。
 
-*最後更新：2026-03-24 — **middleware `matcher` 排除 `api`**、**`GET /api/ping` keep-alive**、**雙人血盟**、**效能 Phase 1—4**（Profile 快取／**Avatar**／Modal 合併查詢／**`getCachedMySkills`**）。*
+### 2026-03-25 — 修復 Middleware：`unstable_cache` 不可於 Edge 使用
+
+- **現象**：Vercel **`MIDDLEWARE_INVOCATION_FAILED`**／**`Invariant: incrementalCache missing in unstable_cache`**。
+- **原因**：**`deriveAuthStatus`** 經 **`getCachedProfile`** 呼叫 **`next/cache`** 之 **`unstable_cache`**；Middleware 跑在 **Edge**，無 **incremental cache**。
+- **修正**：**`deriveAuthStatus`**（**`auth-status.ts`**）改為僅 **`findProfileById`**；**`getAuthStatus`**（**`auth.service.ts`**）保留 **`getCachedProfile`**。共用 **`buildAuthStatus`**。
+
+*最後更新：2026-03-25 — **Middleware Edge 與 `unstable_cache` 分離**、**middleware `matcher` 排除 `api`**、**`GET /api/ping` keep-alive**、**雙人血盟**、**效能 Phase 1—4**（Profile 快取於 RSC／**`getAuthStatus`**）。*
