@@ -70,7 +70,7 @@
 | 主題 | 路徑 |
 |------|------|
 | 守衛／Session | `src/middleware.ts` |
-| Auth UI | `src/app/(auth)/login/*`、`register/*`、`register/profile/*` |
+| Auth UI | `src/app/(auth)/login/*`、`register/*`、`register/profile/*`；註冊四步指示器 **`src/components/auth/registration-step-indicator.tsx`** |
 | OAuth callback | `src/app/auth/callback/route.ts` |
 | 補名冊（含 IG） | `src/services/adventurer-profile.action.ts`（註冊 insert **不帶 `bio`**） |
 | 每日簽到 +1 EXP | `src/services/daily-checkin.action.ts`（**`claimDailyCheckin`**；冷卻 **`users.last_checkin_at`**）；**`updateLastCheckinAt`** 見 `user.repository.ts`；**`insertExpLog`（`delta`+`delta_exp`）** 見 `exp.repository.ts`；機讀錯誤 **`DAILY_CHECKIN_ALREADY_CLAIMED`**（**`already_claimed`**）見 `daily-checkin.ts`；**`taipeiCalendarDateKey()`** 仍供其他日曆日用途，**簽到判斷已不採用** |
@@ -397,7 +397,7 @@ NOTIFY pgrst, 'reload schema';
 ### 2025-03-24 — 註冊問卷 UI（Step1／2）與 UserDetailModal 緣分
 
 - **Layer 4 — `adventurer-questionnaire.ts`**：**Step1** 性別維持英文 value、中文 label；**地區**改為完整台灣縣市（value／label 皆繁中），**海外（自填）**另填文字後存 **`海外・…`**；**Step2** 性向三選（**`heterosexual`／`homosexual`／`pansexual`**）；線下意願 **`in_person`／`online_only`／`both`**（**`offline_ok`**：`in_person` 或 `both` 為 **true**）。
-- **Layer 5 — `profile-form.tsx`**：上一步／下一步與完成鈕 **`flex-1` + `py-4`** 統一高度；**`/register/interests` 等標籤頁**主按鈕 **`py-4`**。性別、地區、性向、線下意願改為**原生 `<select>`**（iOS／Android 系統選擇器可滾動、不超出自訂浮層）；**未選時**灰字佔位（**「請選擇性別／地區／性向」**、線下 **「請選擇」**），選定後 **`text-white`** 與其他欄位視覺一致；**`@base-ui` Select** 不再用於上述四欄。
+- **Layer 5 — `profile-form.tsx`**：上一步／下一步與完成鈕 **`flex-1` + `py-4`** 統一高度；**`/register/interests` 等標籤頁**主按鈕 **`py-4`**。性別、地區、性向、線下意願為**原生 `<select>`**（iOS／Android 系統選擇器可滾動）；**`@base-ui` Select** 已移除。性別／地區另見 **「註冊四步指示器…」** 之膠囊 **`rounded-full`** 樣式與全線 **1〜4** 步指示器。
 - **Layer 3 — `adventurer-profile.action.ts`**：**`questionnaire.region`** 改為 **`string`**（已解析繁中）；伺服端檢查非空與長度。
 - **Layer 5 — `UserDetailModal.tsx`**：緣分鈕 **`handleToggleLike`／`confirmCancelLike`** 與 **`toggleLikeAction`**；**`AlertDialog`** 標題「確定取消緣分？」、**再想想／確定取消**（**`glass-panel`**）；初始狀態仍由 **`getLikeStatusForTargetAction`** 載入。
 
@@ -440,6 +440,12 @@ NOTIFY pgrst, 'reload schema';
 
 - **🗄️**：**`public.users.core_values`** 為 **`jsonb`**（註冊 Step2 三題答案 slug 陣列）；與 **`completeAdventurerProfile`**／**`database.types.ts`** 對齊；雲端若缺欄請補 DDL 並 **Reload schema**。
 - **Layer 5 — `profile-form.tsx`**：性別、地區、性向、線下意願四欄改為**原生 `<select>`**，避免 **Base UI Select** 在窄螢幕／iOS 選單超出畫面；框內顯示選項**中文 label**，空白為灰色 **「請選擇…」** 佔位；步進與送出前驗證必填。
+
+### 2025-03-24 — 註冊四步指示器、帳號頁膠囊與名冊 Step2 下拉樣式
+
+- **Layer 5 — 全線步驟語意**：**`1`**＝**`/register`** 建立帳號；**`2`**＝**`/register/profile`** 暱稱＋性別＋地區（＋ OAuth 補 IG）；**`3`**＝同頁性向＋線下＋核心價值觀；**`4`**＝同頁興趣標籤。共用 **`RegistrationStepIndicator`**（**`activeStep` 僅該步紫色**，連線段依是否已通過前段著色）。
+- **Layer 5 — `register-form.tsx`**：標題 **「加入傳奇公會」**、副標 **「建立你的冒險者帳號」**；**Email／密碼／確認密碼／IG／邀請碼** 為登入同款**膠囊原生 `input`**（**`bg-zinc-900/50`**、**`rounded-full`**、**`pl-11`**、**`text-base`**）；密碼與確認欄 **Eye／EyeOff** 切換；**送出前**檢查兩次密碼一致、**至少 6 字且含英文＋數字**（不符則 **toast**，不呼叫 **signUp**）；IG 輸入即時 **`replace` 空白**。
+- **Layer 5 — `profile-form.tsx`**：性別、地區下拉改 **膠囊形原生 `<select>`**（**`rounded-full`**、**`bg-zinc-900/50`**、**`ChevronDown`** 右側裝飾、**`colorScheme: dark`**）；性向／線下維持原 **rounded-2xl** 原生選單（內容不變）。
 
 ### 2025-03-23 — iOS textarea 與帳號設定 Dialog
 

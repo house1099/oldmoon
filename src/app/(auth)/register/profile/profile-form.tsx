@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { completeAdventurerProfile } from "@/services/adventurer-profile.action";
 import { GuildAuthShell } from "@/components/auth/guild-auth-shell";
+import { RegistrationStepIndicator } from "@/components/auth/registration-step-indicator";
 import {
   guildAuthFieldErrorClass,
   guildAuthInputStandaloneClass,
@@ -27,6 +28,7 @@ import {
 } from "@/lib/constants/adventurer-questionnaire";
 import { instagramHandleSchema } from "@/lib/validation/instagram-handle";
 import { adventurerNicknameSchema } from "@/lib/validation/nickname";
+import { ChevronDown } from "lucide-react";
 
 type ProfileFormProps = {
   /** Google OAuth 等略過註冊 Step1 時為 true，需在名冊補填 IG */
@@ -85,6 +87,9 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
 
   const nativeSelectClass =
     "w-full bg-zinc-900/60 border border-white/10 rounded-2xl px-4 py-4 text-base focus:outline-none focus:border-white/30 appearance-none";
+
+  const basicProfileSelectClass =
+    "w-full appearance-none rounded-full border border-white/10 bg-zinc-900/50 py-4 pl-5 pr-10 text-base transition-colors focus:border-white/30 focus:outline-none";
 
   function goNext() {
     if (step === 1) {
@@ -218,30 +223,9 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
       title="冒險者名冊"
       subtitle="分步填寫，讓公會更懂你"
     >
-      <div className="glass-panel mb-6 flex items-center justify-center gap-2 px-4 py-4">
-        {[1, 2, 3].map((n) => (
-          <div key={n} className="flex items-center gap-2">
-            <div
-              className={cn(
-                "flex size-8 items-center justify-center rounded-full text-xs font-semibold transition-colors",
-                step >= n
-                  ? "bg-violet-500/25 text-violet-100 ring-1 ring-violet-400/45"
-                  : "bg-zinc-800/80 text-zinc-500",
-              )}
-            >
-              {n}
-            </div>
-            {n < 3 ? (
-              <div
-                className={cn(
-                  "h-px w-6",
-                  step > n ? "bg-violet-400/40" : "bg-zinc-700/60",
-                )}
-              />
-            ) : null}
-          </div>
-        ))}
-      </div>
+      <RegistrationStepIndicator
+        activeStep={(step + 1) as 1 | 2 | 3 | 4}
+      />
 
       <form onSubmit={onSubmit} className="flex flex-col gap-6">
         {step === 1 ? (
@@ -335,27 +319,34 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
               >
                 性別
               </label>
-              <select
-                id="gender"
-                name="gender"
-                value={gender}
-                onChange={(e) =>
-                  setGender(e.target.value as GenderValue | "")
-                }
-                className={cn(
-                  nativeSelectClass,
-                  gender ? "text-white" : "text-zinc-600",
-                )}
-              >
-                <option value="" disabled>
-                  請選擇性別
-                </option>
-                {GENDER_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
+              <div className="relative">
+                <select
+                  id="gender"
+                  name="gender"
+                  value={gender}
+                  onChange={(e) =>
+                    setGender(e.target.value as GenderValue | "")
+                  }
+                  className={cn(
+                    basicProfileSelectClass,
+                    gender ? "text-white" : "text-zinc-600",
+                  )}
+                  style={{ colorScheme: "dark" }}
+                >
+                  <option value="" disabled>
+                    請選擇性別
                   </option>
-                ))}
-              </select>
+                  {GENDER_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+                  aria-hidden
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -365,31 +356,38 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
               >
                 地區
               </label>
-              <select
-                id="region"
-                name="region"
-                value={region}
-                onChange={(e) => {
-                  const next = e.target.value as RegionSelectValue | "";
-                  setRegion(next);
-                  if (next !== OVERSEAS_REGION_OPTION_VALUE) {
-                    setOverseasDetail("");
-                  }
-                }}
-                className={cn(
-                  nativeSelectClass,
-                  region ? "text-white" : "text-zinc-600",
-                )}
-              >
-                <option value="" disabled>
-                  請選擇地區
-                </option>
-                {REGION_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
+              <div className="relative">
+                <select
+                  id="region"
+                  name="region"
+                  value={region}
+                  onChange={(e) => {
+                    const next = e.target.value as RegionSelectValue | "";
+                    setRegion(next);
+                    if (next !== OVERSEAS_REGION_OPTION_VALUE) {
+                      setOverseasDetail("");
+                    }
+                  }}
+                  className={cn(
+                    basicProfileSelectClass,
+                    region ? "text-white" : "text-zinc-600",
+                  )}
+                  style={{ colorScheme: "dark" }}
+                >
+                  <option value="" disabled>
+                    請選擇地區
                   </option>
-                ))}
-              </select>
+                  {REGION_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+                  aria-hidden
+                />
+              </div>
               {region === OVERSEAS_REGION_OPTION_VALUE ? (
                 <div className="space-y-1.5 pt-1">
                   <label
