@@ -44,7 +44,7 @@
 
 ### 🗄️ 資料庫異動紀錄（交接必備）
 
-- **`users`**：**`role`**（**`text`**，預設 **`member`**；**`admin`**／**`leader`** 可審核 IG 申請）、**`bio`**（text，可 null）、**`bio_village`**／**`bio_market`**、**`invite_code`**、**`invited_by`**、**`interests`**（**`text[]`**）、**`skills_offer`**／**`skills_want`**、**`instagram_handle`**、**`ig_public`**、**`mood`**、**`mood_at`**、**`last_checkin_at`**（簽到 24h 冷卻 SSOT）、**`last_seen_at`** 等與 **`database.types.ts`** 一致。遷移見 **`supabase/migrations/20260324120000_users_last_checkin_at.sql`**。
+- **`users`**：**`role`**（**`text`**，預設 **`member`**；**`admin`**／**`leader`** 可審核 IG 申請）、**`bio`**（text，可 null）、**`bio_village`**／**`bio_market`**、**`invite_code`**、**`invited_by`**、**`interests`**（**`text[]`**）、**`skills_offer`**／**`skills_want`**、**`core_values`**（**`jsonb`**，註冊 Step2 三題核心價值 slug 陣列；應用層／型別見 **`database.types.ts`** **`string[]`**）、**`instagram_handle`**、**`ig_public`**、**`mood`**、**`mood_at`**、**`last_checkin_at`**（簽到 24h 冷卻 SSOT）、**`last_seen_at`** 等與 **`database.types.ts`** 一致。遷移見 **`supabase/migrations/20260324120000_users_last_checkin_at.sql`**（**`core_values`** 若雲端尚未建立，請於 SQL Editor 補 **`jsonb`** 欄並 **Reload schema**）。
 - **`ig_change_requests`**：**`user_id`**、**`old_handle`**、**`new_handle`**、**`status`**（**`pending`**／**`approved`**／**`rejected`**）、**`reviewed_by`**、**`reviewed_at`**、**`created_at`**；已 **ENABLE RLS**（政策可後補）；遷移見 **`supabase/migrations/20260324100000_ig_change_requests_and_user_role.sql`**。
 - **註冊建檔**：**`completeAdventurerProfile`** 為避免 PostgREST／欄位快取問題，**insert 不帶 `bio`**（自介於個人頁 **`profile-update`** 填寫）。
 - DDL 變更後若仍報「找不到欄位」，至 Supabase **Settings → API** 嘗試 **重新載入 Schema**。
@@ -397,7 +397,7 @@ NOTIFY pgrst, 'reload schema';
 ### 2025-03-24 — 註冊問卷 UI（Step1／2）與 UserDetailModal 緣分
 
 - **Layer 4 — `adventurer-questionnaire.ts`**：**Step1** 性別維持英文 value、中文 label；**地區**改為完整台灣縣市（value／label 皆繁中），**海外（自填）**另填文字後存 **`海外・…`**；**Step2** 性向三選（**`heterosexual`／`homosexual`／`pansexual`**）；線下意願 **`in_person`／`online_only`／`both`**（**`offline_ok`**：`in_person` 或 `both` 為 **true**）。
-- **Layer 5 — `profile-form.tsx`**：上一步／下一步與完成鈕 **`flex-1` + `py-4`** 統一高度；**`/register/interests` 等標籤頁**主按鈕 **`py-4`**。
+- **Layer 5 — `profile-form.tsx`**：上一步／下一步與完成鈕 **`flex-1` + `py-4`** 統一高度；**`/register/interests` 等標籤頁**主按鈕 **`py-4`**。性別、地區、性向、線下意願改為**原生 `<select>`**（iOS／Android 系統選擇器可滾動、不超出自訂浮層）；**未選時**灰字佔位（**「請選擇性別／地區／性向」**、線下 **「請選擇」**），選定後 **`text-white`** 與其他欄位視覺一致；**`@base-ui` Select** 不再用於上述四欄。
 - **Layer 3 — `adventurer-profile.action.ts`**：**`questionnaire.region`** 改為 **`string`**（已解析繁中）；伺服端檢查非空與長度。
 - **Layer 5 — `UserDetailModal.tsx`**：緣分鈕 **`handleToggleLike`／`confirmCancelLike`** 與 **`toggleLikeAction`**；**`AlertDialog`** 標題「確定取消緣分？」、**再想想／確定取消**（**`glass-panel`**）；初始狀態仍由 **`getLikeStatusForTargetAction`** 載入。
 
@@ -435,6 +435,11 @@ NOTIFY pgrst, 'reload schema';
 
 - **Layer 5**：**`UserDetailModal.tsx`**、**`UserCard.tsx`** 完全移除性向列；**`guild-profile-home.tsx`** 仍顯示本人性向（見「`public.users` 與程式約定」之**性向隱私與用途**）。
 - **文件**：**`HANDOFF.md`** 補充 **`orientation`** 為配對用非展示欄位、後台可篩選但前端不呈現篩選條件。
+
+### 2025-03-24 — `users.core_values`（jsonb）與註冊問卷原生 `<select>`
+
+- **🗄️**：**`public.users.core_values`** 為 **`jsonb`**（註冊 Step2 三題答案 slug 陣列）；與 **`completeAdventurerProfile`**／**`database.types.ts`** 對齊；雲端若缺欄請補 DDL 並 **Reload schema**。
+- **Layer 5 — `profile-form.tsx`**：性別、地區、性向、線下意願四欄改為**原生 `<select>`**，避免 **Base UI Select** 在窄螢幕／iOS 選單超出畫面；框內顯示選項**中文 label**，空白為灰色 **「請選擇…」** 佔位；步進與送出前驗證必填。
 
 ### 2025-03-23 — iOS textarea 與帳號設定 Dialog
 

@@ -8,17 +8,8 @@ import { GuildAuthShell } from "@/components/auth/guild-auth-shell";
 import {
   guildAuthFieldErrorClass,
   guildAuthInputStandaloneClass,
-  guildAuthSelectContentClass,
-  guildAuthSelectTriggerClass,
 } from "@/components/auth/auth-styles";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
   CORE_VALUES_QUESTIONS,
@@ -49,16 +40,12 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
   const [nickname, setNickname] = useState("");
   const [instagramHandle, setInstagramHandle] = useState("");
   const [instagramError, setInstagramError] = useState<string | null>(null);
-  const [gender, setGender] = useState<GenderValue>(GENDER_OPTIONS[0].value);
-  const [region, setRegion] = useState<RegionSelectValue>(
-    REGION_OPTIONS[0].value,
-  );
+  const [gender, setGender] = useState<GenderValue | "">("");
+  const [region, setRegion] = useState<RegionSelectValue | "">("");
   const [overseasDetail, setOverseasDetail] = useState("");
-  const [orientation, setOrientation] = useState<OrientationValue>(
-    ORIENTATION_OPTIONS[0].value,
-  );
-  const [offlineIntent, setOfflineIntent] = useState<OfflineIntentValue>(
-    OFFLINE_INTENT_OPTIONS[0].value,
+  const [orientation, setOrientation] = useState<OrientationValue | "">("");
+  const [offlineIntent, setOfflineIntent] = useState<OfflineIntentValue | "">(
+    "",
   );
   const [coreValues, setCoreValues] = useState<[string, string, string]>([
     "",
@@ -87,6 +74,7 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
   const step3Ok = interests.length >= 1 && interests.length <= 12;
 
   function resolveRegionForSubmit(): string | null {
+    if (!region) return null;
     if (region === OVERSEAS_REGION_OPTION_VALUE) {
       const t = overseasDetail.trim();
       if (!t) return null;
@@ -94,6 +82,9 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
     }
     return region;
   }
+
+  const nativeSelectClass =
+    "w-full bg-zinc-900/60 border border-white/10 rounded-2xl px-4 py-4 text-base focus:outline-none focus:border-white/30 appearance-none";
 
   function goNext() {
     if (step === 1) {
@@ -115,11 +106,29 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
         }
         setInstagramError(null);
       }
+      if (!gender) {
+        toast.error("請選擇性別。");
+        return;
+      }
+      if (!region) {
+        toast.error("請選擇地區。");
+        return;
+      }
       if (region === OVERSEAS_REGION_OPTION_VALUE) {
         if (!overseasDetail.trim()) {
           toast.error("請填寫海外地區或城市。");
           return;
         }
+      }
+    }
+    if (step === 2) {
+      if (!orientation) {
+        toast.error("請選擇性向。");
+        return;
+      }
+      if (!offlineIntent) {
+        toast.error("請選擇線下意願。");
+        return;
       }
     }
     if (step === 2 && !step2Ok) {
@@ -159,9 +168,19 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
       toast.error("請選擇 1～12 個興趣標籤。");
       return;
     }
+    if (!gender || !orientation || !offlineIntent) {
+      toast.error("請完成問卷必填項目。");
+      if (!gender || !region) setStep(1);
+      else setStep(2);
+      return;
+    }
     const resolvedRegion = resolveRegionForSubmit();
     if (!resolvedRegion) {
-      toast.error("請填寫海外地區或城市。");
+      toast.error(
+        region === OVERSEAS_REGION_OPTION_VALUE
+          ? "請填寫海外地區或城市。"
+          : "請選擇地區。",
+      );
       setStep(1);
       return;
     }
@@ -170,10 +189,10 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
       const result = await completeAdventurerProfile({
         nickname,
         questionnaire: {
-          gender,
+          gender: gender as GenderValue,
           region: resolvedRegion,
-          orientation,
-          offlineIntent,
+          orientation: orientation as OrientationValue,
+          offlineIntent: offlineIntent as OfflineIntentValue,
         },
         coreValues: [...coreValues],
         interests: [...interests],
@@ -310,77 +329,67 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
             ) : null}
 
             <div className="space-y-2">
-              <span
-                id="gender-label"
+              <label
+                htmlFor="gender"
                 className="text-sm font-medium text-zinc-100"
               >
                 性別
-              </span>
-              <Select
+              </label>
+              <select
+                id="gender"
                 name="gender"
                 value={gender}
-                onValueChange={(v) =>
-                  setGender((v ?? GENDER_OPTIONS[0].value) as GenderValue)
+                onChange={(e) =>
+                  setGender(e.target.value as GenderValue | "")
                 }
+                className={cn(
+                  nativeSelectClass,
+                  gender ? "text-white" : "text-zinc-600",
+                )}
               >
-                <SelectTrigger
-                  id="gender"
-                  className={guildAuthSelectTriggerClass}
-                  aria-labelledby="gender-label"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className={guildAuthSelectContentClass}>
-                  {GENDER_OPTIONS.map((o) => (
-                    <SelectItem
-                      key={o.value}
-                      value={o.value}
-                      className="text-zinc-100 focus:bg-zinc-800 data-highlighted:bg-zinc-800"
-                    >
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <option value="" disabled>
+                  請選擇性別
+                </option>
+                {GENDER_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-2">
-              <span
-                id="region-label"
+              <label
+                htmlFor="region"
                 className="text-sm font-medium text-zinc-100"
               >
                 地區
-              </span>
-              <Select
+              </label>
+              <select
+                id="region"
                 name="region"
                 value={region}
-                onValueChange={(v) => {
-                  const next = (v ?? REGION_OPTIONS[0].value) as RegionSelectValue;
+                onChange={(e) => {
+                  const next = e.target.value as RegionSelectValue | "";
                   setRegion(next);
                   if (next !== OVERSEAS_REGION_OPTION_VALUE) {
                     setOverseasDetail("");
                   }
                 }}
+                className={cn(
+                  nativeSelectClass,
+                  region ? "text-white" : "text-zinc-600",
+                )}
               >
-                <SelectTrigger
-                  id="region"
-                  className={guildAuthSelectTriggerClass}
-                  aria-labelledby="region-label"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className={guildAuthSelectContentClass}>
-                  {REGION_OPTIONS.map((o) => (
-                    <SelectItem
-                      key={o.value}
-                      value={o.value}
-                      className="text-zinc-100 focus:bg-zinc-800 data-highlighted:bg-zinc-800"
-                    >
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <option value="" disabled>
+                  請選擇地區
+                </option>
+                {REGION_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
               {region === OVERSEAS_REGION_OPTION_VALUE ? (
                 <div className="space-y-1.5 pt-1">
                   <label
@@ -410,78 +419,63 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
               此欄位為隱私資料，後續不在公會公開介面展示。
             */}
             <div className="space-y-2">
-              <span
-                id="orientation-label"
+              <label
+                htmlFor="orientation"
                 className="text-sm font-medium text-zinc-100"
               >
                 性向
-              </span>
-              <Select
+              </label>
+              <select
+                id="orientation"
                 name="orientation"
                 value={orientation}
-                onValueChange={(v) =>
-                  setOrientation(
-                    (v ?? ORIENTATION_OPTIONS[0].value) as OrientationValue,
-                  )
+                onChange={(e) =>
+                  setOrientation(e.target.value as OrientationValue | "")
                 }
+                className={cn(
+                  nativeSelectClass,
+                  orientation ? "text-white" : "text-zinc-600",
+                )}
               >
-                <SelectTrigger
-                  id="orientation"
-                  className={guildAuthSelectTriggerClass}
-                  aria-labelledby="orientation-label"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className={guildAuthSelectContentClass}>
-                  {ORIENTATION_OPTIONS.map((o) => (
-                    <SelectItem
-                      key={o.value}
-                      value={o.value}
-                      className="text-zinc-100 focus:bg-zinc-800 data-highlighted:bg-zinc-800"
-                    >
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <option value="" disabled>
+                  請選擇性向
+                </option>
+                {ORIENTATION_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-2">
-              <span
-                id="offline-label"
+              <label
+                htmlFor="offline"
                 className="text-sm font-medium text-zinc-100"
               >
                 線下意願
-              </span>
-              <Select
+              </label>
+              <select
+                id="offline"
                 name="offlineIntent"
                 value={offlineIntent}
-                onValueChange={(v) =>
-                  setOfflineIntent(
-                    (v ??
-                      OFFLINE_INTENT_OPTIONS[0].value) as OfflineIntentValue,
-                  )
+                onChange={(e) =>
+                  setOfflineIntent(e.target.value as OfflineIntentValue | "")
                 }
+                className={cn(
+                  nativeSelectClass,
+                  offlineIntent ? "text-white" : "text-zinc-600",
+                )}
               >
-                <SelectTrigger
-                  id="offline"
-                  className={guildAuthSelectTriggerClass}
-                  aria-labelledby="offline-label"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className={guildAuthSelectContentClass}>
-                  {OFFLINE_INTENT_OPTIONS.map((o) => (
-                    <SelectItem
-                      key={o.value}
-                      value={o.value}
-                      className="text-zinc-100 focus:bg-zinc-800 data-highlighted:bg-zinc-800"
-                    >
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <option value="" disabled>
+                  請選擇
+                </option>
+                {OFFLINE_INTENT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="glass-panel space-y-4 rounded-2xl border border-white/10 p-4 pt-5">
