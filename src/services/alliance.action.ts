@@ -1,0 +1,253 @@
+"use server";
+
+import { createClient } from "@/lib/supabase/server";
+import {
+  findAcceptedAlliancesWithPartners,
+  findPendingIncomingWithRequester,
+  findUserAllianceBetween,
+  findUserAllianceById,
+  insertUserAlliance,
+  updateUserAlliance,
+} from "@/lib/repositories/server/alliance.repository";
+import { checkMutualLike } from "@/lib/repositories/server/like.repository";
+
+export type AllianceStatusDto = {
+  id: string;
+  status: "pending" | "accepted";
+  initiated_by: string;
+};
+
+function mapAllianceError(error: unknown): string {
+  if (!error || typeof error !== "object") {
+    return "血盟操作失敗，請稍後再試。";
+  }
+  const e = error as { code?: string; message?: string };
+  const msg = typeof e.message === "string" ? e.message : "";
+  if (
+    e.code === "23505" ||
+    msg.includes("23505") ||
+    (msg.includes("duplicate") && msg.includes("unique"))
+  ) {
+    return "此血盟申請已存在。";
+  }
+  if (e.code === "23503" || msg.toLowerCase().includes("foreign key")) {
+    return "找不到對應的冒險者資料。";
+  }
+  if (
+    e.code === "42501" ||
+    msg.toLowerCase().includes("permission denied") ||
+    msg.toLowerCase().includes("row-level security")
+  ) {
+    return "目前無法操作血盟，請稍後再試。";
+  }
+  return "血盟操作失敗，請稍後再試。";
+}
+
+/** 與目標使用者之雙人血盟狀態；無紀錄或已解除回傳 null */
+export async function getAllianceStatusAction(
+  targetUserId: string,
+): Promise<AllianceStatusDto | null> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user || user.id === targetUserId) {
+    return null;
+  }
+
+  try {
+    const row = await findUserAllianceBetween(user.id, targetUserId);
+    if (!row || row.status === "dissolved") {
+      return null;
+    }
+    if (row.status !== "pending" && row.status !== "accepted") {
+      return null;
+    }
+    return {
+      id: row.id,
+      status: row.status,
+      initiated_by: row.initiated_by,
+    };
+  } catch (error) {
+    console.error("getAllianceStatusAction:", error);
+    return null;
+  }
+}
+
+export async function requestAllianceAction(
+  targetUserId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { ok: false, error: "請先登入。" };
+  }
+  if (user.id === targetUserId) {
+    return { ok: false, error: "無法對自己申請血盟。" };
+  }
+
+  try {
+    const mutual = await checkMutualLike(user.id, targetUserId);
+    if (!mutual) {
+      return { ok: false, error: "須雙向互讚才能申請血盟。" };
+    }
+
+    const existing = await findUserAllianceBetween(user.id, targetUserId);
+    if (existing?.status === "accepted") {
+      return { ok: false, error: "已是血盟夥伴。" };
+    }
+    if (existing?.status === "pending") {
+      if (existing.initiated_by === user.id) {
+        return { ok: true };
+      }
+      return { ok: false, error: "對方已送出申請，請至冒險團確認。" };
+    }
+    if (existing?.status === "dissolved") {
+      await updateUserAlliance(existing.id, {
+        status: "pending",
+        initiated_by: user.id,
+      });
+      return { ok: true };
+    }
+
+    const [low, high] =
+      user.id < targetUserId
+        ? [user.id, targetUserId]
+        : [targetUserId, user.id];
+    await insertUserAlliance({
+      user_low: low,
+      user_high: high,
+      initiated_by: user.id,
+      status: "pending",
+    });
+    return { ok: true };
+  } catch (error) {
+    console.error("requestAllianceAction:", error);
+    return { ok: false, error: mapAllianceError(error) };
+  }
+}
+
+export async function respondAllianceAction(
+  allianceId: string,
+  nextStatus: "accepted" | "dissolved",
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { ok: false, error: "請先登入。" };
+  }
+
+  try {
+    const row = await findUserAllianceById(allianceId);
+    if (!row) {
+      return { ok: false, error: "找不到此申請。" };
+    }
+    const r = row;
+    const inPair = r.user_low === user.id || r.user_high === user.id;
+    if (!inPair) {
+      return { ok: false, error: "無權操作此申請。" };
+    }
+    if (r.status !== "pending") {
+      return { ok: false, error: "此申請已處理。" };
+    }
+    if (r.initiated_by === user.id) {
+      return { ok: false, error: "無法回應自己送出的申請。" };
+    }
+
+    await updateUserAlliance(allianceId, { status: nextStatus });
+    return { ok: true };
+  } catch (error) {
+    console.error("respondAllianceAction:", error);
+    return { ok: false, error: mapAllianceError(error) };
+  }
+}
+
+export async function dissolveAllianceAction(
+  partnerUserId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { ok: false, error: "請先登入。" };
+  }
+
+  try {
+    const row = await findUserAllianceBetween(user.id, partnerUserId);
+    if (!row || row.status !== "accepted") {
+      return { ok: false, error: "目前沒有生效中的血盟。" };
+    }
+    await updateUserAlliance(row.id, { status: "dissolved" });
+    return { ok: true };
+  } catch (error) {
+    console.error("dissolveAllianceAction:", error);
+    return { ok: false, error: mapAllianceError(error) };
+  }
+}
+
+export type MyAllianceListItem = {
+  id: string;
+  partner: {
+    id: string;
+    nickname: string;
+    avatar_url: string | null;
+    instagram_handle: string | null;
+  };
+};
+
+export async function getMyAlliancesAction(): Promise<MyAllianceListItem[]> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return [];
+  }
+
+  try {
+    return await findAcceptedAlliancesWithPartners(user.id);
+  } catch (error) {
+    console.error("getMyAlliancesAction:", error);
+    return [];
+  }
+}
+
+export type PendingAllianceRequestItem = {
+  id: string;
+  requester: {
+    id: string;
+    nickname: string;
+    avatar_url: string | null;
+    instagram_handle: string | null;
+  };
+};
+
+export async function getPendingRequestsAction(): Promise<
+  PendingAllianceRequestItem[]
+> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return [];
+  }
+
+  try {
+    return await findPendingIncomingWithRequester(user.id);
+  } catch (error) {
+    console.error("getPendingRequestsAction:", error);
+    return [];
+  }
+}

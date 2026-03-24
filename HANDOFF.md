@@ -24,17 +24,17 @@
 
 - [x] **Phase 1.5**：帳號體系、Google 登入預留、暗黑視覺升級、時區校正（日鍵集中於 **`date.ts`**）。
 - [x] **Phase 2.1（核心已交付）**：探索 **Tab「興趣村莊」** 同縣市＋**性向雙向篩選**＋**興趣分數**排序、列表卡僅興趣（最多 3 +N）；**Tab「技能市集」** 全台＋**互補／同好分數**、**Perfect Match** 仍優先、**`getMarketUsersAction`** 搜尋；入口 **`/explore`**（**Server** 預載村莊、市集 **切 tab 才載入**）；**`village.service`** **`unstable_cache` 30s**、**`market.service`** 基礎列表 **60s**、**搜尋在快取外**；舊 **`/village`**／**`/market`** → **`redirect('/explore')`**；Layer 2 **`findVillageUsers`**／**`findMarketUsers`**；Layer 4 **`matching.ts`**。可持續打磨 UX／RLS。
-- [ ] **Phase 2.2（進行中／下一波）**：**Likes**、**Alliances** 業務與 UI、詳情 Modal、互動解鎖規則；雲端 **RLS** 與型別對齊。
+- [ ] **Phase 2.2（進行中）**：**Likes** 已接線；**雙人血盟**（**`user_alliances`**）UI 與 Layer 2／3 已接線；詳情 Modal 血盟四態＋IG 解鎖；**`/guild`** 血盟列表與 tab 徽章；雲端須套用遷移並 **Reload schema**；**RLS** 可後補。
 
 ## Phase 2.1 首頁個人卡重構（完成）
 
 - **iOS／PWA**：首頁三處 **textarea**（今日心情、興趣自白、技能自白）使用 **`text-base`（16px）** 避免 Safari 聚焦自動縮放；**`onFocus` → `scrollIntoView({ block: 'center' })`**（延遲 300ms）減輕鍵盤頂動；根 **`layout.tsx`** **`viewport.maximumScale: 1`** + **`viewport-fit=cover`**（**不**使用 **`user-scalable=no`**）
 - **帳號設定 Dialog**：**無 IG** 時可直接 **`updateMyProfile({ instagram_handle })`** 綁定；**已有 IG** 時畫面鎖定顯示，改帳須 **`requestIgChangeAction`** 寫入 **`ig_change_requests`**，由 **admin／leader** 於 **`/admin/ig-requests`** 審核（**`reviewIgRequestAction`**）。**`ig_public`** 開關仍即時寫入
-- **今日心情**：與頭像卡同級之**獨立區塊**，**深紫微光**（**`bg-violet-950/40`**、**`border-violet-500/20`**、**`rounded-3xl`**、**`backdrop-blur-xl`**），常駐展開；24h 倒數，IG 限時動態風格
+- **今日心情**：與頭像卡同級之**獨立區塊**；**微光紫邊**（**`border-violet-500/30`**、**`box-shadow: 0 0 20px rgba(139,92,246,0.15)`**）、**`bg-violet-950/40`**、**`backdrop-blur-xl`**、**`rounded-3xl`**；標題列 **✨ 今日心情** 左對齊、**`getMoodCountdown`** 或「已過期」右對齊（**`text-violet-300/70`**）；**窄版** **`textarea`**（**`rows={2}`**、**`py-2.5`**、**`border-violet-500/20`** **`focus:border-violet-400/50`**）；確認為**小膠囊**（**`px-5 py-1.5 text-xs`**、**`bg-violet-600/80`**），儲存中 **「更新中…」**
 - **我的狀態**：同一 `glass-panel` 內僅含三區，皆為**手風琴**（`openSection` 單開），**預設收折**，點標題展開
   - **自白**：**`bio_village`**（興趣自白）+ **`bio_market`**（技能自白），各自獨立確認按鈕
   - **信譽與紀錄**：**`created_at`**、**`invite_code`**、**`invited_by`**、**`exp_logs`** 近三個月橫向滑動（Layer 3 **`getMyRecentExpLogsAction`** → Layer 2 **`findRecentExpLogsForUser`**）
-  - **興趣與技能標籤**：**雙區抬頭**——**興趣村莊**（紫）+ **技能市集**（琥珀抬頭；**`skills_offer`** 琥珀標籤、**`skills_want`** 天藍標籤，兩者合併於同一區，有任一即顯示）；全空時占位文案
+  - **興趣與技能標籤**：**雙區抬頭**——**興趣村莊**（紫）+ **技能市集**（琥珀抬頭；**`skills_offer`** 琥珀標籤、**`skills_want`** 天藍標籤，兩者合併於同一區，有任一即顯示）；全空時占位文案；手風琴**標題列**上 **✏️ 編輯** 為 **`Link` → `/profile/edit-tags`**，緊貼標題文字**後方**（**`onClick` → `stopPropagation`**，點編輯不觸發折疊）
 
 ## DB 欄位 SSOT 確認
 
@@ -48,7 +48,8 @@
 - **`ig_change_requests`**：**`user_id`**、**`old_handle`**、**`new_handle`**、**`status`**（**`pending`**／**`approved`**／**`rejected`**）、**`reviewed_by`**、**`reviewed_at`**、**`created_at`**；已 **ENABLE RLS**（政策可後補）；遷移見 **`supabase/migrations/20260324100000_ig_change_requests_and_user_role.sql`**。
 - **註冊建檔**：**`completeAdventurerProfile`** 為避免 PostgREST／欄位快取問題，**insert 不帶 `bio`**（自介於個人頁 **`profile-update`** 填寫）。
 - DDL 變更後若仍報「找不到欄位」，至 Supabase **Settings → API** 嘗試 **重新載入 Schema**。
-- **`likes`**、**`alliances`**：雲端建表後維持型別與 **RLS**；Phase 2.2 於 Layer 2／3 接線。
+- **`likes`**：已接線（**`from_user`**／**`to_user`**）。
+- **`alliances`**：公會型預留（**`database.types.ts`**）；**雙人血盟**實表為 **`public.user_alliances`**（**`user_low`**／**`user_high`** 字典序、**`initiated_by`**、**`status`**：`pending`／`accepted`／`dissolved`）；遷移 **`supabase/migrations/20260325120000_user_alliances_pair.sql`**；**ENABLE RLS**（政策可後補）；Layer 2 **`alliance.repository.ts`**、Layer 3 **`alliance.action.ts`**。
 
 ---
 
@@ -84,10 +85,13 @@
 | 底部導航 | `src/components/layout/Navbar.tsx`（**五項 lucide**：**Home／Compass／Swords／Heart／ShoppingBag**；選中 **`text-violet-400`**、未選 **`text-zinc-500`**、**`text-[10px]`** 標籤；首頁 **`/`** 僅 **`pathname === '/'`** 為 active） |
 | 探索（村莊＋市集） | **`explore/page.tsx`**（**Server Component**：**`getVillageUsersAction`** 預載村莊）；**`ExploreClient.tsx`**（tab、市集 **lazy load**）；**`VillageContent`／`MarketContent`**（props 餵列表）；市集載入中 **6×`UserCardSkeleton`**（村莊不顯示骨架） |
 | 列表骨架屏 | **`src/components/ui/UserCardSkeleton.tsx`**（**`animate-pulse`**） |
-| 冒險團 | `src/app/(app)/guild/page.tsx`（**血盟／聊天／信件** 三 tab；血盟列表 Phase 2.2 接線） |
+| 冒險團 | `src/app/(app)/guild/page.tsx`（**血盟** tab：**待確認申請**＋**血盟夥伴**列表、**`getMyAlliancesAction`**／**`getPendingRequestsAction`**；**血盟** tab 角標顯示待確認筆數；聊天／信件預留） |
+| 雙人血盟（Layer 3） | **`src/services/alliance.action.ts`**（**`getAllianceStatusAction`**、**`requestAllianceAction`**、**`respondAllianceAction`**、**`dissolveAllianceAction`**、**`getMyAlliancesAction`**、**`getPendingRequestsAction`**） |
+| 雙人血盟（Layer 2） | **`src/lib/repositories/server/alliance.repository.ts`** |
 | 月老／商店預留 | `src/app/(app)/matchmaking/page.tsx`、`src/app/(app)/shop/page.tsx`（**即將開放**） |
 | 舊路由轉址 | **`/village`**、**`/market`** → **`/explore`**；**`/alliances`**、**`/inbox`** → **`/guild`** |
-| 使用者詳情 Modal | `src/components/modals/UserDetailModal.tsx`（今日心情、雙欄自白、雙區標籤、**`social.action`** 緣分＋**AlertDialog**） |
+| 使用者詳情 Modal | `src/components/modals/UserDetailModal.tsx`（今日心情、雙欄自白、雙區標籤、**`social.action`** 緣分＋**AlertDialog**；**雙向互讚**時 **血盟** 四態：**`alliance.action`**；**IG** 列：**`ig_public`** 或已血盟才顯示 **@handle**） |
+| 有緣分＋互讚檢查 | **`src/services/social.action.ts`**（含 **`checkMutualLikeWithTargetAction`**，供血盟解鎖） |
 | 技能市集（邏輯） | `src/services/market.service.ts`（**`getMarketUsersAction`**、**`unstable_cache` 60s** 快取 **`findMarketUsers`**、**搜尋篩選在快取外**、檔內 **Perfect Match**）；UI 見 **`MarketContent`** |
 | 配對工具 | **`src/lib/utils/matching.ts`**（**`isOrientationMatch`**、**`calcInterestScore`**、**`calcSkillScore`**） |
 | Users Repository | `src/lib/repositories/server/user.repository.ts`（**`findActiveUsers`**、**`findVillageUsers`**、**`findMarketUsers`**、**`updateLastCheckinAt`**） |
@@ -232,7 +236,7 @@
 
 # 進行中任務
 
-- **Phase 2.2（優先）**：**`like.repository`**／**`social.action`**（互讚、互讚檢查）、**UserDetailModal**（Bio／心情／標籤；**性向已自 Modal 移除**，見上「性向隱私」）、血盟申請解鎖規則；**RLS** 與 **`messages`** 若需一併規劃則列入手冊。
+- **Phase 2.2（優先）**：**雙人血盟**（**`user_alliances`**）與 **Modal／冒險團** UI 已接線；續：**RLS 政策**、**`messages`**／私訊、雲端遷移落地與測試。
 - **打磨（可並行）**：**`/explore`** 內村莊／市集篩選、編輯 **技能供需** 表單（Layer 5 → Layer 3 → Layer 2）、登入心跳更新 **`last_seen_at`**。
 
 # 下一步（Phase 2 建議方向）
@@ -404,6 +408,11 @@ NOTIFY pgrst, 'reload schema';
 - **Layer 5 — `TagSelector.tsx`**：新增 **`defaultOpenCategory?: string | null`**（**`null`**＝全部分類預設收折；未傳則維持展開第一個分類）。
 - **Layer 5 — `/register/interests`、`/register/skills`**：兩頁 **`TagSelector`** 皆 **`defaultOpenCategory={null}`**；外層 **max-w-xl**、**px-3**。
 
+### 2026-03-24 — 首頁今日心情質感、標籤編輯鈕位置
+
+- **Layer 5 — `guild-profile-home.tsx`**：**今日心情**獨立卡改為**微光紫邊框**（**`border-violet-500/30`** + **紫色柔光 `box-shadow`**）、**較矮**輸入區（**`rows={2}`**、**`py-2.5`**）、**小膠囊確認鈕**（**`text-xs`**）；標題與倒數／過期文案**左右對齊**。
+- **Layer 5 — 同上**：**興趣與技能標籤**手風琴改用 **`titleRow`**：**✏️ 編輯** **`Link`** 移至標題文字**正後方**，**`e.stopPropagation()`** 避免誤觸折疊。
+
 ### 2026-03-24 — 探索頁 SSR 與 village／market 快取
 
 - **Layer 5 — `/explore`**：**`page.tsx`** 為 **Server Component**，伺服端 **`await getVillageUsersAction()`** 預載村莊列表，傳入 **`ExploreClient`**（**`initialVillageUsers`**）；**切換「技能市集」tab** 才 **`getMarketUsersAction('')`**（lazy，節省首次載入）。
@@ -428,10 +437,20 @@ NOTIFY pgrst, 'reload schema';
 
 - **Layer 5 — `Navbar.tsx`**：（歷史）曾為五項純文字＋底線；現已改回 **lucide** 圖示（見上一則）。
 - **Layer 5 — `/explore`**：（歷史）曾為**整頁 Client**；現已改為 **`explore/page.tsx` Server** ＋ **`ExploreClient`**（見 **2026-03-24 — 探索頁 SSR 與快取**）。頂部 **pill Switch**（🏡 興趣村莊／⚔️ 技能市集）；內容為 **`VillageContent`**、**`MarketContent`**（**`src/components/explore/`**）。
-- **Layer 5 — `/guild`**：**血盟／聊天／信件** 三 tab；血盟為佔位（待 **getMyAlliancesAction** 等）；聊天／信件預留文案。
+- **Layer 5 — `/guild`**：**血盟／聊天／信件** 三 tab；血盟為佔位（待 **getMyAlliancesAction** 等）；聊天／信件預留文案。（**雙人血盟已於 2026-03-24 接線**，見下則。）
 - **Layer 5 — `/matchmaking`**、**`/shop`**：**glass-panel**「即將開放」預留頁。
 - **路由**：**`/village`**、**`/market`** → **`redirect('/explore')`**；**`/alliances`**、**`/inbox`** → **`redirect('/guild')`**。
 - **`app-shell-motion`**：底部留白改 **`pb-[calc(5.25rem+env(safe-area-inset-bottom))]`** 以配合五欄底欄。
+
+### 2026-03-24 — 雙人血盟（`user_alliances`）、Modal 與冒險團
+
+- **🗄️**：新增 **`public.user_alliances`**（**`user_low`**／**`user_high`** 字串字典序、**`initiated_by`**、**`status`**：`pending`／`accepted`／`dissolved`）；與既有公會型 **`public.alliances`** 分表；遷移 **`supabase/migrations/20260325120000_user_alliances_pair.sql`**；**ENABLE RLS**；部署後 **Reload schema**。
+- **型別**：**`database.types.ts`** 新增 **`user_alliances`**、**`UserAllianceRow`**。
+- **Layer 2**：**`alliance.repository.ts`** — 成對查詢、待確認（來件）、已接受列表與 **users** embed。
+- **Layer 3**：**`alliance.action.ts`** — **Modal** 用 **狀態／申請／回應／解除**；列表用 **我的血盟**／**待確認**。
+- **Layer 3 — `social.action.ts`**：**`checkMutualLikeWithTargetAction`**（雙向互讚，血盟區塊前置）。
+- **Layer 5 — `UserDetailModal.tsx`**：僅 **雙向互讚** 顯示血盟區；四態：**無**／**已送出**／**待確認**／**血盟夥伴**＋解除；**Instagram**：**`ig_public === true`** 或 **血盟已成立** 且 **`instagram_handle`** 有值時顯示 **@**。
+- **Layer 5 — `/guild`**：**`AllianceList`** 待確認申請（接受／拒絕）＋血盟夥伴列表；**血盟** tab **角標**顯示待確認筆數（切 tab／列表變更時刷新）。
 
 ### 2025-03-24 — 村莊／市集：matching、Layer 2 分域、`getVillageUsersAction`／`getMarketUsersAction`
 
@@ -475,7 +494,7 @@ NOTIFY pgrst, 'reload schema';
 - **Layer 5 — 事後編輯**（歷史）：曾用 **`onboarding/TagSelector`**；已於後續改為與註冊相同之 **`register/TagSelector`**（見 **2025-03-24 — edit-tags／Git 規則**）。
 - **Layer 3**：**`register.action.ts`** 之 **`completeRegistration`** 經 **`user.repository`** **`updateProfile`** 寫入 **`interests`／`skills_offer`／`skills_want`**。
 - **註冊動線**：**`middleware`** 放行 **`/register/interests`**、**`/register/skills`**（完整技能頁）、**`/register/matchmaking`**，以及舊路徑 **`/register/skills-offer`／`skills-want`**（**`redirect`** 至 **`/register/interests`**）；須已登入且**已建 profile**。
-- **事後修改**：**`/profile/edit-tags`** 三 Tab（興趣／能教／想學），各 Tab 獨立 **「儲存」**；首頁 **「興趣與技能標籤」** 手風琴標題列 **✏️ 編輯** 連結至此頁。
+- **事後修改**：**`/profile/edit-tags`** 三 Tab（興趣／能教／想學），各 Tab 獨立 **「儲存」**；首頁 **「興趣與技能標籤」** 手風琴標題旁 **✏️ 編輯**（**`Link`**、`stopPropagation`）連結至此頁。
 - **Layer 3**：**`updateMyProfile`**（**`profile-update.action.ts`**）支援 **`interests`／`skills_offer`／`skills_want`**；**`revalidatePath('/profile/edit-tags')`**。
 - **配對語意**：市集 **Perfect Match** 仍以 **我想要的 ∩ 對方提供的** 與 **對方想要的 ∩ 我提供的** 為基礎（**`skills_want` ↔ `skills_offer`** 互相呼應）；村莊經 **`isOrientationMatch`** 後以 **`calcInterestScore`**（興趣重疊數）排序。
 
@@ -547,3 +566,5 @@ NOTIFY pgrst, 'reload schema';
 - **Layer 5 — `guild-profile-home.tsx`**：選圖後開啟 **fixed 全螢幕** 黑底裁切層；**膠囊按鈕**「取消」（關閉並 **`revokeObjectURL`**）、「確認裁切」（**`getCroppedImg` → File → Cloudinary → `updateMyProfile`**）；上傳中鎖定按鈕與主頭像觸發。
 - **Layer 3 — `profile-update.action.ts`**：僅接受 **HTTPS** **`avatar_url`**；註解已標明**不**經 Supabase Storage。
 - **專案內** **`guild-profile-home`／`updateMyProfile`** 已**無** **`supabase.storage`**／**`bucket`**／**`avatars` bucket** 上傳程式碼（**`createClient()`** 仍用於 **登出**）。
+
+*最後更新：2026-03-24 — **雙人血盟**（**`user_alliances`**）遷移＋**`alliance.repository`／`alliance.action`**；**`UserDetailModal`** 血盟四態與 **IG** 解鎖；**`/guild`** 列表與 tab 角標。*

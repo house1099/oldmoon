@@ -12,7 +12,15 @@ import {
   resolveOfflineOkLabel,
 } from "@/lib/constants/adventurer-questionnaire";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
+import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 import {
+  getAllianceStatusAction,
+  requestAllianceAction,
+  respondAllianceAction,
+  dissolveAllianceAction,
+} from "@/services/alliance.action";
+import {
+  checkMutualLikeWithTargetAction,
   getLikeStatusForTargetAction,
   toggleLikeAction,
 } from "@/services/social.action";
@@ -68,6 +76,13 @@ export function UserDetailModal({
   const [moodCountdownLabel, setMoodCountdownLabel] = useState<string | null>(
     null,
   );
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isMutualLike, setIsMutualLike] = useState(false);
+  const [allianceStatus, setAllianceStatus] = useState<
+    "none" | "pending_sent" | "pending_received" | "accepted"
+  >("none");
+  const [allianceId, setAllianceId] = useState<string | null>(null);
+  const [allianceLoading, setAllianceLoading] = useState(true);
 
   useEffect(() => {
     if (!open) return;
@@ -86,6 +101,70 @@ export function UserDetailModal({
       cancelled = true;
     };
   }, [open, user.id]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void createBrowserSupabase()
+      .auth.getUser()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setCurrentUserId(data.user?.id ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void checkMutualLikeWithTargetAction(user.id).then((r) => {
+      if (cancelled) return;
+      if (r.success) {
+        setIsMutualLike(r.mutual);
+      } else {
+        setIsMutualLike(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, user.id]);
+
+  useEffect(() => {
+    if (!open || !currentUserId) return;
+    if (!isMutualLike) {
+      setAllianceLoading(false);
+      setAllianceStatus("none");
+      setAllianceId(null);
+      return;
+    }
+    setAllianceLoading(true);
+    let cancelled = false;
+    void getAllianceStatusAction(user.id).then((a) => {
+      if (cancelled) return;
+      setAllianceLoading(false);
+      if (!a) {
+        setAllianceStatus("none");
+        setAllianceId(null);
+        return;
+      }
+      setAllianceId(a.id);
+      if (a.status === "accepted") {
+        setAllianceStatus("accepted");
+      } else if (a.status === "pending") {
+        setAllianceStatus(
+          a.initiated_by === currentUserId
+            ? "pending_sent"
+            : "pending_received",
+        );
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, user.id, currentUserId, isMutualLike]);
 
   useEffect(() => {
     if (
@@ -146,6 +225,10 @@ export function UserDetailModal({
         return;
       }
       setIsLiked(result.liked);
+      const mutual = await checkMutualLikeWithTargetAction(user.id);
+      if (mutual.success) {
+        setIsMutualLike(mutual.mutual);
+      }
       applyToggleToasts(result.liked, result.isMatch);
     } finally {
       setLikePending(false);
@@ -161,6 +244,10 @@ export function UserDetailModal({
         return;
       }
       setIsLiked(result.liked);
+      const mutual = await checkMutualLikeWithTargetAction(user.id);
+      if (mutual.success) {
+        setIsMutualLike(mutual.mutual);
+      }
       setShowCancelDialog(false);
       applyToggleToasts(result.liked, result.isMatch);
     } finally {
@@ -331,7 +418,7 @@ export function UserDetailModal({
             </div>
           </div>
 
-          <DialogFooter className="border-t border-amber-900/35 bg-zinc-950 px-6 pb-8 pt-4">
+          <DialogFooter className="flex flex-col gap-3 border-t border-amber-900/35 bg-zinc-950 px-6 pb-8 pt-4">
             <div className="flex w-full max-w-[min(100%,22rem)] flex-row items-center justify-center gap-4 sm:max-w-full">
               <Button
                 type="button"
@@ -363,6 +450,85 @@ export function UserDetailModal({
                 {isLiked ? "💖 已送出緣分" : "🤍 送出緣分"}
               </LoadingButton>
             </div>
+
+            {isMutualLike ? (
+              <div className="mt-1 w-full max-w-[min(100%,22rem)] sm:max-w-full">
+                {allianceLoading ? (
+                  <div className="h-10 animate-pulse rounded-full bg-zinc-800/50" />
+                ) : allianceStatus === "none" ? (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const r = await requestAllianceAction(user.id);
+                      if (r.ok) {
+                        setAllianceStatus("pending_sent");
+                      } else {
+                        toast.error(r.error ?? "申請失敗");
+                      }
+                    }}
+                    className="w-full rounded-full border border-amber-500/40 py-3 text-sm text-amber-300 transition-all hover:bg-amber-500/10 active:scale-95"
+                  >
+                    ⚔️ 申請血盟
+                  </button>
+                ) : allianceStatus === "pending_sent" ? (
+                  <div className="w-full rounded-full bg-zinc-800/50 py-3 text-center text-sm text-zinc-500">
+                    ⏳ 血盟申請已送出
+                  </div>
+                ) : allianceStatus === "pending_received" ? (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!allianceId) return;
+                      const res = await respondAllianceAction(
+                        allianceId,
+                        "accepted",
+                      );
+                      if (!res.ok) {
+                        toast.error(res.error ?? "操作失敗");
+                        return;
+                      }
+                      setAllianceStatus("accepted");
+                      toast.success("⚔️ 血盟成立！");
+                    }}
+                    className="w-full rounded-full bg-amber-600 py-3 text-sm font-medium text-white transition-all hover:bg-amber-500 active:scale-95"
+                  >
+                    ⚔️ 確認血盟申請
+                  </button>
+                ) : allianceStatus === "accepted" ? (
+                  <div className="flex items-center justify-between rounded-full border border-amber-500/20 bg-amber-500/10 px-4 py-2.5">
+                    <span className="text-xs font-medium text-amber-400">
+                      ⚔️ 血盟夥伴
+                    </span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const res = await dissolveAllianceAction(user.id);
+                        if (!res.ok) {
+                          toast.error(res.error ?? "解除失敗");
+                          return;
+                        }
+                        setAllianceStatus("none");
+                        setAllianceId(null);
+                        toast("血盟已解除");
+                      }}
+                      className="text-xs text-zinc-600 transition-colors hover:text-rose-400"
+                    >
+                      解除
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {(allianceStatus === "accepted" || user.ig_public) &&
+            user.instagram_handle ? (
+              <div className="flex w-full max-w-[min(100%,22rem)] items-center gap-2 px-1 sm:max-w-full">
+                <span className="text-xs text-zinc-400">Instagram</span>
+                <span className="text-sm font-medium text-white">
+                  @{user.instagram_handle}
+                </span>
+              </div>
+            ) : null}
           </DialogFooter>
         </DialogContent>
       </Dialog>

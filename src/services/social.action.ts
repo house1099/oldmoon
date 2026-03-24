@@ -79,3 +79,30 @@ export async function toggleLikeAction(
     return { success: false, error: mapLikeRepositoryError(error) };
   }
 }
+
+/** 供 Modal 等：是否與目標雙向互讚（血盟申請前置）。 */
+export async function checkMutualLikeWithTargetAction(
+  targetUserId: string,
+): Promise<
+  { success: true; mutual: boolean } | { success: false; error: string }
+> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "請先登入。" };
+  }
+  if (user.id === targetUserId) {
+    return { success: true, mutual: false };
+  }
+
+  try {
+    const mutual = await checkMutualLike(user.id, targetUserId);
+    return { success: true, mutual };
+  } catch (error) {
+    console.error("checkMutualLikeWithTargetAction:", error);
+    return { success: false, error: mapLikeRepositoryError(error) };
+  }
+}
