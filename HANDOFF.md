@@ -18,7 +18,7 @@
 - **Layer 2（資料）**：`user.repository.ts`（含 **`updateLastCheckinAt`**）、`exp.repository.ts` 支援 **`total_exp`**（SSOT）。
 - **Layer 3（業務）**：`daily-checkin.action.ts` 之 **`claimDailyCheckin`** 以 **`users.last_checkin_at`** 為簽到 **24h 滾動冷卻** SSOT；**`exp_logs.unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**。
 - **Layer 4（狀態／常數）**：`levels.ts`（門檻 0〜1350）、Zod 驗證已就緒；**`date.ts`** 之 **`taipeiCalendarDateKey()`** 仍為全系統**日曆日** SSOT（簽到冷卻**不再**依此判斷）。
-- **Layer 5（UI）**：**`Navbar.tsx`**（五項純文字底欄：**首頁／探索／冒險團／月老／商店**）、**`LevelFrame.tsx`**、**`UserCard`**（**`variant`** 村莊／市集分面；市集 **`perfectMatch`** 白金外環 **`perfect-match-market-shell`**）、**`/explore`**（村莊＋市集 **tab**）、**`/guild`**（血盟／聊天／信件 **tab**）、**`/matchmaking`**／**`/shop`**（預留）。
+- **Layer 5（UI）**：**`Navbar.tsx`**（五項 **lucide** 圖示底欄：**Home／Compass／Swords／Heart／ShoppingBag**）、**`LevelFrame.tsx`**、**`UserCard`**、**`UserCardSkeleton`**（探索列表載入）、**`/explore`**（頂部 **safe-area**、村莊＋市集 **tab**）、**`/guild`**、**`/matchmaking`**／**`/shop`**（預留）。
 
 ### 📈 開發進度
 
@@ -30,7 +30,7 @@
 
 - **iOS／PWA**：首頁三處 **textarea**（今日心情、興趣自白、技能自白）使用 **`text-base`（16px）** 避免 Safari 聚焦自動縮放；**`onFocus` → `scrollIntoView({ block: 'center' })`**（延遲 300ms）減輕鍵盤頂動；根 **`layout.tsx`** **`viewport.maximumScale: 1`** + **`viewport-fit=cover`**（**不**使用 **`user-scalable=no`**）
 - **帳號設定 Dialog**：**無 IG** 時可直接 **`updateMyProfile({ instagram_handle })`** 綁定；**已有 IG** 時畫面鎖定顯示，改帳須 **`requestIgChangeAction`** 寫入 **`ig_change_requests`**，由 **admin／leader** 於 **`/admin/ig-requests`** 審核（**`reviewIgRequestAction`**）。**`ig_public`** 開關仍即時寫入
-- **今日心情**：與頭像卡同級之**獨立 `glass-panel`**，常駐展開；24h 倒數，IG 限時動態風格
+- **今日心情**：與頭像卡同級之**獨立區塊**，**深紫微光**（**`bg-violet-950/40`**、**`border-violet-500/20`**、**`rounded-3xl`**、**`backdrop-blur-xl`**），常駐展開；24h 倒數，IG 限時動態風格
 - **我的狀態**：同一 `glass-panel` 內僅含三區，皆為**手風琴**（`openSection` 單開），**預設收折**，點標題展開
   - **自白**：**`bio_village`**（興趣自白）+ **`bio_market`**（技能自白），各自獨立確認按鈕
   - **信譽與紀錄**：**`created_at`**、**`invite_code`**、**`invited_by`**、**`exp_logs`** 近三個月橫向滑動（Layer 3 **`getMyRecentExpLogsAction`** → Layer 2 **`findRecentExpLogsForUser`**）
@@ -80,8 +80,9 @@
 | 個人頁 EXP 紀錄 | `src/services/exp-logs.action.ts`（**`getMyRecentExpLogsAction`**）→ **`exp.repository`** **`findRecentExpLogsForUser`** |
 | 首頁個人頁 UI | `src/app/(app)/page.tsx` → `src/components/profile/guild-profile-home.tsx` |
 | 頭像裁切＋Cloudinary | **`react-easy-crop`** 全螢幕裁切；**`src/lib/utils/cropImage.ts`**（**`getCroppedImg`**）；**`src/lib/utils/cloudinary.ts`**（**`uploadAvatarToCloudinary`**）→ **`updateMyProfile({ avatar_url })`**（**禁止** **`supabase.storage`** 上傳頭像） |
-| 底部導航 | `src/components/layout/Navbar.tsx`（**五項純文字**、選中 **紫色短線**、**`bg-zinc-950/90` + `backdrop-blur-xl`**；首頁 **`/`** 僅 **`pathname === '/'`** 時亮） |
-| 探索（村莊＋市集） | `src/app/(app)/explore/page.tsx`、`src/components/explore/VillageContent.tsx`、`MarketContent.tsx`；**`village.service`**／**`market.service`** 同上 |
+| 底部導航 | `src/components/layout/Navbar.tsx`（**五項 lucide**：**Home／Compass／Swords／Heart／ShoppingBag**；選中 **`text-violet-400`**、未選 **`text-zinc-500`**、**`text-[10px]`** 標籤；首頁 **`/`** 僅 **`pathname === '/'`** 為 active） |
+| 探索（村莊＋市集） | `explore/page.tsx`（**`pt-[max(1rem,env(safe-area-inset-top))]`** 避瀏海）；**`VillageContent`／`MarketContent`** 載入 **6×`UserCardSkeleton`** |
+| 列表骨架屏 | **`src/components/ui/UserCardSkeleton.tsx`**（**`animate-pulse`**） |
 | 冒險團 | `src/app/(app)/guild/page.tsx`（**血盟／聊天／信件** 三 tab；血盟列表 Phase 2.2 接線） |
 | 月老／商店預留 | `src/app/(app)/matchmaking/page.tsx`、`src/app/(app)/shop/page.tsx`（**即將開放**） |
 | 舊路由轉址 | **`/village`**、**`/market`** → **`/explore`**；**`/alliances`**、**`/inbox`** → **`/guild`** |
@@ -402,9 +403,16 @@ NOTIFY pgrst, 'reload schema';
 - **Layer 5 — `TagSelector.tsx`**：新增 **`defaultOpenCategory?: string | null`**（**`null`**＝全部分類預設收折；未傳則維持展開第一個分類）。
 - **Layer 5 — `/register/interests`、`/register/skills`**：兩頁 **`TagSelector`** 皆 **`defaultOpenCategory={null}`**；外層 **max-w-xl**、**px-3**。
 
+### 2025-03-24 — 底欄圖示還原、今日心情紫微光、探索 safe-area、列表骨架屏
+
+- **Layer 5 — `Navbar.tsx`**：恢復 **lucide** 圖示（**Home、Compass、Swords、Heart、ShoppingBag**）；**`w-5 h-5`**；選中 **`text-violet-400`**、未選 **`text-zinc-500`**；標籤 **`text-[10px] mt-0.5`**；**`py-2 flex-1`** 欄位；**`/`** 僅 **`pathname === '/'`** 為 active。
+- **Layer 5 — `guild-profile-home.tsx`**：**今日心情**外層改 **深紫微光**（**`bg-violet-950/40`**、**`border-violet-500/20`**、**`rounded-3xl`**、**`shadow-2xl backdrop-blur-xl`**），與其他 **`glass-panel`** 區隔。
+- **Layer 5 — `/explore`**：sticky 頂欄 **`pt-[max(1rem,env(safe-area-inset-top))]`** 避 **iPhone 瀏海**。
+- **Layer 5**：新增 **`UserCardSkeleton`**；**`VillageContent`／`MarketContent`** 載入時 **6** 枚骨架取代純文字「載入中」。
+
 ### 2025-03-24 — 底部導航五項、`/explore`／`/guild`、舊路由 redirect
 
-- **Layer 5 — `Navbar.tsx`**：**五項純文字**（無 icon）— **首頁／探索／冒險團／月老／商店**；**`bg-zinc-950/90 backdrop-blur-xl`**、**`border-t border-white/10`**、**`pb-[max(0.75rem,env(safe-area-inset-bottom))]`**；選中 **白字 + `font-semibold` + 底部 `w-6 h-0.5 bg-violet-500`**；**`/`** 僅 **`pathname === '/'`** 為 active，其餘 **`pathname.startsWith(href)`**。
+- **Layer 5 — `Navbar.tsx`**：（歷史）曾為五項純文字＋底線；現已改回 **lucide** 圖示（見上一則）。
 - **Layer 5 — `/explore`**：**Client**；頂部 **pill Switch**（🏡 興趣村莊／⚔️ 技能市集）；內容為 **`VillageContent`**、**`MarketContent`**（**`src/components/explore/`**）。
 - **Layer 5 — `/guild`**：**血盟／聊天／信件** 三 tab；血盟為佔位（待 **getMyAlliancesAction** 等）；聊天／信件預留文案。
 - **Layer 5 — `/matchmaking`**、**`/shop`**：**glass-panel**「即將開放」預留頁。

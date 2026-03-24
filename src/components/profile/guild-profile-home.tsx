@@ -628,8 +628,8 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         </div>
       </section>
 
-      <section className="glass-panel overflow-hidden p-0 shadow-xl">
-        <p className="border-b border-white/10 px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-400">
+      <section className="overflow-hidden rounded-3xl border border-violet-500/20 bg-violet-950/40 p-0 shadow-2xl backdrop-blur-xl">
+        <p className="border-b border-violet-500/20 px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-300">
           今日心情
         </p>
         <div className="p-4">

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Search, Sparkles } from "lucide-react";
 import { UserCard } from "@/components/cards/UserCard";
+import UserCardSkeleton from "@/components/ui/UserCardSkeleton";
 import { getMarketUsersAction } from "@/services/market.service";
 import type { MarketUserWithScores } from "@/services/market.service";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
@@ -50,8 +51,8 @@ export function MarketContent() {
           </div>
         </div>
         <div className="text-right text-xs text-slate-500/95">
-          <p>共 {users.length} 位冒險者</p>
-          {perfectCount > 0 ? (
+          <p>{loading ? "載入中…" : `共 ${users.length} 位冒險者`}</p>
+          {!loading && perfectCount > 0 ? (
             <p className="mt-1 text-amber-200/85">
               ✦ 完美匹配 {perfectCount} 位
             </p>
@@ -71,9 +72,11 @@ export function MarketContent() {
       </div>
 
       {loading ? (
-        <p className="rounded-xl border border-dashed border-violet-500/30 bg-slate-950/50 px-6 py-16 text-center text-muted-foreground">
-          載入中…
-        </p>
+        <div className="space-y-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <UserCardSkeleton key={i} />
+          ))}
+        </div>
       ) : users.length === 0 ? (
         <p className="rounded-xl border border-dashed border-violet-500/30 bg-slate-950/50 px-6 py-16 text-center text-muted-foreground">
           市集裡還沒有其他冒險者 — 晚點再來逛逛吧 🐱

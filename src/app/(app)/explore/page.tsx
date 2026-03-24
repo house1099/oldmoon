@@ -9,7 +9,7 @@ export default function ExplorePage() {
 
   return (
     <div className="min-h-screen bg-zinc-950">
-      <div className="sticky top-0 z-10 border-b border-white/10 bg-zinc-950/90 px-4 py-3 backdrop-blur-xl">
+      <div className="sticky top-0 z-10 border-b border-white/10 bg-zinc-950/90 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-xl">
         <div className="mx-auto flex max-w-xs rounded-full bg-zinc-900/60 p-1">
           <button
             type="button"
