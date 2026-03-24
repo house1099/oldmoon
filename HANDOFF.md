@@ -4,7 +4,7 @@
 
 ## 🌕 目前開發階段：Phase 2 — 社交核心（進行中）
 
-**下一視窗／下一階段預設焦點**：**Phase 2.2** — **Likes（有緣分）**、**Alliances（血盟）**、使用者詳情 Modal、雲端 **RLS** 與型別對齊。註冊 **Step 3〜5** 與 **`/profile/edit-tags`** 已接線（興趣／能教／想學）；Phase 2.1 村莊＋市集已接線，見下表與「關鍵檔案索引」。
+**下一視窗／下一階段預設焦點**：**Phase 2.2** — **Likes（有緣分）**、**Alliances（血盟）**、使用者詳情 Modal、雲端 **RLS** 與型別對齊。註冊 **名冊三步＋`/register/interests` 單頁（興趣＋選填技能）** 與 **`/profile/edit-tags`** 已接線；Phase 2.1 村莊＋市集已接線，見下表與「關鍵檔案索引」。
 
 ### 🛠️ 核心工具基準（Layer 4）
 
@@ -89,7 +89,7 @@
 | 等級 SSOT | `src/lib/constants/levels.ts` |
 | 問卷選項 | `src/lib/constants/adventurer-questionnaire.ts` |
 | 興趣／技能標籤選項（分類＋內建標籤） | SSOT **`src/lib/constants/tags.ts`**（**`ALL_INTEREST_TAGS`／`ALL_SKILL_TAGS`**）；**`interests.ts`／`skills.ts`** 僅 re-export |
-| 註冊標籤 Step3〜4 | **`src/components/register/TagSelector.tsx`**（分類手風琴＋自訂標籤）；路由 **`/register/interests`**（興趣，`sessionStorage` **`reg_interests`**）→ **`/register/skills`**（我能教／我想學分頁，`completeRegistration` 一次寫入）→ **`/`** 或 **`/register/matchmaking`**（預留） |
+| 註冊標籤 Step4 | **`src/components/register/TagSelector.tsx`**；**`/register/interests`** **單頁**含興趣（必選）＋技能市集（**勾選才展開** **`skills_offer`／`skills_want`**），**`completeRegistration`** 一次寫入；**`/register/skills`** 僅 **`redirect('/register/interests')`**；舊路徑 **`skills-offer`／`skills-want`** 同導向 **interests** |
 | 登入後編輯標籤 | **`/profile/edit-tags`**（**`edit-tags-client.tsx`**）；與註冊共用 **`register/TagSelector.tsx`** + **`tags.ts`**；三 Tab（興趣／能教／想學），**`updateMyProfile`** 分開儲存 |
 | Zod／不雅字／IG 格式 | `src/lib/validation/*.ts`、`src/lib/utils/forbidden-words.ts` |
 | DB 型別 | `src/types/database.types.ts`（含 **`ig_change_requests`**、**`users.role`**、**`skills_offer`**／**`skills_want`**） |
@@ -148,7 +148,7 @@
 1. 未登入造訪受保護路由 → Middleware → `/login`（可帶 `next=`）。
 2. `/register` 註冊後（視專案是否開信箱驗證）→ 導向 `/register/profile` 補 **nickname + 問卷**（OAuth 若無 IG metadata，同頁 **動態補填 IG**）。
 3. `completeAdventurerProfile` 以 **admin client** 寫入 `users`（**不帶 `bio`**；**`instagram_handle`** metadata 優先）；通用 **`bio`** 首頁未提供表單，仍可由 **`updateMyProfile({ bio })`** 等管道寫入。失敗時 **`console.error("❌ 伺服器寫入失敗詳細原因:", error)`**。
-4. Profile 就緒後 → **`/register/interests`**（Step3 興趣）→ **`/register/skills`**（Step4 能教＋想學，可跳過技能）→ 首頁 **`/`**（或 **`/register/matchmaking`** 預留）；興趣於 Step4 經 **`completeRegistration`** 與技能一併寫入 DB（精簡頭像卡＋等級進度；**今日心情**為獨立頂層卡片；**我的狀態**內自白／信譽與紀錄／興趣與技能標籤為**手風琴**預設收折；**「帳號設定」** **Dialog** 僅 **IG 帳號**＋**`ig_public`**；簽到、登出；頁面容器 **`pb-32` + `safe-area-inset-bottom`** 防 Navbar 遮擋）。
+4. Profile 就緒後 → **`/register/interests`**（**Step4** 指示器：興趣＋選填技能同頁；完成後**全螢幕 Modal** 選 **進入公會** **`/`** 或 **月老配對** **`/register/matchmaking`**）；**`completeRegistration`** 寫入 **`interests`／`skills_offer`／`skills_want`**（未勾技能市集則兩技能陣列為空）（精簡頭像卡＋等級進度；**今日心情**為獨立頂層卡片；**我的狀態**內自白／信譽與紀錄／興趣與技能標籤為**手風琴**預設收折；**「帳號設定」** **Dialog** 僅 **IG 帳號**＋**`ig_public`**；簽到、登出；頁面容器 **`pb-32` + `safe-area-inset-bottom`** 防 Navbar 遮擋）。
 
 ### Admin／環境
 
@@ -404,10 +404,10 @@ NOTIFY pgrst, 'reload schema';
 ### 2025-03-24 — 註冊標籤三步與編輯頁（`interests`／`skills_offer`／`skills_want`）
 
 - **Layer 4**：**`src/lib/constants/tags.ts`**（**`TagCategory`**、**`INTEREST_CATEGORIES`／`SKILL_CATEGORIES`**、**`ALL_*_TAGS`**）；**`interests.ts`／`skills.ts`** re-export。
-- **Layer 5 — 註冊**：**`src/components/register/TagSelector.tsx`**（預覽已選、手風琴、可選自訂標籤）；**`/register/interests`**、**`/register/skills`**、**`/register/matchmaking`**（預留）。
+- **Layer 5 — 註冊**：**`src/components/register/TagSelector.tsx`**（預覽已選、手風琴、可選自訂標籤）；**`/register/interests`**（興趣＋選填技能單頁）、**`/register/matchmaking`**（預留）。**`/register/skills`** → **`redirect('/register/interests')`**。
 - **Layer 5 — 事後編輯**（歷史）：曾用 **`onboarding/TagSelector`**；已於後續改為與註冊相同之 **`register/TagSelector`**（見 **2025-03-24 — edit-tags／Git 規則**）。
 - **Layer 3**：**`register.action.ts`** 之 **`completeRegistration`** 經 **`user.repository`** **`updateProfile`** 寫入 **`interests`／`skills_offer`／`skills_want`**。
-- **註冊動線**：**`middleware`** 放行 **`/register/interests`**、**`/register/skills`**、**`/register/matchmaking`**，以及舊路徑 **`/register/skills-offer`／`skills-want`**（**`redirect`** 至 **`/register/skills`**）；須已登入且**已建 profile**。
+- **註冊動線**：**`middleware`** 放行 **`/register/interests`**、**`/register/skills`**（轉址）、**`/register/matchmaking`**，以及舊路徑 **`/register/skills-offer`／`skills-want`**（**`redirect`** 至 **`/register/interests`**）；須已登入且**已建 profile**。
 - **事後修改**：**`/profile/edit-tags`** 三 Tab（興趣／能教／想學），各 Tab 獨立 **「儲存」**；首頁 **「興趣與技能標籤」** 手風琴標題列 **✏️ 編輯** 連結至此頁。
 - **Layer 3**：**`updateMyProfile`**（**`profile-update.action.ts`**）支援 **`interests`／`skills_offer`／`skills_want`**；**`revalidatePath('/profile/edit-tags')`**。
 - **配對語意**：市集 **Perfect Match** 仍以 **我想要的 ∩ 對方提供的** 與 **對方想要的 ∩ 我提供的** 為基礎（**`skills_want` ↔ `skills_offer`** 互相呼應）；村莊排序仍用 **`interests`** 重疊。
@@ -430,6 +430,11 @@ NOTIFY pgrst, 'reload schema';
 - **Layer 5**：新增 **`src/components/register/TagSelector.tsx`**（已選預覽、分類手風琴、可選自訂標籤）；**`/register/interests`**（Step3，興趣暫存 **`sessionStorage.reg_interests`**）→ **`/register/skills`**（Step4，**我能教／我想學**切換）→ **`/`** 或 **`/register/matchmaking`**（月老預留頁）。
 - **Layer 3**：新增 **`src/services/register.action.ts`** **`completeRegistration`**（**`updateProfile`** 一次寫入三欄位）。
 - **相容**：**`/register/skills-offer`／`skills-want`** 改為 **`redirect('/register/skills')`**；**`middleware`** 補登 **`/register/skills`**、**`/register/matchmaking`**。
+
+### 2025-03-24 — `/register/interests` 單頁合併技能；**`/register/skills`** 改轉址
+
+- **Layer 5 — `interests/page.tsx`**：**興趣村莊**（必選，**`maxSelect={12}`**）＋**「我也想在技能市集交流」**勾選後才展開 **我能教／我想學**（**`TagSelector`** + **`SKILL_CATEGORIES`**）；**`RegistrationStepIndicator activeStep={4}`**；完成呼叫 **`completeRegistration`**（未勾技能則 **`skills_offer`／`skills_want`** 送空陣列）；成功後**全螢幕 Modal**：**進入傳奇公會** **`/`** 或 **月老配對** **`/register/matchmaking`**。可選保留讀取 **`sessionStorage.reg_interests`** 還原興趣。
+- **Layer 5**：**`/register/skills/page.tsx`** 改為 **`redirect('/register/interests')`**；**`skills-offer`／`skills-want`** 同步導向 **`/register/interests`**。
 
 ### 2025-03-24 — 性向隱私：`UserDetailModal`／`UserCard` 移除展示
 

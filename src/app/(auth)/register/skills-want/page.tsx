@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** 舊 Step5 路徑：已合併至 **`/register/skills`**。 */
+/** 舊 Step5 路徑：已合併至 **`/register/interests`**。 */
 export default function SkillsWantRedirectPage() {
-  redirect("/register/skills");
+  redirect("/register/interests");
 }
