@@ -6,7 +6,12 @@ import { MapPin, Sparkles, UserRound } from "lucide-react";
 import {
   GENDER_OPTIONS,
   INTEREST_TAG_OPTIONS,
+  LEGACY_ORIENTATION_MAP,
+  LEGACY_REGION_MAP,
+  ORIENTATION_OPTIONS,
   REGION_OPTIONS,
+  resolveLegacyLabel,
+  resolveOfflineOkLabel,
 } from "@/lib/constants/adventurer-questionnaire";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import {
@@ -34,13 +39,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { getMoodCountdown, isMoodActive } from "@/lib/utils/mood";
-
-function labelFor(
-  options: readonly { value: string; label: string }[],
-  value: string,
-): string {
-  return options.find((o) => o.value === value)?.label ?? value;
-}
 
 function tagLabel(slug: string): string {
   return INTEREST_TAG_OPTIONS.find((o) => o.value === slug)?.label ?? slug;
@@ -106,6 +104,18 @@ export function UserDetailModal({
   }, [open, user.mood_at, user.mood]);
 
   const active = isRecentlyActive(user.last_seen_at, 15 * 60 * 1000);
+  const genderLabel = resolveLegacyLabel(user.gender, GENDER_OPTIONS);
+  const regionLabel = resolveLegacyLabel(
+    user.region,
+    REGION_OPTIONS,
+    LEGACY_REGION_MAP,
+  );
+  const orientationLabel = resolveLegacyLabel(
+    user.orientation,
+    ORIENTATION_OPTIONS,
+    LEGACY_ORIENTATION_MAP,
+  );
+  const offlineLabel = resolveOfflineOkLabel(user.offline_ok);
 
   function applyToggleToasts(
     liked: boolean,
@@ -229,14 +239,20 @@ export function UserDetailModal({
                   <div className="flex items-center gap-1.5">
                     <UserRound className="h-3.5 w-3.5 shrink-0 text-violet-400/90" />
                     <dt className="sr-only">性別</dt>
-                    <dd>{labelFor(GENDER_OPTIONS, user.gender)}</dd>
+                    <dd>{genderLabel}</dd>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <MapPin className="h-3.5 w-3.5 shrink-0 text-violet-400/90" />
                     <dt className="sr-only">地區</dt>
-                    <dd className="truncate">
-                      {labelFor(REGION_OPTIONS, user.region)}
-                    </dd>
+                    <dd className="truncate">{regionLabel}</dd>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <dt className="sr-only">性向</dt>
+                    <dd className="text-slate-400/90">{orientationLabel}</dd>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <dt className="sr-only">線下意願</dt>
+                    <dd className="text-slate-400/90">{offlineLabel}</dd>
                   </div>
                 </dl>
               </div>

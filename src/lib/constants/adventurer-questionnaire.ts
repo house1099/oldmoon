@@ -61,6 +61,61 @@ export type RegionSelectValue = (typeof REGION_OPTIONS)[number]["value"];
 export type OrientationValue = (typeof ORIENTATION_OPTIONS)[number]["value"];
 export type OfflineIntentValue = (typeof OFFLINE_INTENT_OPTIONS)[number]["value"];
 
+/** 舊版英文／簡寫 `region`（遷移前 UI 顯示用） */
+export const LEGACY_REGION_MAP: Record<string, string> = {
+  north: "台灣・北部",
+  central: "台灣・中部",
+  south: "台灣・南部",
+  east: "台灣・東部",
+  island: "台灣・離島",
+  islands: "台灣・離島",
+  overseas: "海外",
+  other: "其他",
+};
+
+/** 舊版 `orientation` slug（遷移前 UI 顯示用） */
+export const LEGACY_ORIENTATION_MAP: Record<string, string> = {
+  straight: "異性戀",
+  gay: "同性戀",
+  lesbian: "同性戀",
+  bisexual: "泛性戀",
+  pansexual: "泛性戀",
+};
+
+/** 線下意願 slug → 顯示文案（與 `OFFLINE_INTENT_OPTIONS` 對齊，供相容查詢） */
+export const LEGACY_OFFLINE_MAP: Record<string, string> = {
+  in_person: "願意參加實體聚會",
+  online_only: "只從事線上活動",
+  both: "都可以",
+};
+
+/**
+ * 顯示用：先對照現行選項，再對照 `legacyMap`，最後 fallback 原字串。
+ * `value` 空值時回傳「未填寫」。
+ */
+export function resolveLegacyLabel(
+  value: string | null | undefined,
+  options: readonly { value: string; label: string }[],
+  legacyMap?: Record<string, string>,
+): string {
+  if (value === null || value === undefined || value === "") {
+    return "未填寫";
+  }
+  const found = options.find((o) => o.value === value);
+  if (found) return found.label;
+  if (legacyMap?.[value]) return legacyMap[value]!;
+  return value;
+}
+
+/** `offline_ok` boolean → 顯示文案（boolean 無法還原「都可以」，true 時以「都可以」呈現） */
+export function resolveOfflineOkLabel(ok: boolean): string {
+  return resolveLegacyLabel(
+    ok ? "both" : "online_only",
+    OFFLINE_INTENT_OPTIONS,
+    LEGACY_OFFLINE_MAP,
+  );
+}
+
 /** Step 2：核心價值觀（各題選一 slug，依序寫入 `users.core_values`） */
 export const CORE_VALUES_QUESTIONS = [
   {

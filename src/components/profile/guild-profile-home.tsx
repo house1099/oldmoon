@@ -38,7 +38,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { INTEREST_TAG_OPTIONS } from "@/lib/constants/adventurer-questionnaire";
+import {
+  GENDER_OPTIONS,
+  INTEREST_TAG_OPTIONS,
+  LEGACY_ORIENTATION_MAP,
+  LEGACY_REGION_MAP,
+  ORIENTATION_OPTIONS,
+  REGION_OPTIONS,
+  resolveLegacyLabel,
+  resolveOfflineOkLabel,
+} from "@/lib/constants/adventurer-questionnaire";
 import { LEVEL_MIN_EXP_BY_LEVEL, getLevelTierByExp } from "@/lib/constants/levels";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { cn } from "@/lib/utils";
@@ -496,6 +505,18 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   const avatarSrc = avatarUrl?.trim() || null;
   const initial = (profile.nickname ?? "?").slice(0, 1).toUpperCase();
   const hasIg = Boolean(profile.instagram_handle?.trim());
+  const genderLabel = resolveLegacyLabel(profile.gender, GENDER_OPTIONS);
+  const regionLabel = resolveLegacyLabel(
+    profile.region,
+    REGION_OPTIONS,
+    LEGACY_REGION_MAP,
+  );
+  const orientationLabel = resolveLegacyLabel(
+    profile.orientation,
+    ORIENTATION_OPTIONS,
+    LEGACY_ORIENTATION_MAP,
+  );
+  const offlineLabel = resolveOfflineOkLabel(profile.offline_ok);
 
   return (
     <main className="flex w-full flex-col gap-6">
@@ -566,6 +587,21 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                 {tier.symbol} {tier.title}
               </span>
             </div>
+            <p className="text-center text-[11px] leading-relaxed text-zinc-500 sm:text-xs">
+              <span className="text-zinc-400">性別</span> {genderLabel}
+              <span className="mx-1.5 text-zinc-600" aria-hidden>
+                ·
+              </span>
+              <span className="text-zinc-400">地區</span> {regionLabel}
+              <span className="mx-1.5 text-zinc-600" aria-hidden>
+                ·
+              </span>
+              <span className="text-zinc-400">性向</span> {orientationLabel}
+              <span className="mx-1.5 text-zinc-600" aria-hidden>
+                ·
+              </span>
+              <span className="text-zinc-400">線下</span> {offlineLabel}
+            </p>
           </div>
 
           <div className="w-full max-w-md space-y-1.5">

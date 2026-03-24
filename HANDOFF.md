@@ -384,6 +384,12 @@ NOTIFY pgrst, 'reload schema';
 - **🗄️**：**`supabase/migrations/20260324120000_users_last_checkin_at.sql`**（**`users.last_checkin_at`**）。
 - **常數**：**`DAILY_CHECKIN_ALREADY_CLAIMED`**（**`already_claimed`**）；**`DAILY_CHECKIN_ALREADY_TODAY`** 為別名（相容舊引用）。
 
+### 2025-03-24 — 舊問卷資料顯示相容與遷移 SQL（待手動執行）
+
+- **Layer 4 — `adventurer-questionnaire.ts`**：**`resolveLegacyLabel`**（新選項 → **`LEGACY_*_MAP`** → 原字串）、**`resolveOfflineOkLabel`**（**`offline_ok` boolean**）；**`LEGACY_REGION_MAP`**（含 **`island`／`islands`**）、**`LEGACY_ORIENTATION_MAP`**、**`LEGACY_OFFLINE_MAP`**。
+- **Layer 5**：**`UserDetailModal`**、**`UserCard`**、**`guild-profile-home`** 之地區／性向／線下顯示皆經 **`resolveLegacyLabel`**／**`resolveOfflineOkLabel`**；首頁頭像卡下新增一行**自己**的問卷摘要（性別・地區・性向・線下）。
+- **🗄️**：**`supabase/migrations/20260324150000_migrate_legacy_region_orientation.sql`** 已產生，**請確認後再在 Supabase 手動執行**，勿當作自動部署唯一依賴。
+
 ### 2025-03-24 — 註冊問卷 UI（Step1／2）與 UserDetailModal 緣分
 
 - **Layer 4 — `adventurer-questionnaire.ts`**：**Step1** 性別維持英文 value、中文 label；**地區**改為完整台灣縣市（value／label 皆繁中），**海外（自填）**另填文字後存 **`海外・…`**；**Step2** 性向三選（**`heterosexual`／`homosexual`／`pansexual`**）；線下意願 **`in_person`／`online_only`／`both`**（**`offline_ok`**：`in_person` 或 `both` 為 **true**）。
