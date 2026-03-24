@@ -23,7 +23,7 @@
 ### 📈 開發進度
 
 - [x] **Phase 1.5**：帳號體系、Google 登入預留、暗黑視覺升級、時區校正（日鍵集中於 **`date.ts`**）。
-- [x] **Phase 2.1（核心已交付）**：探索 **Tab「興趣村莊」** 同縣市＋**性向雙向篩選**＋**興趣分數**排序、列表卡僅興趣（最多 3 +N）；**Tab「技能市集」** 全台＋**互補／同好分數**、**Perfect Match** 仍優先、**`getMarketUsersAction`** 搜尋；入口 **`/explore`**（**Server** 預載村莊、市集 **切 tab 才載入**）；**`village.service`** **`unstable_cache` 30s**、**`market.service`** 基礎列表 **60s**、**搜尋在快取外**；舊 **`/village`**／**`/market`** → **`redirect('/explore')`**；Layer 2 **`findVillageUsers`**／**`findMarketUsers`**；Layer 4 **`matching.ts`**。可持續打磨 UX／RLS。
+- [x] **Phase 2.1（核心已交付）**：探索 **Tab「興趣村莊」** 同縣市＋**性向雙向篩選**＋**興趣分數**排序、列表卡僅興趣（最多 3 +N）；**Tab「技能市集」** 全台＋**互補／同好分數**、**Perfect Match** 仍優先、**`getMarketUsersAction`** 搜尋；入口 **`/explore`**（**Server** 預載村莊、市集 **切 tab 才載入**）；**`village.service`** **`unstable_cache` 30s**、**`market.service`** 基礎列表 **60s**、**`getCachedMySkills`（60s，`profileCacheTag`）** 避免每次搜尋重查自己技能、**關鍵字篩選在列表快取回傳後**；舊 **`/village`**／**`/market`** → **`redirect('/explore')`**；Layer 2 **`findVillageUsers`**／**`findMarketUsers`**；Layer 4 **`matching.ts`**。可持續打磨 UX／RLS。
 - [ ] **Phase 2.2（進行中）**：**Likes** 已接線；**雙人血盟**（**`public.alliances`**：`user_a`／`user_b`／`initiated_by`）UI 與 Layer 2／3 已接線；詳情 Modal 血盟四態＋IG 解鎖；**`/guild`** 血盟列表與 tab 徽章；**RLS** 可後補。
 
 ## Phase 2.1 首頁個人卡重構（完成）
@@ -71,7 +71,7 @@
 
 | 主題 | 路徑 |
 |------|------|
-| 守衛／Session | `src/middleware.ts` |
+| 守衛／Session | `src/middleware.ts`；**Profile 讀取快取** `src/lib/supabase/get-cached-profile.ts`（**`getCachedProfile`**，`unstable_cache` **30s**，與 **`deriveAuthStatus`**／首頁 **`getAuthStatus`** 共用） |
 | PWA／圖示 | **`public/manifest.json`**（**`theme_color`／`background_color`：`#0f0a1e`**；**`/icons/icon-192x192.png`**、**`icon-512x512.png`**、**`apple-touch-icon.png`**）；**`src/app/layout.tsx`** **`viewport.themeColor`** + **`metadata.icons.apple`** → **`theme-color`** meta、**`apple-touch-icon`** link |
 | Auth UI | `src/app/(auth)/login/*`、`register/*`、`register/profile/*`；註冊五步指示器 **`src/components/auth/registration-step-indicator.tsx`**（**`1`—`5`**）；**`register-form.tsx`** 條款勾選旁 **「冒險者公會使用者條款」** 可點開 **`TermsModal`**（內文 **`src/lib/constants/terms.ts`** **`TERMS_OF_SERVICE`**） |
 | OAuth callback | `src/app/auth/callback/route.ts` |
@@ -82,7 +82,7 @@
 | 管理：IG 待審 | `src/app/(app)/admin/ig-requests/page.tsx`（**role** 為 **admin／leader** 可進；其餘 **`redirect('/')`**） |
 | 個人頁 EXP 紀錄 | `src/services/exp-logs.action.ts`（**`getMyRecentExpLogsAction`**）→ **`exp.repository`** **`findRecentExpLogsForUser`** |
 | 首頁個人頁 UI | `src/app/(app)/page.tsx` → `src/components/profile/guild-profile-home.tsx` |
-| 頭像裁切＋Cloudinary | **`react-easy-crop`** 全螢幕裁切；**`src/lib/utils/cropImage.ts`**（**`getCroppedImg`**）；**`src/lib/utils/cloudinary.ts`**（**`uploadAvatarToCloudinary`**）→ **`updateMyProfile({ avatar_url })`**（**禁止** **`supabase.storage`** 上傳頭像） |
+| 頭像裁切＋Cloudinary | **`react-easy-crop`** 全螢幕裁切；**`src/lib/utils/cropImage.ts`**（**`getCroppedImg`**）；**`src/lib/utils/cloudinary.ts`**（**`uploadAvatarToCloudinary`**）→ **`updateMyProfile({ avatar_url })`**（**禁止** **`supabase.storage`** 上傳頭像）；**顯示** **`src/components/ui/Avatar.tsx`**（**`next/image`** + Cloudinary **`/upload/w_{2×size},h_{2×size},c_fill,q_auto,f_auto/`**；**`next.config.mjs`** **`images.remotePatterns`**：**`res.cloudinary.com`**） |
 | 底部導航 | `src/components/layout/Navbar.tsx`（**五項 lucide**：**Home／Compass／Swords／Heart／ShoppingBag**；選中 **`text-violet-400`**、未選 **`text-zinc-500`**、**`text-[10px]`** 標籤；首頁 **`/`** 僅 **`pathname === '/'`** 為 active） |
 | 探索（村莊＋市集） | **`explore/page.tsx`**（**Server Component**：**`getVillageUsersAction`** 預載村莊）；**`ExploreClient.tsx`**（tab、市集 **lazy load**）；**`VillageContent`／`MarketContent`**（props 餵列表）；市集載入中 **6×`UserCardSkeleton`**（村莊不顯示骨架） |
 | 列表骨架屏 | **`src/components/ui/UserCardSkeleton.tsx`**（**`animate-pulse`**） |
@@ -91,9 +91,9 @@
 | 雙人血盟（Layer 2） | **`src/lib/repositories/server/alliance.repository.ts`** |
 | 月老／商店預留 | `src/app/(app)/matchmaking/page.tsx`、`src/app/(app)/shop/page.tsx`（**即將開放**） |
 | 舊路由轉址 | **`/village`**、**`/market`** → **`/explore`**；**`/alliances`**、**`/inbox`** → **`/guild`** |
-| 使用者詳情 Modal | `src/components/modals/UserDetailModal.tsx`（今日心情、雙欄自白、雙區標籤、**`social.action`** 緣分＋**AlertDialog**；**雙向互讚**時 **血盟** 四態：**`alliance.action`**；**IG** 列：**`ig_public`** 或已血盟才顯示 **@handle**） |
-| 有緣分＋互讚檢查 | **`src/services/social.action.ts`**（含 **`checkMutualLikeWithTargetAction`**，供血盟解鎖） |
-| 技能市集（邏輯） | `src/services/market.service.ts`（**`getMarketUsersAction`**、**`unstable_cache` 60s** 快取 **`findMarketUsers`**、**搜尋篩選在快取外**、檔內 **Perfect Match**）；UI 見 **`MarketContent`** |
+| 使用者詳情 Modal | `src/components/modals/UserDetailModal.tsx`（開啟時 **`getModalSocialStatusAction`** 合併載入緣分／血盟；今日心情、雙欄自白、雙區標籤、**`toggleLikeAction`**＋**AlertDialog**；血盟操作後再拉合併狀態；**IG** 列：**`ig_public`** 或已血盟才顯示 **@handle**） |
+| 有緣分＋互讚／Modal 合併載入 | **`src/services/social.action.ts`**（**`getModalSocialStatusAction`**：一次 **`auth.getUser()`** + **`Promise.all`**：**`findLike`** 雙向 + **`findAllianceBetween`**；仍含 **`getLikeStatusForTargetAction`**／**`checkMutualLikeWithTargetAction`**／**`toggleLikeAction`**） |
+| 技能市集（邏輯） | `src/services/market.service.ts`（**`getMarketUsersAction`**、**`getCachedMySkills`** **`unstable_cache` 60s** **`tags: profileCacheTag`**、**`unstable_cache` 60s** 快取 **`findMarketUsers`**、**搜尋篩選在列表快取回傳後**、檔內 **Perfect Match**）；UI 見 **`MarketContent`** |
 | 配對工具 | **`src/lib/utils/matching.ts`**（**`isOrientationMatch`**、**`calcInterestScore`**、**`calcSkillScore`**） |
 | Users Repository | `src/lib/repositories/server/user.repository.ts`（**`findActiveUsers`**、**`findVillageUsers`**、**`findMarketUsers`**、**`updateLastCheckinAt`**） |
 | EXP 寫入 | `src/lib/repositories/server/exp.repository.ts` |
@@ -132,7 +132,7 @@
 |------|------|
 | ✅ 已接線 | Layer 2 **`findActiveUsers`**（通用活躍列表）；**`findVillageUsers`**（同縣市 **`active`**）；**`findMarketUsers`**（全台 **`active`**，精簡欄位） |
 | ✅ 已接線 | Layer 3 **`getVillageUsersAction`**：**`matching.isOrientationMatch`** 雙向篩選 → **`calcInterestScore`** 排序；**`unstable_cache` 30s**（**`village-{userId}-{region}`**） |
-| ✅ 已接線 | Layer 3 **`getMarketUsersAction`**：**`calcSkillScore`**（互補優先、同好次之）＋檔內 **Perfect Match**（**`skills_want`／`skills_offer`**）優先浮上；**`findMarketUsers`** **60s** 快取、**關鍵字篩選在快取外** |
+| ✅ 已接線 | Layer 3 **`getMarketUsersAction`**：**`calcSkillScore`**（互補優先、同好次之）＋檔內 **Perfect Match**（**`skills_want`／`skills_offer`**）優先浮上；**`findMarketUsers`** **60s** 快取；**`getCachedMySkills`**（**60s**、**`profileCacheTag`** 與 profile 一併失效）；**關鍵字篩選在列表快取回傳後** |
 | ✅ 已接線 | Layer 5 **`/explore`**：**Server** 預載村莊 → **`ExploreClient`**；頂部 **Switch** 村莊／市集（**市集切 tab 才載入**）；**`UserCard`** 分 **`variant`**；**`UserDetailModal`** 仍展示完整興趣／技能 |
 | ✅ 交接確認 | **`users`** 須 **`interests` 為 `text[]`**，並建議具 **`bio`**、**`skills_offer`**、**`skills_want`**（見 🗄️）；DDL 後必要時 **重載 API Schema** |
 
@@ -175,7 +175,7 @@
 |------|------------|----------|
 | **Layer 1** 連線 | `src/lib/supabase/` | ✅ `client.ts`、`server.ts`、`admin.ts`；`Database` 型別已注入 client |
 | **Layer 2** 資料 | `src/lib/repositories/server/` | ✅ `user.repository.ts`（`findProfileById`、`createProfile`、**`findActiveUsers`**、**`findVillageUsers`**、**`findMarketUsers`**、**`updateLastCheckinAt`**）、`exp.repository.ts`（admin）；`client/` 尚空 |
-| **Layer 3** 業務 | `src/services/` | ✅ **`village.service.ts`**（**`getVillageUsersAction`**、**`unstable_cache` 30s**）、**`market.service.ts`**（**`getMarketUsersAction`**、列表 **60s** 快取、搜尋快取外、檔內 Perfect Match） |
+| **Layer 3** 業務 | `src/services/` | ✅ **`village.service.ts`**（**`getVillageUsersAction`**、**`unstable_cache` 30s**）、**`market.service.ts`**（**`getMarketUsersAction`**、列表 **60s** 快取、**`getCachedMySkills`** 跟 **profile** 標籤失效、關鍵字在快取回傳後篩選、檔內 Perfect Match） |
 | **Layer 4** 狀態 | `src/lib/hooks/`、`src/store/`、`src/lib/constants/`、`src/lib/validation/`、`src/lib/utils/` | ⏳ **hooks／Zustand** 尚未實作；✅ **常數、Zod schema、forbidden-words**；✅ **`date.ts`**（台灣日界 SSOT）；✅ **`matching.ts`**（性向／興趣／技能分數） |
 | **Layer 5** UI | `src/components/*`、`src/app/*` | ✅ shadcn；**`Navbar`**（五欄底欄）、**`/explore`**（**`ExploreClient`**）、**`/guild`**、**`/matchmaking`**、**`/shop`**、**`UserCard`**、**`LevelFrame`**、個人頁與認證殼 |
 
@@ -419,7 +419,7 @@ NOTIFY pgrst, 'reload schema';
 - **Layer 5 — `/explore`**：**`page.tsx`** 為 **Server Component**，伺服端 **`await getVillageUsersAction()`** 預載村莊列表，傳入 **`ExploreClient`**（**`initialVillageUsers`**）；**切換「技能市集」tab** 才 **`getMarketUsersAction('')`**（lazy，節省首次載入）。
 - **Layer 5 — `ExploreClient.tsx`**（client）：tab 狀態、市集列表／搜尋；**`VillageContent`** 僅收 **`users`**（無 **`useEffect`**／骨架）；**`MarketContent`** 收 **`users`／`loading`／`query`／`onQueryChange`**，搜尋 **300ms debounce**，首次市集載入 **6×`UserCardSkeleton`**。
 - **Layer 3 — `village.service.ts`**：**`unstable_cache`** 包住村莊查詢與篩選排序，**`revalidate: 30`**，key **`village-{userId}-{region}`**。
-- **Layer 3 — `market.service.ts`**：**`unstable_cache`** 僅包住 **`findMarketUsers`**，**`revalidate: 60`**，key **`market-{userId}`**；**關鍵字搜尋在快取回傳後篩選**（即時）；**Perfect Match** 與分數排序仍在快取外邏輯。
+- **Layer 3 — `market.service.ts`**：**`unstable_cache`** 包住 **`findMarketUsers`**（**`revalidate: 60`**，key **`market-{userId}`**）與 **`getCachedMySkills`**（同 TTL、**`profileCacheTag`**）；**關鍵字搜尋在列表快取回傳後篩選**；**Perfect Match** 與分數排序仍於快取回傳後計算。
 
 ### 2025-03-24 — PWA manifest 圖示與主題色 **`#0f0a1e`**
 
@@ -569,4 +569,49 @@ NOTIFY pgrst, 'reload schema';
 - **Layer 3 — `profile-update.action.ts`**：僅接受 **HTTPS** **`avatar_url`**；註解已標明**不**經 Supabase Storage。
 - **專案內** **`guild-profile-home`／`updateMyProfile`** 已**無** **`supabase.storage`**／**`bucket`**／**`avatars` bucket** 上傳程式碼（**`createClient()`** 仍用於 **登出**）。
 
-*最後更新：2026-03-24 — **雙人血盟**統一至 **`public.alliances`**（**`user_a`／`user_b`／`initiated_by`**）；**`user_alliances` 遷移勿執行**；**`alliance.repository`／`alliance.action`**；**`UserDetailModal`**、**`/guild`**。*
+### 2026-03-24 — 效能修復 Phase 1：Middleware／RSC 重複查詢 Profile
+
+- **Layer 1／快取**：新增 **`src/lib/supabase/get-cached-profile.ts`** — **`getCachedProfile(userId)`** 以 **`unstable_cache`** 包住 **`findProfileById`**，**`revalidate: 30`**，**`tags: [\`profile-${userId}\`]`**（與 **`revalidateTag`** 對齊）。
+- **Layer 3 — `auth-status.ts`**：**`deriveAuthStatus`** 改為 **`getCachedProfile(user.id)`**，供 **`src/middleware.ts`** 與 **`getAuthStatus`**（**`auth.service.ts`**）共用；同一 **`userId`** 在 TTL 內換頁僅打一筆 profile DB（理論上與 Next Data Cache 行為一致）。
+- **Layer 3**：**`updateMyProfile`**（**`profile-update.action.ts`**）成功後 **`revalidateTag(profileCacheTag(user.id))`**；**`completeAdventurerProfile`**（**`adventurer-profile.action.ts`**）成功後同樣 **`revalidateTag`**，避免更新後仍讀舊快取。**`updateMyProfile`** 內驗證用 **`findProfileById`** 仍為即時讀取（未改為快取）。
+
+### 2026-03-24 — 效能修復 Phase 2：頭像優化（Avatar／Cloudinary／next/image）
+
+- **設定**：**`next.config.mjs`** 新增 **`images.remotePatterns`**：**`https://res.cloudinary.com/**`**。
+- **Layer 5**：新增 **`src/components/ui/Avatar.tsx`** — **`next/image`**（**`loading="lazy"`**、**`sizes`**）；Cloudinary URL 將 **`/upload/`** 改為 **`/upload/w_{size×2},h_{size×2},c_fill,q_auto,f_auto/`**；非 Cloudinary 之 **`avatar_url`** 仍用 **`<img>`**（未列入 **`remotePatterns`** 時避免執行期錯誤）。
+- **套用**：**`UserCard`**、**`UserDetailModal`**、**`/guild`** 血盟／待確認列表、**`guild-profile-home`** 首頁大頭貼（**`div` wrapper** 保留點擊上傳、**`fileInputRef`**、上傳中遮罩與桌面 **「更換」** hover）。
+
+### 2026-03-24 — 效能修復 Phase 3：Modal 社交狀態合併查詢
+
+- **Layer 3 — `social.action.ts`**：新增 **`getModalSocialStatusAction(targetUserId)`** 與型別 **`ModalSocialStatus`** — 單次 **`createClient().auth.getUser()`** 後 **`Promise.all`**：**`findLike`**（我→對方）、**`findLike`**（對方→我）、**`findAllianceBetween`**（與 **`getAllianceStatusAction`** 相同資料來源）；回傳 **`isLiked`／`isLikedByThem`／`isMutualLike`／`allianceStatus`／`allianceId`／`currentUserId`**。
+- **Layer 5 — `UserDetailModal.tsx`**：移除 **`getLikeStatusForTargetAction`**、**`checkMutualLikeWithTargetAction`**、**`getAllianceStatusAction`** 與瀏覽器 **`createClient().auth.getUser()`** 等**多段** **`useEffect`**；改為 **`open` 時**一次 **`getModalSocialStatusAction`**；緣分切換、取消緣分、血盟申請／接受／解除後皆 **`getModalSocialStatusAction`** 刷新。**Modal 開啟時由多次伺服端／客戶端 auth 查詢收斂為合併 action 內 1 次 **`getUser`**（客戶端不再為 Modal 單獨拉 session）。**
+
+### 2026-03-24 — 效能修復 Phase 4：市集搜尋快取自己的技能
+
+- **Layer 3 — `market.service.ts`**：新增 **`getCachedMySkills(userId)`** — **`unstable_cache`** 僅查 **`skills_offer`／`skills_want`**，**`revalidate: 60`**，**`tags: [profileCacheTag(userId)]`**；**`getMarketUsersAction`** 改用它取代每次 **`users` `.select`**。**`updateMyProfile`**（及建檔 **`completeAdventurerProfile`**）既有 **`revalidateTag(profileCacheTag)`** 會一併失效此快取，無需額外 **`revalidateTag`**。
+
+## 效能修復紀錄（Phase 1-4）
+
+Phase 1 — Middleware Profile 快取
+
+- **`getCachedProfile`**（**`unstable_cache` 30s**）
+- **middleware** 與首頁 RSC 共用快取
+- **效果**：每次換頁減少 1 次 DB 查詢
+
+Phase 2 — 頭像優化
+
+- **`next/image`** + Cloudinary 縮圖參數
+- **Avatar** 共用元件
+- **效果**：頭像從原圖縮為顯示尺寸，節省 90%+ 流量
+
+Phase 3 — Modal 查詢合併
+
+- **`getModalSocialStatusAction`** 一次 auth + 並行查詢
+- **效果**：**`/explore` First Load -57kB**，Modal 開啟 3 次 auth → 1 次
+
+Phase 4 — 市集搜尋快取
+
+- **`getCachedMySkills`**（跟著 profile cache 失效）
+- **效果**：搜尋不重複查自己的技能
+
+*最後更新：2026-03-24 — **雙人血盟**、**效能 Phase 1—4**（Profile 快取／**Avatar**／Modal 合併查詢／**`getCachedMySkills`**）。*

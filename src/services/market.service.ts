@@ -1,10 +1,34 @@
 "use server";
 
 import { unstable_cache } from "next/cache";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
 import { createClient } from "@/lib/supabase/server";
 import { findMarketUsers } from "@/lib/repositories/server/user.repository";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { calcSkillScore } from "@/lib/utils/matching";
+
+type MySkillsRow = Pick<UserRow, "skills_offer" | "skills_want">;
+
+/** 快取自己的技能資料（跟著 profile cache 一起失效） */
+async function getCachedMySkills(userId: string): Promise<MySkillsRow | null> {
+  return unstable_cache(
+    async () => {
+      const supabase = createAdminClient();
+      const { data } = await supabase
+        .from("users")
+        .select("skills_offer, skills_want")
+        .eq("id", userId)
+        .single();
+      return data as MySkillsRow | null;
+    },
+    [`my-skills-${userId}`],
+    {
+      revalidate: 60,
+      tags: [profileCacheTag(userId)],
+    },
+  )();
+}
 
 function normalizeTags(raw: string[] | null | undefined): string[] {
   if (!raw?.length) return [];
@@ -59,13 +83,7 @@ export async function getMarketUsersAction(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, users: [] };
 
-  const { data: mePartial } = await supabase
-    .from("users")
-    .select("skills_offer, skills_want")
-    .eq("id", user.id)
-    .single();
-
-  const me = mePartial as Pick<UserRow, "skills_offer" | "skills_want"> | null;
+  const me = await getCachedMySkills(user.id);
   const meForPerfect = (me ?? {
     skills_offer: [],
     skills_want: [],
