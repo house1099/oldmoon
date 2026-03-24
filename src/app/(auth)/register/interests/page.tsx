@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import TagSelector from "@/components/register/TagSelector";
+import { toast } from "sonner";
 import { RegistrationStepIndicator } from "@/components/auth/registration-step-indicator";
+import TagSelector from "@/components/register/TagSelector";
+import LoadingButton from "@/components/ui/LoadingButton";
 import {
   INTEREST_CATEGORIES,
   SKILL_CATEGORIES,
@@ -17,7 +19,6 @@ export default function InterestsPage() {
   const [skillsOffer, setSkillsOffer] = useState<string[]>([]);
   const [skillsWant, setSkillsWant] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<"offer" | "want">("offer");
-  const [submitting, setSubmitting] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [error, setError] = useState("");
 
@@ -42,14 +43,12 @@ export default function InterestsPage() {
       setError("請至少選擇 1 個興趣");
       return;
     }
-    setSubmitting(true);
     setError("");
     const result = await completeRegistration({
       interests,
       skills_offer: wantSkills ? skillsOffer : [],
       skills_want: wantSkills ? skillsWant : [],
     });
-    setSubmitting(false);
     if (result.ok) {
       try {
         sessionStorage.removeItem("reg_interests");
@@ -58,7 +57,9 @@ export default function InterestsPage() {
       }
       setShowWelcomeModal(true);
     } else {
-      setError(result.error ?? "儲存失敗，請稍後再試");
+      const msg = result.error ?? "儲存失敗，請稍後再試";
+      setError(msg);
+      toast.error("❌ 操作失敗，請稍後再試");
     }
   }
 
@@ -190,14 +191,14 @@ export default function InterestsPage() {
           >
             上一步
           </button>
-          <button
-            type="button"
-            onClick={() => void handleComplete()}
-            disabled={submitting || interests.length === 0}
+          <LoadingButton
             className="flex-1 rounded-full bg-violet-600 py-4 text-sm font-medium text-white transition-all hover:bg-violet-500 disabled:opacity-40 active:scale-95"
+            loadingText="處理中…"
+            disabled={interests.length === 0}
+            onClick={handleComplete}
           >
-            {submitting ? "儲存中…" : "完成"}
-          </button>
+            完成
+          </LoadingButton>
         </div>
       </div>
 

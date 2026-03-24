@@ -94,6 +94,7 @@
 | Zod／不雅字／IG 格式 | `src/lib/validation/*.ts`、`src/lib/utils/forbidden-words.ts` |
 | DB 型別 | `src/types/database.types.ts`（含 **`ig_change_requests`**、**`users.role`**、**`skills_offer`**／**`skills_want`**） |
 | 市集 Perfect Match 高光 | `src/app/globals.css`（**`.perfect-match-market-shell`**） |
+| 防重複點擊按鈕 | **`src/components/ui/LoadingButton.tsx`**（**`PendingLabel`** spinner）；註冊／首頁個人卡／**`UserDetailModal`** 等重要操作採用；**Sonner** 成功／失敗文案見下「Toast 統一規範」 |
 
 ---
 
@@ -435,6 +436,13 @@ NOTIFY pgrst, 'reload schema';
 
 - **Layer 5 — `interests/page.tsx`**：**興趣村莊**（必選，**`maxSelect={12}`**）＋**「我也想在技能市集交流」**勾選後才展開 **我能教／我想學**（**`TagSelector`** + **`SKILL_CATEGORIES`**）；**`RegistrationStepIndicator activeStep={4}`**；完成呼叫 **`completeRegistration`**（未勾技能則 **`skills_offer`／`skills_want`** 送空陣列）；成功後**全螢幕 Modal**：**進入傳奇公會** **`/`** 或 **月老配對** **`/register/matchmaking`**。可選保留讀取 **`sessionStorage.reg_interests`** 還原興趣。
 - **Layer 5**：**`/register/skills/page.tsx`** 改為 **`redirect('/register/interests')`**；**`skills-offer`／`skills-want`** 同步導向 **`/register/interests`**。
+
+### 2025-03-24 — `LoadingButton`、防連點與 Toast 統一
+
+- **Layer 5 — `src/components/ui/LoadingButton.tsx`**：共用 **`LoadingButton`**（內部 **`useRef` lock** 防連點；可選 **`loading` 受控**）＋ **`PendingLabel`**（spinner + 文案，預設 **「處理中…」**）；**`active:scale-95`**，**disabled** 時 **`disabled:active:scale-100`**；可轉傳 **`aria-label`** 等 button 屬性。
+- **套用處**：**`register-form`** 建立帳號；**`profile-form`** 下一步（**`LoadingButton`**）／完成（**`PendingLabel` + `loading`**）；**`/register/interests`** 完成；**`guild-profile-home`** 簽到列（**`PendingLabel`**）、今日心情／雙自白／帳號設定 IG／裁切確認；**`UserDetailModal`** 緣分鈕（**`LoadingButton`**，`likeLoading` 時 **disabled**）＋取消緣分 **AlertDialog** 確定鈕內 **PendingLabel**。
+- **註冊名冊**：**`profile-form`** 之 **「下一步」** 以 **`LoadingButton`** 包 **`goNext()`**（**`await Promise.resolve()`** 後執行，避免同幀連點）；完成送出維持 **`<button type="submit">`** + **`PendingLabel`**。
+- **Toast 規範（Sonner）**：簽到成功 **「+1 EXP！繼續加油 ⚔️」**；已簽／冷卻 **「還在冷卻中，明天再來！」**；送出緣分 **「💖 緣分已送出！」**（互有緣分仍保留 **🎉 互有緣分！**）；取消緣分 **「緣分已取消」**；自白成功 **「✅ 已更新」**；心情 **「今日心情已更新 ✨」**；IG 綁定 **「IG 帳號已綁定」**；IG 申請 **「申請已送出，等待管理員審核」**；上述流程之 API 失敗統一 **「❌ 操作失敗，請稍後再試」**（表單驗證類訊息仍可維持原 **toast.error** 具體文案）。
 
 ### 2025-03-24 — 性向隱私：`UserDetailModal`／`UserCard` 移除展示
 

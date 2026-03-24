@@ -11,6 +11,7 @@ import {
   guildAuthInputStandaloneClass,
 } from "@/components/auth/auth-styles";
 import { Input } from "@/components/ui/input";
+import LoadingButton, { PendingLabel } from "@/components/ui/LoadingButton";
 import { cn } from "@/lib/utils";
 import {
   CORE_VALUES_QUESTIONS,
@@ -206,7 +207,7 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
           : undefined,
       });
       if (result.ok === false) {
-        toast.error(result.error);
+        toast.error("❌ 操作失敗，請稍後再試");
         return;
       }
       toast.success("名冊已建立，接著選擇興趣與技能標籤！");
@@ -557,17 +558,20 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
                   上一步
                 </button>
               ) : null}
-              <button
-                type="button"
-                onClick={goNext}
-                disabled={loading}
+              <LoadingButton
                 className={cn(
-                  "rounded-full bg-violet-600 py-4 text-sm font-medium text-white transition-all hover:bg-violet-500 active:scale-95 disabled:opacity-40",
+                  "rounded-full bg-violet-600 py-4 text-sm font-medium text-white transition-all hover:bg-violet-500 disabled:opacity-40",
                   step > 1 ? "flex-1" : "w-full",
                 )}
+                loadingText="處理中…"
+                disabled={loading}
+                onClick={async () => {
+                  await Promise.resolve();
+                  goNext();
+                }}
               >
                 下一步
-              </button>
+              </LoadingButton>
             </>
           ) : (
             <>
@@ -582,9 +586,13 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 rounded-full bg-violet-600 py-4 text-sm font-medium text-white transition-all hover:bg-violet-500 active:scale-95 disabled:opacity-40"
+                className="flex-1 rounded-full bg-violet-600 py-4 text-sm font-medium text-white transition-all hover:bg-violet-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
               >
-                {loading ? "⏳ 傳輸中..." : "完成並進入公會"}
+                {loading ? (
+                  <PendingLabel text="處理中…" />
+                ) : (
+                  "完成並進入公會"
+                )}
               </button>
             </>
           )}

@@ -17,6 +17,7 @@ import {
   toggleLikeAction,
 } from "@/services/social.action";
 import { Button } from "@/components/ui/button";
+import LoadingButton, { PendingLabel } from "@/components/ui/LoadingButton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,7 +78,7 @@ export function UserDetailModal({
       if (r.success) {
         setIsLiked(r.liked);
       } else {
-        toast.error(r.error);
+        toast.error("❌ 操作失敗，請稍後再試");
       }
       setLikeLoading(false);
     });
@@ -125,18 +126,9 @@ export function UserDetailModal({
       return;
     }
     if (liked) {
-      toast.success("💕 緣分已點亮！", {
-        description: "你的心意已傳達給這位冒險者 ✨ 願星光眷顧這段邂逅",
-        duration: 5200,
-        className:
-          "border border-rose-500/40 bg-gradient-to-br from-rose-600/25 via-zinc-950 to-violet-950/90 text-rose-50 shadow-2xl shadow-rose-950/30",
-      });
+      toast.success("💖 緣分已送出！");
     } else {
-      toast.message("已收回有緣分", {
-        description: "隨時可以再送出心意喵～",
-        className:
-          "border border-zinc-700/60 bg-zinc-950 text-zinc-100 shadow-xl",
-      });
+      toast.success("緣分已取消");
     }
   }
 
@@ -150,7 +142,7 @@ export function UserDetailModal({
     try {
       const result = await toggleLikeAction(user.id);
       if (!result.success) {
-        toast.error(result.error);
+        toast.error("❌ 操作失敗，請稍後再試");
         return;
       }
       setIsLiked(result.liked);
@@ -165,7 +157,7 @@ export function UserDetailModal({
     try {
       const result = await toggleLikeAction(user.id);
       if (!result.success) {
-        toast.error(result.error);
+        toast.error("❌ 操作失敗，請稍後再試");
         return;
       }
       setIsLiked(result.liked);
@@ -355,24 +347,21 @@ export function UserDetailModal({
               >
                 💬 聊聊
               </Button>
-              <button
-                type="button"
-                disabled={likeLoading || likePending}
-                onClick={() => void handleToggleLike()}
+              <LoadingButton
                 className={cn(
                   "flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full py-3 text-sm font-medium transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-60",
                   isLiked
                     ? "bg-rose-500/80 text-white"
                     : "bg-white/10 text-white hover:bg-white/20",
                 )}
+                loading={likeLoading || likePending}
+                loadingText="處理中…"
+                disabled={likeLoading}
+                onClick={handleToggleLike}
                 aria-label={isLiked ? "已送出緣分，點擊可收回" : "送出緣分"}
               >
-                {likeLoading || likePending
-                  ? "…"
-                  : isLiked
-                    ? "💖 已送出緣分"
-                    : "🤍 送出緣分"}
-              </button>
+                {isLiked ? "💖 已送出緣分" : "🤍 送出緣分"}
+              </LoadingButton>
             </div>
           </DialogFooter>
         </DialogContent>
@@ -400,7 +389,11 @@ export function UserDetailModal({
                 void confirmCancelLike();
               }}
             >
-              確定取消
+              {likePending ? (
+                <PendingLabel text="處理中…" />
+              ) : (
+                "確定取消"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -23,6 +23,7 @@ import { createClient } from "@/lib/supabase/client";
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import { Button } from "@/components/ui/button";
+import LoadingButton, { PendingLabel } from "@/components/ui/LoadingButton";
 import {
   CalendarCheck,
   ChevronRight,
@@ -294,11 +295,11 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         mood_at: now,
       });
       if (result.ok === false) {
-        toast.error(result.error);
+        toast.error("❌ 操作失敗，請稍後再試");
         return;
       }
       setMoodAt(now);
-      toast.success("今日心情已更新");
+      toast.success("今日心情已更新 ✨");
       router.refresh();
     } finally {
       setSavingMood(false);
@@ -313,10 +314,10 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           bio_village: bioVillage.trim(),
         });
         if (result.ok === false) {
-          toast.error(result.error);
+          toast.error("❌ 操作失敗，請稍後再試");
           return;
         }
-        toast.success("興趣自白已更新");
+        toast.success("✅ 已更新");
         router.refresh();
       } finally {
         setSavingBioVillage(false);
@@ -328,10 +329,10 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           bio_market: bioMarket.trim(),
         });
         if (result.ok === false) {
-          toast.error(result.error);
+          toast.error("❌ 操作失敗，請稍後再試");
           return;
         }
-        toast.success("技能自白已更新");
+        toast.success("✅ 已更新");
         router.refresh();
       } finally {
         setSavingBioMarket(false);
@@ -347,10 +348,10 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         instagram_handle: igInput.trim(),
       });
       if (result.ok === false) {
-        toast.error(result.error);
+        toast.error("❌ 操作失敗，請稍後再試");
         return;
       }
-      toast.success("IG 帳號已設定");
+      toast.success("IG 帳號已綁定");
       setIgInput("");
       router.refresh();
     } finally {
@@ -367,10 +368,10 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     try {
       const r = await requestIgChangeAction(igInput.trim());
       if (!r.ok) {
-        toast.error(r.error);
+        toast.error("❌ 操作失敗，請稍後再試");
         return;
       }
-      toast.success("已送出申請，審核通過後將更新");
+      toast.success("申請已送出，等待管理員審核");
       setShowIgChangeInput(false);
       setIgInput("");
       router.refresh();
@@ -387,7 +388,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
       const result = await updateMyProfile({ ig_public: checked });
       if (result.ok === false) {
         setIgPublic(prev);
-        toast.error(result.error);
+        toast.error("❌ 操作失敗，請稍後再試");
         return;
       }
       toast.success("IG 公開狀態已更新");
@@ -446,7 +447,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
       const cloudUrl = await uploadAvatarToCloudinary(file);
       const result = await updateMyProfile({ avatar_url: cloudUrl });
       if (result.ok === false) {
-        toast.error(result.error);
+        toast.error("❌ 操作失敗，請稍後再試");
         return;
       }
       setAvatarUrl(cloudUrl);
@@ -455,7 +456,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
       router.refresh();
     } catch (err) {
       console.error("❌ 頭像裁切或上傳:", err);
-      toast.error(err instanceof Error ? err.message : "上傳失敗");
+      toast.error("❌ 操作失敗，請稍後再試");
     } finally {
       setUploading(false);
     }
@@ -470,7 +471,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           result.error === DAILY_CHECKIN_ALREADY_CLAIMED ||
           /duplicate/i.test(result.error)
         ) {
-          toast.success("今日已經簽到過了喵！");
+          toast.success("還在冷卻中，明天再來！");
           setCheckinDone(true);
           setCooldown({
             hours: result.remainHours ?? 23,
@@ -478,10 +479,10 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           });
           return;
         }
-        toast.error(result.error);
+        toast.error("❌ 操作失敗，請稍後再試");
         return;
       }
-      toast.success("簽到成功！獲得 +1 EXP 喵！");
+      toast.success("+1 EXP！繼續加油 ⚔️");
       setCheckinDone(true);
       setCooldown({ hours: 23, mins: 59 });
       router.refresh();
@@ -656,14 +657,15 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               <span className="text-xs text-zinc-600">
                 {moodInput.length}/50
               </span>
-              <button
-                type="button"
-                onClick={() => void handleSaveMood()}
-                disabled={savingMood || !moodInput.trim()}
+              <LoadingButton
                 className="rounded-full bg-white/10 px-5 py-2 text-sm font-medium text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-40"
+                loading={savingMood}
+                loadingText="處理中…"
+                disabled={!moodInput.trim()}
+                onClick={handleSaveMood}
               >
-                {savingMood ? "更新中…" : "確認"}
-              </button>
+                確認
+              </LoadingButton>
             </div>
           </div>
         </div>
@@ -696,14 +698,14 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                   <span className="text-xs text-zinc-600">
                     {bioVillage.length}/200
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => void handleSaveBio("village")}
-                    disabled={savingBioVillage}
+                  <LoadingButton
                     className="rounded-full bg-white/10 px-5 py-2 text-sm font-medium text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-40"
+                    loading={savingBioVillage}
+                    loadingText="處理中…"
+                    onClick={() => void handleSaveBio("village")}
                   >
-                    {savingBioVillage ? "更新中…" : "確認修改"}
-                  </button>
+                    確認修改
+                  </LoadingButton>
                 </div>
               </div>
 
@@ -722,14 +724,14 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                   <span className="text-xs text-zinc-600">
                     {bioMarket.length}/200
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => void handleSaveBio("market")}
-                    disabled={savingBioMarket}
+                  <LoadingButton
                     className="rounded-full bg-white/10 px-5 py-2 text-sm font-medium text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-40"
+                    loading={savingBioMarket}
+                    loadingText="處理中…"
+                    onClick={() => void handleSaveBio("market")}
                   >
-                    {savingBioMarket ? "更新中…" : "確認修改"}
-                  </button>
+                    確認修改
+                  </LoadingButton>
                 </div>
               </div>
             </div>
@@ -916,13 +918,18 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="font-medium">
-                {checkinLoading
-                  ? "連線中…"
-                  : checkinDone && cooldown
-                    ? `⏳ 還有 ${cooldown.hours} 小時 ${cooldown.mins} 分`
-                    : checkinDone
-                      ? "⏳ 簽到冷卻中"
-                      : "📅 每日簽到（+1 EXP）"}
+                {checkinLoading ? (
+                  <PendingLabel
+                    text="處理中…"
+                    className="justify-start text-sm font-medium"
+                  />
+                ) : checkinDone && cooldown ? (
+                  `⏳ 還有 ${cooldown.hours} 小時 ${cooldown.mins} 分`
+                ) : checkinDone ? (
+                  "⏳ 簽到冷卻中"
+                ) : (
+                  "📅 每日簽到（+1 EXP）"
+                )}
               </span>
             </span>
           </span>
@@ -988,14 +995,15 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                         />
                       </div>
                       <div className="flex gap-2">
-                        <button
-                          type="button"
-                          disabled={igRequestSubmitting || !igInput.trim()}
-                          onClick={() => void handleSubmitIgChangeRequest()}
+                        <LoadingButton
                           className="flex-1 rounded-full bg-white/10 py-2 text-sm text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-40"
+                          loading={igRequestSubmitting}
+                          loadingText="處理中…"
+                          disabled={!igInput.trim()}
+                          onClick={handleSubmitIgChangeRequest}
                         >
-                          {igRequestSubmitting ? "送出中…" : "確認送出申請"}
-                        </button>
+                          確認送出申請
+                        </LoadingButton>
                         <button
                           type="button"
                           disabled={igRequestSubmitting}
@@ -1039,14 +1047,15 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                       className="min-w-0 flex-1 border-0 bg-transparent text-base text-white outline-none placeholder:text-zinc-600"
                     />
                   </div>
-                  <button
-                    type="button"
-                    disabled={!igInput.trim() || savingInstagram}
-                    onClick={() => void handleConfirmBindIg()}
+                  <LoadingButton
                     className="w-full rounded-full bg-white/10 py-2 text-sm text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-40"
+                    loading={savingInstagram}
+                    loadingText="處理中…"
+                    disabled={!igInput.trim()}
+                    onClick={handleConfirmBindIg}
                   >
-                    {savingInstagram ? "設定中…" : "確認設定"}
-                  </button>
+                    確認設定
+                  </LoadingButton>
                 </div>
               )}
             </div>
@@ -1146,14 +1155,15 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               >
                 取消
               </button>
-              <button
-                type="button"
-                disabled={uploading || !croppedAreaPixels}
-                onClick={() => void handleCropConfirm()}
+              <LoadingButton
                 className="flex-1 rounded-full border border-violet-400/35 bg-violet-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-950/50 transition hover:bg-violet-500 disabled:pointer-events-none disabled:opacity-45"
+                loading={uploading}
+                loadingText="處理中…"
+                disabled={!croppedAreaPixels}
+                onClick={handleCropConfirm}
               >
-                {uploading ? "上傳中…" : "確認裁切"}
-              </button>
+                確認裁切
+              </LoadingButton>
             </div>
           </div>
         </div>

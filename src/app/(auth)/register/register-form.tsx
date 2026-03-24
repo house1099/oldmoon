@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { GuildAuthShell } from "@/components/auth/guild-auth-shell";
 import { RegistrationStepIndicator } from "@/components/auth/registration-step-indicator";
 import { guildAuthPrimaryButtonClass } from "@/components/auth/auth-styles";
-import { Button } from "@/components/ui/button";
+import LoadingButton from "@/components/ui/LoadingButton";
 import {
   Eye,
   EyeOff,
@@ -31,12 +31,10 @@ export function RegisterForm() {
   const [inviteCode, setInviteCode] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleRegisterClick() {
     setFieldErrors({});
 
     if (password !== confirmPassword) {
@@ -74,7 +72,6 @@ export function RegisterForm() {
       return;
     }
 
-    setLoading(true);
     const supabase = createClient();
     const { data, error } = await supabase.auth.signUp({
       email: parsed.data.email,
@@ -88,13 +85,12 @@ export function RegisterForm() {
         },
       },
     });
-    setLoading(false);
 
     if (error) {
       toast.error(
         friendlyAuthErrorMessage(
           error.message,
-          "註冊失敗，請稍後再試或換一組 Email。",
+          "❌ 操作失敗，請稍後再試",
         ),
       );
       return;
@@ -121,7 +117,10 @@ export function RegisterForm() {
     >
       <RegistrationStepIndicator activeStep={1} />
 
-      <form onSubmit={onSubmit} className="flex flex-col gap-6">
+      <form
+        className="flex flex-col gap-6"
+        onSubmit={(e) => e.preventDefault()}
+      >
         {/* Email */}
         <div className="relative">
           <Mail
@@ -282,14 +281,13 @@ export function RegisterForm() {
           <p className="px-2 text-xs text-red-300">{fieldErrors.termsAccepted}</p>
         ) : null}
 
-        <Button
-          type="submit"
+        <LoadingButton
           className={guildAuthPrimaryButtonClass}
-          size="lg"
-          disabled={loading}
+          loadingText="處理中…"
+          onClick={handleRegisterClick}
         >
-          {loading ? "⏳ 時空連線中..." : "建立帳號"}
-        </Button>
+          建立帳號
+        </LoadingButton>
       </form>
 
       <p className="border-t border-white/10 pt-6 text-center text-sm text-zinc-300">
