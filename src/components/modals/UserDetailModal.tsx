@@ -67,7 +67,7 @@ export function UserDetailModal({
   const [isLiked, setIsLiked] = useState(false);
   const [likeLoading, setLikeLoading] = useState(true);
   const [likePending, setLikePending] = useState(false);
-  const [unlikeConfirmOpen, setUnlikeConfirmOpen] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [moodCountdownLabel, setMoodCountdownLabel] = useState<string | null>(
     null,
   );
@@ -137,7 +137,12 @@ export function UserDetailModal({
     }
   }
 
-  async function runToggleLike() {
+  async function handleToggleLike() {
+    if (likeLoading || likePending) return;
+    if (isLiked) {
+      setShowCancelDialog(true);
+      return;
+    }
     setLikePending(true);
     try {
       const result = await toggleLikeAction(user.id);
@@ -152,18 +157,20 @@ export function UserDetailModal({
     }
   }
 
-  async function handleToggleLike() {
-    if (likeLoading || likePending) return;
-    if (isLiked) {
-      setUnlikeConfirmOpen(true);
-      return;
+  async function confirmCancelLike() {
+    setLikePending(true);
+    try {
+      const result = await toggleLikeAction(user.id);
+      if (!result.success) {
+        toast.error(result.error);
+        return;
+      }
+      setIsLiked(result.liked);
+      setShowCancelDialog(false);
+      applyToggleToasts(result.liked, result.isMatch);
+    } finally {
+      setLikePending(false);
     }
-    await runToggleLike();
-  }
-
-  function confirmEndAffinity() {
-    setUnlikeConfirmOpen(false);
-    void runToggleLike();
   }
 
   return (
@@ -348,53 +355,47 @@ export function UserDetailModal({
                 disabled={likeLoading || likePending}
                 onClick={() => void handleToggleLike()}
                 className={cn(
-                  "flex h-11 min-h-[2.75rem] min-w-0 flex-1 items-center justify-center gap-2 rounded-full py-3 text-sm font-medium transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-60",
+                  "flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full py-3 text-sm font-medium transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-60",
                   isLiked
                     ? "bg-rose-500/80 text-white"
                     : "bg-white/10 text-white hover:bg-white/20",
                 )}
                 aria-label={isLiked ? "已送出緣分，點擊可收回" : "送出緣分"}
               >
-                {likeLoading || likePending ? (
-                  "…"
-                ) : isLiked ? (
-                  <>
-                    <span aria-hidden>💖</span>
-                    已送出緣分
-                  </>
-                ) : (
-                  <>
-                    <span aria-hidden>🤍</span>
-                    送出緣分
-                  </>
-                )}
+                {likeLoading || likePending
+                  ? "…"
+                  : isLiked
+                    ? "💖 已送出緣分"
+                    : "🤍 送出緣分"}
               </button>
             </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={unlikeConfirmOpen} onOpenChange={setUnlikeConfirmOpen}>
-        <AlertDialogContent className="border-amber-900/40 bg-zinc-950 text-zinc-100">
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent className="glass-panel border-white/10">
           <AlertDialogHeader>
-            <AlertDialogTitle>結束緣分</AlertDialogTitle>
+            <AlertDialogTitle className="text-white">
+              確定取消緣分？
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
-              你確定要結束這段緣分嗎？
+              取消後對方將不再收到你的緣分通知。
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="border-t border-zinc-800 bg-zinc-900/50">
-            <AlertDialogCancel className="border-zinc-700 bg-transparent text-zinc-200 hover:bg-zinc-800">
-              取消
+          <AlertDialogFooter className="flex gap-3">
+            <AlertDialogCancel className="flex-1 rounded-full border-0 bg-zinc-800 text-white hover:bg-zinc-700 hover:text-white">
+              再想想
             </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-rose-600 text-white hover:bg-rose-500"
+              className="flex-1 rounded-full bg-rose-600 text-white hover:bg-rose-500"
               disabled={likePending}
               onClick={(e) => {
                 e.preventDefault();
-                confirmEndAffinity();
+                void confirmCancelLike();
               }}
             >
-              確定結束
+              確定取消
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

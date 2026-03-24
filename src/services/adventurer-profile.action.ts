@@ -9,15 +9,16 @@ import {
   type GenderValue,
   type OfflineIntentValue,
   type OrientationValue,
-  type RegionValue,
 } from "@/lib/constants/adventurer-questionnaire";
 import { instagramHandleSchema } from "@/lib/validation/instagram-handle";
 import { adventurerNicknameSchema } from "@/lib/validation/nickname";
 
-/** 問卷值皆為英文 slug（與 `adventurer-questionnaire` 常數一致），對應 `users.gender` 等欄位。 */
+/**
+ * 問卷：`gender`／性向／線下意願為英文 slug；**`region`** 為繁中地區字串（含 `海外・…`）。
+ */
 export type AdventurerQuestionnaire = {
   gender: GenderValue;
-  region: RegionValue;
+  region: string;
   orientation: OrientationValue;
   offlineIntent: OfflineIntentValue;
 };
@@ -88,6 +89,13 @@ export async function completeAdventurerProfile(input: {
   }
 
   const q = input.questionnaire;
+  const regionTrimmed = q.region.trim();
+  if (regionTrimmed.length === 0) {
+    return { ok: false, error: "請選擇或填寫地區。" };
+  }
+  if (regionTrimmed.length > 120) {
+    return { ok: false, error: "地區內容過長。" };
+  }
 
   try {
     // 註冊建檔不帶 `bio`：雲端欄位／schema 快取未齊時可避免 PostgREST 報「找不到 bio」；自介可於個人頁後補。
@@ -96,7 +104,7 @@ export async function completeAdventurerProfile(input: {
       nickname,
       core_values: input.coreValues,
       gender: q.gender,
-      region: q.region,
+      region: regionTrimmed,
       orientation: q.orientation,
       offline_ok: offlineIntentToOfflineOk(q.offlineIntent),
       status: "active",

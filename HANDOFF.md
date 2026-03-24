@@ -132,7 +132,7 @@
 ### `public.users` 與程式約定（務必與 Supabase 一致）
 
 - **暱稱**：`nickname`（**非** `display_name`）。
-- **問卷欄位**（與「自介」分開）：`gender`、`region`、`orientation`、`offline_ok`（boolean）；**自介**為獨立欄位 **`users.bio`**（text，可 null）。表單選項 **value 為英文 slug**，**label 為繁中**，定義於 `src/lib/constants/adventurer-questionnaire.ts`。
+- **問卷欄位**（與「自介」分開）：`gender`、`region`、`orientation`、`offline_ok`（boolean）；**自介**為獨立欄位 **`users.bio`**（text，可 null）。**`gender`／性向／線下意願**為英文 slug + 繁中 label；**`region`** 新制為**繁中縣市或 `海外・{自填}`** 直接寫入 DB（舊資料可能仍為區域 slug）。定義於 **`src/lib/constants/adventurer-questionnaire.ts`**。
 - **Phase 1.5 擴充欄位**：**`instagram_handle`**、**`ig_public`**、**`mood`**、**`mood_at`**（見下方 🗄️）；**`orientation`** 為隱私，公會公開 UI 不應展示。
 - **累積經驗值**：欄位名必為 **`total_exp`**（**勿**使用不存在的 `exp` 欄位名；Trigger／函式亦須對齊 `total_exp`）。
 - **等級**：`level`；新建 profile 時 insert 帶入 `total_exp: 0`、`level: 1` 初值（真實數值仍由雲端 Trigger／規則為準）。
@@ -383,6 +383,13 @@ NOTIFY pgrst, 'reload schema';
 - **Layer 5**：**`guild-profile-home.tsx`** 進入頁面即以 **`profile.last_checkin_at`** 初始化冷卻 state；點擊簽到成功後**立刻**鎖定 UI 並顯示剩餘時分；**每分鐘**更新倒數。
 - **🗄️**：**`supabase/migrations/20260324120000_users_last_checkin_at.sql`**（**`users.last_checkin_at`**）。
 - **常數**：**`DAILY_CHECKIN_ALREADY_CLAIMED`**（**`already_claimed`**）；**`DAILY_CHECKIN_ALREADY_TODAY`** 為別名（相容舊引用）。
+
+### 2025-03-24 — 註冊問卷 UI（Step1／2）與 UserDetailModal 緣分
+
+- **Layer 4 — `adventurer-questionnaire.ts`**：**Step1** 性別維持英文 value、中文 label；**地區**改為完整台灣縣市（value／label 皆繁中），**海外（自填）**另填文字後存 **`海外・…`**；**Step2** 性向三選（**`heterosexual`／`homosexual`／`pansexual`**）；線下意願 **`in_person`／`online_only`／`both`**（**`offline_ok`**：`in_person` 或 `both` 為 **true**）。
+- **Layer 5 — `profile-form.tsx`**：上一步／下一步與完成鈕 **`flex-1` + `py-4`** 統一高度；**`/register/interests` 等標籤頁**主按鈕 **`py-4`**。
+- **Layer 3 — `adventurer-profile.action.ts`**：**`questionnaire.region`** 改為 **`string`**（已解析繁中）；伺服端檢查非空與長度。
+- **Layer 5 — `UserDetailModal.tsx`**：緣分鈕 **`handleToggleLike`／`confirmCancelLike`** 與 **`toggleLikeAction`**；**`AlertDialog`** 標題「確定取消緣分？」、**再想想／確定取消**（**`glass-panel`**）；初始狀態仍由 **`getLikeStatusForTargetAction`** 載入。
 
 ### 2025-03-24 — 註冊標籤三步與編輯頁（`interests`／`skills_offer`／`skills_want`）
 

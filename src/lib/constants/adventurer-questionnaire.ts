@@ -1,6 +1,5 @@
 /**
- * 冒險者問卷：送進 DB／JSON 的 `value` 一律為英文 slug；`label` 為繁體中文（僅畫面顯示）。
- * profile-form 的 `<SelectItem value={…}>{label}</SelectItem>` 由此對應。
+ * 冒險者問卷：`gender`／性向 slug 為英文 value + 中文 label；**地區**選項 value 與 label 皆為繁中（直接寫入 `users.region`），海外列另於表單填細節後存成 `海外・…`。
  */
 export const GENDER_OPTIONS = [
   { value: "male", label: "男" },
@@ -9,35 +8,56 @@ export const GENDER_OPTIONS = [
   { value: "prefer_not", label: "先不透露" },
 ] as const;
 
+/** 選到此列時表單顯示自填欄，送出時改寫為 `海外・{自填}` */
+export const OVERSEAS_REGION_OPTION_VALUE = "海外（自填）" as const;
+
+const TAIWAN_REGION_LABELS = [
+  "基隆市",
+  "台北市",
+  "新北市",
+  "桃園市",
+  "新竹市",
+  "新竹縣",
+  "苗栗縣",
+  "台中市",
+  "彰化縣",
+  "南投縣",
+  "雲林縣",
+  "嘉義市",
+  "嘉義縣",
+  "台南市",
+  "高雄市",
+  "屏東縣",
+  "台東縣",
+  "花蓮縣",
+  "宜蘭縣",
+  "澎湖縣",
+  "金門縣",
+  "連江縣",
+] as const;
+
 export const REGION_OPTIONS = [
-  { value: "north", label: "台灣・北部" },
-  { value: "central", label: "台灣・中部" },
-  { value: "south", label: "台灣・南部" },
-  { value: "east", label: "台灣・東部" },
-  { value: "islands", label: "台灣・離島" },
-  { value: "overseas", label: "海外" },
-  { value: "other", label: "其他" },
+  ...TAIWAN_REGION_LABELS.map((label) => ({ value: label, label })),
+  {
+    value: OVERSEAS_REGION_OPTION_VALUE,
+    label: "海外（自填）",
+  },
 ] as const;
 
 export const ORIENTATION_OPTIONS = [
-  { value: "straight", label: "異性戀" },
-  { value: "gay", label: "男同志" },
-  { value: "lesbian", label: "女同志" },
-  { value: "bisexual", label: "雙性戀" },
-  { value: "pan", label: "泛性戀" },
-  { value: "asexual", label: "無性戀" },
-  { value: "questioning", label: "還在探索中" },
-  { value: "prefer_not", label: "想先保留隱私" },
+  { value: "heterosexual", label: "異性戀" },
+  { value: "homosexual", label: "同性戀" },
+  { value: "pansexual", label: "泛性戀" },
 ] as const;
 
 export const OFFLINE_INTENT_OPTIONS = [
   { value: "in_person", label: "願意參加實體聚會" },
-  { value: "online_only", label: "偏好線上互動" },
-  { value: "undecided", label: "還沒決定" },
+  { value: "online_only", label: "只從事線上活動" },
+  { value: "both", label: "都可以" },
 ] as const;
 
 export type GenderValue = (typeof GENDER_OPTIONS)[number]["value"];
-export type RegionValue = (typeof REGION_OPTIONS)[number]["value"];
+export type RegionSelectValue = (typeof REGION_OPTIONS)[number]["value"];
 export type OrientationValue = (typeof ORIENTATION_OPTIONS)[number]["value"];
 export type OfflineIntentValue = (typeof OFFLINE_INTENT_OPTIONS)[number]["value"];
 
@@ -95,10 +115,10 @@ export type InterestTagValue = (typeof INTEREST_TAG_OPTIONS)[number]["value"];
 
 /** 前端 `offlineIntent` → DB `offline_ok` */
 export function offlineIntentToOfflineOk(v: OfflineIntentValue): boolean {
-  return v === "in_person";
+  return v === "in_person" || v === "both";
 }
 
-/** DB `offline_ok` → 表單預設（false 時無法區分「僅線上」與「未決」，預設為僅線上） */
+/** DB `offline_ok` → 表單預設（boolean 無法還原「都可以」） */
 export function offlineOkToIntent(ok: boolean): OfflineIntentValue {
-  return ok ? "in_person" : "online_only";
+  return ok ? "both" : "online_only";
 }

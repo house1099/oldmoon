@@ -46,7 +46,7 @@ export default function InterestsPage() {
         type="button"
         onClick={() => void handleNext()}
         disabled={selected.length === 0 || saving}
-        className="w-full rounded-full bg-violet-600 py-3 font-medium text-white transition-all hover:bg-violet-500 active:scale-95 disabled:opacity-40"
+        className="w-full rounded-full bg-violet-600 py-4 text-sm font-medium text-white transition-all hover:bg-violet-500 active:scale-95 disabled:opacity-40"
       >
         {saving ? "儲存中…" : "下一步"}
       </button>

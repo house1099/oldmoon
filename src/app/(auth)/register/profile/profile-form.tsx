@@ -8,11 +8,9 @@ import { GuildAuthShell } from "@/components/auth/guild-auth-shell";
 import {
   guildAuthFieldErrorClass,
   guildAuthInputStandaloneClass,
-  guildAuthPrimaryButtonClass,
   guildAuthSelectContentClass,
   guildAuthSelectTriggerClass,
 } from "@/components/auth/auth-styles";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -28,18 +26,16 @@ import {
   INTEREST_TAG_OPTIONS,
   OFFLINE_INTENT_OPTIONS,
   ORIENTATION_OPTIONS,
+  OVERSEAS_REGION_OPTION_VALUE,
   REGION_OPTIONS,
   type GenderValue,
   type InterestTagValue,
   type OfflineIntentValue,
   type OrientationValue,
-  type RegionValue,
+  type RegionSelectValue,
 } from "@/lib/constants/adventurer-questionnaire";
 import { instagramHandleSchema } from "@/lib/validation/instagram-handle";
 import { adventurerNicknameSchema } from "@/lib/validation/nickname";
-
-const outlineNavButtonClass =
-  "flex-1 rounded-full border border-zinc-700/90 bg-zinc-900/60 text-zinc-100 shadow-sm transition hover:bg-zinc-800/80";
 
 type ProfileFormProps = {
   /** Google OAuth 等略過註冊 Step1 時為 true，需在名冊補填 IG */
@@ -54,7 +50,10 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
   const [instagramHandle, setInstagramHandle] = useState("");
   const [instagramError, setInstagramError] = useState<string | null>(null);
   const [gender, setGender] = useState<GenderValue>(GENDER_OPTIONS[0].value);
-  const [region, setRegion] = useState<RegionValue>(REGION_OPTIONS[0].value);
+  const [region, setRegion] = useState<RegionSelectValue>(
+    REGION_OPTIONS[0].value,
+  );
+  const [overseasDetail, setOverseasDetail] = useState("");
   const [orientation, setOrientation] = useState<OrientationValue>(
     ORIENTATION_OPTIONS[0].value,
   );
@@ -87,6 +86,15 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
   const step2Ok = coreValues.every((v) => v.length > 0);
   const step3Ok = interests.length >= 1 && interests.length <= 12;
 
+  function resolveRegionForSubmit(): string | null {
+    if (region === OVERSEAS_REGION_OPTION_VALUE) {
+      const t = overseasDetail.trim();
+      if (!t) return null;
+      return `海外・${t}`;
+    }
+    return region;
+  }
+
   function goNext() {
     if (step === 1) {
       const nick = adventurerNicknameSchema.safeParse(nickname);
@@ -106,6 +114,12 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
           return;
         }
         setInstagramError(null);
+      }
+      if (region === OVERSEAS_REGION_OPTION_VALUE) {
+        if (!overseasDetail.trim()) {
+          toast.error("請填寫海外地區或城市。");
+          return;
+        }
       }
     }
     if (step === 2 && !step2Ok) {
@@ -145,13 +159,19 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
       toast.error("請選擇 1～12 個興趣標籤。");
       return;
     }
+    const resolvedRegion = resolveRegionForSubmit();
+    if (!resolvedRegion) {
+      toast.error("請填寫海外地區或城市。");
+      setStep(1);
+      return;
+    }
     setLoading(true);
     try {
       const result = await completeAdventurerProfile({
         nickname,
         questionnaire: {
           gender,
-          region,
+          region: resolvedRegion,
           orientation,
           offlineIntent,
         },
@@ -334,9 +354,13 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
               <Select
                 name="region"
                 value={region}
-                onValueChange={(v) =>
-                  setRegion((v ?? REGION_OPTIONS[0].value) as RegionValue)
-                }
+                onValueChange={(v) => {
+                  const next = (v ?? REGION_OPTIONS[0].value) as RegionSelectValue;
+                  setRegion(next);
+                  if (next !== OVERSEAS_REGION_OPTION_VALUE) {
+                    setOverseasDetail("");
+                  }
+                }}
               >
                 <SelectTrigger
                   id="region"
@@ -357,6 +381,24 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
                   ))}
                 </SelectContent>
               </Select>
+              {region === OVERSEAS_REGION_OPTION_VALUE ? (
+                <div className="space-y-1.5 pt-1">
+                  <label
+                    htmlFor="overseas-region"
+                    className="text-xs text-zinc-400"
+                  >
+                    請填寫所在國家／城市
+                  </label>
+                  <Input
+                    id="overseas-region"
+                    value={overseasDetail}
+                    onChange={(e) => setOverseasDetail(e.target.value)}
+                    placeholder="例：日本東京"
+                    maxLength={80}
+                    className={guildAuthInputStandaloneClass}
+                  />
+                </div>
+              ) : null}
             </div>
           </>
         ) : null}
@@ -510,54 +552,49 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
           </div>
         ) : null}
 
-        <div className="flex flex-col gap-3 border-t border-white/10 pt-4">
+        <div className="mt-6 flex gap-3 border-t border-white/10 pt-4">
           {step < 3 ? (
-            <div className="flex gap-3">
+            <>
               {step > 1 ? (
-                <Button
+                <button
                   type="button"
-                  variant="outline"
-                  className={outlineNavButtonClass}
                   onClick={goBack}
                   disabled={loading}
+                  className="flex-1 rounded-full bg-zinc-800 py-4 text-sm font-medium text-white transition-all hover:bg-zinc-700 active:scale-95 disabled:opacity-40"
                 >
                   上一步
-                </Button>
+                </button>
               ) : null}
-              <Button
+              <button
                 type="button"
-                className={cn(
-                  guildAuthPrimaryButtonClass,
-                  step > 1 ? "min-w-0 flex-1 !w-auto" : "w-full",
-                )}
                 onClick={goNext}
                 disabled={loading}
+                className={cn(
+                  "rounded-full bg-violet-600 py-4 text-sm font-medium text-white transition-all hover:bg-violet-500 active:scale-95 disabled:opacity-40",
+                  step > 1 ? "flex-1" : "w-full",
+                )}
               >
                 下一步
-              </Button>
-            </div>
+              </button>
+            </>
           ) : (
-            <div className="flex gap-3">
-              <Button
+            <>
+              <button
                 type="button"
-                variant="outline"
-                className={outlineNavButtonClass}
                 onClick={goBack}
                 disabled={loading}
+                className="flex-1 rounded-full bg-zinc-800 py-4 text-sm font-medium text-white transition-all hover:bg-zinc-700 active:scale-95 disabled:opacity-40"
               >
                 上一步
-              </Button>
-              <Button
+              </button>
+              <button
                 type="submit"
-                className={cn(
-                  guildAuthPrimaryButtonClass,
-                  "min-w-0 flex-1 !w-auto",
-                )}
                 disabled={loading}
+                className="flex-1 rounded-full bg-violet-600 py-4 text-sm font-medium text-white transition-all hover:bg-violet-500 active:scale-95 disabled:opacity-40"
               >
                 {loading ? "⏳ 傳輸中..." : "完成並進入公會"}
-              </Button>
-            </div>
+              </button>
+            </>
           )}
         </div>
       </form>
