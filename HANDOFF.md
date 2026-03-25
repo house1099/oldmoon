@@ -48,7 +48,7 @@
 - **`ig_change_requests`**：**`user_id`**、**`old_handle`**、**`new_handle`**、**`status`**（**`pending`**／**`approved`**／**`rejected`**）、**`reviewed_by`**、**`reviewed_at`**、**`created_at`**；已 **ENABLE RLS**（政策可後補）；遷移見 **`supabase/migrations/20260324100000_ig_change_requests_and_user_role.sql`**。
 - **註冊建檔**：**`completeAdventurerProfile`** 為避免 PostgREST／欄位快取問題，**insert 不帶 `bio`**（自介於個人頁 **`profile-update`** 填寫）。
 - DDL 變更後若仍報「找不到欄位」，至 Supabase **Settings → API** 嘗試 **重新載入 Schema**。
-- **`likes`**：已接線（**`from_user`**／**`to_user`**）。
+- **`likes`**：已接線（**`from_user`**／**`to_user`**）。**雲端表無 `id` 欄位**（僅複合語意上的雙 uuid）；**`insertLike`** 只做 **insert**、**`Promise<void>`**，**不** `.select()` 讀回列；**`findLike`**／**`checkMutualLike`** 之 **`.select`** 僅 **`from_user, to_user`**，避免讀取不存在的欄位。型別見 **`database.types.ts`** **`likes.Row`**。
 - **`alliances`**：**雙人血盟 SSOT**（**`user_a`**、**`user_b`**、**`initiated_by`**、**`status`**：`pending`／`accepted`／`dissolved`、`created_at`）；**`database.types.ts`** 與 Layer 2 **`alliance.repository.ts`**、Layer 3 **`alliance.action.ts`** 僅使用此表。
 - **`user_alliances`**：**已廢棄**（曾規劃之分表，勿建）；**`supabase/migrations/20260325120000_user_alliances_pair.sql`** 檔首已標 **DEPRECATED**，**請勿在 Supabase 執行**。
 
@@ -682,4 +682,9 @@ Phase 4 — 市集搜尋快取
 
 - **Layer 5 — `edit-tags-client.tsx`**：興趣／能教／想學三個 **`TagSelector`** 皆加上 **`defaultOpenCategory={null}`**，與註冊 **`/register/interests`**、**`/register/skills`** 一致，進頁時分類手風琴**預設全部收折**。
 
-*最後更新：2026-03-25 — **edit-tags `TagSelector` 全收折**（**`defaultOpenCategory={null}`** ×3）；**今日心情框深紫微光**；**`AppShellMotion`**；**首頁／explore／guild SWR**；**Middleware Edge**、**`GET /api/ping`**、**雙人血盟**、**效能 Phase 1—4**。*
+### 2026-03-25 — **`likes`** 雲端無 **`id`**／Layer 2 查詢對齊
+
+- **🗄️**：**`public.likes`** 僅 **`from_user`**、**`to_user`**（無 **`id`**）；**`database.types.ts`** 之 **`likes.Row`／`Insert`／`Update`** 已移除 **`id`**（及多餘 **`created_at`** 型別），與實表一致。
+- **Layer 2 — `like.repository.ts`**：**`insertLike`** 改為 **`Promise<void>`**，insert 後**不** `.select()`；**`findLike`**、**`checkMutualLike`** 之 **`.select('from_user, to_user')`**，避免 PostgREST 讀取不存在欄位。
+
+*最後更新：2026-03-25 — **`likes` 無 `id`／`insertLike` void／查詢僅 `from_user,to_user`**；**edit-tags `TagSelector` 全收折**；**今日心情框深紫微光**；**`AppShellMotion`**；**首頁／explore／guild SWR**；**Middleware Edge**、**`GET /api/ping`**、**雙人血盟**、**效能 Phase 1—4**。*

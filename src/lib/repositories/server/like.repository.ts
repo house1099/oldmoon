@@ -38,19 +38,16 @@ export function mapLikeRepositoryError(error: unknown): string {
 export async function insertLike(
   fromUserId: string,
   toUserId: string,
-): Promise<LikeRow> {
+): Promise<void> {
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("likes")
-    .insert({ from_user: fromUserId, to_user: toUserId })
-    .select()
-    .single();
+  const { error } = await admin.from("likes").insert({
+    from_user: fromUserId,
+    to_user: toUserId,
+  });
 
   if (error) {
     throw error;
   }
-
-  return data as LikeRow;
 }
 
 export async function findLike(
@@ -60,7 +57,7 @@ export async function findLike(
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("likes")
-    .select("*")
+    .select("from_user, to_user")
     .eq("from_user", fromUserId)
     .eq("to_user", toUserId)
     .maybeSingle();
@@ -99,7 +96,7 @@ export async function checkMutualLike(
 
   const { data: ab, error: errAb } = await admin
     .from("likes")
-    .select("id")
+    .select("from_user, to_user")
     .eq("from_user", userA)
     .eq("to_user", userB)
     .maybeSingle();
@@ -110,7 +107,7 @@ export async function checkMutualLike(
 
   const { data: ba, error: errBa } = await admin
     .from("likes")
-    .select("id")
+    .select("from_user, to_user")
     .eq("from_user", userB)
     .eq("to_user", userA)
     .maybeSingle();

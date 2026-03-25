@@ -1,6 +1,6 @@
 /**
  * 與 Supabase `public` schema 對齊的型別（手動維護，請在雲端 Schema 變更後同步更新）。
- * 表：users, exp_logs, likes, alliances（雙人血盟）, messages, ig_change_requests
+ * 表：users, exp_logs, likes, alliances（雙人血盟）, messages, notifications, ig_change_requests
  */
 
 export type Json =
@@ -234,24 +234,18 @@ export interface Database {
       };
       likes: {
         Row: {
-          id: string;
           /** 雲端欄名 `from_user`（按讚者 uuid） */
           from_user: string;
           /** 雲端欄名 `to_user`（被按讚者 uuid） */
           to_user: string;
-          created_at: string;
         };
         Insert: {
-          id?: string;
           from_user: string;
           to_user: string;
-          created_at?: string;
         };
         Update: {
-          id?: string;
           from_user?: string;
           to_user?: string;
-          created_at?: string;
         };
         Relationships: [
           {
@@ -348,6 +342,47 @@ export interface Database {
           },
         ];
       };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          /** 通知類型 slug（例如 like、alliance、system） */
+          kind: string;
+          title: string;
+          body: string | null;
+          metadata: Json | null;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          kind: string;
+          title: string;
+          body?: string | null;
+          metadata?: Json | null;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          kind?: string;
+          title?: string;
+          body?: string | null;
+          metadata?: Json | null;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -363,4 +398,5 @@ export type ExpLogRow = PublicTables["exp_logs"]["Row"];
 export type LikeRow = PublicTables["likes"]["Row"];
 export type AllianceRow = PublicTables["alliances"]["Row"];
 export type MessageRow = PublicTables["messages"]["Row"];
+export type NotificationRow = PublicTables["notifications"]["Row"];
 export type IgChangeRequestRow = PublicTables["ig_change_requests"]["Row"];
