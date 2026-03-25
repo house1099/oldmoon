@@ -37,6 +37,22 @@ export async function getOrCreateConversation(
   return data as ConversationRow;
 }
 
+export async function findConversationById(
+  conversationId: string,
+): Promise<ConversationRow | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("conversations")
+    .select("*")
+    .eq("id", conversationId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+  return (data ?? null) as ConversationRow | null;
+}
+
 export async function getMessages(
   conversationId: string,
   limit = 50,

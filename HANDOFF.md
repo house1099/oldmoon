@@ -16,7 +16,7 @@
 
 - **Layer 1（連線）**：Supabase Client／Server／Admin 已完備。
 - **Layer 2（資料）**：`user.repository.ts`（含 **`updateLastCheckinAt`**）、`exp.repository.ts` 支援 **`total_exp`**（SSOT）；**`chat.repository.ts`**（**`conversations`**／**`chat_messages`**／**`blocks`**／**`reports`**，admin，供私訊／封鎖／檢舉接線）。
-- **Layer 3（業務）**：`daily-checkin.action.ts` 之 **`claimDailyCheckin`** 以 **`users.last_checkin_at`** 為簽到 **24h 滾動冷卻** SSOT；**`exp_logs.unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**。
+- **Layer 3（業務）**：`daily-checkin.action.ts` 之 **`claimDailyCheckin`** 以 **`users.last_checkin_at`** 為簽到 **24h 滾動冷卻** SSOT；**`exp_logs.unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**；**`chat.action.ts`**（開啟對話／訊息／列表／封鎖／檢舉）、**`notification.action.ts`**（通知列表／已讀／清除／未讀數）。
 - **Layer 4（狀態／常數）**：`levels.ts`（門檻 0〜1350）、Zod 驗證已就緒；**`date.ts`** 之 **`taipeiCalendarDateKey()`** 仍為全系統**日曆日** SSOT（簽到冷卻**不再**依此判斷）。
 - **Layer 5（UI）**：**`Navbar.tsx`**（五項 **lucide** 圖示底欄：**Home／Compass／Swords／Heart／ShoppingBag**）、**`LevelFrame.tsx`**、**`UserCard`**、**`UserCardSkeleton`**（市集列表首次載入）、**`/explore`**（**Server Component** 預載村莊；**`ExploreClient`** 頂部 **safe-area**、村莊＋市集 **tab**、**市集 `useSWR`（query key + `keepPreviousData`）**＋**`hidden`／`block` 切 tab 不 unmount**）、**`/guild`**（**`hidden` 切 tab**、**pending 角標 `useSWR`**）、**`/matchmaking`**／**`/shop`**（預留）。
 
@@ -51,7 +51,8 @@
 - **`likes`**：已接線（**`from_user`**／**`to_user`**）。**雲端表無 `id` 欄位**（僅複合語意上的雙 uuid）；**`insertLike`** 只做 **insert**、**`Promise<void>`**，**不** `.select()` 讀回列；**`findLike`**／**`checkMutualLike`** 之 **`.select`** 僅 **`from_user, to_user`**，避免讀取不存在的欄位。型別見 **`database.types.ts`** **`likes.Row`**。
 - **`alliances`**：**雙人血盟 SSOT**（**`user_a`**、**`user_b`**、**`initiated_by`**、**`status`**：`pending`／`accepted`／`dissolved`、`created_at`）；建議 **`UNIQUE (user_a, user_b)`**（約束名 **`alliances_pair_unique`**，遷移 **`20260325183000_alliances_pair_unique.sql`**）。**`database.types.ts`** 與 Layer 2 **`alliance.repository.ts`**、Layer 3 **`alliance.action.ts`** 僅使用此表。
 - **`user_alliances`**：**已廢棄**（曾規劃之分表，勿建）；**`supabase/migrations/20260325120000_user_alliances_pair.sql`** 檔首已標 **DEPRECATED**，**請勿在 Supabase 執行**。
-- **`conversations`**／**`chat_messages`**／**`blocks`**／**`reports`**：Layer 2 **`chat.repository.ts`** 與 **`database.types.ts`** 已預留型別與函式（**`getOrCreateConversation`**、**`getMessages`**、**`sendMessage`**、**`getMyConversations`**、**`markMessagesAsRead`**、**`blockUser`**、**`unblockUser`**、**`isBlocked`**、**`submitReport`**）。雲端若尚無表，請補 🗄️ DDL 並 **Reload schema**。
+- **`conversations`**／**`chat_messages`**／**`blocks`**／**`reports`**：Layer 2 **`chat.repository.ts`** 與 **`database.types.ts`** 已預留型別與函式（**`getOrCreateConversation`**、**`findConversationById`**、**`getMessages`**、**`sendMessage`**、**`getMyConversations`**、**`markMessagesAsRead`**、**`blockUser`**、**`unblockUser`**、**`isBlocked`**、**`submitReport`**）。Layer 3 **`chat.action.ts`** 經 **`auth.getUser()`** 驗證後呼叫 repository。雲端若尚無表，請補 🗄️ DDL 並 **Reload schema**。
+- **`notifications`**：**`kind`**、**`title`**、**`body`**、**`metadata`**（**`jsonb`**；緣分等通知之發送者建議 **`metadata.from_user`**）、**`read_at`**（**null**＝未讀）、**`created_at`**。寫入 Layer 2 **`notification.repository.ts`** **`insertNotification`**；讀取／批次已讀／刪除／未讀數見 Layer 3 **`notification.action.ts`**（**admin** 查詢＋**`findProfileById`** 補發送者暱稱／頭像）。
 
 ---
 
@@ -92,6 +93,8 @@
 | 雙人血盟（Layer 3） | **`src/services/alliance.action.ts`**（**`getAllianceStatusAction`**、**`requestAllianceAction`**、**`respondAllianceAction`**、**`dissolveAllianceAction`**、**`getMyAlliancesAction`**、**`getPendingRequestsAction`**） |
 | 雙人血盟（Layer 2） | **`src/lib/repositories/server/alliance.repository.ts`** |
 | 私訊／封鎖／檢舉（Layer 2） | **`src/lib/repositories/server/chat.repository.ts`**（**`conversations`**、**`chat_messages`**、**`blocks`**、**`reports`**；見 🗄️ 與 **`database.types.ts`**） |
+| 私訊／封鎖／檢舉（Layer 3） | **`src/services/chat.action.ts`** — **`getOrCreateConversationAction`**、**`getMessagesAction`**、**`sendMessageAction`**、**`getMyConversationsAction`**、**`blockUserAction`**、**`unblockUserAction`**、**`submitReportAction`** |
+| 通知（Layer 3） | **`src/services/notification.action.ts`** — **`getMyNotificationsAction`**、**`markAllNotificationsReadAction`**、**`clearAllNotificationsAction`**、**`getUnreadNotificationCountAction`**（欄位對齊 **`notifications.kind`／`read_at`**） |
 | 月老／商店預留 | `src/app/(app)/matchmaking/page.tsx`、`src/app/(app)/shop/page.tsx`（**即將開放**） |
 | 舊路由轉址 | **`/village`**、**`/market`** → **`/explore`**；**`/alliances`**、**`/inbox`** → **`/guild`** |
 | 使用者詳情 Modal | `src/components/modals/UserDetailModal.tsx`（開啟時 **`getModalSocialStatusAction`** 合併載入緣分／血盟；今日心情、雙欄自白、雙區標籤、**`toggleLikeAction`**＋**AlertDialog**；血盟操作後再拉合併狀態；**IG** 列：**`ig_public`** 或已血盟才顯示 **@handle**） |
@@ -698,9 +701,15 @@ Phase 4 — 市集搜尋快取
 
 ### 2026-03-25 — Layer 2 **`chat.repository`** 與聊天相關型別
 
-- **Layer 2**：新增 **`src/lib/repositories/server/chat.repository.ts`** — **admin client**；**`getOrCreateConversation`**、**`getMessages`**、**`sendMessage`**、**`getMyConversations`**、**`markMessagesAsRead`**、**`blockUser`**、**`unblockUser`**、**`isBlocked`**、**`submitReport`**。
+- **Layer 2**：新增 **`src/lib/repositories/server/chat.repository.ts`** — **admin client**；**`getOrCreateConversation`**、**`findConversationById`**、**`getMessages`**、**`sendMessage`**、**`getMyConversations`**、**`markMessagesAsRead`**、**`blockUser`**、**`unblockUser`**、**`isBlocked`**、**`submitReport`**。
 - **型別**：**`database.types.ts`** 新增 **`conversations`**、**`chat_messages`**、**`blocks`**、**`reports`** 之 **Row／Insert／Update**（及匯出 **`ConversationRow`**、**`ChatMessageRow`**、**`BlockRow`**、**`ReportRow`**）。
 - **實作備註**：**`getOrCreateConversation`** 以 **`.eq(user_a).eq(user_b)`** 查既有列（字典序 **`[a,b].sort()`**）；**`sendMessage`** 更新對話 **`last_message`**／**`last_message_at`** 失敗時僅 **`console.error`**，不影響訊息寫入。
 - **🗄️**：雲端須建立對應 **`public`** 表與 RLS／FK 後再接 Layer 3／UI；與既有 **`messages`**（舊式一對一訊息）表可並存至遷移完成。
 
-*最後更新：2026-03-25 — **`chat.repository`**＋**`conversations`／`chat_messages`／`blocks`／`reports`** 型別；並含 **likes／血盟 UX**、**`alliances_pair_unique`**、**SWR**、**Middleware Edge**、**`/api/ping`**、**效能 Phase 1—4** 等。*
+### 2026-03-25 — Layer 3 **`chat.action`**／**`notification.action`**
+
+- **Layer 3 — `src/services/chat.action.ts`**：**`getOrCreateConversationAction`**、**`getMessagesAction`**（先以 **`findConversationById`** 確認 **`user_a`／`user_b`** 含目前使用者，再 **`getMessages`**＋**`markMessagesAsRead`**）、**`sendMessageAction`**（長度 ≤500、**`trim`**）、**`getMyConversationsAction`**（附 **`partner`** **`findProfileById`**）、**`blockUserAction`**／**`unblockUserAction`**、**`submitReportAction`**（寫入 **`reports`** 後 **`blockUser`**）。**`createClient()`** 與專案一致為**同步**（無 **`await`**）。
+- **Layer 2 補充**：**`chat.repository`** 新增 **`findConversationById`**，供上述權限檢查。
+- **Layer 3 — `src/services/notification.action.ts`**：**`getMyNotificationsAction`**（欄位 **`kind`／`title`／`body`／`read_at`／`metadata`**，與 **`database.types`** 一致；發送者由 **`metadata.from_user`** 或 **`from_user_id`** 解析後 **`findProfileById`**）、**`markAllNotificationsReadAction`**（**`read_at`** 設為目前時間，**`.is('read_at', null)`**）、**`clearAllNotificationsAction`**、**`getUnreadNotificationCountAction`**（**`read_at` is null**）。
+
+*最後更新：2026-03-25 — **`chat.action`**／**`notification.action`**＋**`findConversationById`**；並含 **`chat.repository`**、**likes／血盟**、**`alliances_pair_unique`**、**SWR**、**Middleware Edge**、**`/api/ping`**、**效能 Phase 1—4** 等。*
