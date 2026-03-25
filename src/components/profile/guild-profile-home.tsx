@@ -54,7 +54,7 @@ import {
 import { LEVEL_MIN_EXP_BY_LEVEL, getLevelTierByExp } from "@/lib/constants/levels";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { cn } from "@/lib/utils";
-import { getMoodCountdown } from "@/lib/utils/mood";
+import { getMoodCountdown, isMoodActive } from "@/lib/utils/mood";
 
 const IOS_TEXTAREA_CLASS =
   "w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-base text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none";
@@ -159,7 +159,9 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   const [showIgChangeInput, setShowIgChangeInput] = useState(false);
   const [savingInstagram, setSavingInstagram] = useState(false);
   const [igRequestSubmitting, setIgRequestSubmitting] = useState(false);
-  const [moodInput, setMoodInput] = useState(profile.mood ?? "");
+  const [moodInput, setMoodInput] = useState(() =>
+    isMoodActive(profile.mood_at ?? null) ? (profile.mood ?? "") : "",
+  );
   const [moodAt, setMoodAt] = useState<string | null>(profile.mood_at ?? null);
   const [savingMood, setSavingMood] = useState(false);
   const [countdown, setCountdown] = useState<string | null>(null);
@@ -191,8 +193,9 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     setBioVillage(profile.bio_village ?? "");
     setBioMarket(profile.bio_market ?? "");
     setIgPublic(profile.ig_public);
-    setMoodInput(profile.mood ?? "");
-    setMoodAt(profile.mood_at ?? null);
+    const at = profile.mood_at ?? null;
+    setMoodAt(at);
+    setMoodInput(isMoodActive(at) ? (profile.mood ?? "") : "");
     setAvatarUrl(profile.avatar_url?.trim() || null);
   }, [profile]);
 
@@ -231,6 +234,22 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     update();
     const timer = setInterval(update, 60000);
     return () => clearInterval(timer);
+  }, [moodAt]);
+
+  /** 過期或無效時清空輸入，讓半灰階提示顯示；有效期內則在過期瞬間清空 */
+  useEffect(() => {
+    if (!moodAt || !isMoodActive(moodAt)) {
+      setMoodInput("");
+      return;
+    }
+    const expiry = new Date(moodAt).getTime() + 24 * 60 * 60 * 1000;
+    const ms = expiry - Date.now();
+    if (ms <= 0) {
+      setMoodInput("");
+      return;
+    }
+    const t = window.setTimeout(() => setMoodInput(""), ms);
+    return () => clearTimeout(t);
   }, [moodAt]);
 
   useEffect(() => {
@@ -649,24 +668,48 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
 
       <section
         className="rounded-3xl border border-violet-500/30 bg-violet-950/40 backdrop-blur-xl p-4 space-y-3"
-        style={{ boxShadow: "0 0 20px rgba(139,92,246,0.15)" }}
+        style={{ boxShadow: '0 0 20px rgba(139,92,246,0.15)' }}
       >
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold text-white">✨ 今日心情</span>
+          <span className="text-sm font-semibold text-white">
+            ✨ 今日心情
+          </span>
           {countdown ? (
-            <span className="text-xs text-violet-300/70">還有 {countdown}</span>
+            <span className="text-xs text-violet-300/70">{countdown}</span>
           ) : null}
         </div>
 
-        <textarea
-          value={moodInput}
-          onChange={(e) => setMoodInput(e.target.value)}
-          onFocus={handleIosTextareaFocus}
-          placeholder="今天的心情是..."
-          maxLength={50}
-          rows={2}
-          className={IOS_TEXTAREA_CLASS}
-        />
+        <div className="relative">
+          <textarea
+            value={moodInput}
+            onChange={(e) => setMoodInput(e.target.value)}
+            onFocus={handleIosTextareaFocus}
+            placeholder="今天的心情是..."
+            maxLength={50}
+            rows={2}
+            className={cn(
+              IOS_TEXTAREA_CLASS,
+              !isMoodActive(moodAt) &&
+                !moodInput.trim() &&
+                "text-transparent caret-zinc-100",
+            )}
+            aria-describedby={
+              !isMoodActive(moodAt) && !moodInput.trim()
+                ? "mood-nudge-hint"
+                : undefined
+            }
+          />
+          {!isMoodActive(moodAt) && !moodInput.trim() ? (
+            <div
+              id="mood-nudge-hint"
+              className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl border border-white/5 bg-zinc-900/40 px-4 py-3"
+            >
+              <p className="text-center text-sm leading-snug text-zinc-500">
+                趕快填寫今日心情喔！
+              </p>
+            </div>
+          ) : null}
+        </div>
 
         <div className="flex items-center justify-between">
           <span className="text-xs text-zinc-600">{moodInput.length}/50</span>
