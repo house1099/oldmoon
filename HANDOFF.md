@@ -17,7 +17,7 @@
 - **Layer 1（連線）**：Supabase Client／Server／Admin 已完備。
 - **Layer 2（資料）**：`user.repository.ts`（含 **`updateLastCheckinAt`**）、`exp.repository.ts` 支援 **`total_exp`**（SSOT）；**`chat.repository.ts`**（**`conversations`**／**`chat_messages`**／**`blocks`**／**`reports`**，admin，供私訊／封鎖／檢舉接線）。
 - **Layer 3（業務）**：`daily-checkin.action.ts` 之 **`claimDailyCheckin`** 以 **`users.last_checkin_at`** 為簽到 **24h 滾動冷卻** SSOT；**`exp_logs.unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**；**`chat.action.ts`**（開啟對話／訊息／列表／封鎖／檢舉）、**`notification.action.ts`**（通知列表／已讀／清除／未讀數）。
-- **Layer 4（狀態／常數）**：`levels.ts`（門檻 0〜1350）、Zod 驗證已就緒；**`date.ts`** 之 **`taipeiCalendarDateKey()`** 仍為全系統**日曆日** SSOT（簽到冷卻**不再**依此判斷）。
+- **Layer 4（狀態／常數）**：`levels.ts`（門檻 0〜1350）、Zod 驗證已就緒；**`date.ts`** 之 **`taipeiCalendarDateKey()`** 仍為全系統**日曆日** SSOT（簽到冷卻**不再**依此判斷）；**`useChat.ts`** — **`useConversations`**／**`useMessages`**、**`useUnreadNotificationCount`**（**`SWR_KEYS.conversations`**／**`messages(id)`**／**`unreadNotifications`**）。
 - **Layer 5（UI）**：**`Navbar.tsx`**（五項 **lucide** 圖示底欄：**Home／Compass／Swords／Heart／ShoppingBag**）、**`LevelFrame.tsx`**、**`UserCard`**、**`UserCardSkeleton`**（市集列表首次載入）、**`/explore`**（**Server Component** 預載村莊；**`ExploreClient`** 頂部 **safe-area**、村莊＋市集 **tab**、**市集 `useSWR`（query key + `keepPreviousData`）**＋**`hidden`／`block` 切 tab 不 unmount**）、**`/guild`**（**`hidden` 切 tab**、**pending 角標 `useSWR`**）、**`/matchmaking`**／**`/shop`**（預留）。
 
 ### 📈 開發進度
@@ -85,6 +85,7 @@
 | 管理：IG 待審 | `src/app/(app)/admin/ig-requests/page.tsx`（**role** 為 **admin／leader** 可進；其餘 **`redirect('/')`**） |
 | 個人頁 EXP 紀錄 | `src/services/exp-logs.action.ts`（**`getMyRecentExpLogsAction`**）→ **`exp.repository`** **`findRecentExpLogsForUser`** |
 | 首頁個人頁 UI | `src/app/(app)/page.tsx`（**`'use client'`**、**`useMyProfile`** SWR + **`HomePageSkeleton`**） → `src/components/profile/guild-profile-home.tsx` |
+| SWR：聊天／未讀通知 | **`src/hooks/useChat.ts`** — **`useConversations`**、**`useMessages`**、**`useUnreadNotificationCount`**（**`SWR_KEYS`** 見 **`src/lib/swr/keys.ts`**） |
 | 頭像裁切＋Cloudinary | **`react-easy-crop`** 全螢幕裁切；**`src/lib/utils/cropImage.ts`**（**`getCroppedImg`**）；**`src/lib/utils/cloudinary.ts`**（**`uploadAvatarToCloudinary`**）→ **`updateMyProfile({ avatar_url })`**（**禁止** **`supabase.storage`** 上傳頭像）；**顯示** **`src/components/ui/Avatar.tsx`**（**`next/image`** + Cloudinary **`/upload/w_{2×size},h_{2×size},c_fill,q_auto,f_auto/`**；**`next.config.mjs`** **`images.remotePatterns`**：**`res.cloudinary.com`**） |
 | 底部導航 | `src/components/layout/Navbar.tsx`（**五項 lucide**：**Home／Compass／Swords／Heart／ShoppingBag**；選中 **`text-violet-400`**、未選 **`text-zinc-500`**、**`text-[10px]`** 標籤；首頁 **`/`** 僅 **`pathname === '/'`** 為 active） |
 | 探索（村莊＋市集） | **`explore/page.tsx`**（**Server**：**`getVillageUsersAction`** 預載村莊）；**`ExploreClient.tsx`**（**`useSWR`** **`SWR_KEYS.villageUsers`** ＋ **`fallbackData`／`revalidateOnMount: false`**；市集 **`SWR_KEYS.marketUsers(query)`**、**`keepPreviousData`**；**`hidden`／`block`** 切 tab）；市集初次 **`isLoading`** 時 **6×`UserCardSkeleton`** |
@@ -182,7 +183,7 @@
 | **Layer 1** 連線 | `src/lib/supabase/` | ✅ `client.ts`、`server.ts`、`admin.ts`；`Database` 型別已注入 client |
 | **Layer 2** 資料 | `src/lib/repositories/server/` | ✅ `user.repository.ts`（`findProfileById`、`createProfile`、**`findActiveUsers`**、**`findVillageUsers`**、**`findMarketUsers`**、**`updateLastCheckinAt`**）、`exp.repository.ts`（admin）；`client/` 尚空 |
 | **Layer 3** 業務 | `src/services/` | ✅ **`village.service.ts`**、**`market.service.ts`**（快取如前）；✅ **`profile.action.ts`**（**`getMyProfileAction`**） |
-| **Layer 4** 狀態 | `src/hooks/`、`src/lib/swr/`、`src/store/`、`src/lib/constants/`、`src/lib/validation/`、`src/lib/utils/` | ✅ **`useMyProfile`**（**SWR** **`profile`** key）；✅ **`SWR_KEYS`**、**`SWRProvider`**；⏳ **Zustand** 尚未實作；✅ **常數、Zod schema、forbidden-words**；✅ **`date.ts`**（台灣日界 SSOT）；✅ **`matching.ts`**（性向／興趣／技能分數） |
+| **Layer 4** 狀態 | `src/hooks/`、`src/lib/swr/`、`src/store/`、`src/lib/constants/`、`src/lib/validation/`、`src/lib/utils/` | ✅ **`useMyProfile`**（**SWR** **`profile`** key）；✅ **`useChat.ts`**：**`useConversations`**、**`useMessages`**、**`useUnreadNotificationCount`**；✅ **`SWR_KEYS`**（含 **`conversations`**／**`messages`**／**`unreadNotifications`**／**`notifications`**）、**`SWRProvider`**；⏳ **Zustand** 尚未實作；✅ **常數、Zod schema、forbidden-words**；✅ **`date.ts`**（台灣日界 SSOT）；✅ **`matching.ts`**（性向／興趣／技能分數） |
 | **Layer 5** UI | `src/components/*`、`src/app/*` | ✅ shadcn；**`Navbar`**（五欄底欄）、**`/explore`**（**`ExploreClient`**）、**`/guild`**、**`/matchmaking`**、**`/shop`**、**`UserCard`**、**`LevelFrame`**、個人頁與認證殼 |
 
 **規則重申**：UI 不得直連 Supabase／SQL；僅 Layer 1 建立 client；寫入 `exp_logs` 等應經 Layer 2 → Layer 3。
@@ -647,7 +648,7 @@ Phase 4 — 市集搜尋快取
 ### 2026-03-25 — SWR 基礎架構（套件與 Provider）
 
 - **依賴**：安裝 **`swr`** 套件（**`npm install swr`**）。
-- **Layer 4**：新增 **`src/lib/swr/keys.ts`** — 匯出 **`SWR_KEYS`** 常數（**`profile`／`villageUsers`／`marketUsers(query)`／`myAlliances`／`pendingAlliances`**）。
+- **Layer 4**：新增 **`src/lib/swr/keys.ts`** — 匯出 **`SWR_KEYS`** 常數（**`profile`／`villageUsers`／`marketUsers(query)`／`myAlliances`／`pendingAlliances`**；後續擴充 **`conversations`／`messages(id)`／`unreadNotifications`／`notifications`**，見 **`useChat.ts`**）。
 - **Layer 5／設定**：新增 **`src/lib/swr/provider.tsx`** — **`SWRConfig`** 全域預設：**`revalidateOnFocus: false`**、**`revalidateOnReconnect: true`**、**`dedupingInterval: 30000`**（30 秒內不重複請求）、**`errorRetryCount: 2`**。
 - **Layer 5 — `src/app/(app)/layout.tsx`**：**`SWRProvider`** 包住 **`AppShellMotion`** 與 **children**。
 - **範圍**：尚未改動任何頁面或資料抓取邏輯，僅基礎架構（Provider + keys）。
@@ -712,4 +713,9 @@ Phase 4 — 市集搜尋快取
 - **Layer 2 補充**：**`chat.repository`** 新增 **`findConversationById`**，供上述權限檢查。
 - **Layer 3 — `src/services/notification.action.ts`**：**`getMyNotificationsAction`**（欄位 **`kind`／`title`／`body`／`read_at`／`metadata`**，與 **`database.types`** 一致；發送者由 **`metadata.from_user`** 或 **`from_user_id`** 解析後 **`findProfileById`**）、**`markAllNotificationsReadAction`**（**`read_at`** 設為目前時間，**`.is('read_at', null)`**）、**`clearAllNotificationsAction`**、**`getUnreadNotificationCountAction`**（**`read_at` is null**）。
 
-*最後更新：2026-03-25 — **`chat.action`**／**`notification.action`**＋**`findConversationById`**；並含 **`chat.repository`**、**likes／血盟**、**`alliances_pair_unique`**、**SWR**、**Middleware Edge**、**`/api/ping`**、**效能 Phase 1—4** 等。*
+### 2026-03-25 — Layer 4 **`useChat`** 與 **SWR_KEYS**（聊天／通知）
+
+- **Layer 4 — `src/hooks/useChat.ts`**（**`'use client'`**）：**`useConversations`** — **`useSWR(SWR_KEYS.conversations, getMyConversationsAction)`**、**`revalidateOnFocus: false`**；**`useMessages(conversationId)`** — key **`SWR_KEYS.messages(id)`** 或 **`null`**、**`getMessagesAction`**、**`refreshInterval: 0`**（預留 Realtime，不輪詢）；**`useUnreadNotificationCount`** — **`SWR_KEYS.unreadNotifications`**、**`getUnreadNotificationCountAction`**、**`revalidateOnFocus: true`**、**`refreshInterval: 30_000`**；回傳 **`isLoading`**／**`mutate`**（未讀數另含 **`count`**）。
+- **Layer 4 — `src/lib/swr/keys.ts`**：新增 **`conversations`**、**`messages(conversationId)`**、**`unreadNotifications`**、**`notifications`**（供通知列表等後續接線）。
+
+*最後更新：2026-03-25 — **`useChat`**＋**SWR_KEYS** 聊天／通知；並含 **`chat.action`**／**`notification.action`**、**`chat.repository`**、**likes／血盟**、**`alliances_pair_unique`**、**SWR**、**Middleware Edge**、**`/api/ping`**、**效能 Phase 1—4** 等。*
