@@ -18,7 +18,7 @@
 - **Layer 2（資料）**：`user.repository.ts`（含 **`updateLastCheckinAt`**）、`exp.repository.ts` 支援 **`total_exp`**（SSOT）；**`chat.repository.ts`**（**`conversations`**／**`chat_messages`**／**`blocks`**／**`reports`**，admin，供私訊／封鎖／檢舉接線）。
 - **Layer 3（業務）**：`daily-checkin.action.ts` 之 **`claimDailyCheckin`** 以 **`users.last_checkin_at`** 為簽到 **24h 滾動冷卻** SSOT；**`exp_logs.unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**；**`chat.action.ts`**（開啟對話／訊息／列表／封鎖／檢舉）、**`notification.action.ts`**（通知列表／已讀／清除／未讀數）。
 - **Layer 4（狀態／常數）**：`levels.ts`（門檻 0〜1350）、Zod 驗證已就緒；**`date.ts`** 之 **`taipeiCalendarDateKey()`** 仍為全系統**日曆日** SSOT（簽到冷卻**不再**依此判斷）；**`useChat.ts`** — **`useConversations`**／**`useMessages`**、**`useUnreadNotificationCount`**（**`SWR_KEYS.conversations`**／**`messages(id)`**／**`unreadNotifications`**）。
-- **Layer 5（UI）**：**`Navbar.tsx`**（五項 **lucide** 圖示底欄：**Home／Compass／Swords／Heart／ShoppingBag**）、**`LevelFrame.tsx`**、**`UserCard`**、**`UserCardSkeleton`**（市集列表首次載入）、**`/explore`**（**Server Component** 預載村莊；**`ExploreClient`** 頂部 **safe-area**、村莊＋市集 **tab**、**市集 `useSWR`（query key + `keepPreviousData`）**＋**`hidden`／`block` 切 tab 不 unmount**）、**`/guild`**（**`hidden` 切 tab**、**pending 角標 `useSWR`**）、**`/matchmaking`**／**`/shop`**（預留）。
+- **Layer 5（UI）**：**`Navbar.tsx`**（五項 **lucide** 圖示底欄：**Home／Compass／Swords／Heart／ShoppingBag**）、**`LevelFrame.tsx`**、**`UserCard`**、**`UserCardSkeleton`**（市集列表首次載入）、**`/explore`**（**Server Component** 預載村莊；**`ExploreClient`** 頂部 **safe-area**、村莊＋市集 **tab**、**市集 `useSWR`（query key + `keepPreviousData`）**＋**`hidden`／`block` 切 tab 不 unmount**）、**`/guild`**（**`hidden` 切 tab**；**血盟** **`AllianceList`**＋**pending 角標**；**聊天** **`useConversations`**＋**`ChatModal`**；**信件** **`SWR_KEYS.notifications`**＋**`useUnreadNotificationCount`** 紅點；血盟列點擊 **`getOrCreateConversationAction`** 開聊）、**`UserDetailModal`** 內 **`ChatModal`**（私訊＋Realtime＋檢舉）、**`/matchmaking`**／**`/shop`**（預留）。
 
 ### 📈 開發進度
 
@@ -90,7 +90,7 @@
 | 底部導航 | `src/components/layout/Navbar.tsx`（**五項 lucide**：**Home／Compass／Swords／Heart／ShoppingBag**；選中 **`text-violet-400`**、未選 **`text-zinc-500`**、**`text-[10px]`** 標籤；首頁 **`/`** 僅 **`pathname === '/'`** 為 active） |
 | 探索（村莊＋市集） | **`explore/page.tsx`**（**Server**：**`getVillageUsersAction`** 預載村莊）；**`ExploreClient.tsx`**（**`useSWR`** **`SWR_KEYS.villageUsers`** ＋ **`fallbackData`／`revalidateOnMount: false`**；市集 **`SWR_KEYS.marketUsers(query)`**、**`keepPreviousData`**；**`hidden`／`block`** 切 tab）；市集初次 **`isLoading`** 時 **6×`UserCardSkeleton`** |
 | 列表骨架屏 | **`src/components/ui/UserCardSkeleton.tsx`**（**`animate-pulse`**） |
-| 冒險團 | `src/app/(app)/guild/page.tsx`（**血盟** tab：**`useSWR`** **`SWR_KEYS.myAlliances`／`pendingAlliances`** 綁 **Server Action**；角標與列表；操作後 **`mutate`**；聊天／信件預留） |
+| 冒險團 | **`src/app/(app)/guild/page.tsx`**：**血盟** — **`useSWR`** **`myAlliances`／`pendingAlliances`**、夥伴列 **`getOrCreateConversationAction`** → **`ChatModal`**；**聊天** — **`useConversations`**、列表開 **`ChatModal`**（同 **`UserDetailModal`** 之 **Realtime 私訊**）；**信件** — **`useSWR(SWR_KEYS.notifications, getMyNotificationsAction)`**、**`kind`／`read_at`** 顯示、**全部已讀**／**清除全部** 並 **`mutate(SWR_KEYS.unreadNotifications)`**；**`GuildPage`** **`useUnreadNotificationCount`** → **信件** tab **紅點（9+）**；血盟 tab 角標 **>9** 顯示 **9+** |
 | 雙人血盟（Layer 3） | **`src/services/alliance.action.ts`**（**`getAllianceStatusAction`**、**`requestAllianceAction`**、**`respondAllianceAction`**、**`dissolveAllianceAction`**、**`getMyAlliancesAction`**、**`getPendingRequestsAction`**） |
 | 雙人血盟（Layer 2） | **`src/lib/repositories/server/alliance.repository.ts`** |
 | 私訊／封鎖／檢舉（Layer 2） | **`src/lib/repositories/server/chat.repository.ts`**（**`conversations`**、**`chat_messages`**、**`blocks`**、**`reports`**；見 🗄️ 與 **`database.types.ts`**） |
@@ -98,7 +98,8 @@
 | 通知（Layer 3） | **`src/services/notification.action.ts`** — **`getMyNotificationsAction`**、**`markAllNotificationsReadAction`**、**`clearAllNotificationsAction`**、**`getUnreadNotificationCountAction`**（欄位對齊 **`notifications.kind`／`read_at`**） |
 | 月老／商店預留 | `src/app/(app)/matchmaking/page.tsx`、`src/app/(app)/shop/page.tsx`（**即將開放**） |
 | 舊路由轉址 | **`/village`**、**`/market`** → **`/explore`**；**`/alliances`**、**`/inbox`** → **`/guild`** |
-| 使用者詳情 Modal | `src/components/modals/UserDetailModal.tsx`（開啟時 **`getModalSocialStatusAction`** 合併載入緣分／血盟；今日心情、雙欄自白、雙區標籤、**`toggleLikeAction`**＋**AlertDialog**；血盟操作後再拉合併狀態；**IG** 列：**`ig_public`** 或已血盟才顯示 **@handle**） |
+| 使用者詳情 Modal | `src/components/modals/UserDetailModal.tsx`（開啟時 **`getModalSocialStatusAction`** 合併載入緣分／血盟；**💬 聊聊** → **`getOrCreateConversationAction`** 開 **`ChatModal`**；今日心情、雙欄自白、雙區標籤、**`toggleLikeAction`**＋**AlertDialog**；血盟操作後再拉合併狀態；**IG** 列：**`ig_public`** 或已血盟才顯示 **@handle**） |
+| 私訊全螢幕 UI | **`src/components/chat/ChatModal.tsx`** — **`useMessages`**＋**`sendMessageAction`**；**Supabase Realtime** **`postgres_changes`** on **`public.chat_messages`**（**`conversation_id`** filter）觸發 **`mutate`**；底部輸入／檢舉 sheet → **`submitReportAction`**（內含封鎖）；**`z-[100]`** 蓋過 **`Dialog`** |
 | 有緣分＋互讚／Modal 合併載入 | **`src/services/social.action.ts`**（**`getModalSocialStatusAction`**：一次 **`auth.getUser()`** + **`Promise.all`**：**`findLike`** 雙向 + **`findAllianceBetween`**；仍含 **`getLikeStatusForTargetAction`**／**`checkMutualLikeWithTargetAction`**／**`toggleLikeAction`**） |
 | 技能市集（邏輯） | `src/services/market.service.ts`（**`getMarketUsersAction`**、**`getCachedMySkills`** **`unstable_cache` 60s** **`tags: profileCacheTag`**、**`unstable_cache` 60s** 快取 **`findMarketUsers`**、**搜尋篩選在列表快取回傳後**、檔內 **Perfect Match**）；UI 見 **`MarketContent`** |
 | 配對工具 | **`src/lib/utils/matching.ts`**（**`isOrientationMatch`**、**`calcInterestScore`**、**`calcSkillScore`**） |
@@ -718,4 +719,17 @@ Phase 4 — 市集搜尋快取
 - **Layer 4 — `src/hooks/useChat.ts`**（**`'use client'`**）：**`useConversations`** — **`useSWR(SWR_KEYS.conversations, getMyConversationsAction)`**、**`revalidateOnFocus: false`**；**`useMessages(conversationId)`** — key **`SWR_KEYS.messages(id)`** 或 **`null`**、**`getMessagesAction`**、**`refreshInterval: 0`**（預留 Realtime，不輪詢）；**`useUnreadNotificationCount`** — **`SWR_KEYS.unreadNotifications`**、**`getUnreadNotificationCountAction`**、**`revalidateOnFocus: true`**、**`refreshInterval: 30_000`**；回傳 **`isLoading`**／**`mutate`**（未讀數另含 **`count`**）。
 - **Layer 4 — `src/lib/swr/keys.ts`**：新增 **`conversations`**、**`messages(conversationId)`**、**`unreadNotifications`**、**`notifications`**（供通知列表等後續接線）。
 
-*最後更新：2026-03-25 — **`useChat`**＋**SWR_KEYS** 聊天／通知；並含 **`chat.action`**／**`notification.action`**、**`chat.repository`**、**likes／血盟**、**`alliances_pair_unique`**、**SWR**、**Middleware Edge**、**`/api/ping`**、**效能 Phase 1—4** 等。*
+### 2026-03-25 — Layer 5 **`ChatModal`** 與 **`UserDetailModal`** 聊聊接線
+
+- **Layer 5 — `src/components/chat/ChatModal.tsx`**：全螢幕私訊；**`useMessages`**（**`open`** 時才訂閱 key）；**Realtime** 監聽 **`chat_messages`** **INSERT** 後 **`mutate`**；**`sendMessageAction`** 送出與錯誤 **toast**；檢舉原因選單後 **`submitReportAction`**（後端已 **`blockUser`**）成功 **toast** 並關閉；safe-area 頂底；主層 **`z-[100]`**、檢舉層 **`z-[110]`**。
+- **Layer 5 — `UserDetailModal.tsx`**：**💬 聊聊** 呼叫 **`getOrCreateConversationAction`**，成功則 **`ChatModal`**（**`targetUser`**／**`socialStatus.currentUserId`**）；關閉詳情 Modal 時重置 **`showChat`**／**`conversationId`**；開啟對話中按鈕 **disabled** 與「開啟中…」。
+
+### 2026-03-25 — **`/guild`** 聊天／信件 Tab、血盟開聊、信件未讀紅點
+
+- **Layer 5 — `guild/page.tsx`**：**`ChatList`** — **`useConversations`** 列表（**`last_message`／`last_message_at`**、**`partner`**），點列開 **`ChatModal`**（**`createClient().auth.getUser()`** 取 **`currentUserId`**；**`partner` 缺漏**時以 **`user_a`／`user_b`** 推導對象 id）。
+- **同上 — `MailBox`**：**`useSWR(SWR_KEYS.notifications, getMyNotificationsAction)`**；**`read_at`** 判斷未讀與紫框；**`kind`** 對應文案（**`like`**、**`alliance_*`**、**`system`** 等）或退回 **`body`／`title`**；**`markAllNotificationsReadAction`**／**`clearAllNotificationsAction`** 成功後 **`mutate` 列表**＋**`useSWRConfig().mutate(SWR_KEYS.unreadNotifications)`** 同步底欄紅點。
+- **同上 — `AllianceList`**：夥伴列改 **`button`**，**`getOrCreateConversationAction(partner.id)`** 後 **`ChatModal`**；**`chatOpeningId`** 防連點與「開啟中…」；失敗 **toast**。
+- **同上 — `GuildPage`**：**`useUnreadNotificationCount`**；**信件** tab **紅點**（**>9** 顯示 **9+**）；**血盟** pending 角標同規則 **9+**。
+- **`ChatModal`**：**Supabase Realtime** **`chat_messages`** **INSERT** 即時 **`mutate`**（與探索／詳情 Modal 行為一致）。
+
+*最後更新：2026-03-25 — **`/guild`** **聊天 Tab**（對話列表＋**`ChatModal`**）／**信件 Tab**（通知列表、已讀／清除、**`SWR_KEYS.notifications`**）、**血盟列開聊**、**信件未讀紅點**；**`ChatModal`** **Realtime**；**`UserDetailModal`** 聊聊；**`useChat`**＋**SWR_KEYS**；**`chat.action`**／**`notification.action`**、**`chat.repository`**、**likes／血盟**、**SWR**、**Middleware Edge**、**`/api/ping`**、**效能 Phase 1—4** 等。*

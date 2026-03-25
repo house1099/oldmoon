@@ -1,7 +1,10 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { findAllianceBetween } from "@/lib/repositories/server/alliance.repository";
+import {
+  findAllianceBetween,
+  updateAlliance,
+} from "@/lib/repositories/server/alliance.repository";
 import {
   checkMutualLike,
   deleteLike,
@@ -9,6 +12,8 @@ import {
   insertLike,
   mapLikeRepositoryError,
 } from "@/lib/repositories/server/like.repository";
+import { insertNotification } from "@/lib/repositories/server/notification.repository";
+import { findProfileById } from "@/lib/repositories/server/user.repository";
 
 /** Modal 底部緣分／血盟區塊一次載入用 */
 export type ModalSocialStatus = {
@@ -151,10 +156,38 @@ export async function toggleLikeAction(
 
     if (existing) {
       await deleteLike(user.id, targetUserId);
+
+      try {
+        const alliance = await findAllianceBetween(user.id, targetUserId);
+        if (
+          alliance &&
+          (alliance.status === "pending" || alliance.status === "accepted")
+        ) {
+          await updateAlliance(alliance.id, { status: "dissolved" });
+        }
+      } catch {
+        // 血盟撤銷失敗不影響取消愛心
+      }
+
       return { success: true, isMatch: false, liked: false };
     }
 
     await insertLike(user.id, targetUserId);
+
+    try {
+      const liker = await findProfileById(user.id);
+      const nickname = liker?.nickname?.trim() || "某位冒險者";
+      await insertNotification({
+        user_id: targetUserId,
+        kind: "like",
+        title: `${nickname} 對你送出緣分`,
+        body: "打開公會探索看看是誰吧！",
+        metadata: { from_user: user.id },
+      });
+    } catch (notifyErr) {
+      console.error("toggleLikeAction: notification insert failed", notifyErr);
+    }
+
     const isMatch = await checkMutualLike(user.id, targetUserId);
     return { success: true, isMatch, liked: true };
   } catch (error) {

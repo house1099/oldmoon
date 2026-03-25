@@ -22,18 +22,9 @@ import {
   getModalSocialStatusAction,
   toggleLikeAction,
 } from "@/services/social.action";
-import { Button } from "@/components/ui/button";
-import LoadingButton, { PendingLabel } from "@/components/ui/LoadingButton";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { getOrCreateConversationAction } from "@/services/chat.action";
+import ChatModal from "@/components/chat/ChatModal";
+import LoadingButton from "@/components/ui/LoadingButton";
 import {
   Dialog,
   DialogContent,
@@ -78,13 +69,21 @@ export function UserDetailModal({
   });
   const [socialLoading, setSocialLoading] = useState(true);
   const [likePending, setLikePending] = useState(false);
-  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [allianceRequesting, setAllianceRequesting] = useState(false);
+  const [showCancelSheet, setShowCancelSheet] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [chatOpening, setChatOpening] = useState(false);
   const [moodCountdownLabel, setMoodCountdownLabel] = useState<string | null>(
     null,
   );
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setShowChat(false);
+      setConversationId(null);
+      return;
+    }
     setSocialLoading(true);
     let cancelled = false;
     void getModalSocialStatusAction(user.id).then((status) => {
@@ -152,7 +151,7 @@ export function UserDetailModal({
   async function handleToggleLike() {
     if (socialLoading || likePending) return;
     if (isLiked) {
-      setShowCancelDialog(true);
+      setShowCancelSheet(true);
       return;
     }
     setLikePending(true);
@@ -180,7 +179,6 @@ export function UserDetailModal({
       }
       const updated = await getModalSocialStatusAction(user.id);
       setSocialStatus(updated);
-      setShowCancelDialog(false);
       applyToggleToasts(result.liked, result.isMatch);
     } finally {
       setLikePending(false);
@@ -188,13 +186,19 @@ export function UserDetailModal({
   }
 
   async function handleRequestAlliance() {
-    const r = await requestAllianceAction(user.id);
-    if (r.ok) {
-      const updated = await getModalSocialStatusAction(user.id);
-      setSocialStatus(updated);
-      toast.success("⚔️ 血盟申請已送出");
-    } else {
-      toast.error(r.error ?? "申請失敗");
+    if (allianceRequesting) return;
+    setAllianceRequesting(true);
+    try {
+      const r = await requestAllianceAction(user.id);
+      if (r.ok) {
+        const updated = await getModalSocialStatusAction(user.id);
+        setSocialStatus(updated);
+        toast.success("⚔️ 血盟申請已送出");
+      } else {
+        toast.error(r.error ?? "申請失敗");
+      }
+    } finally {
+      setAllianceRequesting(false);
     }
   }
 
@@ -221,6 +225,22 @@ export function UserDetailModal({
     const updated = await getModalSocialStatusAction(user.id);
     setSocialStatus(updated);
     toast("血盟已解除");
+  }
+
+  async function handleOpenChat() {
+    if (chatOpening) return;
+    setChatOpening(true);
+    try {
+      const result = await getOrCreateConversationAction(user.id);
+      if (result.ok && result.conversation) {
+        setConversationId(result.conversation.id);
+        setShowChat(true);
+      } else {
+        toast.error(result.error ?? "無法開啟對話");
+      }
+    } finally {
+      setChatOpening(false);
+    }
   }
 
   return (
@@ -379,20 +399,21 @@ export function UserDetailModal({
 
           <DialogFooter className="flex flex-col gap-3 border-t border-amber-900/35 bg-zinc-950 px-6 pb-8 pt-4">
             <div className="flex w-full max-w-[min(100%,22rem)] flex-row items-center justify-center gap-4 sm:max-w-full">
-              <Button
+              <button
                 type="button"
-                variant="outline"
-                className="h-11 min-h-[2.75rem] min-w-0 flex-1 rounded-full border-violet-800/50 px-4 py-2.5 text-sm font-medium text-violet-100/95 transition-transform hover:bg-violet-950/40 active:scale-95"
-                onClick={() =>
-                  toast.message("即將開啟私訊功能喵！", {
-                    description: "私訊通道建置中，敬請期待。",
-                    className:
-                      "border border-violet-700/50 bg-zinc-950 text-violet-50 shadow-lg",
-                  })
-                }
+                disabled={chatOpening}
+                onClick={() => void handleOpenChat()}
+                className="flex h-11 min-h-[2.75rem] min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-white/10 py-3 text-sm text-white transition-all hover:bg-white/20 active:scale-95 disabled:pointer-events-none disabled:opacity-60"
               >
-                💬 聊聊
-              </Button>
+                {chatOpening ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    開啟中…
+                  </span>
+                ) : (
+                  "💬 聊聊"
+                )}
+              </button>
               <LoadingButton
                 className={cn(
                   "flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full py-3 text-sm font-medium transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-60",
@@ -418,9 +439,17 @@ export function UserDetailModal({
                   <button
                     type="button"
                     onClick={() => void handleRequestAlliance()}
-                    className="w-full rounded-full border border-amber-500/40 py-3 text-sm text-amber-300 transition-all hover:bg-amber-500/10 active:scale-95"
+                    disabled={allianceRequesting}
+                    className="w-full rounded-full border border-amber-500/40 py-3 text-sm text-amber-300 transition-all hover:bg-amber-500/10 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    ⚔️ 申請血盟
+                    {allianceRequesting ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-amber-300/30 border-t-amber-300" />
+                        處理中…
+                      </span>
+                    ) : (
+                      "⚔️ 申請血盟"
+                    )}
                   </button>
                 ) : allianceStatus === "pending_sent" ? (
                   <div className="w-full rounded-full bg-zinc-800/50 py-3 text-center text-sm text-zinc-500">
@@ -464,37 +493,62 @@ export function UserDetailModal({
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-        <AlertDialogContent className="glass-panel border-white/10">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">
+      {showCancelSheet && (
+        <div
+          className="fixed inset-0 z-50"
+          onClick={() => setShowCancelSheet(false)}
+        >
+          <div className="absolute inset-0 bg-black/60" />
+
+          <div
+            className="absolute bottom-0 left-0 right-0 space-y-3 rounded-t-3xl border-t border-white/10 bg-zinc-900 p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-700" />
+
+            <p className="text-center font-medium text-white">
               確定取消緣分？
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-zinc-400">
-              取消後對方將不再收到你的緣分通知。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex gap-3">
-            <AlertDialogCancel className="flex-1 rounded-full border-0 bg-zinc-800 text-white hover:bg-zinc-700 hover:text-white">
-              再想想
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="flex-1 rounded-full bg-rose-600 text-white hover:bg-rose-500"
+            </p>
+            <p className="text-center text-sm text-zinc-400">
+              取消後對方將不再收到你的緣分通知
+            </p>
+
+            <button
+              type="button"
               disabled={likePending}
-              onClick={(e) => {
-                e.preventDefault();
-                void confirmCancelLike();
+              onClick={async () => {
+                await confirmCancelLike();
+                setShowCancelSheet(false);
               }}
+              className="w-full rounded-full bg-rose-600 py-4 text-sm font-medium text-white transition-all hover:bg-rose-500 active:scale-95 disabled:pointer-events-none disabled:opacity-60"
             >
-              {likePending ? (
-                <PendingLabel text="處理中…" />
-              ) : (
-                "確定取消"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              {likePending ? "處理中…" : "確定取消"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowCancelSheet(false)}
+              className="w-full rounded-full bg-zinc-800 py-4 text-sm font-medium text-zinc-300 transition-all hover:bg-zinc-700 active:scale-95"
+            >
+              再想想
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showChat && conversationId ? (
+        <ChatModal
+          open={showChat}
+          onClose={() => setShowChat(false)}
+          conversationId={conversationId}
+          targetUser={{
+            id: user.id,
+            nickname: user.nickname,
+            avatar_url: user.avatar_url,
+          }}
+          currentUserId={socialStatus.currentUserId ?? ""}
+        />
+      ) : null}
     </>
   );
 }
