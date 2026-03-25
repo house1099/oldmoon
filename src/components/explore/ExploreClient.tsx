@@ -1,10 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import useSWR from "swr";
 import { getMarketUsersAction } from "@/services/market.service";
 import type { VillageUserWithScore } from "@/services/village.service";
+import { getVillageUsersAction } from "@/services/village.service";
 import { MarketContent } from "@/components/explore/MarketContent";
 import { VillageContent } from "@/components/explore/VillageContent";
+import { SWR_KEYS } from "@/lib/swr/keys";
 
 interface ExploreClientProps {
   initialVillageUsers: VillageUserWithScore[];
@@ -14,24 +17,33 @@ export default function ExploreClient({
   initialVillageUsers,
 }: ExploreClientProps) {
   const [tab, setTab] = useState<"village" | "market">("village");
-  const [marketUsers, setMarketUsers] = useState<
-    Awaited<ReturnType<typeof getMarketUsersAction>>["users"]
-  >([]);
-  const [marketLoading, setMarketLoading] = useState(true);
   const [query, setQuery] = useState("");
 
-  useEffect(() => {
-    void getMarketUsersAction("").then((result) => {
-      setMarketUsers(result.users ?? []);
-      setMarketLoading(false);
-    });
+  const { data: villageUsers } = useSWR(
+    SWR_KEYS.villageUsers,
+    () => getVillageUsersAction().then((r) => r.users ?? []),
+    {
+      fallbackData: initialVillageUsers,
+      revalidateOnFocus: false,
+      revalidateOnMount: false,
+    },
+  );
+
+  const { data: marketUsers, isLoading: marketLoading } = useSWR(
+    SWR_KEYS.marketUsers(query),
+    () => getMarketUsersAction(query).then((r) => r.users ?? []),
+    {
+      revalidateOnFocus: false,
+      keepPreviousData: true,
+    },
+  );
+
+  const handleMarketQueryChange = useCallback((q: string) => {
+    setQuery(q);
   }, []);
 
-  const handleMarketQueryChange = useCallback(async (q: string) => {
-    setQuery(q);
-    const result = await getMarketUsersAction(q);
-    setMarketUsers(result.users ?? []);
-  }, []);
+  const villageList = villageUsers ?? initialVillageUsers;
+  const marketList = marketUsers ?? [];
 
   return (
     <div className="min-h-screen bg-zinc-950">
@@ -64,11 +76,11 @@ export default function ExploreClient({
 
       <div className="px-4 py-4 sm:px-8">
         <div className={tab === "village" ? "block" : "hidden"}>
-          <VillageContent users={initialVillageUsers} />
+          <VillageContent users={villageList} />
         </div>
         <div className={tab === "market" ? "block" : "hidden"}>
           <MarketContent
-            users={marketUsers}
+            users={marketList}
             loading={marketLoading}
             query={query}
             onQueryChange={handleMarketQueryChange}

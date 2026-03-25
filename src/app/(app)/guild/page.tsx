@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import {
   getMyAlliancesAction,
   getPendingRequestsAction,
@@ -11,20 +12,19 @@ import type {
   PendingAllianceRequestItem,
 } from "@/services/alliance.action";
 import Avatar from "@/components/ui/Avatar";
+import { SWR_KEYS } from "@/lib/swr/keys";
 
 const tabs = ["血盟", "聊天", "信件"] as const;
 
 export default function GuildPage() {
   const [tab, setTab] = useState<(typeof tabs)[number]>("血盟");
-  const [pendingCount, setPendingCount] = useState(0);
 
-  const refreshPendingCount = useCallback(() => {
-    void getPendingRequestsAction().then((p) => setPendingCount(p.length));
-  }, []);
-
-  useEffect(() => {
-    refreshPendingCount();
-  }, [refreshPendingCount]);
+  const { data: pendingData } = useSWR(
+    SWR_KEYS.pendingAlliances,
+    () => getPendingRequestsAction(),
+    { revalidateOnFocus: false },
+  );
+  const pendingCount = pendingData?.length ?? 0;
 
   return (
     <div className="min-h-screen bg-zinc-950">
@@ -57,7 +57,7 @@ export default function GuildPage() {
 
       <div className="px-4 py-4">
         <div className={tab === "血盟" ? "block" : "hidden"}>
-          <AllianceList onListsChanged={refreshPendingCount} />
+          <AllianceList />
         </div>
         <div className={tab === "聊天" ? "block" : "hidden"}>
           <ChatList />
@@ -70,26 +70,20 @@ export default function GuildPage() {
   );
 }
 
-function AllianceList({ onListsChanged }: { onListsChanged: () => void }) {
-  const [alliances, setAlliances] = useState<MyAllianceListItem[]>([]);
-  const [pending, setPending] = useState<PendingAllianceRequestItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    void Promise.all([
-      getMyAlliancesAction(),
-      getPendingRequestsAction(),
-    ]).then(([a, p]) => {
-      if (cancelled) return;
-      setAlliances(a);
-      setPending(p);
-      setLoading(false);
+function AllianceList() {
+  const { data: alliancesData, isLoading: alliancesLoading, mutate: mutateAlliances } =
+    useSWR(SWR_KEYS.myAlliances, () => getMyAlliancesAction(), {
+      revalidateOnFocus: false,
     });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+
+  const { data: pendingData, isLoading: pendingLoading, mutate: mutatePending } =
+    useSWR(SWR_KEYS.pendingAlliances, () => getPendingRequestsAction(), {
+      revalidateOnFocus: false,
+    });
+
+  const alliances: MyAllianceListItem[] = alliancesData ?? [];
+  const pending: PendingAllianceRequestItem[] = pendingData ?? [];
+  const loading = alliancesLoading || pendingLoading;
 
   if (loading) {
     return (
@@ -135,10 +129,7 @@ function AllianceList({ onListsChanged }: { onListsChanged: () => void }) {
                   onClick={async () => {
                     const res = await respondAllianceAction(r.id, "accepted");
                     if (!res.ok) return;
-                    setPending((prev) => prev.filter((x) => x.id !== r.id));
-                    const updated = await getMyAlliancesAction();
-                    setAlliances(updated);
-                    onListsChanged();
+                    await Promise.all([mutatePending(), mutateAlliances()]);
                   }}
                   className="rounded-full bg-amber-600 px-3 py-1.5 text-xs text-white transition-all hover:bg-amber-500 active:scale-95"
                 >
@@ -149,8 +140,7 @@ function AllianceList({ onListsChanged }: { onListsChanged: () => void }) {
                   onClick={async () => {
                     const res = await respondAllianceAction(r.id, "dissolved");
                     if (!res.ok) return;
-                    setPending((prev) => prev.filter((x) => x.id !== r.id));
-                    onListsChanged();
+                    await mutatePending();
                   }}
                   className="rounded-full bg-zinc-800 px-3 py-1.5 text-xs text-zinc-400 transition-all hover:bg-zinc-700 active:scale-95"
                 >

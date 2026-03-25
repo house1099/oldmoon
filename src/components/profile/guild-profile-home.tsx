@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useCallback,
@@ -92,6 +93,7 @@ function AccordionSection({
   setOpenSection,
   children,
   titleRight,
+  renderHeader,
 }: {
   id: string;
   title: string;
@@ -99,6 +101,10 @@ function AccordionSection({
   setOpenSection: (v: string | null) => void;
   children: ReactNode;
   titleRight?: ReactNode;
+  renderHeader?: (args: {
+    isOpen: boolean;
+    toggle: () => void;
+  }) => ReactNode;
 }) {
   const isOpen = openSection === id;
   function toggle() {
@@ -106,28 +112,32 @@ function AccordionSection({
   }
   return (
     <div className="border-t border-white/10">
-      <div className="flex w-full items-center gap-2 px-1 py-4">
-        <button
-          type="button"
-          onClick={toggle}
-          className="min-w-0 flex-1 text-left text-sm font-medium text-white"
-        >
-          {title}
-        </button>
-        {titleRight ? (
-          <div className="flex shrink-0 items-center gap-2">{titleRight}</div>
-        ) : null}
-        <button
-          type="button"
-          onClick={toggle}
-          aria-expanded={isOpen}
-          className="shrink-0 text-zinc-400 transition-transform duration-200 hover:text-white"
-        >
-          <span className={isOpen ? "inline-block rotate-180" : "inline-block"}>
-            ▼
-          </span>
-        </button>
-      </div>
+      {renderHeader ? (
+        renderHeader({ isOpen, toggle })
+      ) : (
+        <div className="flex w-full items-center gap-2 px-1 py-4">
+          <button
+            type="button"
+            onClick={toggle}
+            className="min-w-0 flex-1 text-left text-sm font-medium text-white"
+          >
+            {title}
+          </button>
+          {titleRight ? (
+            <div className="flex shrink-0 items-center gap-2">{titleRight}</div>
+          ) : null}
+          <button
+            type="button"
+            onClick={toggle}
+            aria-expanded={isOpen}
+            className="shrink-0 text-zinc-400 transition-transform duration-200 hover:text-white"
+          >
+            <span className={isOpen ? "inline-block rotate-180" : "inline-block"}>
+              ▼
+            </span>
+          </button>
+        </div>
+      )}
       {isOpen ? <div className="pb-4">{children}</div> : null}
     </div>
   );
@@ -637,46 +647,38 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-3xl border border-violet-500/20 bg-violet-950/40 p-0 shadow-2xl backdrop-blur-xl">
-        <p className="border-b border-violet-500/20 px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-300">
-          今日心情
-        </p>
-        <div className="p-4">
-          <div className="space-y-3">
-            <div className="flex min-h-[1.25rem] items-center justify-end gap-2">
-              {countdown ? (
-                <span className="text-xs text-zinc-400">{countdown}</span>
-              ) : null}
-              {!countdown && moodAt ? (
-                <span className="text-xs text-zinc-500">已過期</span>
-              ) : null}
-            </div>
+      <section
+        className="rounded-3xl border border-violet-500/30 bg-violet-950/40 backdrop-blur-xl p-4 space-y-3"
+        style={{ boxShadow: "0 0 20px rgba(139,92,246,0.15)" }}
+      >
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold text-white">✨ 今日心情</span>
+          {countdown ? (
+            <span className="text-xs text-violet-300/70">還有 {countdown}</span>
+          ) : null}
+        </div>
 
-            <textarea
-              value={moodInput}
-              onChange={(e) => setMoodInput(e.target.value)}
-              onFocus={handleIosTextareaFocus}
-              placeholder="今天的心情是..."
-              maxLength={50}
-              rows={2}
-              className={IOS_TEXTAREA_CLASS}
-            />
+        <textarea
+          value={moodInput}
+          onChange={(e) => setMoodInput(e.target.value)}
+          onFocus={handleIosTextareaFocus}
+          placeholder="今天的心情是..."
+          maxLength={50}
+          rows={2}
+          className={IOS_TEXTAREA_CLASS}
+        />
 
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-zinc-600">
-                {moodInput.length}/50
-              </span>
-              <LoadingButton
-                className="rounded-full bg-white/10 px-5 py-2 text-sm font-medium text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-40"
-                loading={savingMood}
-                loadingText="處理中…"
-                disabled={!moodInput.trim()}
-                onClick={handleSaveMood}
-              >
-                確認
-              </LoadingButton>
-            </div>
-          </div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-zinc-600">{moodInput.length}/50</span>
+          <LoadingButton
+            className="px-5 py-1.5 rounded-full text-xs font-medium transition-all active:scale-95 disabled:opacity-40 bg-violet-600/80 text-white hover:bg-violet-500/80 border border-violet-400/30"
+            loading={savingMood}
+            loadingText="更新中…"
+            disabled={!moodInput.trim()}
+            onClick={handleSaveMood}
+          >
+            確認
+          </LoadingButton>
         </div>
       </section>
 
@@ -818,15 +820,40 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             title="興趣與技能標籤"
             openSection={openSection}
             setOpenSection={setOpenSection}
-            titleRight={
-              <button
-                type="button"
-                onClick={() => router.push("/profile/edit-tags")}
-                className="text-xs text-zinc-500 transition-colors hover:text-white"
-              >
-                ✏️ 編輯
-              </button>
-            }
+            renderHeader={({ isOpen, toggle }) => (
+              <div className="flex w-full items-center justify-between gap-2 px-1 py-4">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={toggle}
+                    className="text-left text-sm font-medium text-white"
+                  >
+                    興趣與技能標籤
+                  </button>
+                  <Link
+                    href="/profile/edit-tags"
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-zinc-800/60 border border-white/10 text-zinc-400 hover:text-white transition-colors text-xs"
+                  >
+                    ✏️ 編輯
+                  </Link>
+                </div>
+                <button
+                  type="button"
+                  onClick={toggle}
+                  aria-expanded={isOpen}
+                  className="shrink-0"
+                >
+                  <span
+                    className={`transition-transform duration-200 text-xs text-zinc-500 ${
+                      isOpen ? "rotate-180" : ""
+                    }`}
+                  >
+                    ▼
+                  </span>
+                </button>
+              </div>
+            )}
           >
             <div className="space-y-4">
               {profile.interests && profile.interests.length > 0 ? (
