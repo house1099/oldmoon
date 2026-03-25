@@ -103,7 +103,7 @@
 | 註冊條款內文 | **`src/lib/constants/terms.ts`**（**`TERMS_OF_SERVICE`**）；**`src/components/auth/TermsModal.tsx`** |
 | 興趣／技能標籤選項（分類＋內建標籤） | SSOT **`src/lib/constants/tags.ts`**（**`ALL_INTEREST_TAGS`／`ALL_SKILL_TAGS`**）；**`interests.ts`／`skills.ts`** 僅 re-export |
 | 註冊標籤 Step4／Step5 | **`src/components/register/TagSelector.tsx`**；**`/register/interests`**（興趣必選，**`sessionStorage.reg_interests`**）完成後 **`router.push('/register/skills')`**；**`/register/skills`** 為完整頁面：**我能教**（上）／**我想學**（下）、**`completeRegistration`** 一次寫入，**可跳過**（技能空陣列）；**歡迎 Modal** 僅於 Step5；舊路徑 **`skills-offer`／`skills-want`** 仍 **`redirect('/register/interests')`**（建議先補興趣） |
-| 登入後編輯標籤 | **`/profile/edit-tags`**（**`edit-tags-client.tsx`**）；與註冊共用 **`register/TagSelector.tsx`** + **`tags.ts`**；三 Tab（興趣／能教／想學），**`updateMyProfile`** 分開儲存 |
+| 登入後編輯標籤 | **`/profile/edit-tags`**（**`edit-tags-client.tsx`**）；與註冊共用 **`register/TagSelector.tsx`** + **`tags.ts`**；三 **`TagSelector`** 皆 **`defaultOpenCategory={null}`**（預設收折）；三 Tab（興趣／能教／想學），**`updateMyProfile`** 分開儲存 |
 | Zod／不雅字／IG 格式 | `src/lib/validation/*.ts`、`src/lib/utils/forbidden-words.ts` |
 | DB 型別 | `src/types/database.types.ts`（含 **`ig_change_requests`**、**`users.role`**、**`skills_offer`**／**`skills_want`**） |
 | 市集 Perfect Match 高光 | `src/app/globals.css`（**`.perfect-match-market-shell`**） |
@@ -670,4 +670,16 @@ Phase 4 — 市集搜尋快取
 - **`/` First Load JS**：**227 kB**（原 222 kB，增 ~5 kB SWR client bundle）；路由從 `ƒ Dynamic` 變 `○ Static`（殼靜態預渲染、資料客戶端載入）。
 - **SWR 改造完成**：**`/`（home）**、**`/explore`**、**`/guild`** 三頁皆已改用 **`useSWR`**。
 
-*最後更新：2026-03-25 — **首頁 SWR**（**`useMyProfile`**、**`getMyProfileAction`**、Client Component + skeleton）；**`ExploreClient` SWR**；**`/guild` SWR**；**SWR 基礎架構**；**Middleware Edge**、**`GET /api/ping`**、**雙人血盟**、**效能 Phase 1—4**。*
+### 2026-03-25 — `AppShellMotion` 頁面切換動畫（輕量）
+
+- **Layer 5 — `src/components/layout/app-shell-motion.tsx`**：**`AnimatePresence`** 改 **`mode="sync"`**（新舊頁同時切換，不等舊頁 exit 完）；**`motion.div`** 仍僅 **opacity** 淡入淡出；**`transition.duration`** 改 **0.08s**（較原 0.2s 更短、幾乎無感）。
+
+### 2026-03-25 — 首頁「今日心情」框深紫微光（規格對齊）
+
+- **Layer 5 — `guild-profile-home.tsx`**：今日心情區最外層 **`section`** 使用 **`rounded-3xl border border-violet-500/30 bg-violet-950/40 backdrop-blur-xl p-4 space-y-3`** 與 **`boxShadow: '0 0 20px rgba(139,92,246,0.15)'`**；標題列 **✨ 今日心情** 與 **還有 {countdown}**（**`countdown &&`**）；確認鈕為紫膠囊（**`px-5 py-1.5 rounded-full text-xs`** 等）。
+
+### 2026-03-25 — `/profile/edit-tags` 標籤分類預設全收折
+
+- **Layer 5 — `edit-tags-client.tsx`**：興趣／能教／想學三個 **`TagSelector`** 皆加上 **`defaultOpenCategory={null}`**，與註冊 **`/register/interests`**、**`/register/skills`** 一致，進頁時分類手風琴**預設全部收折**。
+
+*最後更新：2026-03-25 — **edit-tags `TagSelector` 全收折**（**`defaultOpenCategory={null}`** ×3）；**今日心情框深紫微光**；**`AppShellMotion`**；**首頁／explore／guild SWR**；**Middleware Edge**、**`GET /api/ping`**、**雙人血盟**、**效能 Phase 1—4**。*

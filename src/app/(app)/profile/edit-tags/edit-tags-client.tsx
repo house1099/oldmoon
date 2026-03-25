@@ -108,6 +108,7 @@ export function EditTagsClient({
             onChange={setInterests}
             customAllowed
             maxCustom={3}
+            defaultOpenCategory={null}
           />
           <button
             type="button"
@@ -128,6 +129,7 @@ export function EditTagsClient({
             onChange={setSkillsOffer}
             customAllowed
             maxCustom={3}
+            defaultOpenCategory={null}
           />
           <button
             type="button"
@@ -148,6 +150,7 @@ export function EditTagsClient({
             onChange={setSkillsWant}
             customAllowed
             maxCustom={3}
+            defaultOpenCategory={null}
           />
           <button
             type="button"
