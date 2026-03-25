@@ -15,7 +15,7 @@
 ### 🏛️ 五層架構狀態（速覽）
 
 - **Layer 1（連線）**：Supabase Client／Server／Admin 已完備。
-- **Layer 2（資料）**：`user.repository.ts`（含 **`updateLastCheckinAt`**）、`exp.repository.ts` 支援 **`total_exp`**（SSOT）。
+- **Layer 2（資料）**：`user.repository.ts`（含 **`updateLastCheckinAt`**）、`exp.repository.ts` 支援 **`total_exp`**（SSOT）；**`chat.repository.ts`**（**`conversations`**／**`chat_messages`**／**`blocks`**／**`reports`**，admin，供私訊／封鎖／檢舉接線）。
 - **Layer 3（業務）**：`daily-checkin.action.ts` 之 **`claimDailyCheckin`** 以 **`users.last_checkin_at`** 為簽到 **24h 滾動冷卻** SSOT；**`exp_logs.unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**。
 - **Layer 4（狀態／常數）**：`levels.ts`（門檻 0〜1350）、Zod 驗證已就緒；**`date.ts`** 之 **`taipeiCalendarDateKey()`** 仍為全系統**日曆日** SSOT（簽到冷卻**不再**依此判斷）。
 - **Layer 5（UI）**：**`Navbar.tsx`**（五項 **lucide** 圖示底欄：**Home／Compass／Swords／Heart／ShoppingBag**）、**`LevelFrame.tsx`**、**`UserCard`**、**`UserCardSkeleton`**（市集列表首次載入）、**`/explore`**（**Server Component** 預載村莊；**`ExploreClient`** 頂部 **safe-area**、村莊＋市集 **tab**、**市集 `useSWR`（query key + `keepPreviousData`）**＋**`hidden`／`block` 切 tab 不 unmount**）、**`/guild`**（**`hidden` 切 tab**、**pending 角標 `useSWR`**）、**`/matchmaking`**／**`/shop`**（預留）。
@@ -49,8 +49,9 @@
 - **註冊建檔**：**`completeAdventurerProfile`** 為避免 PostgREST／欄位快取問題，**insert 不帶 `bio`**（自介於個人頁 **`profile-update`** 填寫）。
 - DDL 變更後若仍報「找不到欄位」，至 Supabase **Settings → API** 嘗試 **重新載入 Schema**。
 - **`likes`**：已接線（**`from_user`**／**`to_user`**）。**雲端表無 `id` 欄位**（僅複合語意上的雙 uuid）；**`insertLike`** 只做 **insert**、**`Promise<void>`**，**不** `.select()` 讀回列；**`findLike`**／**`checkMutualLike`** 之 **`.select`** 僅 **`from_user, to_user`**，避免讀取不存在的欄位。型別見 **`database.types.ts`** **`likes.Row`**。
-- **`alliances`**：**雙人血盟 SSOT**（**`user_a`**、**`user_b`**、**`initiated_by`**、**`status`**：`pending`／`accepted`／`dissolved`、`created_at`）；**`database.types.ts`** 與 Layer 2 **`alliance.repository.ts`**、Layer 3 **`alliance.action.ts`** 僅使用此表。
+- **`alliances`**：**雙人血盟 SSOT**（**`user_a`**、**`user_b`**、**`initiated_by`**、**`status`**：`pending`／`accepted`／`dissolved`、`created_at`）；建議 **`UNIQUE (user_a, user_b)`**（約束名 **`alliances_pair_unique`**，遷移 **`20260325183000_alliances_pair_unique.sql`**）。**`database.types.ts`** 與 Layer 2 **`alliance.repository.ts`**、Layer 3 **`alliance.action.ts`** 僅使用此表。
 - **`user_alliances`**：**已廢棄**（曾規劃之分表，勿建）；**`supabase/migrations/20260325120000_user_alliances_pair.sql`** 檔首已標 **DEPRECATED**，**請勿在 Supabase 執行**。
+- **`conversations`**／**`chat_messages`**／**`blocks`**／**`reports`**：Layer 2 **`chat.repository.ts`** 與 **`database.types.ts`** 已預留型別與函式（**`getOrCreateConversation`**、**`getMessages`**、**`sendMessage`**、**`getMyConversations`**、**`markMessagesAsRead`**、**`blockUser`**、**`unblockUser`**、**`isBlocked`**、**`submitReport`**）。雲端若尚無表，請補 🗄️ DDL 並 **Reload schema**。
 
 ---
 
@@ -90,6 +91,7 @@
 | 冒險團 | `src/app/(app)/guild/page.tsx`（**血盟** tab：**`useSWR`** **`SWR_KEYS.myAlliances`／`pendingAlliances`** 綁 **Server Action**；角標與列表；操作後 **`mutate`**；聊天／信件預留） |
 | 雙人血盟（Layer 3） | **`src/services/alliance.action.ts`**（**`getAllianceStatusAction`**、**`requestAllianceAction`**、**`respondAllianceAction`**、**`dissolveAllianceAction`**、**`getMyAlliancesAction`**、**`getPendingRequestsAction`**） |
 | 雙人血盟（Layer 2） | **`src/lib/repositories/server/alliance.repository.ts`** |
+| 私訊／封鎖／檢舉（Layer 2） | **`src/lib/repositories/server/chat.repository.ts`**（**`conversations`**、**`chat_messages`**、**`blocks`**、**`reports`**；見 🗄️ 與 **`database.types.ts`**） |
 | 月老／商店預留 | `src/app/(app)/matchmaking/page.tsx`、`src/app/(app)/shop/page.tsx`（**即將開放**） |
 | 舊路由轉址 | **`/village`**、**`/market`** → **`/explore`**；**`/alliances`**、**`/inbox`** → **`/guild`** |
 | 使用者詳情 Modal | `src/components/modals/UserDetailModal.tsx`（開啟時 **`getModalSocialStatusAction`** 合併載入緣分／血盟；今日心情、雙欄自白、雙區標籤、**`toggleLikeAction`**＋**AlertDialog**；血盟操作後再拉合併狀態；**IG** 列：**`ig_public`** 或已血盟才顯示 **@handle**） |
@@ -105,7 +107,7 @@
 | 註冊標籤 Step4／Step5 | **`src/components/register/TagSelector.tsx`**；**`/register/interests`**（興趣必選，**`sessionStorage.reg_interests`**）完成後 **`router.push('/register/skills')`**；**`/register/skills`** 為完整頁面：**我能教**（上）／**我想學**（下）、**`completeRegistration`** 一次寫入，**可跳過**（技能空陣列）；**歡迎 Modal** 僅於 Step5；舊路徑 **`skills-offer`／`skills-want`** 仍 **`redirect('/register/interests')`**（建議先補興趣） |
 | 登入後編輯標籤 | **`/profile/edit-tags`**（**`edit-tags-client.tsx`**）；與註冊共用 **`register/TagSelector.tsx`** + **`tags.ts`**；三 **`TagSelector`** 皆 **`defaultOpenCategory={null}`**（預設收折）；三 Tab（興趣／能教／想學），**`updateMyProfile`** 分開儲存 |
 | Zod／不雅字／IG 格式 | `src/lib/validation/*.ts`、`src/lib/utils/forbidden-words.ts` |
-| DB 型別 | `src/types/database.types.ts`（含 **`ig_change_requests`**、**`users.role`**、**`skills_offer`**／**`skills_want`**） |
+| DB 型別 | `src/types/database.types.ts`（含 **`ig_change_requests`**、**`users.role`**、**`skills_offer`**／**`skills_want`**、**`conversations`**／**`chat_messages`**／**`blocks`**／**`reports`**） |
 | 市集 Perfect Match 高光 | `src/app/globals.css`（**`.perfect-match-market-shell`**） |
 | 防重複點擊按鈕 | **`src/components/ui/LoadingButton.tsx`**（**`PendingLabel`** spinner）；註冊／首頁個人卡／**`UserDetailModal`** 等重要操作採用；**Sonner** 成功／失敗文案見下「Toast 統一規範」 |
 
@@ -687,4 +689,18 @@ Phase 4 — 市集搜尋快取
 - **🗄️**：**`public.likes`** 僅 **`from_user`**、**`to_user`**（無 **`id`**）；**`database.types.ts`** 之 **`likes.Row`／`Insert`／`Update`** 已移除 **`id`**（及多餘 **`created_at`** 型別），與實表一致。
 - **Layer 2 — `like.repository.ts`**：**`insertLike`** 改為 **`Promise<void>`**，insert 後**不** `.select()`；**`findLike`**、**`checkMutualLike`** 之 **`.select('from_user, to_user')`**，避免 PostgREST 讀取不存在欄位。
 
-*最後更新：2026-03-25 — **`likes` 無 `id`／`insertLike` void／查詢僅 `from_user,to_user`**；**edit-tags `TagSelector` 全收折**；**今日心情框深紫微光**；**`AppShellMotion`**；**首頁／explore／guild SWR**；**Middleware Edge**、**`GET /api/ping`**、**雙人血盟**、**效能 Phase 1—4**。*
+### 2026-03-25 — 有緣分／血盟 UX 與 **`alliances`** 成對唯一
+
+- **Layer 2 — `like.repository.ts`**：**`likes`** 表無 **`id`**；**`insertLike`** 僅 **insert**、**`Promise<void>`**、不讀回傳列；**`findLike`**／**`checkMutualLike`** 僅 **`.select('from_user, to_user')`**（與上則一致，避免 **42703**）。
+- **Layer 5 — `UserDetailModal.tsx`**：**「申請血盟」** 按鈕 **`allianceRequesting`** 防連點、**disabled** 與轉圈 **「處理中…」**。
+- **Layer 3 — `social.action.ts`**：**`toggleLikeAction`** 在 **取消愛心**（**`deleteLike`** 成功）後，若雙人血盟為 **`pending`** 或 **`accepted`**，以 **`updateAlliance(…, { status: 'dissolved' })`** 自動撤銷；失敗吞掉不影響取消緣分。
+- **🗄️**：專案內新增遷移 **`supabase/migrations/20260325183000_alliances_pair_unique.sql`**（**`alliances_pair_unique`** on **`(user_a, user_b)`**）；雲端若尚無此約束，請於 Supabase SQL Editor 執行或套用遷移。
+
+### 2026-03-25 — Layer 2 **`chat.repository`** 與聊天相關型別
+
+- **Layer 2**：新增 **`src/lib/repositories/server/chat.repository.ts`** — **admin client**；**`getOrCreateConversation`**、**`getMessages`**、**`sendMessage`**、**`getMyConversations`**、**`markMessagesAsRead`**、**`blockUser`**、**`unblockUser`**、**`isBlocked`**、**`submitReport`**。
+- **型別**：**`database.types.ts`** 新增 **`conversations`**、**`chat_messages`**、**`blocks`**、**`reports`** 之 **Row／Insert／Update**（及匯出 **`ConversationRow`**、**`ChatMessageRow`**、**`BlockRow`**、**`ReportRow`**）。
+- **實作備註**：**`getOrCreateConversation`** 以 **`.eq(user_a).eq(user_b)`** 查既有列（字典序 **`[a,b].sort()`**）；**`sendMessage`** 更新對話 **`last_message`**／**`last_message_at`** 失敗時僅 **`console.error`**，不影響訊息寫入。
+- **🗄️**：雲端須建立對應 **`public`** 表與 RLS／FK 後再接 Layer 3／UI；與既有 **`messages`**（舊式一對一訊息）表可並存至遷移完成。
+
+*最後更新：2026-03-25 — **`chat.repository`**＋**`conversations`／`chat_messages`／`blocks`／`reports`** 型別；並含 **likes／血盟 UX**、**`alliances_pair_unique`**、**SWR**、**Middleware Edge**、**`/api/ping`**、**效能 Phase 1—4** 等。*

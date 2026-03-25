@@ -1,6 +1,6 @@
 /**
  * 與 Supabase `public` schema 對齊的型別（手動維護，請在雲端 Schema 變更後同步更新）。
- * 表：users, exp_logs, likes, alliances（雙人血盟）, messages, notifications, ig_change_requests
+ * 表：users, exp_logs, likes, alliances（雙人血盟）, conversations, chat_messages, blocks, reports, messages, notifications, ig_change_requests
  */
 
 export type Json =
@@ -302,6 +302,100 @@ export interface Database {
           },
         ];
       };
+      blocks: {
+        Row: {
+          id: string;
+          blocker_id: string;
+          blocked_id: string;
+          created_at: string;
+        };
+        Insert: {
+          blocker_id: string;
+          blocked_id: string;
+        };
+        Update: Record<string, never>;
+        Relationships: [
+          {
+            foreignKeyName: "blocks_blocker_id_fkey";
+            columns: ["blocker_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "blocks_blocked_id_fkey";
+            columns: ["blocked_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      chat_messages: {
+        Row: {
+          id: string;
+          conversation_id: string;
+          sender_id: string;
+          content: string;
+          is_read: boolean;
+          created_at: string;
+        };
+        Insert: {
+          conversation_id: string;
+          sender_id: string;
+          content: string;
+          is_read?: boolean;
+        };
+        Update: {
+          is_read?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_conversation_id_fkey";
+            columns: ["conversation_id"];
+            referencedRelation: "conversations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chat_messages_sender_id_fkey";
+            columns: ["sender_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      conversations: {
+        Row: {
+          id: string;
+          user_a: string;
+          user_b: string;
+          last_message: string | null;
+          last_message_at: string;
+          created_at: string;
+        };
+        Insert: {
+          user_a: string;
+          user_b: string;
+          last_message?: string | null;
+          last_message_at?: string;
+        };
+        Update: {
+          last_message?: string | null;
+          last_message_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "conversations_user_a_fkey";
+            columns: ["user_a"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "conversations_user_b_fkey";
+            columns: ["user_b"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       messages: {
         Row: {
           id: string;
@@ -338,6 +432,48 @@ export interface Database {
             foreignKeyName: "messages_receiver_id_fkey";
             columns: ["receiver_id"];
             referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      reports: {
+        Row: {
+          id: string;
+          reporter_id: string;
+          reported_user_id: string;
+          conversation_id: string | null;
+          reason: string;
+          description: string | null;
+          status: string;
+          created_at: string;
+        };
+        Insert: {
+          reporter_id: string;
+          reported_user_id: string;
+          conversation_id?: string | null;
+          reason: string;
+          description?: string | null;
+        };
+        Update: {
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "reports_reporter_id_fkey";
+            columns: ["reporter_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reports_reported_user_id_fkey";
+            columns: ["reported_user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reports_conversation_id_fkey";
+            columns: ["conversation_id"];
+            referencedRelation: "conversations";
             referencedColumns: ["id"];
           },
         ];
@@ -400,3 +536,7 @@ export type AllianceRow = PublicTables["alliances"]["Row"];
 export type MessageRow = PublicTables["messages"]["Row"];
 export type NotificationRow = PublicTables["notifications"]["Row"];
 export type IgChangeRequestRow = PublicTables["ig_change_requests"]["Row"];
+export type ConversationRow = PublicTables["conversations"]["Row"];
+export type ChatMessageRow = PublicTables["chat_messages"]["Row"];
+export type BlockRow = PublicTables["blocks"]["Row"];
+export type ReportRow = PublicTables["reports"]["Row"];
