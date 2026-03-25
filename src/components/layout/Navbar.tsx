@@ -8,7 +8,7 @@ import useSWR from "swr";
 import { cn } from "@/lib/utils";
 import { useGuildTabContext } from "@/contexts/guild-tab-context";
 import {
-  useUnreadChatConversationsCount,
+  useUnreadChatCount,
   useUnreadNotificationCount,
 } from "@/hooks/useChat";
 import { SWR_KEYS } from "@/lib/swr/keys";
@@ -26,7 +26,7 @@ export function Navbar() {
   const pathname = usePathname();
   const guildCtx = useGuildTabContext();
   const { count: unreadNotifCount } = useUnreadNotificationCount();
-  const { count: unreadChatConvCount } = useUnreadChatConversationsCount();
+  const { count: unreadChatConvCount } = useUnreadChatCount();
   const { data: pendingAllianceData } = useSWR(
     SWR_KEYS.pendingAlliances,
     () => getPendingRequestsAction(),
@@ -37,17 +37,19 @@ export function Navbar() {
   const onGuild = pathname === "/guild";
   const sub = guildCtx?.guildSubTab;
 
-  const hasUnreadChatForNav =
-    unreadChatConvCount > 0 && !(onGuild && sub === "聊天");
+  /** 在對應子分頁時不重複提示同類未讀 */
+  const effectiveNotifForNav =
+    onGuild && sub === "信件" ? 0 : unreadNotifCount;
+  const effectiveChatForNav =
+    onGuild && sub === "聊天" ? 0 : unreadChatConvCount;
+  const totalUnreadNotifPlusChat =
+    effectiveNotifForNav + effectiveChatForNav;
+
   const hasPendingAllianceForNav =
     pendingAllianceCount > 0 && !(onGuild && sub === "血盟");
-  const hasUnreadNotifForNav =
-    unreadNotifCount > 0 && !(onGuild && sub === "信件");
 
   const showGuildNavDot =
-    hasUnreadChatForNav ||
-    hasPendingAllianceForNav ||
-    hasUnreadNotifForNav;
+    totalUnreadNotifPlusChat > 0 || hasPendingAllianceForNav;
 
   return (
     <nav

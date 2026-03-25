@@ -27,7 +27,7 @@ import { SWR_KEYS } from "@/lib/swr/keys";
 import { createClient } from "@/lib/supabase/client";
 import {
   useConversations,
-  useUnreadChatConversationsCount,
+  useUnreadChatCount,
   useUnreadNotificationCount,
 } from "@/hooks/useChat";
 import { useGuildTabContext } from "@/contexts/guild-tab-context";
@@ -68,7 +68,7 @@ export default function GuildPage() {
   const [tab, setTab] = useState<(typeof tabs)[number]>("血盟");
   const guildTabCtx = useGuildTabContext();
   const { count: unreadNotifCount } = useUnreadNotificationCount();
-  const { count: unreadChatConvCount } = useUnreadChatConversationsCount();
+  const { count: unreadChatConvCount } = useUnreadChatCount();
 
   useEffect(() => {
     guildTabCtx?.setGuildSubTab(tab);
