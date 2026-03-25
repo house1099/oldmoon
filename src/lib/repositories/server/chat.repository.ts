@@ -91,6 +91,7 @@ export async function sendMessage(payload: {
     .from("conversations")
     .update({
       last_message: payload.content.slice(0, 50),
+      last_message_sender_id: payload.sender_id,
       last_message_at: new Date().toISOString(),
     })
     .eq("id", payload.conversation_id);
@@ -110,6 +111,7 @@ export async function getMyConversations(
   | "user_a"
   | "user_b"
   | "last_message"
+  | "last_message_sender_id"
   | "last_message_at"
   | "created_at"
 >[]> {
@@ -117,7 +119,7 @@ export async function getMyConversations(
   const { data, error } = await admin
     .from("conversations")
     .select(
-      "id, user_a, user_b, last_message, last_message_at, created_at",
+      "id, user_a, user_b, last_message, last_message_sender_id, last_message_at, created_at",
     )
     .or(`user_a.eq.${userId},user_b.eq.${userId}`)
     .order("last_message_at", { ascending: false });
@@ -131,9 +133,52 @@ export async function getMyConversations(
     | "user_a"
     | "user_b"
     | "last_message"
+    | "last_message_sender_id"
     | "last_message_at"
     | "created_at"
   >[];
+}
+
+/** 這些對話中，至少有一則「非本人發送且未讀」訊息的 conversation_id */
+export async function getConversationIdsWithUnreadFromOthers(
+  userId: string,
+  conversationIds: string[],
+): Promise<Set<string>> {
+  if (conversationIds.length === 0) {
+    return new Set();
+  }
+  const admin = createAdminClient();
+  const unread = new Set<string>();
+  const chunkSize = 80;
+  for (let i = 0; i < conversationIds.length; i += chunkSize) {
+    const chunk = conversationIds.slice(i, i + chunkSize);
+    const { data, error } = await admin
+      .from("chat_messages")
+      .select("conversation_id")
+      .in("conversation_id", chunk)
+      .eq("is_read", false)
+      .neq("sender_id", userId);
+    if (error) {
+      throw error;
+    }
+    for (const row of data ?? []) {
+      const id = (row as { conversation_id: string }).conversation_id;
+      if (id) {
+        unread.add(id);
+      }
+    }
+  }
+  return unread;
+}
+
+/** 至少有一則對方未讀訊息的對話數（底欄／tab 紅點） */
+export async function countConversationsWithUnreadFromOthers(
+  userId: string,
+): Promise<number> {
+  const convs = await getMyConversations(userId);
+  const ids = convs.map((c) => c.id);
+  const set = await getConversationIdsWithUnreadFromOthers(userId, ids);
+  return set.size;
 }
 
 export async function markMessagesAsRead(

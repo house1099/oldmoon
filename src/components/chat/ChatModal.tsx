@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useSWRConfig } from "swr";
 import { useMessages } from "@/hooks/useChat";
 import { sendMessageAction, submitReportAction } from "@/services/chat.action";
 import Avatar from "@/components/ui/Avatar";
 import { createClient } from "@/lib/supabase/client";
+import { SWR_KEYS } from "@/lib/swr/keys";
 
 export interface ChatModalProps {
   open: boolean;
@@ -26,7 +28,10 @@ export default function ChatModal({
   targetUser,
   currentUserId,
 }: ChatModalProps) {
-  const { messages, mutate } = useMessages(open ? conversationId : null);
+  const { mutate: globalMutate } = useSWRConfig();
+  const { messages, mutate, isLoading } = useMessages(
+    open ? conversationId : null,
+  );
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [showReport, setShowReport] = useState(false);
@@ -49,6 +54,8 @@ export default function ChatModal({
         },
         () => {
           void mutate();
+          void globalMutate(SWR_KEYS.conversations);
+          void globalMutate(SWR_KEYS.unreadChatConversations);
         },
       )
       .subscribe();
@@ -56,11 +63,19 @@ export default function ChatModal({
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [open, conversationId, mutate]);
+  }, [open, conversationId, mutate, globalMutate]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (!open || !conversationId || isLoading) {
+      return;
+    }
+    void globalMutate(SWR_KEYS.conversations);
+    void globalMutate(SWR_KEYS.unreadChatConversations);
+  }, [open, conversationId, isLoading, globalMutate]);
 
   async function handleSend() {
     if (!input.trim() || sending) return;
@@ -69,6 +84,8 @@ export default function ChatModal({
     if (result.ok) {
       setInput("");
       void mutate();
+      void globalMutate(SWR_KEYS.conversations);
+      void globalMutate(SWR_KEYS.unreadChatConversations);
     } else {
       toast.error(result.error ?? "❌ 操作失敗，請稍後再試");
     }

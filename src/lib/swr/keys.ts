@@ -7,5 +7,7 @@ export const SWR_KEYS = {
   conversations: 'conversations',
   messages: (conversationId: string) => `messages-${conversationId}`,
   unreadNotifications: 'unread-notifications',
+  /** 至少一則對話有「對方未讀訊息」的對話數 */
+  unreadChatConversations: 'unread-chat-conversations',
   notifications: 'notifications',
 } as const

@@ -5,6 +5,7 @@ import { SWR_KEYS } from '@/lib/swr/keys'
 import {
   getMessagesAction,
   getMyConversationsAction,
+  getUnreadChatConversationsCountAction,
 } from '@/services/chat.action'
 import { getUnreadNotificationCountAction } from '@/services/notification.action'
 
@@ -43,6 +44,19 @@ export function useUnreadNotificationCount() {
   const { data, mutate, isLoading } = useSWR(
     SWR_KEYS.unreadNotifications,
     () => getUnreadNotificationCountAction(),
+    {
+      revalidateOnFocus: true,
+      refreshInterval: 30_000,
+    },
+  )
+
+  return { count: data ?? 0, mutate, isLoading }
+}
+
+export function useUnreadChatConversationsCount() {
+  const { data, mutate, isLoading } = useSWR(
+    SWR_KEYS.unreadChatConversations,
+    () => getUnreadChatConversationsCountAction(),
     {
       revalidateOnFocus: true,
       refreshInterval: 30_000,

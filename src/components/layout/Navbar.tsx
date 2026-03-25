@@ -5,6 +5,11 @@ import { usePathname } from "next/navigation";
 import { Compass, Heart, Home, ShoppingBag, Swords } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useGuildTabContext } from "@/contexts/guild-tab-context";
+import {
+  useUnreadChatConversationsCount,
+  useUnreadNotificationCount,
+} from "@/hooks/useChat";
 
 const navItems = [
   { label: "首頁", href: "/", icon: Home },
@@ -16,6 +21,15 @@ const navItems = [
 
 export function Navbar() {
   const pathname = usePathname();
+  const guildCtx = useGuildTabContext();
+  const { count: unreadNotifCount } = useUnreadNotificationCount();
+  const { count: unreadChatConvCount } = useUnreadChatConversationsCount();
+
+  const hideChatPartOfGuildHint =
+    pathname === "/guild" && guildCtx?.guildSubTab === "聊天";
+  const hasUnreadChatForNav =
+    unreadChatConvCount > 0 && !hideChatPartOfGuildHint;
+  const showGuildNavDot = unreadNotifCount > 0 || hasUnreadChatForNav;
 
   return (
     <nav
@@ -25,25 +39,38 @@ export function Navbar() {
       <div className="mx-auto flex max-w-lg items-stretch">
         {navItems.map(({ href, label, icon: Icon }) => {
           const isActive =
-            href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(href);
+            href === "/" ? pathname === "/" : pathname.startsWith(href);
+          const isGuild = href === "/guild";
+          const showDot = isGuild && showGuildNavDot;
 
           return (
             <Link
               key={href}
               href={href}
               aria-current={isActive ? "page" : undefined}
-              className="flex flex-1 flex-col items-center justify-center py-2 transition-colors"
+              className="relative flex flex-1 flex-col items-center justify-center py-2 transition-colors"
             >
-              <Icon
+              <span
                 className={cn(
-                  "h-5 w-5 shrink-0 transition-colors",
-                  isActive ? "text-violet-400" : "text-zinc-500",
+                  "relative inline-flex",
+                  showDot && "drop-shadow-[0_0_10px_rgba(244,63,94,0.65)]",
                 )}
-                strokeWidth={isActive ? 2.25 : 1.75}
-                aria-hidden
-              />
+              >
+                <Icon
+                  className={cn(
+                    "h-5 w-5 shrink-0 transition-colors",
+                    isActive ? "text-violet-400" : "text-zinc-500",
+                  )}
+                  strokeWidth={isActive ? 2.25 : 1.75}
+                  aria-hidden
+                />
+                {showDot ? (
+                  <span
+                    className="absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-zinc-950"
+                    aria-hidden
+                  />
+                ) : null}
+              </span>
               <span
                 className={cn(
                   "mt-0.5 text-[10px] font-medium transition-colors",

@@ -36,6 +36,9 @@ import { Separator } from "@/components/ui/separator";
 import Avatar from "@/components/ui/Avatar";
 import { cn } from "@/lib/utils";
 import { getMoodCountdown, isMoodActive } from "@/lib/utils/mood";
+import { instagramProfileUrlFromHandle } from "@/lib/utils/instagram";
+import { useSWRConfig } from "swr";
+import { SWR_KEYS } from "@/lib/swr/keys";
 
 function tagLabel(slug: string): string {
   return INTEREST_TAG_OPTIONS.find((o) => o.value === slug)?.label ?? slug;
@@ -59,6 +62,7 @@ export function UserDetailModal({
   open,
   onOpenChange,
 }: UserDetailModalProps) {
+  const { mutate: globalMutate } = useSWRConfig();
   const [socialStatus, setSocialStatus] = useState<ModalSocialStatus>({
     isLiked: false,
     isLikedByThem: false,
@@ -481,14 +485,36 @@ export function UserDetailModal({
             ) : null}
 
             {(allianceStatus === "accepted" || user.ig_public) &&
-            user.instagram_handle ? (
-              <div className="flex w-full max-w-[min(100%,22rem)] items-center gap-2 px-1 sm:max-w-full">
-                <span className="text-xs text-zinc-400">Instagram</span>
-                <span className="text-sm font-medium text-white">
-                  @{user.instagram_handle}
-                </span>
-              </div>
-            ) : null}
+            user.instagram_handle
+              ? (() => {
+                  const igUrl = instagramProfileUrlFromHandle(
+                    user.instagram_handle,
+                  );
+                  const display = user.instagram_handle
+                    .trim()
+                    .replace(/^@+/, "");
+                  return (
+                    <div className="flex w-full max-w-[min(100%,22rem)] flex-col gap-2 px-1 sm:max-w-full">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-zinc-400">Instagram</span>
+                        <span className="text-sm font-medium text-white">
+                          @{display}
+                        </span>
+                      </div>
+                      {igUrl ? (
+                        <a
+                          href={igUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full rounded-full border border-violet-500/40 bg-violet-600/20 py-2.5 text-center text-sm font-medium text-violet-200 transition-colors hover:bg-violet-600/35"
+                        >
+                          在 Instagram 開啟
+                        </a>
+                      ) : null}
+                    </div>
+                  );
+                })()
+              : null}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -539,7 +565,11 @@ export function UserDetailModal({
       {showChat && conversationId ? (
         <ChatModal
           open={showChat}
-          onClose={() => setShowChat(false)}
+          onClose={() => {
+            setShowChat(false);
+            void globalMutate(SWR_KEYS.conversations);
+            void globalMutate(SWR_KEYS.unreadChatConversations);
+          }}
           conversationId={conversationId}
           targetUser={{
             id: user.id,

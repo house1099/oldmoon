@@ -3,7 +3,9 @@
 import { createClient } from "@/lib/supabase/server";
 import {
   blockUser,
+  countConversationsWithUnreadFromOthers,
   findConversationById,
+  getConversationIdsWithUnreadFromOthers,
   getMessages,
   getMyConversations,
   getOrCreateConversation,
@@ -13,8 +15,20 @@ import {
   unblockUser,
 } from "@/lib/repositories/server/chat.repository";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
-import { insertNotification } from "@/lib/repositories/server/notification.repository";
+import type { UserRow } from "@/lib/repositories/server/user.repository";
 import type { ChatMessageRow } from "@/types/database.types";
+
+export type ConversationListItemDto = {
+  id: string;
+  user_a: string;
+  user_b: string;
+  last_message: string | null;
+  last_message_sender_id: string | null;
+  last_message_at: string;
+  created_at: string;
+  partner: UserRow | null;
+  hasUnreadFromPartner: boolean;
+};
 
 export async function getOrCreateConversationAction(targetUserId: string) {
   const supabase = createClient();
@@ -90,26 +104,15 @@ export async function sendMessageAction(conversationId: string, content: string)
       content: content.trim(),
     });
 
-    const targetId = conv.user_a === user.id ? conv.user_b : conv.user_a;
-    try {
-      await insertNotification({
-        user_id: targetId,
-        type: "new_message",
-        from_user_id: user.id,
-        message: content.trim().slice(0, 60),
-        is_read: false,
-      });
-    } catch (e) {
-      console.error("聊天通知寫入失敗:", e);
-    }
-
     return { ok: true as const, message };
   } catch {
     return { ok: false as const, error: "發送失敗" };
   }
 }
 
-export async function getMyConversationsAction() {
+export async function getMyConversationsAction(): Promise<
+  ConversationListItemDto[]
+> {
   const supabase = createClient();
   const {
     data: { user },
@@ -121,17 +124,46 @@ export async function getMyConversationsAction() {
 
   try {
     const conversations = await getMyConversations(user.id);
+    const ids = conversations.map((c) => c.id);
+    const unreadSet = await getConversationIdsWithUnreadFromOthers(
+      user.id,
+      ids,
+    );
+
     const enriched = await Promise.all(
       conversations.map(async (conv) => {
         const partnerId =
           conv.user_a === user.id ? conv.user_b : conv.user_a;
         const partner = await findProfileById(partnerId);
-        return { ...conv, partner };
+        return {
+          ...conv,
+          partner,
+          hasUnreadFromPartner: unreadSet.has(conv.id),
+        };
       }),
     );
     return enriched;
   } catch {
     return [];
+  }
+}
+
+/** 有「對方發送且我未讀」訊息的對話數（冒險團 tab／底欄紅點） */
+export async function getUnreadChatConversationsCountAction(): Promise<number> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return 0;
+  }
+
+  try {
+    return await countConversationsWithUnreadFromOthers(user.id);
+  } catch (e) {
+    console.error("getUnreadChatConversationsCountAction:", e);
+    return 0;
   }
 }
 

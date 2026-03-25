@@ -8,11 +8,11 @@ import {
   getPendingRequestsAction,
   respondAllianceAction,
 } from "@/services/alliance.action";
-import { getOrCreateConversationAction } from "@/services/chat.action";
 import type {
   MyAllianceListItem,
   PendingAllianceRequestItem,
 } from "@/services/alliance.action";
+import type { ConversationListItemDto } from "@/services/chat.action";
 import {
   getMyNotificationsAction,
   markAllNotificationsReadAction,
@@ -22,25 +22,46 @@ import type { NotificationListItem } from "@/services/notification.action";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import Avatar from "@/components/ui/Avatar";
 import ChatModal from "@/components/chat/ChatModal";
+import { UserDetailModal } from "@/components/modals/UserDetailModal";
 import { SWR_KEYS } from "@/lib/swr/keys";
 import { createClient } from "@/lib/supabase/client";
-import { useConversations, useUnreadNotificationCount } from "@/hooks/useChat";
+import {
+  useConversations,
+  useUnreadChatConversationsCount,
+  useUnreadNotificationCount,
+} from "@/hooks/useChat";
+import { useGuildTabContext } from "@/contexts/guild-tab-context";
+import { getMemberProfileByIdAction } from "@/services/profile.action";
 
 const tabs = ["血盟", "聊天", "信件"] as const;
 
-type ConversationListItem = {
-  id: string;
-  user_a: string;
-  user_b: string;
-  last_message: string | null;
-  last_message_at: string;
-  created_at: string;
-  partner: UserRow | null;
-};
+function formatConversationPreview(
+  me: string,
+  lastMessage: string | null,
+  lastSenderId: string | null,
+): string {
+  if (!lastMessage) {
+    return "開始對話";
+  }
+  if (lastSenderId === me) {
+    return `你：${lastMessage}`;
+  }
+  if (lastSenderId) {
+    return `對方：${lastMessage}`;
+  }
+  return lastMessage;
+}
 
 export default function GuildPage() {
   const [tab, setTab] = useState<(typeof tabs)[number]>("血盟");
+  const guildTabCtx = useGuildTabContext();
   const { count: unreadNotifCount } = useUnreadNotificationCount();
+  const { count: unreadChatConvCount } = useUnreadChatConversationsCount();
+
+  useEffect(() => {
+    guildTabCtx?.setGuildSubTab(tab);
+    return () => guildTabCtx?.setGuildSubTab(null);
+  }, [tab, guildTabCtx]);
 
   const { data: pendingData } = useSWR(
     SWR_KEYS.pendingAlliances,
@@ -73,10 +94,17 @@ export default function GuildPage() {
                   {pendingCount > 9 ? "9+" : pendingCount}
                 </span>
               ) : null}
+              {t === "聊天" && unreadChatConvCount > 0 ? (
+                <span
+                  className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-zinc-900"
+                  aria-hidden
+                />
+              ) : null}
               {t === "信件" && unreadNotifCount > 0 ? (
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">
-                  {unreadNotifCount > 9 ? "9+" : unreadNotifCount}
-                </span>
+                <span
+                  className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-zinc-900"
+                  aria-hidden
+                />
               ) : null}
             </button>
           ))}
@@ -98,15 +126,11 @@ export default function GuildPage() {
   );
 }
 
-type AllianceChatTarget = {
-  convId: string;
-  partner: MyAllianceListItem["partner"];
-};
-
 function AllianceList() {
-  const [chatTarget, setChatTarget] = useState<AllianceChatTarget | null>(null);
-  const [currentUserId, setCurrentUserId] = useState("");
-  const [chatOpeningId, setChatOpeningId] = useState<string | null>(null);
+  const [allianceDetailUser, setAllianceDetailUser] = useState<UserRow | null>(
+    null,
+  );
+  const [profileLoadingId, setProfileLoadingId] = useState<string | null>(null);
 
   const {
     data: alliancesData,
@@ -127,13 +151,6 @@ function AllianceList() {
   const alliances: MyAllianceListItem[] = alliancesData ?? [];
   const pending: PendingAllianceRequestItem[] = pendingData ?? [];
   const loading = alliancesLoading || pendingLoading;
-
-  useEffect(() => {
-    const supabase = createClient();
-    void supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setCurrentUserId(data.user.id);
-    });
-  }, []);
 
   if (loading) {
     return (
@@ -219,23 +236,20 @@ function AllianceList() {
             <button
               key={a.id}
               type="button"
-              disabled={chatOpeningId === a.partner.id}
+              disabled={profileLoadingId === a.partner.id}
               onClick={async () => {
-                setChatOpeningId(a.partner.id);
+                setProfileLoadingId(a.partner.id);
                 try {
-                  const result = await getOrCreateConversationAction(
+                  const profile = await getMemberProfileByIdAction(
                     a.partner.id,
                   );
-                  if (result.ok && result.conversation) {
-                    setChatTarget({
-                      convId: result.conversation.id,
-                      partner: a.partner,
-                    });
-                  } else {
-                    toast.error(result.error ?? "無法開啟對話");
+                  if (!profile) {
+                    toast.error("無法載入對方資料");
+                    return;
                   }
+                  setAllianceDetailUser(profile);
                 } finally {
-                  setChatOpeningId(null);
+                  setProfileLoadingId(null);
                 }
               }}
               className="flex w-full items-center justify-between rounded-2xl border-b border-white/5 p-2 text-left transition-all last:border-0 hover:bg-white/5 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60"
@@ -256,24 +270,22 @@ function AllianceList() {
                 </div>
               </div>
               <span className="shrink-0 text-xs text-amber-400/70">
-                {chatOpeningId === a.partner.id ? "開啟中…" : "⚔️ 血盟"}
+                {profileLoadingId === a.partner.id ? "載入中…" : "⚔️ 血盟"}
               </span>
             </button>
           ))
         )}
       </div>
 
-      {chatTarget ? (
-        <ChatModal
-          open={!!chatTarget}
-          onClose={() => setChatTarget(null)}
-          conversationId={chatTarget.convId}
-          targetUser={{
-            id: chatTarget.partner.id,
-            nickname: chatTarget.partner.nickname,
-            avatar_url: chatTarget.partner.avatar_url,
+      {allianceDetailUser ? (
+        <UserDetailModal
+          user={allianceDetailUser}
+          open
+          onOpenChange={(open) => {
+            if (!open) {
+              setAllianceDetailUser(null);
+            }
           }}
-          currentUserId={currentUserId}
         />
       ) : null}
     </div>
@@ -281,8 +293,10 @@ function AllianceList() {
 }
 
 function ChatList() {
-  const { conversations, isLoading } = useConversations();
-  const [activeConv, setActiveConv] = useState<ConversationListItem | null>(
+  const { mutate: globalMutate } = useSWRConfig();
+  const { conversations, isLoading, mutate: mutateConversations } =
+    useConversations();
+  const [activeConv, setActiveConv] = useState<ConversationListItemDto | null>(
     null,
   );
   const [currentUserId, setCurrentUserId] = useState("");
@@ -307,7 +321,7 @@ function ChatList() {
     );
   }
 
-  const list = conversations as ConversationListItem[];
+  const list: ConversationListItemDto[] = conversations;
 
   if (list.length === 0) {
     return (
@@ -341,17 +355,30 @@ function ChatList() {
                 {conv.partner?.nickname ?? "未知用戶"}
               </p>
               <p className="truncate text-xs text-zinc-500">
-                {conv.last_message ?? "開始對話"}
+                {formatConversationPreview(
+                  currentUserId,
+                  conv.last_message,
+                  conv.last_message_sender_id,
+                )}
               </p>
             </div>
-            <span className="shrink-0 text-xs text-zinc-600">
-              {conv.last_message_at
-                ? new Date(conv.last_message_at).toLocaleDateString("zh-TW", {
-                    month: "short",
-                    day: "numeric",
-                  })
-                : ""}
-            </span>
+            <div className="flex shrink-0 flex-col items-end gap-1.5">
+              <span className="text-xs text-zinc-600">
+                {conv.last_message_at
+                  ? new Date(conv.last_message_at).toLocaleDateString("zh-TW", {
+                      month: "short",
+                      day: "numeric",
+                    })
+                  : ""}
+              </span>
+              {conv.hasUnreadFromPartner ? (
+                <span
+                  className="h-2 w-2 rounded-full bg-rose-500"
+                  title="未讀訊息"
+                  aria-label="未讀訊息"
+                />
+              ) : null}
+            </div>
           </button>
         ))}
       </div>
@@ -359,7 +386,11 @@ function ChatList() {
       {activeConv ? (
         <ChatModal
           open={!!activeConv}
-          onClose={() => setActiveConv(null)}
+          onClose={() => {
+            setActiveConv(null);
+            void mutateConversations();
+            void globalMutate(SWR_KEYS.unreadChatConversations);
+          }}
           conversationId={activeConv.id}
           targetUser={{
             id:

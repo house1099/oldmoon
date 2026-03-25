@@ -368,6 +368,8 @@ export interface Database {
           user_a: string;
           user_b: string;
           last_message: string | null;
+          /** 最後一則聊天訊息發送者（列表「你：／對方：」預覽用） */
+          last_message_sender_id: string | null;
           last_message_at: string;
           created_at: string;
         };
@@ -375,10 +377,12 @@ export interface Database {
           user_a: string;
           user_b: string;
           last_message?: string | null;
+          last_message_sender_id?: string | null;
           last_message_at?: string;
         };
         Update: {
           last_message?: string | null;
+          last_message_sender_id?: string | null;
           last_message_at?: string;
         };
         Relationships: [
@@ -391,6 +395,12 @@ export interface Database {
           {
             foreignKeyName: "conversations_user_b_fkey";
             columns: ["user_b"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "conversations_last_message_sender_id_fkey";
+            columns: ["last_message_sender_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
           },
