@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Compass, Heart, Home, ShoppingBag, Swords } from "lucide-react";
+import useSWR from "swr";
 
 import { cn } from "@/lib/utils";
 import { useGuildTabContext } from "@/contexts/guild-tab-context";
@@ -10,6 +11,8 @@ import {
   useUnreadChatConversationsCount,
   useUnreadNotificationCount,
 } from "@/hooks/useChat";
+import { SWR_KEYS } from "@/lib/swr/keys";
+import { getPendingRequestsAction } from "@/services/alliance.action";
 
 const navItems = [
   { label: "首頁", href: "/", icon: Home },
@@ -24,12 +27,27 @@ export function Navbar() {
   const guildCtx = useGuildTabContext();
   const { count: unreadNotifCount } = useUnreadNotificationCount();
   const { count: unreadChatConvCount } = useUnreadChatConversationsCount();
+  const { data: pendingAllianceData } = useSWR(
+    SWR_KEYS.pendingAlliances,
+    () => getPendingRequestsAction(),
+    { revalidateOnFocus: false },
+  );
+  const pendingAllianceCount = pendingAllianceData?.length ?? 0;
 
-  const hideChatPartOfGuildHint =
-    pathname === "/guild" && guildCtx?.guildSubTab === "聊天";
+  const onGuild = pathname === "/guild";
+  const sub = guildCtx?.guildSubTab;
+
   const hasUnreadChatForNav =
-    unreadChatConvCount > 0 && !hideChatPartOfGuildHint;
-  const showGuildNavDot = unreadNotifCount > 0 || hasUnreadChatForNav;
+    unreadChatConvCount > 0 && !(onGuild && sub === "聊天");
+  const hasPendingAllianceForNav =
+    pendingAllianceCount > 0 && !(onGuild && sub === "血盟");
+  const hasUnreadNotifForNav =
+    unreadNotifCount > 0 && !(onGuild && sub === "信件");
+
+  const showGuildNavDot =
+    hasUnreadChatForNav ||
+    hasPendingAllianceForNav ||
+    hasUnreadNotifForNav;
 
   return (
     <nav
