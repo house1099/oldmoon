@@ -230,13 +230,20 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   }, [profile.id, profile.updated_at]);
 
   useEffect(() => {
-    const update = () => setCountdown(getMoodCountdown(moodAt));
+    const update = () => {
+      const remaining = getMoodCountdown(moodAt);
+      setCountdown(remaining);
+      if (!remaining && moodAt) {
+        setMoodInput("");
+        setMoodAt(null);
+      }
+    };
     update();
     const timer = setInterval(update, 60000);
     return () => clearInterval(timer);
   }, [moodAt]);
 
-  /** 過期或無效時清空輸入，讓半灰階提示顯示；有效期內則在過期瞬間清空 */
+  /** 過期或無效時清空輸入並重置 moodAt；有效期內則在過期瞬間清空 */
   useEffect(() => {
     if (!moodAt || !isMoodActive(moodAt)) {
       setMoodInput("");
@@ -246,9 +253,13 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     const ms = expiry - Date.now();
     if (ms <= 0) {
       setMoodInput("");
+      setMoodAt(null);
       return;
     }
-    const t = window.setTimeout(() => setMoodInput(""), ms);
+    const t = window.setTimeout(() => {
+      setMoodInput("");
+      setMoodAt(null);
+    }, ms);
     return () => clearTimeout(t);
   }, [moodAt]);
 

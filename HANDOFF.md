@@ -732,4 +732,12 @@ Phase 4 — 市集搜尋快取
 - **同上 — `GuildPage`**：**`useUnreadNotificationCount`**；**信件** tab **紅點**（**>9** 顯示 **9+**）；**血盟** pending 角標同規則 **9+**。
 - **`ChatModal`**：**Supabase Realtime** **`chat_messages`** **INSERT** 即時 **`mutate`**（與探索／詳情 Modal 行為一致）。
 
-*最後更新：2026-03-25 — **`/guild`** **聊天 Tab**（對話列表＋**`ChatModal`**）／**信件 Tab**（通知列表、已讀／清除、**`SWR_KEYS.notifications`**）、**血盟列開聊**、**信件未讀紅點**；**`ChatModal`** **Realtime**；**`UserDetailModal`** 聊聊；**`useChat`**＋**SWR_KEYS**；**`chat.action`**／**`notification.action`**、**`chat.repository`**、**likes／血盟**、**SWR**、**Middleware Edge**、**`/api/ping`**、**效能 Phase 1—4** 等。*
+### 2026-03-25 — 通知寫入、取消愛心 Sheet z-index、心情過期清空
+
+- **Layer 3 — `alliance.action.ts`**：**`requestAllianceAction`** 成功後 **`notifyAllianceRequest`**（**`insertNotification`**：**`kind: "alliance_request"`**、**`metadata.from_user`**）；**`respondAllianceAction`** 接受（**`accepted`**）後寫入 **`kind: "alliance_accepted"`** 給 **`initiated_by`**。
+- **Layer 3 — `chat.action.ts`**：**`sendMessageAction`** 成功後 **`insertNotification`**：**`kind: "new_message"`**、**`body`** 截前 60 字、**`metadata`** 含 **`from_user`**＋**`conversation_id`**。
+- **Layer 5 — `guild/page.tsx`**：**`NOTIF_KIND_LABEL`** 新增 **`new_message: "💬 傳了一則訊息給你"`**。
+- **Layer 5 — `UserDetailModal.tsx`**：取消愛心 Sheet 容器 **`z-50`** → **`z-[100]`**，確保蓋過 Radix Dialog。
+- **Layer 5 — `guild-profile-home.tsx`**：心情倒數 **`useEffect`** 過期時 **`setMoodInput("") + setMoodAt(null)`**；過期清空 **`useEffect`** 的 **`setTimeout`** 回呼同步 **`setMoodAt(null)`**。
+
+*最後更新：2026-03-25 — 通知寫入（**血盟申請／接受**＋**聊天訊息**）、取消愛心 Sheet **`z-[100]`**、心情過期清空 **`moodAt`**；**`/guild`** 聊天／信件 Tab、**ChatModal Realtime**、**UserDetailModal** 聊聊、**useChat**＋**SWR_KEYS**、**效能 Phase 1—4** 等。*

@@ -382,6 +382,7 @@ const NOTIF_KIND_LABEL: Record<string, string> = {
   alliance_request: "⚔️ 申請與你結為血盟",
   alliance_accepted: "🎉 接受了你的血盟申請",
   alliance_dissolved: "💔 解除了血盟",
+  new_message: "💬 傳了一則訊息給你",
   system: "📢 系統通知",
 };
 

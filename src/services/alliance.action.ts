@@ -11,6 +11,8 @@ import {
   updateAlliance,
 } from "@/lib/repositories/server/alliance.repository";
 import { checkMutualLike } from "@/lib/repositories/server/like.repository";
+import { insertNotification } from "@/lib/repositories/server/notification.repository";
+import { findProfileById } from "@/lib/repositories/server/user.repository";
 
 export type AllianceStatusDto = {
   id: string;
@@ -109,6 +111,7 @@ export async function requestAllianceAction(
     }
     if (existing?.status === "dissolved") {
       await reactivateAllianceFromDissolved(existing.id, user.id);
+      await notifyAllianceRequest(user.id, targetUserId);
       return { ok: true };
     }
 
@@ -122,6 +125,7 @@ export async function requestAllianceAction(
       initiated_by: user.id,
       status: "pending",
     });
+    await notifyAllianceRequest(user.id, targetUserId);
     return { ok: true };
   } catch (error) {
     console.error("requestAllianceAction:", error);
@@ -159,6 +163,23 @@ export async function respondAllianceAction(
     }
 
     await updateAlliance(allianceId, { status: nextStatus });
+
+    if (nextStatus === "accepted") {
+      try {
+        const me = await findProfileById(user.id);
+        const nickname = me?.nickname?.trim() || "某位冒險者";
+        await insertNotification({
+          user_id: row.initiated_by,
+          kind: "alliance_accepted",
+          title: `${nickname} 接受了你的血盟申請`,
+          body: "你們已成為血盟夥伴 🎉",
+          metadata: { from_user: user.id },
+        });
+      } catch {
+        // 通知失敗不影響主流程
+      }
+    }
+
     return { ok: true };
   } catch (error) {
     console.error("respondAllianceAction:", error);
@@ -246,5 +267,24 @@ export async function getPendingRequestsAction(): Promise<
   } catch (error) {
     console.error("getPendingRequestsAction:", error);
     return [];
+  }
+}
+
+async function notifyAllianceRequest(
+  fromUserId: string,
+  toUserId: string,
+): Promise<void> {
+  try {
+    const requester = await findProfileById(fromUserId);
+    const nickname = requester?.nickname?.trim() || "某位冒險者";
+    await insertNotification({
+      user_id: toUserId,
+      kind: "alliance_request",
+      title: `${nickname} 對你送出了血盟申請`,
+      body: "去冒險團查看吧 ⚔️",
+      metadata: { from_user: fromUserId },
+    });
+  } catch {
+    // 通知失敗不影響主流程
   }
 }

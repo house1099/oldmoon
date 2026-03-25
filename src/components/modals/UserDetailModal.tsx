@@ -495,7 +495,7 @@ export function UserDetailModal({
 
       {showCancelSheet && (
         <div
-          className="fixed inset-0 z-50"
+          className="fixed inset-0 z-[100]"
           onClick={() => setShowCancelSheet(false)}
         >
           <div className="absolute inset-0 bg-black/60" />

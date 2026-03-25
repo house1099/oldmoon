@@ -13,6 +13,7 @@ import {
   unblockUser,
 } from "@/lib/repositories/server/chat.repository";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
+import { insertNotification } from "@/lib/repositories/server/notification.repository";
 import type { ChatMessageRow } from "@/types/database.types";
 
 export async function getOrCreateConversationAction(targetUserId: string) {
@@ -88,6 +89,21 @@ export async function sendMessageAction(conversationId: string, content: string)
       sender_id: user.id,
       content: content.trim(),
     });
+
+    const targetId = conv.user_a === user.id ? conv.user_b : conv.user_a;
+    try {
+      const sender = await findProfileById(user.id);
+      const nickname = sender?.nickname?.trim() || "某位冒險者";
+      await insertNotification({
+        user_id: targetId,
+        kind: "new_message",
+        title: `${nickname} 傳了一則訊息給你`,
+        body: content.trim().slice(0, 60),
+        metadata: { from_user: user.id, conversation_id: conversationId },
+      });
+    } catch {
+      // 通知失敗不影響訊息發送
+    }
 
     return { ok: true as const, message };
   } catch {
