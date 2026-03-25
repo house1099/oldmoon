@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getMarketUsersAction } from "@/services/market.service";
 import type { VillageUserWithScore } from "@/services/village.service";
 import { MarketContent } from "@/components/explore/MarketContent";
@@ -17,20 +17,15 @@ export default function ExploreClient({
   const [marketUsers, setMarketUsers] = useState<
     Awaited<ReturnType<typeof getMarketUsersAction>>["users"]
   >([]);
-  const [marketLoaded, setMarketLoaded] = useState(false);
-  const [marketLoading, setMarketLoading] = useState(false);
+  const [marketLoading, setMarketLoading] = useState(true);
   const [query, setQuery] = useState("");
 
-  async function handleTabChange(newTab: "village" | "market") {
-    setTab(newTab);
-    if (newTab === "market" && !marketLoaded) {
-      setMarketLoading(true);
-      const result = await getMarketUsersAction("");
+  useEffect(() => {
+    void getMarketUsersAction("").then((result) => {
       setMarketUsers(result.users ?? []);
-      setMarketLoaded(true);
       setMarketLoading(false);
-    }
-  }
+    });
+  }, []);
 
   const handleMarketQueryChange = useCallback(async (q: string) => {
     setQuery(q);
@@ -44,7 +39,7 @@ export default function ExploreClient({
         <div className="mx-auto flex max-w-xs rounded-full bg-zinc-900/60 p-1">
           <button
             type="button"
-            onClick={() => handleTabChange("village")}
+            onClick={() => setTab("village")}
             className={`flex-1 rounded-full py-2 text-sm font-medium transition-all ${
               tab === "village"
                 ? "bg-violet-600 text-white"
@@ -55,7 +50,7 @@ export default function ExploreClient({
           </button>
           <button
             type="button"
-            onClick={() => handleTabChange("market")}
+            onClick={() => setTab("market")}
             className={`flex-1 rounded-full py-2 text-sm font-medium transition-all ${
               tab === "market"
                 ? "bg-amber-600 text-white"
@@ -68,17 +63,17 @@ export default function ExploreClient({
       </div>
 
       <div className="px-4 py-4 sm:px-8">
-        {tab === "village" ? (
+        <div className={tab === "village" ? "block" : "hidden"}>
           <VillageContent users={initialVillageUsers} />
-        ) : null}
-        {tab === "market" ? (
+        </div>
+        <div className={tab === "market" ? "block" : "hidden"}>
           <MarketContent
             users={marketUsers}
             loading={marketLoading}
             query={query}
             onQueryChange={handleMarketQueryChange}
           />
-        ) : null}
+        </div>
       </div>
     </div>
   );

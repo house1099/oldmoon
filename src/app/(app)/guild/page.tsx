@@ -24,7 +24,7 @@ export default function GuildPage() {
 
   useEffect(() => {
     refreshPendingCount();
-  }, [tab, refreshPendingCount]);
+  }, [refreshPendingCount]);
 
   return (
     <div className="min-h-screen bg-zinc-950">
@@ -56,11 +56,15 @@ export default function GuildPage() {
       </div>
 
       <div className="px-4 py-4">
-        {tab === "血盟" ? (
+        <div className={tab === "血盟" ? "block" : "hidden"}>
           <AllianceList onListsChanged={refreshPendingCount} />
-        ) : null}
-        {tab === "聊天" ? <ChatList /> : null}
-        {tab === "信件" ? <MailBox /> : null}
+        </div>
+        <div className={tab === "聊天" ? "block" : "hidden"}>
+          <ChatList />
+        </div>
+        <div className={tab === "信件" ? "block" : "hidden"}>
+          <MailBox />
+        </div>
       </div>
     </div>
   );

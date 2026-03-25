@@ -18,12 +18,12 @@
 - **Layer 2（資料）**：`user.repository.ts`（含 **`updateLastCheckinAt`**）、`exp.repository.ts` 支援 **`total_exp`**（SSOT）。
 - **Layer 3（業務）**：`daily-checkin.action.ts` 之 **`claimDailyCheckin`** 以 **`users.last_checkin_at`** 為簽到 **24h 滾動冷卻** SSOT；**`exp_logs.unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**。
 - **Layer 4（狀態／常數）**：`levels.ts`（門檻 0〜1350）、Zod 驗證已就緒；**`date.ts`** 之 **`taipeiCalendarDateKey()`** 仍為全系統**日曆日** SSOT（簽到冷卻**不再**依此判斷）。
-- **Layer 5（UI）**：**`Navbar.tsx`**（五項 **lucide** 圖示底欄：**Home／Compass／Swords／Heart／ShoppingBag**）、**`LevelFrame.tsx`**、**`UserCard`**、**`UserCardSkeleton`**（市集列表首次載入）、**`/explore`**（**Server Component** 預載村莊；**`ExploreClient`** 頂部 **safe-area**、村莊＋市集 **tab**、市集 **lazy load**）、**`/guild`**、**`/matchmaking`**／**`/shop`**（預留）。
+- **Layer 5（UI）**：**`Navbar.tsx`**（五項 **lucide** 圖示底欄：**Home／Compass／Swords／Heart／ShoppingBag**）、**`LevelFrame.tsx`**、**`UserCard`**、**`UserCardSkeleton`**（市集列表首次載入）、**`/explore`**（**Server Component** 預載村莊；**`ExploreClient`** 頂部 **safe-area**、村莊＋市集 **tab**、**進頁 `useEffect` 預載市集**＋**`hidden`／`block` 切 tab 不 unmount**）、**`/guild`**（**`hidden` 切 tab**、**pending 角標僅 mount 載入一次**）、**`/matchmaking`**／**`/shop`**（預留）。
 
 ### 📈 開發進度
 
 - [x] **Phase 1.5**：帳號體系、Google 登入預留、暗黑視覺升級、時區校正（日鍵集中於 **`date.ts`**）。
-- [x] **Phase 2.1（核心已交付）**：探索 **Tab「興趣村莊」** 同縣市＋**性向雙向篩選**＋**興趣分數**排序、列表卡僅興趣（最多 3 +N）；**Tab「技能市集」** 全台＋**互補／同好分數**、**Perfect Match** 仍優先、**`getMarketUsersAction`** 搜尋；入口 **`/explore`**（**Server** 預載村莊、市集 **切 tab 才載入**）；**`village.service`** **`unstable_cache` 30s**、**`market.service`** 基礎列表 **60s**、**`getCachedMySkills`（60s，`profileCacheTag`）** 避免每次搜尋重查自己技能、**關鍵字篩選在列表快取回傳後**；舊 **`/village`**／**`/market`** → **`redirect('/explore')`**；Layer 2 **`findVillageUsers`**／**`findMarketUsers`**；Layer 4 **`matching.ts`**。可持續打磨 UX／RLS。
+- [x] **Phase 2.1（核心已交付）**：探索 **Tab「興趣村莊」** 同縣市＋**性向雙向篩選**＋**興趣分數**排序、列表卡僅興趣（最多 3 +N）；**Tab「技能市集」** 全台＋**互補／同好分數**、**Perfect Match** 仍優先、**`getMarketUsersAction`** 搜尋；入口 **`/explore`**（**Server** 預載村莊、**Client mount 同時預載市集**＋**tab 以 `hidden` 切換不重打列表**）；**`village.service`** **`unstable_cache` 30s**、**`market.service`** 基礎列表 **60s**、**`getCachedMySkills`（60s，`profileCacheTag`）** 避免每次搜尋重查自己技能、**關鍵字篩選在列表快取回傳後**；舊 **`/village`**／**`/market`** → **`redirect('/explore')`**；Layer 2 **`findVillageUsers`**／**`findMarketUsers`**；Layer 4 **`matching.ts`**。可持續打磨 UX／RLS。
 - [ ] **Phase 2.2（進行中）**：**Likes** 已接線；**雙人血盟**（**`public.alliances`**：`user_a`／`user_b`／`initiated_by`）UI 與 Layer 2／3 已接線；詳情 Modal 血盟四態＋IG 解鎖；**`/guild`** 血盟列表與 tab 徽章；**RLS** 可後補。
 
 ## Phase 2.1 首頁個人卡重構（完成）
@@ -85,7 +85,7 @@
 | 首頁個人頁 UI | `src/app/(app)/page.tsx` → `src/components/profile/guild-profile-home.tsx` |
 | 頭像裁切＋Cloudinary | **`react-easy-crop`** 全螢幕裁切；**`src/lib/utils/cropImage.ts`**（**`getCroppedImg`**）；**`src/lib/utils/cloudinary.ts`**（**`uploadAvatarToCloudinary`**）→ **`updateMyProfile({ avatar_url })`**（**禁止** **`supabase.storage`** 上傳頭像）；**顯示** **`src/components/ui/Avatar.tsx`**（**`next/image`** + Cloudinary **`/upload/w_{2×size},h_{2×size},c_fill,q_auto,f_auto/`**；**`next.config.mjs`** **`images.remotePatterns`**：**`res.cloudinary.com`**） |
 | 底部導航 | `src/components/layout/Navbar.tsx`（**五項 lucide**：**Home／Compass／Swords／Heart／ShoppingBag**；選中 **`text-violet-400`**、未選 **`text-zinc-500`**、**`text-[10px]`** 標籤；首頁 **`/`** 僅 **`pathname === '/'`** 為 active） |
-| 探索（村莊＋市集） | **`explore/page.tsx`**（**Server Component**：**`getVillageUsersAction`** 預載村莊）；**`ExploreClient.tsx`**（tab、市集 **lazy load**）；**`VillageContent`／`MarketContent`**（props 餵列表）；市集載入中 **6×`UserCardSkeleton`**（村莊不顯示骨架） |
+| 探索（村莊＋市集） | **`explore/page.tsx`**（**Server Component**：**`getVillageUsersAction`** 預載村莊）；**`ExploreClient.tsx`**（tab、**mount 時 `getMarketUsersAction('')` 預載市集**；**`VillageContent`／`MarketContent`** 以 **`hidden`／`block`** 切 tab **不 unmount**）；市集載入中 **6×`UserCardSkeleton`**（村莊不顯示骨架） |
 | 列表骨架屏 | **`src/components/ui/UserCardSkeleton.tsx`**（**`animate-pulse`**） |
 | 冒險團 | `src/app/(app)/guild/page.tsx`（**血盟** tab：**待確認申請**＋**血盟夥伴**列表、**`getMyAlliancesAction`**／**`getPendingRequestsAction`**；**血盟** tab 角標顯示待確認筆數；聊天／信件預留） |
 | 雙人血盟（Layer 3） | **`src/services/alliance.action.ts`**（**`getAllianceStatusAction`**、**`requestAllianceAction`**、**`respondAllianceAction`**、**`dissolveAllianceAction`**、**`getMyAlliancesAction`**、**`getPendingRequestsAction`**） |
@@ -134,7 +134,7 @@
 | ✅ 已接線 | Layer 2 **`findActiveUsers`**（通用活躍列表）；**`findVillageUsers`**（同縣市 **`active`**）；**`findMarketUsers`**（全台 **`active`**，精簡欄位） |
 | ✅ 已接線 | Layer 3 **`getVillageUsersAction`**：**`matching.isOrientationMatch`** 雙向篩選 → **`calcInterestScore`** 排序；**`unstable_cache` 30s**（**`village-{userId}-{region}`**） |
 | ✅ 已接線 | Layer 3 **`getMarketUsersAction`**：**`calcSkillScore`**（互補優先、同好次之）＋檔內 **Perfect Match**（**`skills_want`／`skills_offer`**）優先浮上；**`findMarketUsers`** **60s** 快取；**`getCachedMySkills`**（**60s**、**`profileCacheTag`** 與 profile 一併失效）；**關鍵字篩選在列表快取回傳後** |
-| ✅ 已接線 | Layer 5 **`/explore`**：**Server** 預載村莊 → **`ExploreClient`**；頂部 **Switch** 村莊／市集（**市集切 tab 才載入**）；**`UserCard`** 分 **`variant`**；**`UserDetailModal`** 仍展示完整興趣／技能 |
+| ✅ 已接線 | Layer 5 **`/explore`**：**Server** 預載村莊 → **`ExploreClient`**；頂部 **Switch** 村莊／市集（**進頁預載市集**＋**`hidden` 切 tab**）；**`UserCard`** 分 **`variant`**；**`UserDetailModal`** 仍展示完整興趣／技能 |
 | ✅ 交接確認 | **`users`** 須 **`interests` 為 `text[]`**，並建議具 **`bio`**、**`skills_offer`**、**`skills_want`**（見 🗄️）；DDL 後必要時 **重載 API Schema** |
 
 **Phase 3**：待產品規劃後於此文件更新。
@@ -417,8 +417,8 @@ NOTIFY pgrst, 'reload schema';
 
 ### 2026-03-24 — 探索頁 SSR 與 village／market 快取
 
-- **Layer 5 — `/explore`**：**`page.tsx`** 為 **Server Component**，伺服端 **`await getVillageUsersAction()`** 預載村莊列表，傳入 **`ExploreClient`**（**`initialVillageUsers`**）；**切換「技能市集」tab** 才 **`getMarketUsersAction('')`**（lazy，節省首次載入）。
-- **Layer 5 — `ExploreClient.tsx`**（client）：tab 狀態、市集列表／搜尋；**`VillageContent`** 僅收 **`users`**（無 **`useEffect`**／骨架）；**`MarketContent`** 收 **`users`／`loading`／`query`／`onQueryChange`**，搜尋 **300ms debounce**，首次市集載入 **6×`UserCardSkeleton`**。
+- **Layer 5 — `/explore`**：**`page.tsx`** 為 **Server Component**，伺服端 **`await getVillageUsersAction()`** 預載村莊列表，傳入 **`ExploreClient`**（**`initialVillageUsers`**）；**`ExploreClient` mount** 時 **`getMarketUsersAction('')`** 預載市集（與村莊並行於使用者體感）；**`VillageContent`／`MarketContent`** 以 **`hidden`／`block`** 切 tab，**不 unmount**。
+- **Layer 5 — `ExploreClient.tsx`**（client）：tab 狀態、市集列表／搜尋；**`VillageContent`** 僅收 **`users`**（無 **`useEffect`**／骨架）；**`MarketContent`** 收 **`users`／`loading`／`query`／`onQueryChange`**，搜尋 **300ms debounce**，市集初次載入 **6×`UserCardSkeleton`**（預載進行中時）。
 - **Layer 3 — `village.service.ts`**：**`unstable_cache`** 包住村莊查詢與篩選排序，**`revalidate: 30`**，key **`village-{userId}-{region}`**。
 - **Layer 3 — `market.service.ts`**：**`unstable_cache`** 包住 **`findMarketUsers`**（**`revalidate: 60`**，key **`market-{userId}`**）與 **`getCachedMySkills`**（同 TTL、**`profileCacheTag`**）；**關鍵字搜尋在列表快取回傳後篩選**；**Perfect Match** 與分數排序仍於快取回傳後計算。
 
@@ -453,7 +453,7 @@ NOTIFY pgrst, 'reload schema';
 - **Layer 3**：**`alliance.action.ts`** — **Modal** 用 **狀態／申請／回應／解除**；列表用 **我的血盟**／**待確認**；**`reactivateAllianceFromDissolved`** 處理 **`dissolved` → 再申請**（更新 **`initiated_by`**，型別 **`Update`** 仍僅 **`status`**，層級 2 以斷言寫入）。
 - **Layer 3 — `social.action.ts`**：**`checkMutualLikeWithTargetAction`**（雙向互讚，血盟區塊前置）。
 - **Layer 5 — `UserDetailModal.tsx`**：僅 **雙向互讚** 顯示血盟區；四態：**無**／**已送出**／**待確認**／**血盟夥伴**＋解除；**Instagram**：**`ig_public === true`** 或 **血盟已成立** 且 **`instagram_handle`** 有值時顯示 **@**。
-- **Layer 5 — `/guild`**：**`AllianceList`** 待確認申請（接受／拒絕）＋血盟夥伴列表；**血盟** tab **角標**顯示待確認筆數（切 tab／列表變更時刷新）。
+- **Layer 5 — `/guild`**：**`AllianceList`** 待確認申請（接受／拒絕）＋血盟夥伴列表；**血盟** tab **角標**顯示待確認筆數（**進頁 mount 載入一次 `getPendingRequestsAction`**；**`onListsChanged`** 於列表操作後刷新）；**三 tab 內容**以 **`hidden`／`block`** 切換，**`AllianceList` 不隨 tab unmount**。
 
 ### 2025-03-24 — 村莊／市集：matching、Layer 2 分域、`getVillageUsersAction`／`getMarketUsersAction`
 
@@ -629,4 +629,14 @@ Phase 4 — 市集搜尋快取
 - **原因**：**`deriveAuthStatus`** 經 **`getCachedProfile`** 呼叫 **`next/cache`** 之 **`unstable_cache`**；Middleware 跑在 **Edge**，無 **incremental cache**。
 - **修正**：**`deriveAuthStatus`**（**`auth-status.ts`**）改為僅 **`findProfileById`**；**`getAuthStatus`**（**`auth.service.ts`**）保留 **`getCachedProfile`**。共用 **`buildAuthStatus`**。
 
-*最後更新：2026-03-25 — **Middleware Edge 與 `unstable_cache` 分離**、**middleware `matcher` 排除 `api`**、**`GET /api/ping` keep-alive**、**雙人血盟**、**效能 Phase 1—4**（Profile 快取於 RSC／**`getAuthStatus`**）。*
+### 2026-03-25 — 首頁今日心情卡／興趣標籤「編輯」強制重套用
+
+- **Layer 5 — `guild-profile-home.tsx`**：**今日心情**獨立區外層已依規格重設（**`rounded-3xl`**、**`border-violet-500/30`**、**`bg-violet-950/40`**、**`backdrop-blur-xl`**、**`p-4 space-y-3`**、**紫微光 `box-shadow`**）；標題 **✨ 今日心情** 與倒數 **還有 …**；確認鈕改為指定之紫膠囊 class。**興趣與技能標籤**手風琴標題列：**✏️ 編輯** 改為 **`Link` → `/profile/edit-tags`**（**`stopPropagation`**），與標題文字同一行左側、▼ 仍在右側。
+
+### 2026-03-25 — Tab 切換效能：`/guild` 與 `/explore` 避免重複 API
+
+- **Layer 5 — `guild/page.tsx`**：**`getPendingRequestsAction`** 角標僅在 **`useEffect([refreshPendingCount])` mount 時**載入（**移除 `tab` 依賴**）；**血盟／聊天／信件** 改為 **`hidden`／`block`** 顯示，**`AllianceList` 單次 mount**，切 tab **不再**重打 **`getMyAlliancesAction`／`getPendingRequestsAction`**（列表變更仍經 **`onListsChanged`** 刷新角標）。
+- **Layer 5 — `ExploreClient.tsx`**：**`useEffect([])`** 進頁即 **`getMarketUsersAction('')`** 預載市集；**`VillageContent`／`MarketContent`** 同樣 **`hidden`／`block`** 切 tab；**移除**「切到市集 tab 才載入」之 **`handleTabChange`** 分支。
+- **效能**：減少 **tab 往返**時之重複 **Server Action** 請求。
+
+*最後更新：2026-03-25 — **`/guild`／`ExploreClient` tab 改 `hidden` 切換與預載、避免重複 API**；首頁今日心情卡／標籤編輯鈕強制重套用；**Middleware Edge 與 `unstable_cache` 分離**、**middleware `matcher` 排除 `api`**、**`GET /api/ping` keep-alive**、**雙人血盟**、**效能 Phase 1—4**（Profile 快取於 RSC／**`getAuthStatus`**）。*
