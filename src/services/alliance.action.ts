@@ -170,13 +170,13 @@ export async function respondAllianceAction(
         const nickname = me?.nickname?.trim() || "某位冒險者";
         await insertNotification({
           user_id: row.initiated_by,
-          kind: "alliance_accepted",
-          title: `${nickname} 接受了你的血盟申請`,
-          body: "你們已成為血盟夥伴 🎉",
-          metadata: { from_user: user.id },
+          type: "alliance_accepted",
+          from_user_id: user.id,
+          message: `${nickname} 接受了你的血盟申請。你們已成為血盟夥伴 🎉`,
+          is_read: false,
         });
-      } catch {
-        // 通知失敗不影響主流程
+      } catch (e) {
+        console.error("通知寫入失敗:", e);
       }
     }
 
@@ -234,8 +234,8 @@ export async function getMyAlliancesAction(): Promise<MyAllianceListItem[]> {
 
   try {
     return await findAcceptedAlliancesWithPartners(user.id);
-  } catch (error) {
-    console.error("getMyAlliancesAction:", error);
+  } catch (e) {
+    console.error("getMyAlliancesAction 失敗:", e);
     return [];
   }
 }
@@ -279,12 +279,12 @@ async function notifyAllianceRequest(
     const nickname = requester?.nickname?.trim() || "某位冒險者";
     await insertNotification({
       user_id: toUserId,
-      kind: "alliance_request",
-      title: `${nickname} 對你送出了血盟申請`,
-      body: "去冒險團查看吧 ⚔️",
-      metadata: { from_user: fromUserId },
+      type: "alliance_request",
+      from_user_id: fromUserId,
+      message: `${nickname} 對你送出了血盟申請 ⚔️`,
+      is_read: false,
     });
-  } catch {
-    // 通知失敗不影響主流程
+  } catch (e) {
+    console.error("通知寫入失敗:", e);
   }
 }

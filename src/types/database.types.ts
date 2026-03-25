@@ -482,38 +482,41 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          /** 通知類型 slug（例如 like、alliance、system） */
-          kind: string;
-          title: string;
-          body: string | null;
-          metadata: Json | null;
-          read_at: string | null;
+          /** 通知類型 slug（例如 like、alliance_request、new_message） */
+          type: string;
+          from_user_id: string | null;
+          message: string;
+          is_read: boolean;
           created_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
-          kind: string;
-          title: string;
-          body?: string | null;
-          metadata?: Json | null;
-          read_at?: string | null;
+          type: string;
+          from_user_id?: string | null;
+          message: string;
+          is_read?: boolean;
           created_at?: string;
         };
         Update: {
           id?: string;
           user_id?: string;
-          kind?: string;
-          title?: string;
-          body?: string | null;
-          metadata?: Json | null;
-          read_at?: string | null;
+          type?: string;
+          from_user_id?: string | null;
+          message?: string;
+          is_read?: boolean;
           created_at?: string;
         };
         Relationships: [
           {
             foreignKeyName: "notifications_user_id_fkey";
             columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notifications_from_user_id_fkey";
+            columns: ["from_user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
           },

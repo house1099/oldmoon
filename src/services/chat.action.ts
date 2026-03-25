@@ -92,17 +92,15 @@ export async function sendMessageAction(conversationId: string, content: string)
 
     const targetId = conv.user_a === user.id ? conv.user_b : conv.user_a;
     try {
-      const sender = await findProfileById(user.id);
-      const nickname = sender?.nickname?.trim() || "某位冒險者";
       await insertNotification({
         user_id: targetId,
-        kind: "new_message",
-        title: `${nickname} 傳了一則訊息給你`,
-        body: content.trim().slice(0, 60),
-        metadata: { from_user: user.id, conversation_id: conversationId },
+        type: "new_message",
+        from_user_id: user.id,
+        message: content.trim().slice(0, 60),
+        is_read: false,
       });
-    } catch {
-      // 通知失敗不影響訊息發送
+    } catch (e) {
+      console.error("聊天通知寫入失敗:", e);
     }
 
     return { ok: true as const, message };

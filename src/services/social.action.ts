@@ -179,10 +179,10 @@ export async function toggleLikeAction(
       const nickname = liker?.nickname?.trim() || "某位冒險者";
       await insertNotification({
         user_id: targetUserId,
-        kind: "like",
-        title: `${nickname} 對你送出緣分`,
-        body: "打開公會探索看看是誰吧！",
-        metadata: { from_user: user.id },
+        type: "like",
+        from_user_id: user.id,
+        message: `${nickname} 對你送出緣分。打開公會探索看看是誰吧！`,
+        is_read: false,
       });
     } catch (notifyErr) {
       console.error("toggleLikeAction: notification insert failed", notifyErr);

@@ -52,7 +52,7 @@
 - **`alliances`**：**雙人血盟 SSOT**（**`user_a`**、**`user_b`**、**`initiated_by`**、**`status`**：`pending`／`accepted`／`dissolved`、`created_at`）；建議 **`UNIQUE (user_a, user_b)`**（約束名 **`alliances_pair_unique`**，遷移 **`20260325183000_alliances_pair_unique.sql`**）。**`database.types.ts`** 與 Layer 2 **`alliance.repository.ts`**、Layer 3 **`alliance.action.ts`** 僅使用此表。
 - **`user_alliances`**：**已廢棄**（曾規劃之分表，勿建）；**`supabase/migrations/20260325120000_user_alliances_pair.sql`** 檔首已標 **DEPRECATED**，**請勿在 Supabase 執行**。
 - **`conversations`**／**`chat_messages`**／**`blocks`**／**`reports`**：Layer 2 **`chat.repository.ts`** 與 **`database.types.ts`** 已預留型別與函式（**`getOrCreateConversation`**、**`findConversationById`**、**`getMessages`**、**`sendMessage`**、**`getMyConversations`**、**`markMessagesAsRead`**、**`blockUser`**、**`unblockUser`**、**`isBlocked`**、**`submitReport`**）。Layer 3 **`chat.action.ts`** 經 **`auth.getUser()`** 驗證後呼叫 repository。雲端若尚無表，請補 🗄️ DDL 並 **Reload schema**。
-- **`notifications`**：**`kind`**、**`title`**、**`body`**、**`metadata`**（**`jsonb`**；緣分等通知之發送者建議 **`metadata.from_user`**）、**`read_at`**（**null**＝未讀）、**`created_at`**。寫入 Layer 2 **`notification.repository.ts`** **`insertNotification`**；讀取／批次已讀／刪除／未讀數見 Layer 3 **`notification.action.ts`**（**admin** 查詢＋**`findProfileById`** 補發送者暱稱／頭像）。
+- **`notifications`**：**`type`**（**非** **`kind`**）、**`from_user_id`**（**非** **`from_user`**／**`metadata.from_user`**）、**`message`**、**`is_read`**（**boolean**）、**`created_at`**。寫入 Layer 2 **`notification.repository.ts`** **`insertNotification`**；讀取見 Layer 3 **`notification.action.ts`**（**admin** 分開查 **`notifications`** 與 **`users`**，避免 PostgREST FK embed 問題）；批次已讀／刪除／未讀數依 **`is_read`**。舊雲端若仍為 **`kind`／`read_at`** 等，請套用遷移 **`20260325220000_notifications_type_from_user_message.sql`** 並 **Reload schema**。
 
 ---
 
@@ -90,12 +90,12 @@
 | 底部導航 | `src/components/layout/Navbar.tsx`（**五項 lucide**：**Home／Compass／Swords／Heart／ShoppingBag**；選中 **`text-violet-400`**、未選 **`text-zinc-500`**、**`text-[10px]`** 標籤；首頁 **`/`** 僅 **`pathname === '/'`** 為 active） |
 | 探索（村莊＋市集） | **`explore/page.tsx`**（**Server**：**`getVillageUsersAction`** 預載村莊）；**`ExploreClient.tsx`**（**`useSWR`** **`SWR_KEYS.villageUsers`** ＋ **`fallbackData`／`revalidateOnMount: false`**；市集 **`SWR_KEYS.marketUsers(query)`**、**`keepPreviousData`**；**`hidden`／`block`** 切 tab）；市集初次 **`isLoading`** 時 **6×`UserCardSkeleton`** |
 | 列表骨架屏 | **`src/components/ui/UserCardSkeleton.tsx`**（**`animate-pulse`**） |
-| 冒險團 | **`src/app/(app)/guild/page.tsx`**：**血盟** — **`useSWR`** **`myAlliances`／`pendingAlliances`**、夥伴列 **`getOrCreateConversationAction`** → **`ChatModal`**；**聊天** — **`useConversations`**、列表開 **`ChatModal`**（同 **`UserDetailModal`** 之 **Realtime 私訊**）；**信件** — **`useSWR(SWR_KEYS.notifications, getMyNotificationsAction)`**、**`kind`／`read_at`** 顯示、**全部已讀**／**清除全部** 並 **`mutate(SWR_KEYS.unreadNotifications)`**；**`GuildPage`** **`useUnreadNotificationCount`** → **信件** tab **紅點（9+）**；血盟 tab 角標 **>9** 顯示 **9+** |
+| 冒險團 | **`src/app/(app)/guild/page.tsx`**：**血盟** — **`useSWR`** **`myAlliances`／`pendingAlliances`**、夥伴列 **`getOrCreateConversationAction`** → **`ChatModal`**；**聊天** — **`useConversations`**、列表開 **`ChatModal`**（同 **`UserDetailModal`** 之 **Realtime 私訊**）；**信件** — **`useSWR(SWR_KEYS.notifications, getMyNotificationsAction)`**、**`type`／`is_read`** 顯示、**全部已讀**／**清除全部** 並 **`mutate(SWR_KEYS.unreadNotifications)`**；**`GuildPage`** **`useUnreadNotificationCount`** → **信件** tab **紅點（9+）**；血盟 tab 角標 **>9** 顯示 **9+** |
 | 雙人血盟（Layer 3） | **`src/services/alliance.action.ts`**（**`getAllianceStatusAction`**、**`requestAllianceAction`**、**`respondAllianceAction`**、**`dissolveAllianceAction`**、**`getMyAlliancesAction`**、**`getPendingRequestsAction`**） |
 | 雙人血盟（Layer 2） | **`src/lib/repositories/server/alliance.repository.ts`** |
 | 私訊／封鎖／檢舉（Layer 2） | **`src/lib/repositories/server/chat.repository.ts`**（**`conversations`**、**`chat_messages`**、**`blocks`**、**`reports`**；見 🗄️ 與 **`database.types.ts`**） |
 | 私訊／封鎖／檢舉（Layer 3） | **`src/services/chat.action.ts`** — **`getOrCreateConversationAction`**、**`getMessagesAction`**、**`sendMessageAction`**、**`getMyConversationsAction`**、**`blockUserAction`**、**`unblockUserAction`**、**`submitReportAction`** |
-| 通知（Layer 3） | **`src/services/notification.action.ts`** — **`getMyNotificationsAction`**、**`markAllNotificationsReadAction`**、**`clearAllNotificationsAction`**、**`getUnreadNotificationCountAction`**（欄位對齊 **`notifications.kind`／`read_at`**） |
+| 通知（Layer 3） | **`src/services/notification.action.ts`** — **`getMyNotificationsAction`**（分開查 **`users`**）、**`markAllNotificationsReadAction`**（**`is_read: true`**）、**`clearAllNotificationsAction`**、**`getUnreadNotificationCountAction`**（欄位 **`type`／`is_read`**） |
 | 月老／商店預留 | `src/app/(app)/matchmaking/page.tsx`、`src/app/(app)/shop/page.tsx`（**即將開放**） |
 | 舊路由轉址 | **`/village`**、**`/market`** → **`/explore`**；**`/alliances`**、**`/inbox`** → **`/guild`** |
 | 使用者詳情 Modal | `src/components/modals/UserDetailModal.tsx`（開啟時 **`getModalSocialStatusAction`** 合併載入緣分／血盟；**💬 聊聊** → **`getOrCreateConversationAction`** 開 **`ChatModal`**；今日心情、雙欄自白、雙區標籤、**`toggleLikeAction`**＋**AlertDialog**；血盟操作後再拉合併狀態；**IG** 列：**`ig_public`** 或已血盟才顯示 **@handle**） |
@@ -456,7 +456,7 @@ NOTIFY pgrst, 'reload schema';
 - **🗄️ SSOT**：**`public.alliances`**（**`user_a`**、**`user_b`**、**`initiated_by`**、**`status`**、`created_at`）；**`alliance.repository`** 僅 **`.from('alliances')`**；新列 **insert** 時 **`user_a`／`user_b`** 採字串字典序固定對，與雲端 **UNIQUE** 約束對齊。
 - **`user_alliances`**：**廢棄**；**`20260325120000_user_alliances_pair.sql`** 僅留 **DEPRECATED** 註解與註解掉的 DDL，**勿執行**。
 - **型別**：**`database.types.ts`** 之 **`alliances`** 已改為上列雙人血盟形狀；**`UserAllianceRow`／`user_alliances` 型別已移除**。
-- **Layer 2**：**`alliance.repository.ts`** — **`.from('alliances')`**、成對查詢（**`and(user_a…,user_b…)` OR 反向**）、待確認／已接受與 **users** embed（**`alliances_user_a_fkey`** 等）。
+- **Layer 2**：**`alliance.repository.ts`** — **`.from('alliances')`**、成對查詢（**`and(user_a…,user_b…)` OR 反向**）；**已接受血盟**／**待確認（對方發起）** 改為**先查血盟再逐筆查 **`users`****，避免 PostgREST FK embed 問題。
 - **Layer 3**：**`alliance.action.ts`** — **Modal** 用 **狀態／申請／回應／解除**；列表用 **我的血盟**／**待確認**；**`reactivateAllianceFromDissolved`** 處理 **`dissolved` → 再申請**（更新 **`initiated_by`**，型別 **`Update`** 仍僅 **`status`**，層級 2 以斷言寫入）。
 - **Layer 3 — `social.action.ts`**：**`checkMutualLikeWithTargetAction`**（雙向互讚，血盟區塊前置）。
 - **Layer 5 — `UserDetailModal.tsx`**：僅 **雙向互讚** 顯示血盟區；四態：**無**／**已送出**／**待確認**／**血盟夥伴**＋解除；**Instagram**：**`ig_public === true`** 或 **血盟已成立** 且 **`instagram_handle`** 有值時顯示 **@**。
@@ -734,10 +734,18 @@ Phase 4 — 市集搜尋快取
 
 ### 2026-03-25 — 通知寫入、取消愛心 Sheet z-index、心情過期清空
 
-- **Layer 3 — `alliance.action.ts`**：**`requestAllianceAction`** 成功後 **`notifyAllianceRequest`**（**`insertNotification`**：**`kind: "alliance_request"`**、**`metadata.from_user`**）；**`respondAllianceAction`** 接受（**`accepted`**）後寫入 **`kind: "alliance_accepted"`** 給 **`initiated_by`**。
-- **Layer 3 — `chat.action.ts`**：**`sendMessageAction`** 成功後 **`insertNotification`**：**`kind: "new_message"`**、**`body`** 截前 60 字、**`metadata`** 含 **`from_user`**＋**`conversation_id`**。
+- **Layer 3 — `alliance.action.ts`**：**`requestAllianceAction`** 成功後 **`notifyAllianceRequest`**（**`insertNotification`**：**`type: "alliance_request"`**、**`from_user_id`**）；**`respondAllianceAction`** 接受後寫入 **`type: "alliance_accepted"`** 給 **`initiated_by`**（見下「通知欄位 **`type`／`from_user_id`**」）。
+- **Layer 3 — `chat.action.ts`**：**`sendMessageAction`** 成功後 **`insertNotification`**：**`type: "new_message"`**、**`message`** 截前 60 字、**`from_user_id`**。
 - **Layer 5 — `guild/page.tsx`**：**`NOTIF_KIND_LABEL`** 新增 **`new_message: "💬 傳了一則訊息給你"`**。
 - **Layer 5 — `UserDetailModal.tsx`**：取消愛心 Sheet 容器 **`z-50`** → **`z-[100]`**，確保蓋過 Radix Dialog。
 - **Layer 5 — `guild-profile-home.tsx`**：心情倒數 **`useEffect`** 過期時 **`setMoodInput("") + setMoodAt(null)`**；過期清空 **`useEffect`** 的 **`setTimeout`** 回呼同步 **`setMoodAt(null)`**。
 
-*最後更新：2026-03-25 — 通知寫入（**血盟申請／接受**＋**聊天訊息**）、取消愛心 Sheet **`z-[100]`**、心情過期清空 **`moodAt`**；**`/guild`** 聊天／信件 Tab、**ChatModal Realtime**、**UserDetailModal** 聊聊、**useChat**＋**SWR_KEYS**、**效能 Phase 1—4** 等。*
+### 2026-03-25 — 血盟／通知查詢分開查、通知欄位對齊、診斷用 **`console.error`**
+
+- **Layer 2 — `alliance.repository.ts`**：**`findAcceptedAlliancesWithPartners`**／**`findPendingIncomingWithRequester`** 不再使用 **`users!alliances_*_fkey`** embed，改為查 **`alliances`** 後 **`Promise.all`** 查 **`users`**（待確認仍 **`neq('initiated_by', userId)`**＋**`or(user_a,user_b)`**，與字典序成對語意一致）。
+- **Layer 3 — `notification.action.ts`**：**`getMyNotificationsAction`** 僅 **`select`** 通知欄位，再以 **`from_user_id`** 分查發送者；錯誤時 **`console.error('getMyNotificationsAction 失敗:', error)`**。
+- **型別／寫入**：**`notifications`** 以 **`type`**（非 **`kind`**）、**`from_user_id`**（非 **`metadata.from_user`**）、**`message`**、**`is_read`** 與 DB 一致；**`alliance.action`／`chat.action`／`social.action`** 之 **`insertNotification`** 已對齊；**`/guild`** **`MailBox`** 以 **`notif.type`／`notif.is_read`** 顯示。
+- **🗄️**：新增遷移 **`supabase/migrations/20260325220000_notifications_type_from_user_message.sql`**（舊表 **`kind`／`title`／`body`／`metadata`／`read_at`** → 新欄位）；雲端需執行後 **Reload schema**。
+- **診斷**：**`notifyAllianceRequest`**、接受血盟後通知、**`sendMessageAction`** 內通知之靜默 **`catch`** 改為 **`console.error`**；**`getMyAlliancesAction`** **`catch`** 改為 **`getMyAlliancesAction 失敗:`**。
+
+*最後更新：2026-03-25 — 血盟／通知**分開查詢**、通知欄位 **`type`／`from_user_id`／`message`／`is_read`**、**`console.error`** 診斷；併：**通知寫入（血盟／聊天）**、取消愛心 Sheet **`z-[100]`**、心情過期清空 **`moodAt`**；**`/guild`** 聊天／信件 Tab、**ChatModal Realtime**、**useChat**＋**SWR_KEYS**、**效能 Phase 1—4** 等。*

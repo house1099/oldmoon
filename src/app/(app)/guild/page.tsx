@@ -377,7 +377,7 @@ function ChatList() {
   );
 }
 
-const NOTIF_KIND_LABEL: Record<string, string> = {
+const NOTIF_TYPE_LABEL: Record<string, string> = {
   like: "💖 對你送出了緣分",
   alliance_request: "⚔️ 申請與你結為血盟",
   alliance_accepted: "🎉 接受了你的血盟申請",
@@ -458,9 +458,9 @@ function MailBox() {
       ) : (
         <div className="space-y-2">
           {rows.map((notif) => {
-            const isUnread = notif.read_at == null;
+            const isUnread = !notif.is_read;
             const actionText =
-              NOTIF_KIND_LABEL[notif.kind] ?? notif.body ?? notif.title ?? "";
+              NOTIF_TYPE_LABEL[notif.type] ?? notif.message ?? "";
             return (
               <div
                 key={notif.id}

@@ -2,22 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { Json, NotificationRow } from "@/types/database.types";
-import { findProfileById } from "@/lib/repositories/server/user.repository";
-
-function fromUserIdFromMetadata(metadata: Json | null): string | null {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
-    return null;
-  }
-  const m = metadata as Record<string, unknown>;
-  if (typeof m.from_user === "string") {
-    return m.from_user;
-  }
-  if (typeof m.from_user_id === "string") {
-    return m.from_user_id;
-  }
-  return null;
-}
+import type { NotificationRow } from "@/types/database.types";
 
 export type NotificationListItem = NotificationRow & {
   fromUser: {
@@ -27,7 +12,7 @@ export type NotificationListItem = NotificationRow & {
   } | null;
 };
 
-/** 與 **`database.types`** 一致：**`kind`**／**`title`**／**`body`**／**`read_at`**／**`metadata`**（發送者 uuid 見 **`metadata.from_user`**，與 **`insertNotification`** 對齊） */
+/** 分開查 **`notifications`** 與 **`users`**，避免 PostgREST FK embed 問題。欄位：**`type`**／**`from_user_id`**／**`message`**／**`is_read`** */
 export async function getMyNotificationsAction(): Promise<
   NotificationListItem[]
 > {
@@ -41,41 +26,36 @@ export async function getMyNotificationsAction(): Promise<
   }
 
   const admin = createAdminClient();
-  const { data, error } = await admin
+  const { data: notifications, error } = await admin
     .from("notifications")
-    .select("id, user_id, kind, title, body, metadata, read_at, created_at")
+    .select("id, user_id, type, message, is_read, created_at, from_user_id")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(50);
 
   if (error) {
-    console.error("getMyNotificationsAction:", error);
+    console.error("getMyNotificationsAction 失敗:", error);
     return [];
   }
 
-  const rows = (data ?? []) as NotificationRow[];
   const enriched = await Promise.all(
-    rows.map(async (n): Promise<NotificationListItem> => {
-      const fromId = fromUserIdFromMetadata(n.metadata);
-      if (!fromId) {
+    (notifications ?? []).map(async (n) => {
+      if (!n.from_user_id) {
         return { ...n, fromUser: null };
       }
-      const profile = await findProfileById(fromId);
-      if (!profile) {
-        return { ...n, fromUser: null };
-      }
+      const { data: fromUser } = await admin
+        .from("users")
+        .select("id, nickname, avatar_url")
+        .eq("id", n.from_user_id)
+        .single();
       return {
         ...n,
-        fromUser: {
-          id: profile.id,
-          nickname: profile.nickname,
-          avatar_url: profile.avatar_url,
-        },
+        fromUser: fromUser ?? null,
       };
     }),
   );
 
-  return enriched;
+  return enriched as NotificationListItem[];
 }
 
 export async function markAllNotificationsReadAction() {
@@ -89,12 +69,11 @@ export async function markAllNotificationsReadAction() {
   }
 
   const admin = createAdminClient();
-  const now = new Date().toISOString();
   const { error } = await admin
     .from("notifications")
-    .update({ read_at: now })
+    .update({ is_read: true })
     .eq("user_id", user.id)
-    .is("read_at", null);
+    .eq("is_read", false);
 
   if (error) {
     console.error("markAllNotificationsReadAction:", error);
@@ -141,7 +120,7 @@ export async function getUnreadNotificationCountAction(): Promise<number> {
     .from("notifications")
     .select("id", { count: "exact", head: true })
     .eq("user_id", user.id)
-    .is("read_at", null);
+    .eq("is_read", false);
 
   if (error) {
     console.error("getUnreadNotificationCountAction:", error);

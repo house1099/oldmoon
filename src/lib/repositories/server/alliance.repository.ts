@@ -108,82 +108,82 @@ export async function findAcceptedAlliancesWithPartners(
   userId: string,
 ): Promise<{ id: string; partner: UserMini }[]> {
   const admin = createAdminClient();
-  const { data, error } = await admin
+
+  const { data: alliances, error } = await admin
     .from("alliances")
-    .select(
-      `
-      id,
-      user_a,
-      user_b,
-      a_user:users!alliances_user_a_fkey(id, nickname, avatar_url, instagram_handle),
-      b_user:users!alliances_user_b_fkey(id, nickname, avatar_url, instagram_handle)
-    `,
-    )
+    .select("id, user_a, user_b, status, created_at")
+    .or(`user_a.eq.${userId},user_b.eq.${userId}`)
     .eq("status", "accepted")
-    .or(`user_a.eq.${userId},user_b.eq.${userId}`);
+    .order("created_at", { ascending: false });
 
   if (error) {
     throw error;
   }
+  if (!alliances?.length) {
+    return [];
+  }
 
-  const rows = (data ?? []) as {
-    id: string;
-    user_a: string;
-    user_b: string;
-    a_user: UserMini | null;
-    b_user: UserMini | null;
-  }[];
+  const enriched = await Promise.all(
+    alliances.map(async (a) => {
+      const partnerId = a.user_a === userId ? a.user_b : a.user_a;
+      const { data: partner } = await admin
+        .from("users")
+        .select("id, nickname, avatar_url, instagram_handle")
+        .eq("id", partnerId)
+        .single();
+      return {
+        id: a.id,
+        partner: partner ?? {
+          id: partnerId,
+          nickname: "?",
+          avatar_url: null,
+          instagram_handle: null,
+        },
+      };
+    }),
+  );
 
-  return rows.map((r) => {
-    const partner =
-      r.user_a === userId ? r.b_user ?? null : r.a_user ?? null;
-    return {
-      id: r.id,
-      partner: partner ?? {
-        id: "",
-        nickname: "?",
-        avatar_url: null,
-        instagram_handle: null,
-      },
-    };
-  });
+  return enriched;
 }
 
 export async function findPendingIncomingWithRequester(
   userId: string,
 ): Promise<{ id: string; requester: UserMini }[]> {
   const admin = createAdminClient();
-  const { data, error } = await admin
+
+  const { data: alliances, error } = await admin
     .from("alliances")
-    .select(
-      `
-      id,
-      user_a,
-      user_b,
-      initiated_by,
-      requester:users!alliances_initiated_by_fkey(id, nickname, avatar_url, instagram_handle)
-    `,
-    )
+    .select("id, user_a, user_b, initiated_by, created_at")
     .eq("status", "pending")
     .neq("initiated_by", userId)
-    .or(`user_a.eq.${userId},user_b.eq.${userId}`);
+    .or(`user_a.eq.${userId},user_b.eq.${userId}`)
+    .order("created_at", { ascending: false });
 
   if (error) {
     throw error;
   }
+  if (!alliances?.length) {
+    return [];
+  }
 
-  const rows = (data ?? []) as {
-    id: string;
-    requester: UserMini | null;
-  }[];
+  const enriched = await Promise.all(
+    alliances.map(async (a) => {
+      const { data: requester } = await admin
+        .from("users")
+        .select("id, nickname, avatar_url, instagram_handle")
+        .eq("id", a.initiated_by)
+        .single();
+      return {
+        id: a.id,
+        requester: requester ?? {
+          id: a.initiated_by,
+          nickname: "?",
+          avatar_url: null,
+          instagram_handle: null,
+        },
+      };
+    }),
+  );
 
-  return rows.map((r) => ({
-    id: r.id,
-    requester: r.requester ?? {
-      id: "",
-      nickname: "?",
-      avatar_url: null,
-      instagram_handle: null,
-    },
-  }));
+  return enriched;
 }
