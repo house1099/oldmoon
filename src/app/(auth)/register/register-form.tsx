@@ -20,6 +20,10 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { registerStep1Schema } from "@/lib/validation/register-step1";
 import { friendlyAuthErrorMessage } from "@/lib/utils/auth-errors";
+import {
+  validateInviteCodeAction,
+  claimInviteCodeAfterRegisterAction,
+} from "@/services/admin.action";
 
 const PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d)/;
 
@@ -74,6 +78,15 @@ export function RegisterForm() {
       return;
     }
 
+    const trimmedCode = parsed.data.inviteCode?.trim().toUpperCase() || "";
+    if (trimmedCode) {
+      const codeCheck = await validateInviteCodeAction(trimmedCode);
+      if (!codeCheck.ok) {
+        toast.error(codeCheck.error);
+        return;
+      }
+    }
+
     const supabase = createClient();
     const { data, error } = await supabase.auth.signUp({
       email: parsed.data.email,
@@ -81,9 +94,7 @@ export function RegisterForm() {
       options: {
         data: {
           instagram_handle: parsed.data.instagram,
-          ...(parsed.data.inviteCode
-            ? { invite_code: parsed.data.inviteCode }
-            : {}),
+          ...(trimmedCode ? { invite_code: trimmedCode } : {}),
         },
       },
     });
@@ -96,6 +107,12 @@ export function RegisterForm() {
         ),
       );
       return;
+    }
+
+    if (trimmedCode && data.user?.id) {
+      claimInviteCodeAfterRegisterAction(trimmedCode, data.user.id).catch(
+        () => {},
+      );
     }
 
     if (data.session) {

@@ -19,8 +19,23 @@ import {
   findAllSystemSettings as repoFindAllSystemSettings,
   updateSystemSetting as repoUpdateSystemSetting,
 } from "@/lib/repositories/server/admin.repository";
+import {
+  findAllInvitationCodes,
+  findInvitationByCode,
+  insertInvitationCode,
+  insertInvitationCodes,
+  revokeInvitationCode as repoRevokeInvitationCode,
+  findInvitationTree,
+  findSystemSettingByKey,
+} from "@/lib/repositories/server/invitation.repository";
 import { DEFAULT_MODERATOR_PERMISSIONS } from "@/lib/constants/admin-permissions";
-import type { UserRow, ModeratorPermissionRow, SystemSettingRow } from "@/types/database.types";
+import type {
+  UserRow,
+  ModeratorPermissionRow,
+  SystemSettingRow,
+  InvitationCodeRow,
+  InvitationCodeDto,
+} from "@/types/database.types";
 
 type ActionResult<T = void> =
   | { ok: true; data: T }
@@ -474,5 +489,243 @@ export async function reviewIgRequestFromAdminAction(
     return { ok: true, data: undefined };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
+  }
+}
+
+// ─── Invitation Codes ───
+
+function generateRandomCode(length = 8): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let result = "";
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+async function generateUniqueCode(): Promise<string> {
+  for (let i = 0; i < 5; i++) {
+    const code = generateRandomCode();
+    const existing = await findInvitationByCode(code);
+    if (!existing) return code;
+  }
+  throw new Error("無法產生唯一邀請碼，請重試");
+}
+
+export async function getInvitationCodesAction(): Promise<
+  ActionResult<InvitationCodeDto[]>
+> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const codes = await findAllInvitationCodes();
+    return { ok: true, data: codes };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function generateInvitationCodeAction(params: {
+  expiresInDays?: number;
+  note?: string;
+}): Promise<ActionResult<InvitationCodeRow>> {
+  try {
+    const { user } = await requireRole(["master", "moderator"]);
+
+    let expiresInDays = params.expiresInDays;
+    if (expiresInDays === undefined) {
+      const settingVal = await findSystemSettingByKey(
+        "invitation_expire_days",
+      );
+      expiresInDays = settingVal ? parseInt(settingVal, 10) : 30;
+    }
+
+    const code = await generateUniqueCode();
+    let expiresAt: string | null = null;
+    if (expiresInDays && expiresInDays > 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + expiresInDays);
+      expiresAt = d.toISOString();
+    }
+
+    const row = await insertInvitationCode({
+      code,
+      created_by: user.id,
+      expires_at: expiresAt,
+      note: params.note?.trim() || null,
+    });
+
+    await insertAdminAction({
+      admin_id: user.id,
+      action_type: "invitation_create",
+      metadata: { code, expires_in_days: expiresInDays },
+    });
+
+    return { ok: true, data: row };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function generateBatchInvitationCodesAction(params: {
+  count: number;
+  expiresInDays?: number;
+  note?: string;
+}): Promise<ActionResult<InvitationCodeRow[]>> {
+  try {
+    const { user } = await requireRole(["master", "moderator"]);
+
+    const count = Math.min(Math.max(1, params.count), 50);
+
+    let expiresInDays = params.expiresInDays;
+    if (expiresInDays === undefined) {
+      const settingVal = await findSystemSettingByKey(
+        "invitation_expire_days",
+      );
+      expiresInDays = settingVal ? parseInt(settingVal, 10) : 30;
+    }
+
+    let expiresAt: string | null = null;
+    if (expiresInDays && expiresInDays > 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + expiresInDays);
+      expiresAt = d.toISOString();
+    }
+
+    const codes: string[] = [];
+    for (let i = 0; i < count; i++) {
+      codes.push(await generateUniqueCode());
+    }
+
+    const payloads = codes.map((c) => ({
+      code: c,
+      created_by: user.id,
+      expires_at: expiresAt,
+      note: params.note?.trim() || null,
+    }));
+
+    const rows = await insertInvitationCodes(payloads);
+
+    await insertAdminAction({
+      admin_id: user.id,
+      action_type: "invitation_batch_create",
+      metadata: { count: rows.length, expires_in_days: expiresInDays },
+    });
+
+    return { ok: true, data: rows };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function revokeInvitationCodeAction(
+  id: string,
+): Promise<ActionResult> {
+  try {
+    const { user } = await requireRole(["master", "moderator"]);
+    const admin = createAdminClient();
+
+    const { data: row, error: readErr } = await admin
+      .from("invitation_codes")
+      .select("used_by, code")
+      .eq("id", id)
+      .single();
+    if (readErr) throw readErr;
+
+    if (row?.used_by) {
+      return { ok: false, error: "已使用的邀請碼無法撤銷" };
+    }
+
+    await repoRevokeInvitationCode(id);
+
+    await insertAdminAction({
+      admin_id: user.id,
+      action_type: "invitation_revoke",
+      metadata: { invitation_id: id, code: row?.code },
+    });
+
+    return { ok: true, data: undefined };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export type InvitationTreeNodeDto = {
+  id: string;
+  nickname: string;
+  avatar_url: string | null;
+  level: number;
+  created_at: string;
+  children: InvitationTreeNodeDto[];
+};
+
+export async function getInvitationTreeAction(): Promise<
+  ActionResult<InvitationTreeNodeDto[]>
+> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const flat = await findInvitationTree();
+
+    const nodeMap = new Map<string, InvitationTreeNodeDto>();
+    for (const u of flat) {
+      nodeMap.set(u.id, {
+        id: u.id,
+        nickname: u.nickname,
+        avatar_url: u.avatar_url,
+        level: u.level,
+        created_at: u.created_at,
+        children: [],
+      });
+    }
+
+    const roots: InvitationTreeNodeDto[] = [];
+    for (const u of flat) {
+      const node = nodeMap.get(u.id)!;
+      if (u.invited_by && nodeMap.has(u.invited_by)) {
+        nodeMap.get(u.invited_by)!.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    }
+
+    return { ok: true, data: roots };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function validateInviteCodeAction(
+  code: string,
+): Promise<ActionResult<{ valid: boolean }>> {
+  try {
+    const row = await findInvitationByCode(code.trim().toUpperCase());
+    if (!row) {
+      return { ok: true, data: { valid: true } };
+    }
+    if (row.is_revoked) {
+      return { ok: false, error: "此邀請碼已被撤銷" };
+    }
+    if (row.used_by) {
+      return { ok: false, error: "此邀請碼已被使用" };
+    }
+    if (row.expires_at && new Date(row.expires_at) < new Date()) {
+      return { ok: false, error: "此邀請碼已過期" };
+    }
+    return { ok: true, data: { valid: true } };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function claimInviteCodeAfterRegisterAction(
+  code: string,
+  userId: string,
+): Promise<void> {
+  try {
+    const { claimInvitationCode } = await import(
+      "@/lib/repositories/server/invitation.repository"
+    );
+    await claimInvitationCode(code.trim().toUpperCase(), userId);
+  } catch {
+    // silent — backward compatible
   }
 }
