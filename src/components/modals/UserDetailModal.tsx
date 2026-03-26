@@ -311,9 +311,9 @@ export function UserDetailModal({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
           showCloseButton={false}
-          overlayClassName="z-[600]"
+          overlayClassName="z-[800]"
           className={cn(
-            "z-[610] flex max-h-[88vh] w-full max-w-sm flex-col gap-0 overflow-hidden rounded-3xl border border-zinc-800/60 bg-zinc-950 p-0",
+            "z-[810] flex max-h-[88vh] w-full max-w-sm flex-col gap-0 overflow-hidden rounded-3xl border border-zinc-800/60 bg-zinc-950 p-0",
           )}
         >
           <DialogTitle className="sr-only">{user.nickname} 的冒險者資料</DialogTitle>
@@ -608,7 +608,7 @@ export function UserDetailModal({
 
       {showCancelSheet && (
         <div
-          className="fixed inset-0 z-[615]"
+          className="fixed inset-0 z-[820]"
           onClick={() => setShowCancelSheet(false)}
         >
           <div className="absolute inset-0 bg-black/60" />

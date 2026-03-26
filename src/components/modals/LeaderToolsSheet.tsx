@@ -142,12 +142,12 @@ export default function LeaderToolsSheet({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[620] bg-black/50"
+        className="fixed inset-0 z-[830] bg-black/50"
         onClick={onClose}
       />
 
       {/* Sheet */}
-      <div className="fixed inset-y-0 right-0 z-[630] w-80 max-w-[calc(100vw-2rem)] bg-zinc-950 border-l border-zinc-800 shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-200 pt-[max(1.5rem,env(safe-area-inset-top))]">
+      <div className="fixed inset-y-0 right-0 z-[840] w-80 max-w-[calc(100vw-2rem)] bg-zinc-950 border-l border-zinc-800 shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-200 pt-[max(1.5rem,env(safe-area-inset-top))]">
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-4 py-3 backdrop-blur">
           <h2 className="text-sm font-bold text-amber-100">
@@ -293,7 +293,7 @@ export default function LeaderToolsSheet({
       {/* Ban Confirm Dialog */}
       {showBanConfirm && (
         <div
-          className="fixed inset-0 z-[640] flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-[850] flex items-center justify-center bg-black/60 p-4"
           onClick={() => setShowBanConfirm(false)}
         >
           <div
@@ -335,7 +335,7 @@ export default function LeaderToolsSheet({
       {/* Unban Confirm Dialog */}
       {showUnbanConfirm && (
         <div
-          className="fixed inset-0 z-[640] flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-[850] flex items-center justify-center bg-black/60 p-4"
           onClick={() => setShowUnbanConfirm(false)}
         >
           <div

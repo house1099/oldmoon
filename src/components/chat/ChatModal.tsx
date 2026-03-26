@@ -7,13 +7,24 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
 import { useMessages } from "@/hooks/useChat";
+import { useMyProfile } from "@/hooks/useMyProfile";
 import { sendMessageAction, submitReportAction } from "@/services/chat.action";
+import { getMemberProfileByIdAction } from "@/services/profile.action";
 import Avatar from "@/components/ui/Avatar";
 import { createClient } from "@/lib/supabase/client";
 import { SWR_KEYS } from "@/lib/swr/keys";
+import { cn } from "@/lib/utils";
+import type { UserRow } from "@/lib/repositories/server/user.repository";
+
+const UserDetailModal = dynamic(
+  () =>
+    import("@/components/modals/UserDetailModal").then((m) => m.UserDetailModal),
+  { ssr: false },
+);
 
 export interface ChatModalProps {
   open: boolean;
@@ -42,7 +53,10 @@ export default function ChatModal({
   const [sending, setSending] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [reportReason, setReportReason] = useState("");
+  const [peekUser, setPeekUser] = useState<UserRow | null>(null);
+  const [avatarLoadingId, setAvatarLoadingId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const { profile: myProfile } = useMyProfile();
 
   /**
    * iOS Safari 會掃描整份文件中所有 input／textarea，在鍵盤上方顯示「上一個／下一個／完成」列。
@@ -56,6 +70,8 @@ export default function ChatModal({
       const el = body.children[i];
       if (!(el instanceof HTMLElement)) continue;
       if (el.dataset.chatPortal === "1") continue;
+      if (el.hasAttribute("data-no-chat-inert")) continue;
+      if (el.querySelector("[data-no-chat-inert]")) continue;
       marked.push({ el, hadInert: el.hasAttribute("inert") });
       el.setAttribute("inert", "");
     }
@@ -106,6 +122,21 @@ export default function ChatModal({
     void globalMutate(SWR_KEYS.unreadChatConversations);
   }, [open, conversationId, isLoading, globalMutate]);
 
+  async function handlePeerAvatarClick(senderId: string) {
+    if (!senderId || senderId === currentUserId || avatarLoadingId) return;
+    setAvatarLoadingId(senderId);
+    try {
+      const data = await getMemberProfileByIdAction(senderId);
+      if (data) {
+        setPeekUser(data);
+      } else {
+        toast.error("無法載入用戶資料");
+      }
+    } finally {
+      setAvatarLoadingId(null);
+    }
+  }
+
   async function handleSend() {
     if (!input.trim() || sending) return;
     setSending(true);
@@ -123,8 +154,9 @@ export default function ChatModal({
 
   if (!open || typeof document === "undefined") return null;
 
-  /** 須高於 `UserDetailModal`（z-300/310）、信件 Dialog（z-200/210）等；portal 至 body 以便與 inert 搭配隔離背景表單欄位（iOS 鍵盤導覽列） */
+  /** 須低於從聊天內開啟的 `UserDetailModal`（z-800/810）；高於信件 Dialog（z-200/210）等。Portal 至 body 以便與 inert 搭配隔離背景表單欄位（iOS 鍵盤導覽列） */
   return createPortal(
+    <>
     <div
       className="fixed inset-0 z-[700] flex flex-col bg-zinc-950"
       data-chat-portal="1"
@@ -160,30 +192,68 @@ export default function ChatModal({
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {messages.map((msg) => {
           const isMe = msg.sender_id === currentUserId;
+          const bubble = (
+            <div
+              className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                isMe
+                  ? "rounded-br-sm bg-violet-600 text-white"
+                  : "rounded-bl-sm bg-zinc-800 text-white"
+              }`}
+            >
+              {msg.content}
+              <div
+                className={`mt-1 text-[10px] ${
+                  isMe ? "text-violet-300" : "text-zinc-500"
+                }`}
+              >
+                {new Date(msg.created_at).toLocaleTimeString("zh-TW", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </div>
+            </div>
+          );
+
+          if (isMe) {
+            return (
+              <div
+                key={msg.id}
+                className="flex items-end justify-end gap-2"
+              >
+                {bubble}
+                <div className="shrink-0" aria-hidden>
+                  <Avatar
+                    src={myProfile?.avatar_url}
+                    nickname={myProfile?.nickname ?? "我"}
+                    size={36}
+                  />
+                </div>
+              </div>
+            );
+          }
+
           return (
             <div
               key={msg.id}
-              className={`flex ${isMe ? "justify-end" : "justify-start"}`}
+              className="flex items-end justify-start gap-2"
             >
-              <div
-                className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                  isMe
-                    ? "rounded-br-sm bg-violet-600 text-white"
-                    : "rounded-bl-sm bg-zinc-800 text-white"
-                }`}
+              <button
+                type="button"
+                onClick={() => void handlePeerAvatarClick(msg.sender_id)}
+                className={cn(
+                  "shrink-0 cursor-pointer rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
+                  avatarLoadingId !== null && "pointer-events-none",
+                  avatarLoadingId === msg.sender_id && "opacity-60",
+                )}
+                aria-label={`查看 ${targetUser.nickname} 的資料`}
               >
-                {msg.content}
-                <div
-                  className={`mt-1 text-[10px] ${
-                    isMe ? "text-violet-300" : "text-zinc-500"
-                  }`}
-                >
-                  {new Date(msg.created_at).toLocaleTimeString("zh-TW", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </div>
-              </div>
+                <Avatar
+                  src={targetUser.avatar_url}
+                  nickname={targetUser.nickname}
+                  size={36}
+                />
+              </button>
+              {bubble}
             </div>
           );
         })}
@@ -291,7 +361,18 @@ export default function ChatModal({
           </div>
         </div>
       ) : null}
-    </div>,
+    </div>
+
+    {peekUser ? (
+      <UserDetailModal
+        user={peekUser}
+        open
+        onOpenChange={(o) => {
+          if (!o) setPeekUser(null);
+        }}
+      />
+    ) : null}
+    </>,
     document.body,
   );
 }
