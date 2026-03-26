@@ -106,7 +106,7 @@
 | 每日簽到 +1 EXP | `src/services/daily-checkin.action.ts`（**`claimDailyCheckin`**；冷卻 **`users.last_checkin_at`**）；**`updateLastCheckinAt`** 見 `user.repository.ts`；**`insertExpLog`（`delta`+`delta_exp`）** 見 `exp.repository.ts`；機讀錯誤 **`DAILY_CHECKIN_ALREADY_CLAIMED`**（**`already_claimed`**）見 `daily-checkin.ts`；**`taipeiCalendarDateKey()`** 仍供其他日曆日用途，**簽到判斷已不採用** |
 | 編輯自介／分域自白／**`instagram_handle`**／IG 公開／心情 | `src/services/profile-update.action.ts`（**支援部分欄位 patch**；**`mood`** 時更新 **`mood_at`**；**`bio_village`**／**`bio_market`**；**`instagram_handle`** 經 **`instagramHandleSchema`**；空字串寫入 **null**） |
 | IG 變更申請／審核 | `src/services/ig-request.action.ts`（**`requestIgChangeAction`**、**`reviewIgRequestAction`**、**`getPendingIgRequestsAction`**）→ **`src/lib/repositories/server/ig-request.repository.ts`**（**admin client** 寫入 **`ig_change_requests`**、核准時更新 **`users.instagram_handle`**） |
-|| 管理員後台 | **src/app/(admin)/layout.tsx**（獨立 layout，sidebar）；**/admin**（儀表板）、**/admin/users**（用戶管理）、**/admin/invitations**（邀請碼管理）、**/admin/exp**（EXP 管理：批量發放＋發放紀錄＋用戶查詢）、**/admin/publish**（發布中心：公告管理＋廣告管理）、**/admin/reports**（檢舉管理）、**/admin/roles**（授權管理，master only）、**/admin/settings**（Wave 2） |
+|| 管理員後台 | **src/app/(admin)/layout.tsx**（獨立 layout、sidebar；根層 **`text-gray-900`** + **`[color-scheme:light]`**）；**/admin**（儀表板 **`page.tsx`** 為 client：統計卡 **`router.push`** 至 **`/admin/users?filter=…`**／**`/admin/reports?filter=pending`** 等）、**/admin/users**（**`searchParams.filter`**：`today`／`pending`／`active`／`ig_pending`；見檔末變更紀錄）、**/admin/invitations**、**/admin/exp**、**/admin/publish**、**/admin/reports**、**/admin/roles**（master only）、**/admin/settings**（Wave 2） |
 || 邀請碼管理（Layer 2） | **src/lib/repositories/server/invitation.repository.ts**（**`findAllInvitationCodes`**、**`findInvitationByCode`**、**`insertInvitationCode`**/**`insertInvitationCodes`**、**`revokeInvitationCode`**／**`revokeUnusedInvitationCodes`**、**`claimInvitationCode`**、**`findInvitationTree`**、**`findSystemSettingByKey`**） |
 || 公告管理（Layer 2） | **src/lib/repositories/server/announcement.repository.ts**（**`findAllAnnouncements`**、**`findActiveAnnouncements`**、**`insertAnnouncement`**、**`updateAnnouncement`**、**`deleteAnnouncement`**） |
 || 前台公告（Layer 3） | **src/services/announcement.action.ts**（**`getActiveAnnouncementsAction`**，`unstable_cache` 60s） |
@@ -116,7 +116,7 @@
 || 管理員常數 | **src/lib/constants/admin-permissions.ts** |
 | 個人頁 EXP 紀錄 | `src/services/exp-logs.action.ts`（**`getMyRecentExpLogsAction`**）→ **`exp.repository`** **`findRecentExpLogsForUser`** |
 | 首頁個人頁 UI | `src/app/(app)/page.tsx`（**`'use client'`**、**`useMyProfile`** SWR + **`HomePageSkeleton`**） → `src/components/profile/guild-profile-home.tsx`（**公告上方**：**banner 輪播**；**公告區塊**（**滿版垂直堆疊**、**`line-clamp-2`＋「⋯ 展開」**、整卡 **Dialog**）；**今日心情下方**：**card 贊助橫滑**（最多 3 則、固定卡尺寸；點擊開連結並 **`recordAdClickAction`**）） |
-| 頁面切換「開門」過場 | **`src/components/layout/app-shell-motion.tsx`**：**`pathname` 變更**時**上下對開**（**`public/images/splash.png`**：上／下各 **`h-1/2`**，**`backgroundSize: 100% 200%`**、**`center top`／`center bottom`**，接縫在圖垂直中線／**X**，**不用 `cover`** 以免首頁與他頁裁切不一致）；**關** 上滑下＋下滑上 **150ms** → 停 **150ms** → **開** 上往上、下往下 **1.8s**；區域 **`bottom: var(--nav-reserve)`**、**`z-30`**，不蓋 **`Navbar`（`z-40`）**。 |
+| 頁面切換「開門」過場 | **`src/components/layout/app-shell-motion.tsx`**：**`pathname` 變更**（**`/` 首頁不播**）→ 上／下扇 **`fixed`** 覆蓋**整個視口**（各 **`h-1/2`**、**`z-[9999]`**），**不受內容區高度／`overflow` 裁切**；**`splash`** **`backgroundSize: 100% 200%`**、**`center top`／`bottom`**（**X** 中線接縫）。**時序**：關 **100ms** → 停 **1s** → 開 **1s**。扇門 **`pointer-events-none`**；過場中外層暫 **`pointer-events-auto`** 阻擋誤觸；**idle** 時上下扇分別 **`-translate-y-full`／`translate-y-full`** 完全離開可視區。內容區 **`min-h-[100dvh]`**、**無 `overflow-hidden`**；**pb** 預留底欄＋底部 **`bg-zinc-950`** 條避免切頁藍線；**`Navbar`** 仍 **`z-40`**（過場層在上，播完 idle 後不擋導航）。 |
 | SWR：聊天／未讀通知 | **`src/hooks/useChat.ts`** — **`useConversations`**、**`useMessages`**、**`useUnreadNotificationCount`**、**`useUnreadChatConversationsCount`**／**`useUnreadChatCount`**（別名；**`SWR_KEYS.unreadChatConversations`**；Layer 3 **`getUnreadChatConversationsCountAction`**） |
 | 頭像裁切＋Cloudinary | **`react-easy-crop`** 全螢幕裁切；**`src/lib/utils/cropImage.ts`**（**`getCroppedImg`**）；**`src/lib/utils/cloudinary.ts`**（**`uploadAvatarToCloudinary`**）→ **`updateMyProfile({ avatar_url })`**（**禁止** **`supabase.storage`** 上傳頭像）；**顯示** **`src/components/ui/Avatar.tsx`**（**`next/image`** + Cloudinary **`/upload/w_{2×size},h_{2×size},c_fill,q_auto,f_auto/`**；**`next.config.mjs`** **`images.remotePatterns`**：**`res.cloudinary.com`**） |
 | 底部導航 | **`src/components/layout/Navbar.tsx`**（**五項 lucide**；**冒險團**圖示：**有未讀信件或私訊時** **紅點**＋**玫瑰發光**；在 **`/guild` 且子 tab 為「聊天」** 時不計入私訊未讀以免重複提示，**信件未讀仍顯示**） |
@@ -717,7 +717,7 @@ Phase 4 — 市集搜尋快取
 ### 2026-03-26 — 首頁公告滿版垂直堆疊 + 路由「開門」過場（splash 雙扇 → 簾幕由下往上）
 
 - **Layer 5 — `guild-profile-home.tsx`**：公告改 **`w-full`** 垂直列表；置頂／一般樣式與 **`line-clamp-2`＋「⋯ 展開」**（截斷偵測）；整卡開 **Dialog**。
-- **Layer 5 — `app-shell-motion.tsx`**：（**後續**）改**上下對開**：**`pathname` 變更** → 上／下扇合屏（**150ms**）→ 停 **150ms** → 上往上、下往下滑出（**1.8s**）；**`splash`** **`backgroundSize: 100% 200%`** + **`center top`／`bottom`**（**X** 中線接縫、各頁一致）；**`z-30`**、**`--nav-reserve`**。
+- **Layer 5 — `app-shell-motion.tsx`**：（**後續**）改**上下對開**：**`pathname` 變更** → 上／下扇合屏（**150ms**）→ 停 **150ms** → 上往上、下往下滑出（**1.8s**）；**`splash`** **`backgroundSize: 100% 200%`** + **`center top`／`bottom`**（**X** 中線接縫、各頁一致）；**`z-30`**、**`--nav-reserve`**。（**再後續**：改 **`fixed` 全視窗**、**時序 100ms／1s／1s**、首頁不播等 — 見檔末 **「2026-03-26 — Layer 5：過場 fixed 全視窗…」**。）
 - **Layer 3 — `notification.action.ts`**：**`getMyNotificationsAction`** 移除 **`unstable_cache`**，改直接 **`loadNotificationsForUser`**（改善 **`/guild` 信件** SWR 首包體感）。
 - **Layer 5 — `guild/page.tsx` `MailBox`**：**`revalidateOnFocus: false`**、**`dedupingInterval: 3000`**。
 
@@ -837,7 +837,7 @@ Phase 4 — 市集搜尋快取
 - **Layer 2**：**`src/lib/repositories/server/admin.repository.ts`** — `getDashboardStats`、`findUsersForAdmin`、`findUserDetailById`（含 email via admin auth）、`updateUserStatus`、`insertAdminAction`、`adminAdjustExp`、`adjustReputation`、`findStaffUsers`、`updateUserRole`、`findModeratorPermissions`、`upsertModeratorPermissions`、`findAllSystemSettings`、`updateSystemSetting`
 - **Layer 3**：**`src/services/admin.action.ts`** — `requireRole` 權限驗證 helper → 各 action（`getDashboardStatsAction`、`getUsersAction`、`getUserDetailAction`、`banUserAction`、`suspendUserAction`、`unbanUserAction`、`adjustExpAction`、`adjustReputationAction`、`getReportsAction`、`resolveReportAction`、`getStaffUsersAction`、`updateUserRoleAction`、`getModeratorPermissionsAction`、`updateModeratorPermissionsAction`、`getSystemSettingsAction`、`updateSystemSettingAction`、`getPendingIgRequestsForUserAction`、`reviewIgRequestFromAdminAction`）
 - **Layer 4**：**`src/lib/constants/admin-permissions.ts`** — `PERMISSION_LABELS`、`DEFAULT_MODERATOR_PERMISSIONS`、`SYSTEM_SETTING_LABELS`、`ADMIN_ROLES`、`MASTER_ONLY_ROLES`
-- **Layer 5**：獨立 `(admin)` route group layout（白底 sidebar、violet-600 品牌色、收合式側欄）；**`src/middleware.ts`** 新增 `/admin/*` 路由守衛（master/moderator 放行，moderator 限 `/admin`、`/admin/users`、`/admin/reports`）
+- **Layer 5**：獨立 `(admin)` route group layout（白底 sidebar、violet-600 品牌色、收合式側欄；**`layout.tsx`** 根層 **`text-gray-900`**、**`[color-scheme:light]`** 避免系統深色下表單反白）；**`src/middleware.ts`** 新增 `/admin/*` 路由守衛（master/moderator 放行，moderator 限 `/admin`、`/admin/users`、`/admin/reports`）
 - **ig-request.action.ts**：`isStaffRole` 改為 `master` / `moderator`（原 `admin` / `leader` 已廢棄）
 
 ### 2026-03-26 — 邀請碼管理模組（`/admin/invitations`）
@@ -879,4 +879,13 @@ Phase 4 — 市集搜尋快取
 - **前台公告區塊**（`guild-profile-home.tsx` 頁面最頂部）：置頂 **`w-full`**（**`rounded-2xl`**、**`px-4 py-3`**、**`bg-amber-950/40 border-amber-500/30`**）；一般公告 **`w-full`**（**`rounded-xl`**、**`px-4 py-3`**、**`bg-zinc-900/50 border-zinc-700/30`**），多則 **`space-y-2` 垂直堆疊**（**不**橫滑）；內文 **`line-clamp-2`**，截斷時 **「⋯ 展開」**；**點整卡**開 **Dialog**（完整內容＋圖片）；無公告時完全不顯示。
 - **前台廣告區塊**（`guild-profile-home.tsx` 今日心情下方）：**`贊助`** 小標＋橫向滑動 card 廣告（**`min-w-[240px]`**，圖片 `h-32 object-cover`＋標題＋說明）；點擊開連結 + 靜默 **`recordAdClickAction`**；無廣告時完全不顯示。
 
-*最後更新：2026-03-26 — **`splash` 上下對開**（**`100% 200%`** 半圖、**X** 中線）；**開門 1.8s**、不遮底欄；**信件**／**公告**等見上。*
+### 2026-03-26 — Layer 5：過場 `fixed` 全視窗、探索 `dvh`、後台淺色語意、Sheet 瀏海、儀表板導航
+
+- **`app-shell-motion.tsx`**：雙扇改 **`fixed top-0`／`fixed bottom-0`**、**`z-[9999]`**，與主內容同層級但疊於其上；內容包裝**移除 `overflow-hidden`**，避免裁切 fixed。首頁 **`/`** 不觸發過場。底部 **pb 預留區** **`bg-zinc-950`** 條，減輕切至 **`/explore`** 時透出外層 radial 的藍帶閃爍。外層／內容區 **`min-h-[100dvh]`**；**`ExploreClient`** 根節點 **`min-h-[100dvh]`** 與 shell 對齊。
+- **`(admin)/layout.tsx`**：根節點 **`text-gray-900`** + **`[color-scheme:light]`**，系統深色模式下後台表單／checkbox 標籤不再繼承 **`body` 淺色 `foreground`** 而看不見。
+- **`components/ui/sheet.tsx`**：**`SheetContent`** **`pt-[max(0.75rem,env(safe-area-inset-top,0px))]`**，全站 Sheet（含用戶詳情）避開瀏海／動態島。
+- **`/admin/page.tsx`（儀表板）**：改 **`use client`**，**`useEffect`** 載入 **`getDashboardStatsAction`**；統計卡 **`cursor-pointer`**、**`hover:shadow-md hover:scale-[1.02] transition-all duration-150`**，點擊 **`router.push`**：**今日新增** → **`/admin/users?filter=today`**、**待審核** → **`?filter=pending`**、**待處理檢舉** → **`/admin/reports?filter=pending`**、**活躍** → **`?filter=active`**、**本週血盟** → **`/admin/users`**、**待處理 IG** → **`?filter=ig_pending`**。
+- **`/admin/users`**：**`page.tsx`** 讀 **`searchParams.filter`**，**`pending`／`active`** 預先帶入 **`getUsersAction`** 之 **`status`**；**`UsersClient`** 接收 **`initialFilter`**：**`today`** 客戶端以台北日曆日 **`sv-SE` + `Asia/Taipei`** 比對 **`created_at` 字首**（先拉一頁較大 **`pageSize`** 再篩）；**`ig_pending`** 目前僅顯示篩選標籤與「清除篩選」，**完整「僅列有 pending `ig_change_requests` 用戶」**待 Layer 2 **`findUsersForAdmin`** 擴充。
+- **`/admin/exp`**：等級範圍改 **`type="text"`** 數字過濾＋送出前 **1–10／min≤max** **`toast` 驗證**（見先前批次）。
+
+*最後更新：2026-03-26 — **過場** **`fixed` 全視窗 `z-[9999]`**、**100ms／1s／1s**、首頁不播；**`100dvh` + zinc 底帶**；**後台 `text-gray-900` + `color-scheme: light`**；**Sheet safe-area-top**；**儀表板卡片導航 + users `?filter=`**（**`ig_pending`** 列表待後端）。*
