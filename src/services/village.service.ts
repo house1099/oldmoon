@@ -40,11 +40,19 @@ export async function getVillageUsersAction(): Promise<{
           u.orientation ?? "",
         ),
       );
+      const myInterests = me.interests ?? [];
       const scored: VillageUserWithScore[] = filtered.map((u) => ({
         ...u,
-        _score: calcInterestScore(me.interests ?? [], u.interests ?? []),
+        _score: calcInterestScore(myInterests, u.interests ?? []),
       }));
-      scored.sort((a, b) => b._score - a._score);
+      scored.sort((a, b) => {
+        const aIsStaff = a.role === "master" || a.role === "moderator";
+        const bIsStaff = b.role === "master" || b.role === "moderator";
+        if (aIsStaff && !bIsStaff) return -1;
+        if (!aIsStaff && bIsStaff) return 1;
+        if (b._score !== a._score) return b._score - a._score;
+        return (b.level ?? 1) - (a.level ?? 1);
+      });
       return scored;
     },
     [`village-${user.id}-${me.region}`],

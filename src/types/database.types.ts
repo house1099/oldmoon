@@ -974,6 +974,7 @@ export type TavernMessageDto = TavernMessageRow & {
     nickname: string;
     avatar_url: string | null;
     level: number;
+    role: string;
   };
 };
 

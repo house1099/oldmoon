@@ -102,6 +102,7 @@ type UserMini = {
   nickname: string;
   avatar_url: string | null;
   instagram_handle: string | null;
+  role: string;
 };
 
 export async function findAcceptedAlliancesWithPartners(
@@ -128,7 +129,7 @@ export async function findAcceptedAlliancesWithPartners(
       const partnerId = a.user_a === userId ? a.user_b : a.user_a;
       const { data: partner } = await admin
         .from("users")
-        .select("id, nickname, avatar_url, instagram_handle")
+        .select("id, nickname, avatar_url, instagram_handle, role")
         .eq("id", partnerId)
         .single();
       return {
@@ -138,6 +139,7 @@ export async function findAcceptedAlliancesWithPartners(
           nickname: "?",
           avatar_url: null,
           instagram_handle: null,
+          role: "member",
         },
       };
     }),
@@ -170,7 +172,7 @@ export async function findPendingIncomingWithRequester(
     alliances.map(async (a) => {
       const { data: requester } = await admin
         .from("users")
-        .select("id, nickname, avatar_url, instagram_handle")
+        .select("id, nickname, avatar_url, instagram_handle, role")
         .eq("id", a.initiated_by)
         .single();
       return {
@@ -180,6 +182,7 @@ export async function findPendingIncomingWithRequester(
           nickname: "?",
           avatar_url: null,
           instagram_handle: null,
+          role: "member",
         },
       };
     }),

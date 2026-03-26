@@ -41,8 +41,32 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { getRoleDisplay } from "@/lib/utils/role-display";
 
 const tabs = ["血盟", "聊天", "信件"] as const;
+
+function GuildNameWithRole({
+  nickname,
+  role,
+  className,
+}: {
+  nickname: string;
+  role?: string | null;
+  className?: string;
+}) {
+  const { crown, nameClass } = getRoleDisplay(role);
+  return (
+    <span className={cn("flex min-w-0 items-center gap-1", className)}>
+      {crown ? (
+        <span className="shrink-0" aria-hidden>
+          {crown}
+        </span>
+      ) : null}
+      <span className={cn("truncate", nameClass)}>{nickname}</span>
+    </span>
+  );
+}
 
 function GuildTabCountBadge({ count }: { count: number }) {
   if (count <= 0) return null;
@@ -206,8 +230,11 @@ function AllianceList() {
                   size={40}
                 />
                 <div className="min-w-0">
-                  <p className="truncate text-sm text-white">
-                    {r.requester.nickname}
+                  <p className="truncate text-sm">
+                    <GuildNameWithRole
+                      nickname={r.requester.nickname}
+                      role={r.requester.role}
+                    />
                   </p>
                   <p className="text-xs text-zinc-500">申請成為血盟</p>
                 </div>
@@ -283,7 +310,12 @@ function AllianceList() {
                   size={40}
                 />
                 <div className="min-w-0">
-                  <p className="text-sm text-white">{a.partner.nickname}</p>
+                  <p className="text-sm">
+                    <GuildNameWithRole
+                      nickname={a.partner.nickname}
+                      role={a.partner.role}
+                    />
+                  </p>
                   {a.partner.instagram_handle ? (
                     <p className="text-xs text-violet-400">
                       @{a.partner.instagram_handle}
@@ -377,8 +409,11 @@ function ChatList() {
               size={44}
             />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-white">
-                {conv.partner?.nickname ?? "未知用戶"}
+              <p className="text-sm font-medium">
+                <GuildNameWithRole
+                  nickname={conv.partner?.nickname ?? "未知用戶"}
+                  role={conv.partner?.role}
+                />
               </p>
               <p className="truncate text-xs text-zinc-500">
                 {formatConversationPreview(

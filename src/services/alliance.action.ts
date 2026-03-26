@@ -219,6 +219,7 @@ export type MyAllianceListItem = {
     nickname: string;
     avatar_url: string | null;
     instagram_handle: string | null;
+    role: string;
   };
 };
 
@@ -247,6 +248,7 @@ export type PendingAllianceRequestItem = {
     nickname: string;
     avatar_url: string | null;
     instagram_handle: string | null;
+    role: string;
   };
 };
 

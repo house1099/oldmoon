@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { UserRow } from "@/lib/repositories/server/user.repository";
 import type {
   TavernBanRow,
   TavernMessageDto,
@@ -25,7 +26,7 @@ export async function findTavernMessages(): Promise<TavernMessageDto[]> {
   const userIds = Array.from(new Set(list.map((r) => r.user_id)));
   const { data: users, error: usersErr } = await admin
     .from("users")
-    .select("id, nickname, avatar_url, level")
+    .select("id, nickname, avatar_url, level, role")
     .in("id", userIds);
 
   if (usersErr) {
@@ -33,15 +34,22 @@ export async function findTavernMessages(): Promise<TavernMessageDto[]> {
   }
 
   const userMap = new Map(
-    (users ?? []).map((u) => [
-      u.id,
-      {
-        id: u.id as string,
-        nickname: u.nickname as string,
-        avatar_url: u.avatar_url as string | null,
-        level: u.level as number,
-      },
-    ]),
+    (users ?? []).map((u) => {
+      const row = u as Pick<
+        UserRow,
+        "id" | "nickname" | "avatar_url" | "level" | "role"
+      >;
+      return [
+        row.id,
+        {
+          id: row.id,
+          nickname: row.nickname,
+          avatar_url: row.avatar_url,
+          level: row.level,
+          role: row.role ?? "member",
+        },
+      ] as const;
+    }),
   );
 
   const merged: TavernMessageDto[] = list.map((row) => {
@@ -54,6 +62,7 @@ export async function findTavernMessages(): Promise<TavernMessageDto[]> {
           nickname: "未知冒險者",
           avatar_url: null,
           level: 1,
+          role: "member",
         },
       };
     }

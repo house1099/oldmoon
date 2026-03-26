@@ -22,6 +22,8 @@ import { getMemberProfileByIdAction } from "@/services/profile.action";
 import type { TavernMessageDto } from "@/types/database.types";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { UserDetailModal } from "@/components/modals/UserDetailModal";
+import { cn } from "@/lib/utils";
+import { getRoleDisplay } from "@/lib/utils/role-display";
 
 const STICKERS = [
   "😂",
@@ -198,6 +200,7 @@ export function TavernModal({
           <div className="mx-auto flex max-w-lg flex-col gap-3">
             {messages.map((m) => {
               const mine = m.user_id === myId;
+              const msgRole = getRoleDisplay(m.user.role);
               const avatarEl = (
                 <Avatar
                   src={m.user.avatar_url}
@@ -262,8 +265,18 @@ export function TavernModal({
                     {avatarEl}
                   </button>
                   <div>
-                    <p className="text-xs text-zinc-400 mb-0.5">
-                      {m.user.nickname} · Lv.{m.user.level}
+                    <p className="text-xs text-zinc-400 mb-0.5 flex min-w-0 flex-wrap items-baseline gap-x-1">
+                      {msgRole.crown ? (
+                        <span className="shrink-0" aria-hidden>
+                          {msgRole.crown}
+                        </span>
+                      ) : null}
+                      <span
+                        className={cn("min-w-0 truncate", msgRole.nameClass)}
+                      >
+                        {m.user.nickname}
+                      </span>
+                      <span className="shrink-0">· Lv.{m.user.level}</span>
                     </p>
                     <div
                       role={isMaster ? "button" : undefined}

@@ -23,7 +23,7 @@
 ### 📈 開發進度
 
 - [x] **Phase 1.5**：帳號體系、Google 登入預留、暗黑視覺升級、時區校正（日鍵集中於 **`date.ts`**）。
-- [x] **Phase 2.1（核心已交付）**：探索 **Tab「興趣村莊」** 同縣市＋**性向雙向篩選**＋**興趣分數**排序、列表卡僅興趣（最多 3 +N）；**Tab「技能市集」** 全台＋**互補／同好分數**、**Perfect Match** 仍優先、**`getMarketUsersAction`** 搜尋；入口 **`/explore`**（**Server** 預載村莊；**`ExploreClient`** 以 **`useSWR`** 綁村莊／市集 **Server Action**；**tab 以 `hidden` 切換不重打列表**）；**`village.service`** **`unstable_cache` 30s**、**`market.service`** 基礎列表 **60s**、**`getCachedMySkills`（60s，`profileCacheTag`）** 避免每次搜尋重查自己技能、**關鍵字篩選在列表快取回傳後**；舊 **`/village`**／**`/market`** → **`redirect('/explore')`**；Layer 2 **`findVillageUsers`**／**`findMarketUsers`**；Layer 4 **`matching.ts`**。可持續打磨 UX／RLS。
+- [x] **Phase 2.1（核心已交付）**：探索 **Tab「興趣村莊」** 同縣市＋**性向雙向篩選**＋**`master`／`moderator` 置頂**→**興趣分數**→**等級**排序、列表卡僅興趣（最多 3 +N）；**Tab「技能市集」** 全台＋**Perfect Match（命定師徒）**→**互補／同好分數**→**等級**、**`getMarketUsersAction`** 搜尋；入口 **`/explore`**（**Server** 預載村莊；**`ExploreClient`** 以 **`useSWR`** 綁村莊／市集 **Server Action**；**tab 以 `hidden` 切換不重打列表**）；**`village.service`** **`unstable_cache` 30s**、**`market.service`** 基礎列表 **60s**、**`getCachedMySkills`（60s，`profileCacheTag`）** 避免每次搜尋重查自己技能、**關鍵字篩選在列表快取回傳後**；舊 **`/village`**／**`/market`** → **`redirect('/explore')`**；Layer 2 **`findVillageUsers`**／**`findMarketUsers`**；Layer 4 **`matching.ts`**。可持續打磨 UX／RLS。
 - [ ] **Phase 2.2（進行中）**：**Likes** 已接線；**雙人血盟**（**`public.alliances`**：`user_a`／`user_b`／`initiated_by`）UI 與 Layer 2／3 已接線；詳情 Modal 血盟四態＋IG 解鎖；**`/guild`** 血盟列表與 tab 徽章；**RLS** 可後補。
 
 ### 前台 Bug 修復紀錄（2026-03-26）
@@ -31,6 +31,13 @@
 1. **`UserDetailModal` IG 區塊**：顯示條件 SSOT — 僅在 **`instagram_handle` 有值** 且（**`ig_public === true`** 或 **血盟 `allianceStatus === 'accepted'`**）時渲染；**`ig_public === false` 且非血盟**時不顯示 IG。
 2. **`/guild` 信件（`MailBox`）**：通知卡片可點；**`Dialog`** 顯示詳情（發送者頭像＋暱稱、依 **`type`** 的完整文案或 **`message`**、台北時間 **`Intl` `Asia/Taipei`**）、**「查看對方資料」**（**`getMemberProfileByIdAction`** → **`UserDetailModal`**，無 **`from_user_id`** 則無按鈕）；關閉 Modal 時若未讀則 **`markNotificationReadAction(id)`** 單筆已讀並 **`mutate` SWR**。層級：**通知 Modal** **`z-[200]`／`z-[210]`**；**`UserDetailModal`** **`z-[600]`／`z-[610]`**；取消緣分底欄 **`z-[615]`**；**`LeaderToolsSheet`** **`z-[620]`／`z-[630]`**（確認對話 **`z-[640]`**）；**`ChatModal`** **`z-[700]`／`z-[720]`**（疊在詳情 Modal 之上）。**`DialogContent`** 支援可選 **`overlayClassName`**。
 3. **首頁今日心情**：**`guild-profile-home.tsx`** 僅保留**一處**獨立區塊（**`placeholder="今天的心情是..."`**）；移除覆蓋式「趕快填寫…」占位層與 **`text-transparent`** 雙層視覺，避免像兩個心情區塊；樣式維持 **`rounded-3xl`**、**`border-violet-500/30`**、**`bg-violet-950/40`**、**`backdrop-blur-xl`**、紫微 **`box-shadow`**。
+
+### 角色識別、探索排序與命定師徒（2026-03-26）
+
+- **`src/lib/utils/role-display.ts`**：**`getRoleDisplay(role)`** 回傳 **`crown`** + **`nameClass`** — **`master`** → **👑**、`text-amber-300 font-semibold`；**`moderator`** → **🛡️**、`text-blue-300 font-semibold`；其餘 **`crown: null`**、`text-zinc-100`。套用：**`UserCard`**（**`src/components/cards/UserCard.tsx`**）、**`UserDetailModal`**、**`TavernModal`** 訊息列、**`/guild`** 血盟（待確認／夥伴）與聊天列表暱稱。
+- **興趣村莊排序**（**`getVillageUsersAction`**／**`village.service.ts`**）：性向篩選後 — **①** **`master`／`moderator` 置頂** → **②** **`calcInterestScore` 高→低** → **③** 同分 **`level` 高→低**。**`findVillageUsers`** **`select`** 含 **`role`**、**`level`**。
+- **技能市集排序**（**`getMarketUsersAction`**／**`market.service.ts`**）：**不做** staff 置頂 — **①** **Perfect Match**（雙向技能契合）→ **②** **互補分** → **③** **同好分** → **④** 同分 **`level` 高→低**。**`findMarketUsers`** **`select`** 含 **`level`**、**`role`**（列表顯示王冠用）。
+- **命定師徒**：市集 UI 將原「靈魂伴侶／完美匹配」文案改為 **「⚔️ 命定師徒」**（**`MarketContent.tsx`**）；**`.perfect-match-market-shell`** 高光樣式不變（**`globals.css`** 註解同步）。
 
 ### 廣告顯示與後台（2026-03-26 起）
 
@@ -128,7 +135,7 @@
 | 底部導航 | **`src/components/layout/Navbar.tsx`**（**五項 lucide**；**冒險團**圖示：**有未讀信件或私訊時** **紅點**＋**玫瑰發光**；在 **`/guild` 且子 tab 為「聊天」** 時不計入私訊未讀以免重複提示，**信件未讀仍顯示**） |
 | 探索（村莊＋市集） | **`explore/page.tsx`**（**Server**：**`getVillageUsersAction`** 預載村莊）；**`ExploreClient.tsx`**（**`useSWR`** **`SWR_KEYS.villageUsers`** ＋ **`fallbackData`／`revalidateOnMount: false`**；市集 **`SWR_KEYS.marketUsers(query)`**、**`keepPreviousData`**；**`hidden`／`block`** 切 tab）；市集初次 **`isLoading`** 時 **6×`UserCardSkeleton`** |
 | 列表骨架屏 | **`src/components/ui/UserCardSkeleton.tsx`**（**`animate-pulse`**） |
-| 冒險團 | **`guild/page.tsx`**：**血盟**夥伴列 → **`getMemberProfileByIdAction`** → **`UserDetailModal`**（與探索相同詳情），**聊聊** 再開 **`ChatModal`**；**聊天** 列表 **你：／對方：** 預覽、**未讀紅點**（對方訊息未讀）；頂部 **聊天／信件** tab **紅點**；**`GuildTabProvider`**（**`guild-tab-context.tsx`**）掛於 **`(app)/layout.tsx`**，同步子 tab 供 **`Navbar`**；**信件** — 點卡片開 **`Dialog`** 詳情、可開 **`UserDetailModal`**；**`notifications`** **`type`／`message`／`is_read`／`from_user_id`** |
+| 冒險團 | **`guild/page.tsx`**：**血盟**夥伴列（**`alliance.repository`** 併 **`role`**）→ **`getMemberProfileByIdAction`** → **`UserDetailModal`**；**聊天** 列表暱稱 **`getRoleDisplay`**；**聊聊** 再開 **`ChatModal`**；**你：／對方：** 預覽、**未讀紅點**；頂部 **聊天／信件** tab **紅點**；**`GuildTabProvider`**（**`guild-tab-context.tsx`**）掛於 **`(app)/layout.tsx`**，同步子 tab 供 **`Navbar`**；**信件** — 點卡片開 **`Dialog`** 詳情、可開 **`UserDetailModal`**；**`notifications`** **`type`／`message`／`is_read`／`from_user_id`** |
 | 雙人血盟（Layer 3） | **`src/services/alliance.action.ts`**（**`getAllianceStatusAction`**、**`requestAllianceAction`**、**`respondAllianceAction`**、**`dissolveAllianceAction`**、**`getMyAlliancesAction`**、**`getPendingRequestsAction`**） |
 | 雙人血盟（Layer 2） | **`src/lib/repositories/server/alliance.repository.ts`** |
 | 私訊／封鎖／檢舉（Layer 2） | **`src/lib/repositories/server/chat.repository.ts`**（**`conversations`**、**`chat_messages`**、**`blocks`**、**`reports`**；見 🗄️ 與 **`database.types.ts`**） |
@@ -140,8 +147,8 @@
 | 領袖快捷面板 | **`src/components/modals/LeaderToolsSheet.tsx`**（僅 **master** 可見；從 **`UserDetailModal`** 觸發；右側滑出 **`w-80` `z-[620]`／`z-[630]`**） |
 | 私訊全螢幕 UI | **`ChatModal.tsx`**（**`z-[700]`**）：送出／開啟讀取後／**Realtime INSERT** 皆 **`mutate(SWR_KEYS.conversations)`**＋**`unreadChatConversations`**（列表預覽與未讀點同步） |
 | 有緣分＋互讚／Modal 合併載入 | **`src/services/social.action.ts`**（**`getModalSocialStatusAction`**：一次 **`auth.getUser()`** + **`Promise.all`**：**`findLike`** 雙向 + **`findAllianceBetween`**；仍含 **`getLikeStatusForTargetAction`**／**`checkMutualLikeWithTargetAction`**／**`toggleLikeAction`**） |
-| 技能市集（邏輯） | `src/services/market.service.ts`（**`getMarketUsersAction`**、**`getCachedMySkills`** **`unstable_cache` 60s** **`tags: profileCacheTag`**、**`unstable_cache` 60s** 快取 **`findMarketUsers`**、**搜尋篩選在列表快取回傳後**、檔內 **Perfect Match**）；UI 見 **`MarketContent`** |
-| 配對工具 | **`src/lib/utils/matching.ts`**（**`isOrientationMatch`**、**`calcInterestScore`**、**`calcSkillScore`**） |
+| 技能市集（邏輯） | `src/services/market.service.ts`（**`getMarketUsersAction`**：Perfect Match → 互補 → 同好 → **等級**；**`getCachedMySkills`** **`unstable_cache` 60s** **`tags: profileCacheTag`**、**`unstable_cache` 60s** 快取 **`findMarketUsers`**、**搜尋篩選在列表快取回傳後**）；UI **命定師徒** 文案見 **`MarketContent`** |
+| 配對工具 | **`src/lib/utils/matching.ts`**（**`isOrientationMatch`**、**`calcInterestScore`**、**`calcSkillScore`**）；**角色顯示** **`src/lib/utils/role-display.ts`**（**`getRoleDisplay`**：👑／🛡️） |
 | Users Repository | `src/lib/repositories/server/user.repository.ts`（**`findActiveUsers`**、**`findVillageUsers`**、**`findMarketUsers`**（排除 **`hidden`**）、**`updateLastCheckinAt`**、**`restoreActivityOnCheckin`**） |
 | EXP 寫入 | `src/lib/repositories/server/exp.repository.ts` |
 | 等級 SSOT | `src/lib/constants/levels.ts` |
@@ -153,7 +160,7 @@
 | Zod／不雅字／IG 格式 | `src/lib/validation/*.ts`、`src/lib/utils/forbidden-words.ts` |
 | DB 型別 | `src/types/database.types.ts`（含 **`ig_change_requests`**、**`users.role`**、**`skills_offer`**／**`skills_want`**、**`conversations`**／**`chat_messages`**／**`blocks`**／**`reports`**、**`tavern_messages`**／**`tavern_bans`**、**`TavernMessageDto`** 等） |
 | SWR Keys | **`src/lib/swr/keys.ts`** — 含 **`SWR_KEYS.tavernMessages`** |
-| 市集 Perfect Match 高光 | `src/app/globals.css`（**`.perfect-match-market-shell`**） |
+| 市集命定師徒高光 | `src/app/globals.css`（**`.perfect-match-market-shell`**，Perfect Match 外環；文案 **命定師徒**） |
 | 防重複點擊按鈕 | **`src/components/ui/LoadingButton.tsx`**（**`PendingLabel`** spinner）；註冊／首頁個人卡／**`UserDetailModal`** 等重要操作採用；**Sonner** 成功／失敗文案見下「Toast 統一規範」 |
 
 ---

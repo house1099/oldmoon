@@ -92,7 +92,7 @@
     animation: level-frame-lv5-emerald 3.2s ease-in-out infinite;
   }
 
-  /** 技能市集：包在卡片觸發層外；Perfect Match 白金屬光澤掃過 */
+  /** 技能市集：包在卡片觸發層外；命定師徒（Perfect Match）白金屬光澤掃過 */
   .perfect-match-market-shell {
     background: linear-gradient(
       115deg,
@@ -297,7 +297,7 @@
   }
 }
 
-/** 技能市集：Perfect Match 白金屬流動高光（外環） */
+/** 技能市集：命定師徒／Perfect Match 白金屬流動高光（外環） */
 @keyframes perfect-match-platinum-sheen {
   0% {
     background-position: 0% 50%;

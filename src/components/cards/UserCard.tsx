@@ -12,6 +12,7 @@ import {
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { getRoleDisplay } from "@/lib/utils/role-display";
 import { LevelFrame } from "@/components/cards/LevelFrame";
 import { UserDetailModal } from "@/components/modals/UserDetailModal";
 import Avatar from "@/components/ui/Avatar";
@@ -50,6 +51,7 @@ export function UserCard({
     LEGACY_REGION_MAP,
   );
   const offlineLabel = resolveOfflineOkLabel(user.offline_ok);
+  const { crown, nameClass } = getRoleDisplay(user.role);
 
   const shellClass = cn(
     "block w-full cursor-pointer rounded-2xl text-left outline-none transition-[transform] duration-300 hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-violet-500/50",
@@ -85,8 +87,15 @@ export function UserCard({
 
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="truncate font-serif text-lg font-semibold text-amber-50/95">
-                  {user.nickname}
+                <h2 className="flex min-w-0 max-w-full items-center gap-1 font-serif text-lg font-semibold">
+                  {crown ? (
+                    <span className="shrink-0" aria-hidden>
+                      {crown}
+                    </span>
+                  ) : null}
+                  <span className={cn("truncate", nameClass)}>
+                    {user.nickname}
+                  </span>
                 </h2>
                 {user.activity_status === "resting" ? (
                   <span className="bg-zinc-700/60 text-zinc-400 text-[10px] rounded-full px-2 py-0.5 ml-1 shrink-0">

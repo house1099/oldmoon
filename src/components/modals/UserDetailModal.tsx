@@ -35,6 +35,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import Avatar from "@/components/ui/Avatar";
 import { cn } from "@/lib/utils";
+import { getRoleDisplay } from "@/lib/utils/role-display";
 import { instagramProfileUrlFromHandle } from "@/lib/utils/instagram";
 import { useSWRConfig } from "swr";
 import { SWR_KEYS } from "@/lib/swr/keys";
@@ -122,6 +123,9 @@ export function UserDetailModal({
     LEGACY_REGION_MAP,
   );
   const offlineLabel = resolveOfflineOkLabel(user.offline_ok);
+  const { crown: roleCrown, nameClass: roleNameClass } = getRoleDisplay(
+    user.role,
+  );
 
   function applyToggleToasts(
     liked: boolean,
@@ -268,8 +272,15 @@ export function UserDetailModal({
                 />
               </div>
               <div className="min-w-0 flex-1 space-y-2">
-                <DialogTitle className="font-serif text-lg font-semibold tracking-tight text-amber-50/95">
-                  {user.nickname}
+                <DialogTitle className="flex min-w-0 items-center gap-1 font-serif text-lg font-semibold tracking-tight">
+                  {roleCrown ? (
+                    <span className="shrink-0" aria-hidden>
+                      {roleCrown}
+                    </span>
+                  ) : null}
+                  <span className={cn("truncate", roleNameClass)}>
+                    {user.nickname}
+                  </span>
                 </DialogTitle>
                 <div className="flex flex-wrap items-center gap-2">
                   <span

@@ -130,7 +130,10 @@ export async function getMarketUsersAction(
     if (b._complementScore !== a._complementScore) {
       return b._complementScore - a._complementScore;
     }
-    return b._similarScore - a._similarScore;
+    if (b._similarScore !== a._similarScore) {
+      return b._similarScore - a._similarScore;
+    }
+    return (b.level ?? 1) - (a.level ?? 1);
   });
 
   return { ok: true, users: scored };

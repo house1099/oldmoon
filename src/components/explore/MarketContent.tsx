@@ -56,7 +56,7 @@ export function MarketContent({
                 技能市集
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                雙向標籤契合時為「靈魂伴侶」完美匹配 — 白金光暈標示緣分
+                雙向技能標籤契合時為「⚔️ 命定師徒」— 白金光暈標示緣分
               </p>
             </div>
           </div>
@@ -65,7 +65,7 @@ export function MarketContent({
           <p>{loading ? "載入中…" : `共 ${users.length} 位冒險者`}</p>
           {!loading && perfectCount > 0 ? (
             <p className="mt-1 text-amber-200/85">
-              ✦ 完美匹配 {perfectCount} 位
+              ✦ 命定師徒 {perfectCount} 位
             </p>
           ) : null}
         </div>

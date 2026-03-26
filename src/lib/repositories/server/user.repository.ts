@@ -122,7 +122,7 @@ export async function findVillageUsers(params: {
     .select(
       `
       id, nickname, gender, region, orientation,
-      avatar_url, level, mood, mood_at,
+      avatar_url, level, role, mood, mood_at,
       interests, skills_offer, skills_want,
       bio_village, bio_market, last_seen_at,
       instagram_handle, ig_public, activity_status
@@ -152,7 +152,7 @@ export async function findMarketUsers(params: {
     .select(
       `
       id, nickname, gender, region, orientation,
-      avatar_url, level, mood, mood_at,
+      avatar_url, level, role, mood, mood_at,
       interests, skills_offer, skills_want,
       bio_village, bio_market, last_seen_at, activity_status
     `,
