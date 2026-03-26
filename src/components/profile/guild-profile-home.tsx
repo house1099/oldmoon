@@ -832,7 +832,12 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           aria-hidden
         />
 
-        <div className="relative flex w-full flex-col items-center gap-5 text-center">
+        <div
+          className={cn(
+            "relative flex w-full flex-col items-center gap-5 text-center",
+            profile.role === "master" && "overflow-visible",
+          )}
+        >
           <div
             className={cn(
               "relative mx-auto rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",

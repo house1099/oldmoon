@@ -22,7 +22,8 @@ export type MasterAvatarShellProps = {
 };
 
 /**
- * `role === "master"` 時在圓形頭像外疊加雷框 PNG + 閃電 Lottie；其餘角色等同一般 Avatar 外層包一層 relative。
+ * `role === "master"`：雷框／Lottie 在 **頭像下層**（z 較低），圓形照片在最上層，避免 PNG 壓臉；
+ * 裝飾仍可依百分比大於 100% 向外超出 `size`（父層需 `overflow-visible`）。
  */
 export function MasterAvatarShell({
   role,
@@ -53,27 +54,19 @@ export function MasterAvatarShell({
 
   return (
     <div
-      className={cn("relative shrink-0 overflow-visible", className)}
+      className={cn("relative isolate shrink-0 overflow-visible", className)}
       style={{ width: size, height: size }}
     >
-      <div className="absolute inset-0 z-0 overflow-hidden rounded-full">
-        <Avatar
-          size={size}
-          src={src}
-          nickname={nickname}
-          className={cn("border-0 bg-transparent", avatarClassName)}
-        />
-      </div>
       {/* eslint-disable-next-line @next/next/no-img-element -- 本地裝飾框 */}
       <img
         src={THUNDER_FRAME_SRC}
         alt=""
         aria-hidden
-        className="pointer-events-none absolute top-1/2 left-1/2 z-[10] -translate-x-1/2 -translate-y-1/2 object-contain select-none"
+        className="pointer-events-none absolute top-1/2 left-1/2 z-[1] -translate-x-1/2 -translate-y-1/2 object-contain select-none"
         style={{ width: `${framePct}%`, height: `${framePct}%` }}
       />
       <div
-        className="pointer-events-none absolute top-1/2 left-1/2 z-[11] -translate-x-1/2 -translate-y-1/2"
+        className="pointer-events-none absolute top-1/2 left-1/2 z-[2] -translate-x-1/2 -translate-y-1/2"
         style={{ width: `${lightningPct}%`, height: `${lightningPct}%` }}
         aria-hidden
       >
@@ -81,6 +74,14 @@ export function MasterAvatarShell({
           animationData={lightningAnimation}
           loop
           className="h-full w-full"
+        />
+      </div>
+      <div className="absolute inset-0 z-[10] overflow-hidden rounded-full">
+        <Avatar
+          size={size}
+          src={src}
+          nickname={nickname}
+          className={cn("border-0 bg-transparent", avatarClassName)}
         />
       </div>
       {children}
