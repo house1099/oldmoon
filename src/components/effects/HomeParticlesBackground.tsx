@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import Particles, { initParticlesEngine } from "@tsparticles/react";
 import type { ISourceOptions } from "@tsparticles/engine";
-import { loadSlim } from "@tsparticles/slim";
-import { loadEmittersPlugin } from "@tsparticles/plugin-emitters";
+import { loadFull } from "tsparticles";
 import { loadImageShape } from "@tsparticles/shape-image";
 
 import fallbackOptions from "@/config/home-particles.json";
@@ -36,7 +35,6 @@ function normalizeParticleOptions(raw: unknown): ISourceOptions {
       enable: false,
       zIndex: 0,
     },
-    /** 讓 AppShell 紫黑漸層透出；粒子與圖片仍照常繪製 */
     background: {
       ...prevBg,
       color: {
@@ -47,21 +45,35 @@ function normalizeParticleOptions(raw: unknown): ISourceOptions {
   } as ISourceOptions;
 }
 
+/** 避免無效 JSON／結構錯誤打爆首頁 */
+function tryNormalizeOptions(raw: unknown): ISourceOptions | null {
+  try {
+    return normalizeParticleOptions(raw);
+  } catch (e) {
+    console.error("HomeParticlesBackground: invalid particle options", e);
+    return null;
+  }
+}
+
 export function HomeParticlesBackground() {
+  const instanceId = useId().replace(/:/g, "");
+  const particlesDomId = `tsparticles-home-${instanceId}`;
+
   const [engineReady, setEngineReady] = useState(false);
   const [options, setOptions] = useState<ISourceOptions | null>(null);
 
   useEffect(() => {
     void initParticlesEngine(async (engine) => {
-      await loadSlim(engine);
-      await loadEmittersPlugin(engine);
-      /**
-       * v3.0.3 無 `loadExternalImageShape`／`loadShapes` 此名稱；
-       * `loadImageShape` 會註冊 `image`／`images`、掛載 `engine.loadImage`，
-       * 可載入配方內遠端圖（如 particles.js.org）。
-       */
+      /** 完整 bundle（內含 slim、emitters、多數 updater）；圖片形狀需另載 */
+      await loadFull(engine);
       await loadImageShape(engine);
-    }).then(() => setEngineReady(true));
+    })
+      .then(() => {
+        setEngineReady(true);
+      })
+      .catch((e: unknown) => {
+        console.error("HomeParticlesBackground: initParticlesEngine failed", e);
+      });
   }, []);
 
   useEffect(() => {
@@ -73,15 +85,31 @@ export function HomeParticlesBackground() {
         if (!res.ok) {
           throw new Error(`particles.json ${res.status}`);
         }
-        const data: unknown = await res.json();
-        if (!cancelled) {
-          setOptions(normalizeParticleOptions(data));
+        const text = await res.text();
+        let data: unknown;
+        try {
+          data = JSON.parse(text) as unknown;
+        } catch (parseErr) {
+          console.error("HomeParticlesBackground: particles.json is not valid JSON", parseErr);
+          throw parseErr;
         }
-      } catch {
+        if (typeof data !== "object" || data === null) {
+          throw new Error("particles.json root must be an object");
+        }
+        const normalized = tryNormalizeOptions(data);
         if (!cancelled) {
-          setOptions(
-            normalizeParticleOptions(fallbackOptions as unknown),
-          );
+          if (normalized) {
+            setOptions(normalized);
+          } else {
+            const fb = tryNormalizeOptions(fallbackOptions as unknown);
+            setOptions(fb);
+          }
+        }
+      } catch (e) {
+        console.error("HomeParticlesBackground: fetch particles failed, using fallback", e);
+        if (!cancelled) {
+          const fb = tryNormalizeOptions(fallbackOptions as unknown);
+          setOptions(fb);
         }
       }
     })();
@@ -97,7 +125,7 @@ export function HomeParticlesBackground() {
 
   return (
     <Particles
-      id="tsparticles-home"
+      id={particlesDomId}
       className="pointer-events-none fixed inset-0 z-[1] h-full min-h-[100dvh] w-full max-w-none"
       style={{ width: "100%", height: "100%" }}
       options={options}

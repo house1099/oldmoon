@@ -820,9 +820,9 @@ Phase 4 — 市集搜尋快取
 
 ### 2026-03-26 — 首頁 tsParticles 背景（Among Us 配方）
 
-- **依賴**：**`tsparticles`**、**`@tsparticles/react`**、**`@tsparticles/engine`**、**`@tsparticles/slim`**、**`@tsparticles/plugin-emitters`**、**`@tsparticles/shape-image`**（版本對齊 **3.0.x**，與 **`@tsparticles/react@3.0.0`** 相容）。
+- **依賴**：**`tsparticles@3.0.3`**（**`loadFull`** 全套，內含原 slim／emitters 等；**不再**直接依賴 **`@tsparticles/slim`**）、**`@tsparticles/react@3.0.0`**（npm 最新即 **3.0.0**，與 **engine 3.0.3** peer 相容）、**`@tsparticles/engine@3.0.3`**、**`@tsparticles/shape-image@3.0.3`**（Among Us **`images`** 形狀）。
 - **設定**：執行時優先 **`GET /particles.json`**（**`public/particles.json`**，可替換配方不必重編譯）；程式仍強制 **`fullScreen.enable: false`**；失敗時退回 **`src/config/home-particles.json`**。含 **emitters** 圖片 **`particles.js.org`** 之 cyan Among Us。
-- **Layer 5**：**`HomeParticlesBackground.tsx`** — **`initParticlesEngine`**（**slim + emitters + `loadImageShape`**，v3 無 `loadExternalImageShape` 名稱）；**`normalizeParticleOptions`** 強制 **`background.color` → `transparent`** 以透出殼層漸層；**`Particles`**：**`fixed inset-0 z-[1]`**、**`width/height: 100%`**、**`pointer-events-none`**（首頁內容 **`z-10`**、**Navbar `z-40`** 仍在上）。
+- **Layer 5**：**`HomeParticlesBackground.tsx`** — **`initParticlesEngine`**：**`loadFull(engine)`** → **`loadImageShape(engine)`**；**`initParticlesEngine(...).then(() => setEngineReady(true))`**；**`id`**：**`tsparticles-home-${useId}`**；**`fetch` + `JSON.parse`** 與 **`tryNormalizeOptions`** 防禦，失敗／無效則 **`console.error`** 並退回內建 JSON，避免首頁白屏；**`normalizeParticleOptions`** 強制 **`background.color` → `transparent`**；**`Particles`**：**`fixed inset-0 z-[1]`**、**`width/height: 100%`**、**`pointer-events-none`**。
 
 ### 2026-03-26 — `conversations` 最後訊息欄位、`useUnreadChatCount`、底欄未讀合計語意
 
