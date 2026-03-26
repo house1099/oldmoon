@@ -1,6 +1,6 @@
 "use server";
 
-import { unstable_cache, revalidateTag } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -72,7 +72,10 @@ async function loadNotificationsForUser(
   })) as NotificationListItem[];
 }
 
-/** 分開查 **`notifications`** 與 **`users`**；發送者以單次 **`in`** 並行載入。快取 **30s**，tag **`notifications-{userId}`** 供寫入後 **`revalidateTag`**。 */
+/**
+ * 分開查 **`notifications`** 與 **`users`**；發送者以單次 **`in`** 載入。
+ * 信件列表**不**包 **`unstable_cache`**：`getMyNotificationsAction` 由客戶端 SWR 頻繁觸發時，Next 資料快取易造成首包延遲／體感卡頓；寫入後仍靠 **`revalidateTag(notifications-{userId})`** 讓其他已快取路徑失效。
+ */
 export async function getMyNotificationsAction(): Promise<
   NotificationListItem[]
 > {
@@ -85,15 +88,7 @@ export async function getMyNotificationsAction(): Promise<
     return [];
   }
 
-  const userId = user.id;
-  return unstable_cache(
-    () => loadNotificationsForUser(userId),
-    ["notifications", userId],
-    {
-      revalidate: 30,
-      tags: [notificationsUserCacheTag(userId)],
-    },
-  )();
+  return loadNotificationsForUser(user.id);
 }
 
 /** 寫入單筆通知並刷新該使用者列表快取（領袖邀請碼等需對錯誤處理時使用）。 */

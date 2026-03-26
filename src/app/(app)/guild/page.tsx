@@ -485,7 +485,10 @@ function MailBox() {
   const { data: notifications, isLoading, mutate } = useSWR(
     SWR_KEYS.notifications,
     () => getMyNotificationsAction(),
-    { revalidateOnFocus: true },
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 3000,
+    },
   );
   const [detailNotif, setDetailNotif] =
     useState<NotificationListItem | null>(null);

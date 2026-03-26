@@ -16,7 +16,7 @@
 
 - **Layer 1（連線）**：Supabase Client／Server／Admin 已完備。
 - **Layer 2（資料）**：`user.repository.ts`（含 **`updateLastCheckinAt`**）、`exp.repository.ts` 支援 **`total_exp`**（SSOT）；**`chat.repository.ts`**（**`conversations`**／**`chat_messages`**／**`blocks`**／**`reports`**，admin，供私訊／封鎖／檢舉接線）。
-- **Layer 3（業務）**：`daily-checkin.action.ts` 之 **`claimDailyCheckin`** 以 **`users.last_checkin_at`** 為簽到 **24h 滾動冷卻** SSOT；**`exp_logs.unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**；**`chat.action.ts`**（開啟對話／訊息／列表／封鎖／檢舉）、**`notification.action.ts`**（**`getMyNotificationsAction`**（**`unstable_cache` 30s**＋批量載入發送者）／**`insertMailboxNotificationAction`／`notifyUserMailboxSilent`**／**`markNotificationReadAction`**／**`markAllNotificationsReadAction`**／清除／未讀數）。
+- **Layer 3（業務）**：`daily-checkin.action.ts` 之 **`claimDailyCheckin`** 以 **`users.last_checkin_at`** 為簽到 **24h 滾動冷卻** SSOT；**`exp_logs.unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**；**`chat.action.ts`**（開啟對話／訊息／列表／封鎖／檢舉）、**`notification.action.ts`**（**`getMyNotificationsAction`**（**直接** **`loadNotificationsForUser`**，**不**包 **`unstable_cache`**；批量載入發送者）／**`insertMailboxNotificationAction`／`notifyUserMailboxSilent`**／**`markNotificationReadAction`**／**`markAllNotificationsReadAction`**／清除／未讀數）。
 - **Layer 4（狀態／常數）**：`levels.ts`（門檻 0〜1350）、Zod 驗證已就緒；**`date.ts`** 之 **`taipeiCalendarDateKey()`** 仍為全系統**日曆日** SSOT（簽到冷卻**不再**依此判斷）；**`useChat.ts`** — **`useConversations`**／**`useMessages`**、**`useUnreadNotificationCount`**、**`useUnreadChatConversationsCount`**／**`useUnreadChatCount`**（別名，**`SWR_KEYS.unreadChatConversations`**；**`SWR_KEYS.conversations`**／**`messages(id)`**／**`unreadNotifications`**）。
 - **Layer 5（UI）**：**`Navbar.tsx`**（五項 **lucide** 圖示底欄：**Home／Compass／Swords／Heart／ShoppingBag**）、**`LevelFrame.tsx`**、**`UserCard`**、**`UserCardSkeleton`**（市集列表首次載入）、**`/explore`**（**Server Component** 預載村莊；**`ExploreClient`** 頂部 **safe-area**、村莊＋市集 **tab**、**市集 `useSWR`（query key + `keepPreviousData`）**＋**`hidden`／`block` 切 tab 不 unmount**）、**`/guild`**（**`hidden` 切 tab**；**血盟** **`AllianceList`**＋**pending 角標**；**聊天** **`useConversations`**＋**`ChatModal`**；**信件** **`SWR_KEYS.notifications`**＋**`useUnreadNotificationCount`** 紅點；血盟列點擊 **`getOrCreateConversationAction`** 開聊）、**`UserDetailModal`** 內 **`ChatModal`**（私訊＋Realtime＋檢舉）、**`/matchmaking`**／**`/shop`**（預留）。
 
@@ -40,7 +40,7 @@
 
 ### 通知系統（信件／`notifications`）（2026-03-26 起）
 
-- **讀取效能**：**`getMyNotificationsAction`** 內層 **`loadNotificationsForUser(userId)`** 使用 **`unstable_cache`**（**`revalidate: 30`**，key **`['notifications', userId]`**，tag **`notifications-{userId}`** — 常數見 **`src/lib/constants/notification-cache.ts`**）；通知列 **最多 50 筆**；發送者以 **`from_user_id` 去重後單次 `users.in('id', …)`** 批量載入（非逐筆 await）。**已讀／全部已讀／清除**成功後對該使用者 **`revalidateTag(notifications-{userId})`**。
+- **讀取效能**：**`getMyNotificationsAction`** 直接呼叫 **`loadNotificationsForUser`**（**不**使用 **`unstable_cache`**，避免 SWR 觸發時 Next 資料快取造成信件列表首包過慢）；通知列 **最多 50 筆**；發送者以 **`from_user_id` 去重後單次 `users.in('id', …)`** 批量載入。**寫入**後仍 **`revalidateTag(notifications-{userId})`**（常數 **`src/lib/constants/notification-cache.ts`**）。**`/guild` `MailBox`**：**`revalidateOnFocus: false`**、**`dedupingInterval: 3000`**，與全域 30s dedupe 區隔以減少不必要重打。
 - **冒險團 `MailBox`**（**`guild/page.tsx`**）：載入中顯示 **3 枚** **`glass-panel` + `animate-pulse`** 骨架（圓形頭像位＋兩條橫條），避免空白。
 - **寫入 API（Layer 3）**：**`insertMailboxNotificationAction`**（寫入＋**`revalidateTag`**，供領袖邀請碼等需回報錯誤）、**`notifyUserMailboxSilent`**（管理員副作用：**`catch` 僅 `console.error`**，不拋錯）。
 - **`invitation_code`**：**`LeaderToolsSheet`**「產生並發送邀請碼」改為 **`generateInvitationCodeAction`** → **`insertMailboxNotificationAction`**（**`type: 'invitation_code'`**、**`from_user_id`**＝領袖、**`user_id`**＝對方），**不再**經 **`getOrCreateConversationAction`／`sendMessageAction`**。
@@ -116,7 +116,7 @@
 || 管理員常數 | **src/lib/constants/admin-permissions.ts** |
 | 個人頁 EXP 紀錄 | `src/services/exp-logs.action.ts`（**`getMyRecentExpLogsAction`**）→ **`exp.repository`** **`findRecentExpLogsForUser`** |
 | 首頁個人頁 UI | `src/app/(app)/page.tsx`（**`'use client'`**、**`useMyProfile`** SWR + **`HomePageSkeleton`**） → `src/components/profile/guild-profile-home.tsx`（**公告上方**：**banner 輪播**；**公告區塊**（**滿版垂直堆疊**、**`line-clamp-2`＋「⋯ 展開」**、整卡 **Dialog**）；**今日心情下方**：**card 贊助橫滑**（最多 3 則、固定卡尺寸；點擊開連結並 **`recordAdClickAction`**）） |
-| 頁面切換「開門」過場 | **`src/components/layout/app-shell-motion.tsx`**：**`pathname` 變更**時雙扇門（**`public/images/splash.png`** 左右各 **`backgroundSize: 200% 100%`**、`left`／`right` **`backgroundPosition`** 各顯半圖）**`z-[9999]`** 蓋住 **children**；**Navbar** 在門外層、不受影響。時序：**關門 150ms** → **等待 150ms** → **開門 500ms** → **`idle`**（**合計 800ms**）；**純 CSS `transition-transform`**，**`overflow-hidden`**。**`framer-motion` 已移除**（本檔為唯一頁面過場）。 |
+| 頁面切換「開門」過場 | **`src/components/layout/app-shell-motion.tsx`**：**`pathname` 變更**時雙扇門（**`public/images/splash.png`**，黑底公會圖；左右各 **`backgroundSize: 200% 100%`**、`left`／`right` **`backgroundPosition`**）；門 **`z-30`**、**`bottom: var(--nav-reserve)`** 與底欄預留一致，**不**蓋 **固定 `Navbar`（`z-40`）**；**`children`** 包在 **`relative z-0`** 減少與門疊層跑位。時序：**關 150ms** → **停 150ms** → **開 1.8s** → **`idle`**（**合計 2.1s**）；**`transitionDuration` 內聯**（避免 Tailwind 任意 **`duration`** 警告）。 |
 | SWR：聊天／未讀通知 | **`src/hooks/useChat.ts`** — **`useConversations`**、**`useMessages`**、**`useUnreadNotificationCount`**、**`useUnreadChatConversationsCount`**／**`useUnreadChatCount`**（別名；**`SWR_KEYS.unreadChatConversations`**；Layer 3 **`getUnreadChatConversationsCountAction`**） |
 | 頭像裁切＋Cloudinary | **`react-easy-crop`** 全螢幕裁切；**`src/lib/utils/cropImage.ts`**（**`getCroppedImg`**）；**`src/lib/utils/cloudinary.ts`**（**`uploadAvatarToCloudinary`**）→ **`updateMyProfile({ avatar_url })`**（**禁止** **`supabase.storage`** 上傳頭像）；**顯示** **`src/components/ui/Avatar.tsx`**（**`next/image`** + Cloudinary **`/upload/w_{2×size},h_{2×size},c_fill,q_auto,f_auto/`**；**`next.config.mjs`** **`images.remotePatterns`**：**`res.cloudinary.com`**） |
 | 底部導航 | **`src/components/layout/Navbar.tsx`**（**五項 lucide**；**冒險團**圖示：**有未讀信件或私訊時** **紅點**＋**玫瑰發光**；在 **`/guild` 且子 tab 為「聊天」** 時不計入私訊未讀以免重複提示，**信件未讀仍顯示**） |
@@ -127,7 +127,7 @@
 | 雙人血盟（Layer 2） | **`src/lib/repositories/server/alliance.repository.ts`** |
 | 私訊／封鎖／檢舉（Layer 2） | **`src/lib/repositories/server/chat.repository.ts`**（**`conversations`**、**`chat_messages`**、**`blocks`**、**`reports`**；見 🗄️ 與 **`database.types.ts`**） |
 | 私訊／封鎖／檢舉（Layer 3） | **`chat.action.ts`** — 上列＋**`getUnreadChatConversationsCountAction`**、**`ConversationListItemDto`**（**`hasUnreadFromPartner`**）；**新訊息不再 `insertNotification`**（僅導航／聊天列表提示） |
-| 通知（Layer 3） | **`src/services/notification.action.ts`** — **`getMyNotificationsAction`**（**`unstable_cache` 30s**、**≤50** 筆、發送者 **`in` 批量查**）、**`insertMailboxNotificationAction`／`notifyUserMailboxSilent`**、**`markNotificationReadAction`**、**`markAllNotificationsReadAction`**、**`clearAllNotificationsAction`**、**`getUnreadNotificationCountAction`** |
+| 通知（Layer 3） | **`src/services/notification.action.ts`** — **`getMyNotificationsAction`**（**≤50** 筆、發送者 **`in` 批量查**；**無** **`unstable_cache`**）、**`insertMailboxNotificationAction`／`notifyUserMailboxSilent`**、**`markNotificationReadAction`**、**`markAllNotificationsReadAction`**、**`clearAllNotificationsAction`**、**`getUnreadNotificationCountAction`** |
 | 月老／商店預留 | `src/app/(app)/matchmaking/page.tsx`、`src/app/(app)/shop/page.tsx`（**即將開放**） |
 | 舊路由轉址 | **`/village`**、**`/market`** → **`/explore`**；**`/alliances`**、**`/inbox`** → **`/guild`** |
 | 使用者詳情 Modal | **`UserDetailModal.tsx`**：**IG** 僅在 **`instagram_handle` 有值** 且（**`ig_public === true`** 或 **血盟 `accepted`**）時顯示；**「在 Instagram 開啟」**（**`https://www.instagram.com/{handle}/`**，**`instagram.ts`** strip **`@`**）；關閉 **`ChatModal`** 時 **`mutate`** **`conversations`／`unreadChatConversations`**；**master** 可開啟 **`LeaderToolsSheet`**（IG 強制顯示、EXP 發放、**邀請碼改走信件 `invitation_code`**、放逐） |
@@ -717,7 +717,9 @@ Phase 4 — 市集搜尋快取
 ### 2026-03-26 — 首頁公告滿版垂直堆疊 + 路由「開門」過場（splash 雙扇）
 
 - **Layer 5 — `guild-profile-home.tsx`**：公告改 **`w-full`** 垂直列表；置頂／一般樣式與 **`line-clamp-2`＋「⋯ 展開」**（截斷偵測）；整卡開 **Dialog**。
-- **Layer 5 — `app-shell-motion.tsx`**：**`pathname` 變更**觸發雙門：**關 150ms** → **停 150ms** → **開 500ms**（**共 800ms**）；圖 **`/images/splash.png`**（**`public/images/splash.png`**），左右門各 **`backgroundSize: 200% 100%`** + **`backgroundPosition: left|right center`**；**`z-[9999]`**、**`overflow-hidden`**；**Navbar** 在門容器外；移除 **`framer-motion`**。
+- **Layer 5 — `app-shell-motion.tsx`**：**`pathname` 變更**觸發雙門：**關 150ms** → **停 150ms** → **開 1.8s**（**共 2.1s**）；圖 **`/images/splash.png`**（黑底版）；門 **`z-30`**、下緣 **`--nav-reserve`** 對齊底欄、**不遮 Navbar**；**`children` `z-0`**；**`transitionDuration` 內聯**。
+- **Layer 3 — `notification.action.ts`**：**`getMyNotificationsAction`** 移除 **`unstable_cache`**，改直接 **`loadNotificationsForUser`**（改善 **`/guild` 信件** SWR 首包體感）。
+- **Layer 5 — `guild/page.tsx` `MailBox`**：**`revalidateOnFocus: false`**、**`dedupingInterval: 3000`**。
 
 ### 2026-03-25 — 首頁「今日心情」框深紫微光（規格對齊）
 
@@ -877,4 +879,4 @@ Phase 4 — 市集搜尋快取
 - **前台公告區塊**（`guild-profile-home.tsx` 頁面最頂部）：置頂 **`w-full`**（**`rounded-2xl`**、**`px-4 py-3`**、**`bg-amber-950/40 border-amber-500/30`**）；一般公告 **`w-full`**（**`rounded-xl`**、**`px-4 py-3`**、**`bg-zinc-900/50 border-zinc-700/30`**），多則 **`space-y-2` 垂直堆疊**（**不**橫滑）；內文 **`line-clamp-2`**，截斷時 **「⋯ 展開」**；**點整卡**開 **Dialog**（完整內容＋圖片）；無公告時完全不顯示。
 - **前台廣告區塊**（`guild-profile-home.tsx` 今日心情下方）：**`贊助`** 小標＋橫向滑動 card 廣告（**`min-w-[240px]`**，圖片 `h-32 object-cover`＋標題＋說明）；點擊開連結 + 靜默 **`recordAdClickAction`**；無廣告時完全不顯示。
 
-*最後更新：2026-03-26 — **公告滿版垂直堆疊**＋**開門過場**（**`app-shell-motion`**／**`splash.png`**）；**發布中心**與前台公告／廣告區塊見上。*
+*最後更新：2026-03-26 — **開門 1.8s**、門不遮底欄、**splash** 黑底圖；**信件列表**拿掉 **`unstable_cache`**；**公告滿版**／**發布中心**見上。*
