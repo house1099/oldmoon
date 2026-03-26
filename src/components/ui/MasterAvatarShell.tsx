@@ -3,9 +3,10 @@
 import type { ReactNode } from "react";
 import Lottie from "lottie-react";
 import lightningAnimation from "@/assets/animations/yellow-circle.json";
-import Avatar from "@/components/ui/Avatar";
+import Avatar, {
+  MASTER_AVATAR_FRAME_OVERLAY_PERCENT,
+} from "@/components/ui/Avatar";
 import { cn } from "@/lib/utils";
-import { MASTER_AVATAR_FRAME_OVERLAY_PERCENT } from "@/lib/constants/master-avatar-frame";
 
 const THUNDER_FRAME_SRC = "/frames/thunder-frame.png";
 

@@ -1,5 +1,11 @@
 import Image from "next/image";
 
+/**
+ * 領袖雷框／Lottie 縮放百分比（單一設定源在 `master-avatar-frame.ts`）。
+ * `MasterAvatarShell` 由此匯入；改數值請編輯 `src/lib/constants/master-avatar-frame.ts` 後存檔並重新整理頁面（必要時重啟 `npm run dev`）。
+ */
+export { MASTER_AVATAR_FRAME_OVERLAY_PERCENT } from "@/lib/constants/master-avatar-frame";
+
 interface AvatarProps {
   src?: string | null;
   nickname?: string | null;

@@ -641,6 +641,13 @@ NOTIFY pgrst, 'reload schema';
 - **Layer 5**：新增 **`src/components/ui/Avatar.tsx`** — **`next/image`**（**`loading="lazy"`**、**`sizes`**）；Cloudinary URL 將 **`/upload/`** 改為 **`/upload/w_{size×2},h_{size×2},c_fill,q_auto,f_auto/`**；非 Cloudinary 之 **`avatar_url`** 仍用 **`<img>`**（未列入 **`remotePatterns`** 時避免執行期錯誤）。
 - **套用**：**`UserCard`**、**`UserDetailModal`**、**`/guild`** 血盟／待確認列表、**`guild-profile-home`** 首頁大頭貼（**`div` wrapper** 保留點擊上傳、**`fileInputRef`**、上傳中遮罩與桌面 **「更換」** hover）。
 
+### 領袖頭像雷框（`master`／`MasterAvatarShell`）
+
+- **設定檔（唯一數值來源）**：**`src/lib/constants/master-avatar-frame.ts`** — **`MASTER_AVATAR_FRAME_OVERLAY_PERCENT`**（雷框 PNG 與閃電 Lottie 相對於頭像邊長的百分比；數值愈大，裝飾愈外擴）。
+- **連結方式**：**`Avatar.tsx`** **re-export** 上述常數（註解標明用途）；**`MasterAvatarShell.tsx`** 從 **`Avatar.tsx`** **import** **`MASTER_AVATAR_FRAME_OVERLAY_PERCENT`**，與 **`Avatar`** 預設匯出並用。**`Avatar.tsx` 本體不畫雷框**（僅圓形頭像）；**`role === "master"`** 時務必走 **`MasterAvatarShell`** 才會套用框與 Lottie。
+- **套用點**：**`UserCard`**、**`UserDetailModal`**、**`/guild`**（血盟／聊天／通知列表等）、**`ChatModal`**、**`TavernModal`**、**`LeaderToolsSheet`**、**`guild-profile-home`** 大頭貼。
+- **除錯**：改常數後若畫面無變，請**硬重新整理**或**重啟 `npm run dev`**（避免 HMR 快取）；並確認檢視的用戶 **`role`** 確實為 **`master`**。
+
 ### 2026-03-24 — 效能修復 Phase 3：Modal 社交狀態合併查詢
 
 - **Layer 3 — `social.action.ts`**：新增 **`getModalSocialStatusAction(targetUserId)`** 與型別 **`ModalSocialStatus`** — 單次 **`createClient().auth.getUser()`** 後 **`Promise.all`**：**`findLike`**（我→對方）、**`findLike`**（對方→我）、**`findAllianceBetween`**（與 **`getAllianceStatusAction`** 相同資料來源）；回傳 **`isLiked`／`isLikedByThem`／`isMutualLike`／`allianceStatus`／`allianceId`／`currentUserId`**。
