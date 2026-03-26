@@ -35,7 +35,7 @@
 ### 廣告顯示與後台（2026-03-26 起）
 
 - **Layer 2 `findActiveHomeAds`**：併查 **`position = banner`**（最多 **15** 則）與 **`card`**（最多 **3** 則），權重降序、**`is_active`** 與上下架時間窗與先前一致；**`getHomeAdsAction`** 仍回傳單一陣列，**UI 依 `position` 分流**（橫幅輪播／卡片橫滑互不混用）。
-- **首頁 `guild-profile-home`**：**公告區塊上方**為 **Banner 輪播**（僅有 banner 時渲染；**`h-40` `rounded-2xl`**、底層漸層＋標題；**4 秒**自動切換、**`duration-500` opacity**；**多則**底部白點指示；**單則**不輪播、不顯示點；點擊有 **`link_url`** 則 **`window.open(..., '_blank')`** 並 **`recordAdClickAction`**）。**今日心情下方「贊助」橫滑**僅 **`card`**：固定 **`min/max-w-[240px]`**、整卡 **`h-[236px]`**；有圖 **`h-32` `object-cover`**；無圖 **`h-16` `bg-zinc-800/60`** 置中標題；標題／說明 **truncate／line-clamp-2** 規格見程式。
+- **首頁 `guild-profile-home`**：**公告區塊上方**為 **Banner 輪播**（僅有 banner 時渲染；**`h-40` `rounded-2xl`**、底層漸層＋標題；**4 秒**自動切換、**`duration-500` opacity**；**多則**底部白點指示；**單則**不輪播、不顯示點；點擊有 **`link_url`** 則 **`window.open(..., '_blank')`** 並 **`recordAdClickAction`**）。**公告**：**`w-full` 滿版垂直堆疊**（置頂琥珀卡＋一般 **`space-y-2`**），**無橫向滑動**；內文 **`line-clamp-2`**，超過顯示 **「⋯ 展開」**（**`useLayoutEffect` 偵測截斷**）；點整卡開 **Dialog**。**今日心情下方「贊助」橫滑**僅 **`card`**：固定 **`min/max-w-[240px]`**、整卡 **`h-[236px]`**；有圖 **`h-32` `object-cover`**；無圖 **`h-16` `bg-zinc-800/60`** 置中標題；標題／說明 **truncate／line-clamp-2** 規格見程式。
 - **後台 `/admin/publish`（廣告）**：位置 **badge／select** 使用中文對照 **`AD_POSITION_LABELS`**（橫幅／卡片／公告置頂），**DB 與 API 仍存英文 `banner`／`card`／`announcement`**。**權重**改純數字文字輸入，**送出時**驗證 **1–10**。**`/admin/exp`**（EXP **1–1000**）、**`/admin/invitations`**（批量 **1–50**、有效天數 **≥0**）同樣改 **`type="text"`** 過濾數字、**送出時 toast 驗證**。
 
 ### 通知系統（信件／`notifications`）（2026-03-26 起）
@@ -115,7 +115,8 @@
 || 管理員後台 Layer 3 | **src/services/admin.action.ts** |
 || 管理員常數 | **src/lib/constants/admin-permissions.ts** |
 | 個人頁 EXP 紀錄 | `src/services/exp-logs.action.ts`（**`getMyRecentExpLogsAction`**）→ **`exp.repository`** **`findRecentExpLogsForUser`** |
-| 首頁個人頁 UI | `src/app/(app)/page.tsx`（**`'use client'`**、**`useMyProfile`** SWR + **`HomePageSkeleton`**） → `src/components/profile/guild-profile-home.tsx`（**公告上方**：**banner 輪播**；**公告區塊**（置頂＋一般橫向滑動＋展開 Dialog）；**今日心情下方**：**card 贊助橫滑**（最多 3 則、固定卡尺寸；點擊開連結並 **`recordAdClickAction`**）） |
+| 首頁個人頁 UI | `src/app/(app)/page.tsx`（**`'use client'`**、**`useMyProfile`** SWR + **`HomePageSkeleton`**） → `src/components/profile/guild-profile-home.tsx`（**公告上方**：**banner 輪播**；**公告區塊**（**滿版垂直堆疊**、**`line-clamp-2`＋「⋯ 展開」**、整卡 **Dialog**）；**今日心情下方**：**card 贊助橫滑**（最多 3 則、固定卡尺寸；點擊開連結並 **`recordAdClickAction`**）） |
+| 頁面切換「開門」過場 | **`src/components/layout/app-shell-motion.tsx`**：**`pathname` 變更**時雙扇門（**`public/images/splash.png`** 左右各 **`backgroundSize: 200% 100%`**、`left`／`right` **`backgroundPosition`** 各顯半圖）**`z-[9999]`** 蓋住 **children**；**Navbar** 在門外層、不受影響。時序：**關門 150ms** → **等待 150ms** → **開門 500ms** → **`idle`**（**合計 800ms**）；**純 CSS `transition-transform`**，**`overflow-hidden`**。**`framer-motion` 已移除**（本檔為唯一頁面過場）。 |
 | SWR：聊天／未讀通知 | **`src/hooks/useChat.ts`** — **`useConversations`**、**`useMessages`**、**`useUnreadNotificationCount`**、**`useUnreadChatConversationsCount`**／**`useUnreadChatCount`**（別名；**`SWR_KEYS.unreadChatConversations`**；Layer 3 **`getUnreadChatConversationsCountAction`**） |
 | 頭像裁切＋Cloudinary | **`react-easy-crop`** 全螢幕裁切；**`src/lib/utils/cropImage.ts`**（**`getCroppedImg`**）；**`src/lib/utils/cloudinary.ts`**（**`uploadAvatarToCloudinary`**）→ **`updateMyProfile({ avatar_url })`**（**禁止** **`supabase.storage`** 上傳頭像）；**顯示** **`src/components/ui/Avatar.tsx`**（**`next/image`** + Cloudinary **`/upload/w_{2×size},h_{2×size},c_fill,q_auto,f_auto/`**；**`next.config.mjs`** **`images.remotePatterns`**：**`res.cloudinary.com`**） |
 | 底部導航 | **`src/components/layout/Navbar.tsx`**（**五項 lucide**；**冒險團**圖示：**有未讀信件或私訊時** **紅點**＋**玫瑰發光**；在 **`/guild` 且子 tab 為「聊天」** 時不計入私訊未讀以免重複提示，**信件未讀仍顯示**） |
@@ -217,7 +218,7 @@
 | **Layer 2** 資料 | `src/lib/repositories/server/` | ✅ `user.repository.ts`（`findProfileById`、`createProfile`、**`findActiveUsers`**、**`findVillageUsers`**、**`findMarketUsers`**、**`updateLastCheckinAt`**）、`exp.repository.ts`（admin）；`client/` 尚空 |
 | **Layer 3** 業務 | `src/services/` | ✅ **`village.service.ts`**、**`market.service.ts`**（快取如前）；✅ **`profile.action.ts`**（**`getMyProfileAction`**） |
 | **Layer 4** 狀態 | `src/hooks/`、`src/lib/swr/`、`src/store/`、`src/lib/constants/`、`src/lib/validation/`、`src/lib/utils/` | ✅ **`useMyProfile`**（**SWR** **`profile`** key）；✅ **`useChat.ts`**：**`useConversations`**、**`useMessages`**、**`useUnreadNotificationCount`**；✅ **`SWR_KEYS`**（含 **`conversations`**／**`messages`**／**`unreadNotifications`**／**`notifications`**）、**`SWRProvider`**；⏳ **Zustand** 尚未實作；✅ **常數、Zod schema、forbidden-words**；✅ **`date.ts`**（台灣日界 SSOT）；✅ **`matching.ts`**（性向／興趣／技能分數） |
-| **Layer 5** UI | `src/components/*`、`src/app/*` | ✅ shadcn；**`Navbar`**（五欄底欄）、**`/explore`**（**`ExploreClient`**）、**`/guild`**、**`/matchmaking`**、**`/shop`**、**`UserCard`**、**`LevelFrame`**、個人頁與認證殼 |
+| **Layer 5** UI | `src/components/*`、`src/app/*` | ✅ shadcn；**`Navbar`**（五欄底欄）、**`AppShellMotion`**（**`pathname` 開門過場**、`splash` 雙扇）、**`/explore`**（**`ExploreClient`**）、**`/guild`**、**`/matchmaking`**、**`/shop`**、**`UserCard`**、**`LevelFrame`**、個人頁與認證殼 |
 
 **規則重申**：UI 不得直連 Supabase／SQL；僅 Layer 1 建立 client；寫入 `exp_logs` 等應經 Layer 2 → Layer 3。
 
@@ -711,7 +712,12 @@ Phase 4 — 市集搜尋快取
 
 ### 2026-03-25 — `AppShellMotion` 頁面切換動畫（輕量）
 
-- **Layer 5 — `src/components/layout/app-shell-motion.tsx`**：**`AnimatePresence`** 改 **`mode="sync"`**（新舊頁同時切換，不等舊頁 exit 完）；**`motion.div`** 仍僅 **opacity** 淡入淡出；**`transition.duration`** 改 **0.08s**（較原 0.2s 更短、幾乎無感）。
+- **Layer 5 — `src/components/layout/app-shell-motion.tsx`**：（**已由 2026-03-26 開門動畫取代**，見下則。）曾使用 **`AnimatePresence`** **`mode="sync"`**、**`motion.div`** **opacity** **0.08s**。
+
+### 2026-03-26 — 首頁公告滿版垂直堆疊 + 路由「開門」過場（splash 雙扇）
+
+- **Layer 5 — `guild-profile-home.tsx`**：公告改 **`w-full`** 垂直列表；置頂／一般樣式與 **`line-clamp-2`＋「⋯ 展開」**（截斷偵測）；整卡開 **Dialog**。
+- **Layer 5 — `app-shell-motion.tsx`**：**`pathname` 變更**觸發雙門：**關 150ms** → **停 150ms** → **開 500ms**（**共 800ms**）；圖 **`/images/splash.png`**（**`public/images/splash.png`**），左右門各 **`backgroundSize: 200% 100%`** + **`backgroundPosition: left|right center`**；**`z-[9999]`**、**`overflow-hidden`**；**Navbar** 在門容器外；移除 **`framer-motion`**。
 
 ### 2026-03-25 — 首頁「今日心情」框深紫微光（規格對齊）
 
@@ -868,7 +874,7 @@ Phase 4 — 市集搜尋快取
 - **Layer 5 — `/admin/publish`**（`'use client'`）兩 Tab：① **公告管理**（建立 Dialog 含標題 100 字限制＋內文 2000 字限制＋圖片預覽＋置頂 Switch；卡片式列表，置頂公告 📌 排最上；操作：置頂 toggle、啟用/停用 toggle、編輯、刪除 ConfirmDialog）② **廣告管理**（建立 Dialog 含標題＋說明＋圖片＋連結＋位置選擇＋權重 1–10＋上下架時間＋啟用 Switch；table（桌機）/card（手機）列表，位置 badge 色彩分明；操作同上）。
 - **Sidebar**：新增 **📣 發布中心** 於 EXP 管理之後（master + moderator）。
 - **Middleware**：`moderatorAllowed` 新增 **`/admin/publish`**。
-- **前台公告區塊**（`guild-profile-home.tsx` 頁面最頂部）：置頂公告獨立卡片（**`bg-amber-950/40 border-amber-500/30`** 琥珀風格，📌＋標題＋內文 3 行預覽＋展開＋圖片縮圖）；一般公告橫向滑動列表（**`min-w-[280px]`**，點擊展開 Dialog 顯示完整內容＋圖片）；無公告時完全不顯示。
+- **前台公告區塊**（`guild-profile-home.tsx` 頁面最頂部）：置頂 **`w-full`**（**`rounded-2xl`**、**`px-4 py-3`**、**`bg-amber-950/40 border-amber-500/30`**）；一般公告 **`w-full`**（**`rounded-xl`**、**`px-4 py-3`**、**`bg-zinc-900/50 border-zinc-700/30`**），多則 **`space-y-2` 垂直堆疊**（**不**橫滑）；內文 **`line-clamp-2`**，截斷時 **「⋯ 展開」**；**點整卡**開 **Dialog**（完整內容＋圖片）；無公告時完全不顯示。
 - **前台廣告區塊**（`guild-profile-home.tsx` 今日心情下方）：**`贊助`** 小標＋橫向滑動 card 廣告（**`min-w-[240px]`**，圖片 `h-32 object-cover`＋標題＋說明）；點擊開連結 + 靜默 **`recordAdClickAction`**；無廣告時完全不顯示。
 
-*最後更新：2026-03-26 — **發布中心**（`/admin/publish`：公告管理＋廣告管理）＋**前台公告＋廣告區塊顯示**。*
+*最後更新：2026-03-26 — **公告滿版垂直堆疊**＋**開門過場**（**`app-shell-motion`**／**`splash.png`**）；**發布中心**與前台公告／廣告區塊見上。*

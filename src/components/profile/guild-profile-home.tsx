@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
@@ -145,6 +146,44 @@ function AccordionSection({
       )}
       {isOpen ? <div className="pb-4">{children}</div> : null}
     </div>
+  );
+}
+
+function AnnouncementClampedPreview({
+  content,
+  textClassName,
+  expandHintClassName,
+}: {
+  content: string;
+  textClassName: string;
+  expandHintClassName: string;
+}) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [truncated, setTruncated] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setTruncated(el.scrollHeight > el.clientHeight + 1);
+  }, [content]);
+
+  return (
+    <>
+      <p
+        ref={ref}
+        className={cn("mt-1 text-sm leading-relaxed line-clamp-2", textClassName)}
+      >
+        {content}
+      </p>
+      {truncated ? (
+        <span
+          className={cn("mt-0.5 block text-xs", expandHintClassName)}
+          aria-hidden
+        >
+          ⋯ 展開
+        </span>
+      ) : null}
+    </>
   );
 }
 
@@ -667,29 +706,31 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           {pinnedAnnouncements.map((a) => (
             <div
               key={a.id}
-              className="rounded-2xl border border-amber-500/30 bg-amber-950/40 p-4 backdrop-blur-xl"
+              role="button"
+              tabIndex={0}
+              onClick={() => setExpandedAnnouncement(a)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setExpandedAnnouncement(a);
+                }
+              }}
+              className="w-full cursor-pointer rounded-2xl border border-amber-500/30 bg-amber-950/40 px-4 py-3 text-left backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
             >
               <div className="flex items-start gap-2">
                 <span className="mt-0.5 shrink-0">📌</span>
                 <div className="min-w-0 flex-1">
                   <h3 className="font-semibold text-amber-300">{a.title}</h3>
-                  <p className="mt-1 text-sm leading-relaxed text-amber-100/80 line-clamp-3">
-                    {a.content}
-                  </p>
-                  {a.content.length > 120 && (
-                    <button
-                      onClick={() => setExpandedAnnouncement(a)}
-                      className="mt-1 text-xs text-amber-400 hover:text-amber-300"
-                    >
-                      ...展開
-                    </button>
-                  )}
+                  <AnnouncementClampedPreview
+                    content={a.content}
+                    textClassName="text-amber-100/80"
+                    expandHintClassName="text-amber-400/90"
+                  />
                   {a.image_url && (
                     <img
                       src={a.image_url}
                       alt=""
-                      className="mt-2 max-h-40 rounded-xl object-cover cursor-pointer"
-                      onClick={() => setExpandedAnnouncement(a)}
+                      className="mt-2 max-h-40 w-full rounded-xl object-cover"
                     />
                   )}
                   <p className="mt-2 text-xs text-amber-500/60">
@@ -707,21 +748,27 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           ))}
 
           {normalAnnouncements.length > 0 && (
-            <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
+            <div className="space-y-2">
               {normalAnnouncements.map((a) => (
-                <button
+                <div
                   key={a.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setExpandedAnnouncement(a)}
-                  className="min-w-[280px] shrink-0 rounded-2xl border border-zinc-700/30 bg-zinc-900/60 p-3 text-left"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setExpandedAnnouncement(a);
+                    }
+                  }}
+                  className="w-full cursor-pointer rounded-xl border border-zinc-700/30 bg-zinc-900/50 px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
                 >
-                  <h4 className="text-sm font-medium text-zinc-200 truncate">
-                    {a.title}
-                  </h4>
-                  <p className="mt-1 text-xs leading-relaxed text-zinc-400 line-clamp-2">
-                    {a.content.slice(0, 60)}
-                    {a.content.length > 60 ? "..." : ""}
-                  </p>
+                  <h4 className="text-sm font-medium text-zinc-200">{a.title}</h4>
+                  <AnnouncementClampedPreview
+                    content={a.content}
+                    textClassName="text-zinc-400"
+                    expandHintClassName="text-zinc-500"
+                  />
                   <p className="mt-2 text-[10px] text-zinc-500">
                     {new Intl.DateTimeFormat("zh-TW", {
                       timeZone: "Asia/Taipei",
@@ -731,7 +778,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                       minute: "2-digit",
                     }).format(new Date(a.created_at))}
                   </p>
-                </button>
+                </div>
               ))}
             </div>
           )}
