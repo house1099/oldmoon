@@ -67,6 +67,8 @@ export interface Database {
           role: "member" | "moderator" | "master";
           /** 信譽分（0-100，預設 100） */
           reputation_score: number;
+          /** 活躍度：active 正常／resting 休息中／hidden 探索列表隱藏（pg_cron 依未簽到天數更新） */
+          activity_status: "active" | "resting" | "hidden";
           /** 放逐原因 */
           ban_reason: string | null;
           /** 停權到期時間 */
@@ -109,6 +111,7 @@ export interface Database {
           ig_public?: boolean;
           role?: "member" | "moderator" | "master";
           reputation_score?: number;
+          activity_status?: "active" | "resting" | "hidden";
           ban_reason?: string | null;
           suspended_until?: string | null;
           notes?: string | null;
@@ -145,6 +148,7 @@ export interface Database {
           ig_public?: boolean;
           role?: "member" | "moderator" | "master";
           reputation_score?: number;
+          activity_status?: "active" | "resting" | "hidden";
           ban_reason?: string | null;
           suspended_until?: string | null;
           notes?: string | null;

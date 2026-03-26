@@ -35,7 +35,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import Avatar from "@/components/ui/Avatar";
 import { cn } from "@/lib/utils";
-import { getMoodCountdown, isMoodActive } from "@/lib/utils/mood";
 import { instagramProfileUrlFromHandle } from "@/lib/utils/instagram";
 import { useSWRConfig } from "swr";
 import { SWR_KEYS } from "@/lib/swr/keys";
@@ -82,10 +81,6 @@ export function UserDetailModal({
   const [showChat, setShowChat] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [chatOpening, setChatOpening] = useState(false);
-  const [moodCountdownLabel, setMoodCountdownLabel] = useState<string | null>(
-    null,
-  );
-
   useEffect(() => {
     if (!open) {
       setShowChat(false);
@@ -104,20 +99,9 @@ export function UserDetailModal({
     };
   }, [open, user.id]);
 
-  useEffect(() => {
-    if (
-      !open ||
-      !isMoodActive(user.mood_at) ||
-      !(user.mood?.trim().length ?? 0)
-    ) {
-      setMoodCountdownLabel(null);
-      return;
-    }
-    const tick = () => setMoodCountdownLabel(getMoodCountdown(user.mood_at));
-    tick();
-    const id = setInterval(tick, 60000);
-    return () => clearInterval(id);
-  }, [open, user.mood_at, user.mood]);
+  const isTargetMoodActive = user.mood_at
+    ? Date.now() - new Date(user.mood_at).getTime() < 24 * 60 * 60 * 1000
+    : false;
 
   const {
     isLiked,
@@ -260,8 +244,8 @@ export function UserDetailModal({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
           showCloseButton
-          overlayClassName="z-[300]"
-          className="z-[310] max-w-[calc(100%-2rem)] gap-0 overflow-hidden border border-amber-900/45 bg-zinc-950 p-0 text-slate-200 sm:max-w-md"
+          overlayClassName="z-[600]"
+          className="z-[610] max-w-[calc(100%-2rem)] gap-0 overflow-hidden border border-amber-900/45 bg-zinc-950 p-0 text-slate-200 sm:max-w-md"
         >
           <DialogHeader className="relative border-b border-amber-900/35 bg-zinc-950/95 px-4 pb-4 pt-5">
             <div className="flex gap-4 pr-8">
@@ -315,23 +299,22 @@ export function UserDetailModal({
                     <dd className="text-slate-400/90">{offlineLabel}</dd>
                   </div>
                 </dl>
+                {user.mood?.trim() && isTargetMoodActive ? (
+                  <div className="bg-violet-950/40 border border-violet-500/20 rounded-xl px-3 py-2 mt-2">
+                    <p className="text-xs text-violet-300 mb-0.5">✨ 今日心情</p>
+                    <p className="text-sm text-zinc-200">{user.mood}</p>
+                  </div>
+                ) : null}
+                {user.activity_status === "resting" ? (
+                  <div className="bg-amber-950/40 border border-amber-500/20 rounded-xl px-3 py-2 mt-2">
+                    <p className="text-xs text-amber-300">
+                      💤 此冒險者正在休息中
+                    </p>
+                  </div>
+                ) : null}
               </div>
             </div>
           </DialogHeader>
-
-          {isMoodActive(user.mood_at) && user.mood?.trim() ? (
-            <div className="border-b border-amber-900/25 px-4 py-3">
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="text-xs text-zinc-400">今日心情</span>
-                  <span className="text-xs text-zinc-500">
-                    {moodCountdownLabel ?? getMoodCountdown(user.mood_at)}
-                  </span>
-                </div>
-                <p className="text-sm text-white">{user.mood}</p>
-              </div>
-            </div>
-          ) : null}
 
           <div className="max-h-[min(52vh,420px)] space-y-4 overflow-y-auto px-4 py-4">
             <div className="mx-auto w-full max-w-[min(100%,22rem)] space-y-4 sm:max-w-full">
@@ -527,13 +510,26 @@ export function UserDetailModal({
             {myProfile?.role === "master" && (
               <>
                 <Separator className="bg-amber-900/35" />
-                <button
-                  type="button"
-                  onClick={() => setShowLeaderTools(true)}
-                  className="w-full max-w-[min(100%,22rem)] rounded-full border border-amber-500/30 bg-amber-600/10 py-2.5 text-center text-sm font-medium text-amber-300 transition-colors hover:bg-amber-600/20 sm:max-w-full"
-                >
-                  ⚡ 領袖工具
-                </button>
+                <div className="flex w-full max-w-[min(100%,22rem)] flex-col gap-2 sm:max-w-full">
+                  <p className="text-center text-xs text-zinc-400">
+                    信譽分{" "}
+                    <span className="font-semibold text-zinc-200">
+                      {user.reputation_score ?? 100}
+                    </span>
+                    {(user.reputation_score ?? 100) < 30 ? (
+                      <span className="text-xs text-red-400 ml-1">
+                        ⚠️ 建議封鎖
+                      </span>
+                    ) : null}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowLeaderTools(true)}
+                    className="w-full rounded-full border border-amber-500/30 bg-amber-600/10 py-2.5 text-center text-sm font-medium text-amber-300 transition-colors hover:bg-amber-600/20"
+                  >
+                    ⚡ 領袖工具
+                  </button>
+                </div>
               </>
             )}
           </DialogFooter>
@@ -542,7 +538,7 @@ export function UserDetailModal({
 
       {showCancelSheet && (
         <div
-          className="fixed inset-0 z-[320]"
+          className="fixed inset-0 z-[615]"
           onClick={() => setShowCancelSheet(false)}
         >
           <div className="absolute inset-0 bg-black/60" />

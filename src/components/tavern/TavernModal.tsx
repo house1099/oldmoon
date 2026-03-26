@@ -8,6 +8,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import { Send } from "lucide-react";
 import useSWR from "swr";
 import Avatar from "@/components/ui/Avatar";
 import { useMyProfile } from "@/hooks/useMyProfile";
@@ -17,7 +18,10 @@ import {
   getMyTavernBanStatusAction,
   sendTavernMessageAction,
 } from "@/services/tavern.action";
+import { getMemberProfileByIdAction } from "@/services/profile.action";
 import type { TavernMessageDto } from "@/types/database.types";
+import type { UserRow } from "@/lib/repositories/server/user.repository";
+import { UserDetailModal } from "@/components/modals/UserDetailModal";
 
 const STICKERS = [
   "😂",
@@ -76,6 +80,10 @@ export function TavernModal({
   const [deleteTarget, setDeleteTarget] = useState<TavernMessageDto | null>(
     null,
   );
+  const [tavernProfileUser, setTavernProfileUser] = useState<UserRow | null>(
+    null,
+  );
+  const [tavernProfileOpen, setTavernProfileOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -92,6 +100,8 @@ export function TavernModal({
       setInput("");
       setStickersOpen(false);
       setDeleteTarget(null);
+      setTavernProfileOpen(false);
+      setTavernProfileUser(null);
     }
   }, [open]);
 
@@ -101,6 +111,18 @@ export function TavernModal({
       longPressTimer.current = null;
     }
   }, []);
+
+  const openUserProfile = useCallback(
+    async (userId: string) => {
+      if (!userId || userId === myId) return;
+      const data = await getMemberProfileByIdAction(userId);
+      if (data) {
+        setTavernProfileUser(data);
+        setTavernProfileOpen(true);
+      }
+    },
+    [myId],
+  );
 
   const handleSend = async (content: string, type: "text" | "emoji") => {
     const trimmed = content.trim();
@@ -150,7 +172,7 @@ export function TavernModal({
   return createPortal(
     <>
       <div
-        className="fixed inset-0 z-[500] flex flex-col bg-zinc-950/95 backdrop-blur-xl pb-[calc(5rem+env(safe-area-inset-bottom,0px))]"
+        className="fixed inset-0 z-[500] flex flex-col bg-zinc-950/95 backdrop-blur-xl"
         aria-modal="true"
         role="dialog"
         aria-labelledby="tavern-modal-title"
@@ -172,37 +194,81 @@ export function TavernModal({
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 pb-2">
           <div className="mx-auto flex max-w-lg flex-col gap-3">
             {messages.map((m) => {
               const mine = m.user_id === myId;
+              const avatarEl = (
+                <Avatar
+                  src={m.user.avatar_url}
+                  nickname={m.user.nickname}
+                  size={32}
+                />
+              );
+
+              if (mine) {
+                return (
+                  <div
+                    key={m.id}
+                    className="flex items-end gap-2 justify-end"
+                  >
+                    <div className="flex flex-col items-end">
+                      <div
+                        role={isMaster ? "button" : undefined}
+                        tabIndex={isMaster ? 0 : undefined}
+                        className="touch-manipulation bg-violet-700/80 text-white rounded-2xl rounded-tr-sm px-3 py-2 max-w-[70vw] text-sm"
+                        onPointerDown={() => startLongPress(m)}
+                        onPointerUp={clearLongPress}
+                        onPointerLeave={clearLongPress}
+                        onPointerCancel={clearLongPress}
+                        onContextMenu={(e) => {
+                          if (!isMaster) return;
+                          e.preventDefault();
+                          setDeleteTarget(m);
+                        }}
+                        onKeyDown={(e) => {
+                          if (!isMaster) return;
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setDeleteTarget(m);
+                          }
+                        }}
+                      >
+                        {m.content}
+                      </div>
+                      <p className="text-[10px] text-zinc-600 mt-0.5 text-right">
+                        {formatMsgTime(m.created_at)}
+                      </p>
+                    </div>
+                    <div className="shrink-0">{avatarEl}</div>
+                  </div>
+                );
+              }
+
               return (
                 <div
                   key={m.id}
-                  className={`flex gap-2 ${mine ? "flex-row-reverse" : "flex-row"}`}
+                  className="flex items-end gap-2 justify-start"
                 >
-                  <div className="shrink-0">
-                    <Avatar
-                      src={m.user.avatar_url}
-                      nickname={m.user.nickname}
-                      size={32}
-                    />
-                  </div>
-                  <div
-                    className={`flex min-w-0 max-w-[85%] flex-col gap-0.5 ${mine ? "items-end" : "items-start"}`}
+                  <button
+                    type="button"
+                    className="shrink-0 cursor-pointer rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void openUserProfile(m.user_id);
+                    }}
+                    aria-label={`查看 ${m.user.nickname} 的資料`}
                   >
-                    <div className="flex items-center gap-2 px-0.5">
-                      <span className="text-xs text-zinc-400">
-                        {m.user.nickname}
-                      </span>
-                      <span className="rounded-full bg-zinc-800/80 px-1.5 py-0 text-[10px] font-medium text-zinc-500">
-                        Lv.{m.user.level}
-                      </span>
-                    </div>
+                    {avatarEl}
+                  </button>
+                  <div>
+                    <p className="text-xs text-zinc-400 mb-0.5">
+                      {m.user.nickname} · Lv.{m.user.level}
+                    </p>
                     <div
                       role={isMaster ? "button" : undefined}
                       tabIndex={isMaster ? 0 : undefined}
-                      className={`touch-manipulation rounded-2xl bg-zinc-800/60 px-3 py-2 text-sm text-zinc-100 ${mine ? "rounded-br-md" : "rounded-bl-md"}`}
+                      className="touch-manipulation bg-zinc-800/80 text-zinc-100 rounded-2xl rounded-tl-sm px-3 py-2 max-w-[70vw] text-sm"
                       onPointerDown={() => startLongPress(m)}
                       onPointerUp={clearLongPress}
                       onPointerLeave={clearLongPress}
@@ -222,9 +288,9 @@ export function TavernModal({
                     >
                       {m.content}
                     </div>
-                    <span className="text-[10px] text-zinc-600">
+                    <p className="text-[10px] text-zinc-600 mt-0.5">
                       {formatMsgTime(m.created_at)}
-                    </span>
+                    </p>
                   </div>
                 </div>
               );
@@ -233,7 +299,7 @@ export function TavernModal({
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-zinc-800/60 bg-zinc-950/90 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]">
+        <div className="shrink-0 border-t border-zinc-800/50 bg-zinc-900/90 backdrop-blur-xl px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {stickersOpen && (
             <div className="mb-2 grid grid-cols-8 gap-1 rounded-xl bg-zinc-900/80 p-2">
               {STICKERS.map((em) => (
@@ -249,50 +315,46 @@ export function TavernModal({
               ))}
             </div>
           )}
-          <div className="mx-auto flex max-w-lg items-end gap-2">
+          <p className="text-[10px] text-zinc-600 text-right mb-1">
+            {input.length}/50
+          </p>
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              className="shrink-0 rounded-xl bg-zinc-800/80 px-2 py-2 text-lg text-zinc-200 disabled:opacity-40"
+              className="w-10 h-10 rounded-full bg-zinc-800/80 flex items-center justify-center text-lg flex-shrink-0 active:scale-95 transition-transform disabled:opacity-40 disabled:active:scale-100"
               disabled={isBanned}
               onClick={() => setStickersOpen((v) => !v)}
               aria-label="貼圖"
             >
               😊
             </button>
-            <div className="min-w-0 flex-1">
-              {isBanned ? (
-                <p className="rounded-2xl border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-500">
-                  你已被禁止發言
-                </p>
-              ) : (
-                <>
-                  <textarea
-                    value={input}
-                    onChange={(e) => setInput(e.target.value.slice(0, 50))}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        void handleSend(input, "text");
-                      }
-                    }}
-                    placeholder="在酒館說點什麼..."
-                    maxLength={50}
-                    rows={1}
-                    className="w-full resize-none rounded-2xl border border-zinc-700/80 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-amber-600/50 focus:outline-none focus:ring-1 focus:ring-amber-600/30"
-                  />
-                  <p className="mt-0.5 text-right text-[10px] text-zinc-600">
-                    {input.length}/50
-                  </p>
-                </>
-              )}
-            </div>
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value.slice(0, 50))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void handleSend(input, "text");
+                }
+              }}
+              placeholder={
+                isBanned
+                  ? "你已被禁止在酒館發言"
+                  : "在酒館說點什麼..."
+              }
+              maxLength={50}
+              disabled={isBanned}
+              className="flex-1 bg-zinc-800/60 border border-zinc-700/40 rounded-full px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-violet-500/50 transition-colors disabled:opacity-50"
+            />
             <button
               type="button"
               disabled={isBanned || sending || !input.trim()}
               onClick={() => void handleSend(input, "text")}
-              className="shrink-0 rounded-xl bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-40"
+              className="w-10 h-10 rounded-full bg-amber-600 hover:bg-amber-500 active:scale-95 flex items-center justify-center flex-shrink-0 transition-all shadow-lg shadow-amber-900/30 disabled:opacity-40 disabled:active:scale-100"
+              aria-label="發送"
             >
-              發送
+              <Send className="w-4 h-4 text-white" />
             </button>
           </div>
         </div>
@@ -333,6 +395,17 @@ export function TavernModal({
             </div>
           </div>
         </div>
+      ) : null}
+
+      {tavernProfileUser ? (
+        <UserDetailModal
+          user={tavernProfileUser}
+          open={tavernProfileOpen}
+          onOpenChange={(o) => {
+            setTavernProfileOpen(o);
+            if (!o) setTavernProfileUser(null);
+          }}
+        />
       ) : null}
     </>,
     document.body,

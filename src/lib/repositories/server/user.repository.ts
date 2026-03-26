@@ -125,11 +125,12 @@ export async function findVillageUsers(params: {
       avatar_url, level, mood, mood_at,
       interests, skills_offer, skills_want,
       bio_village, bio_market, last_seen_at,
-      instagram_handle, ig_public
+      instagram_handle, ig_public, activity_status
     `,
     )
     .eq("region", params.region)
     .eq("status", "active")
+    .neq("activity_status", "hidden")
     .neq("id", params.currentUserId);
 
   if (error) {
@@ -153,10 +154,11 @@ export async function findMarketUsers(params: {
       id, nickname, gender, region, orientation,
       avatar_url, level, mood, mood_at,
       interests, skills_offer, skills_want,
-      bio_village, bio_market, last_seen_at
+      bio_village, bio_market, last_seen_at, activity_status
     `,
     )
     .eq("status", "active")
+    .neq("activity_status", "hidden")
     .neq("id", params.currentUserId);
 
   if (error) {
@@ -164,6 +166,35 @@ export async function findMarketUsers(params: {
   }
 
   return (data ?? []) as UserRow[];
+}
+
+/**
+ * 簽到成功後恢復 **`activity_status = active`**，信譽 **+1**（上限 100，等同 🗄️ `LEAST(reputation_score + 1, 100)`）。
+ */
+export async function restoreActivityOnCheckin(userId: string): Promise<void> {
+  const admin = createAdminClient();
+  const { data: row, error: selErr } = await admin
+    .from("users")
+    .select("reputation_score")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (selErr) {
+    throw selErr;
+  }
+
+  const nextRep = Math.min((row?.reputation_score ?? 100) + 1, 100);
+  const { error } = await admin
+    .from("users")
+    .update({
+      activity_status: "active",
+      reputation_score: nextRep,
+    })
+    .eq("id", userId);
+
+  if (error) {
+    throw error;
+  }
 }
 
 /** 簽到成功後寫入 **`last_checkin_at`**（24h 冷卻 SSOT）。 */

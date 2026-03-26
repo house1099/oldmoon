@@ -126,7 +126,7 @@ export default function ChatModal({
   /** 須高於 `UserDetailModal`（z-300/310）、信件 Dialog（z-200/210）等；portal 至 body 以便與 inert 搭配隔離背景表單欄位（iOS 鍵盤導覽列） */
   return createPortal(
     <div
-      className="fixed inset-0 z-[400] flex flex-col bg-zinc-950"
+      className="fixed inset-0 z-[700] flex flex-col bg-zinc-950"
       data-chat-portal="1"
     >
       <div
@@ -237,7 +237,7 @@ export default function ChatModal({
       </div>
 
       {showReport ? (
-        <div className="fixed inset-0 z-[420] flex items-end">
+        <div className="fixed inset-0 z-[720] flex items-end">
           <div
             role="presentation"
             className="absolute inset-0 bg-black/60"

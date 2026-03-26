@@ -34,7 +34,7 @@ export default function LeaderToolsSheet({
 }: Props) {
   const [profile, setProfile] = useState<UserRow | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expDelta, setExpDelta] = useState(10);
+  const [expDelta, setExpDelta] = useState("10");
   const [expReason, setExpReason] = useState("");
   const [expPending, setExpPending] = useState(false);
   const [invitePending, setInvitePending] = useState(false);
@@ -64,11 +64,16 @@ export default function LeaderToolsSheet({
       toast.error("請輸入發放理由");
       return;
     }
+    const n = parseInt(expDelta, 10);
+    if (Number.isNaN(n) || n < 1 || n > 1000) {
+      toast.error("EXP 數量須為 1～1000 的整數");
+      return;
+    }
     setExpPending(true);
-    const res = await adjustExpAction(targetUserId, expDelta, expReason.trim());
+    const res = await adjustExpAction(targetUserId, n, expReason.trim());
     setExpPending(false);
     if (res.ok) {
-      toast.success(`已發放 +${expDelta} EXP 給 ${targetNickname}`);
+      toast.success(`已發放 +${n} EXP 給 ${targetNickname}`);
       setExpReason("");
     } else {
       toast.error(res.error);
@@ -137,12 +142,12 @@ export default function LeaderToolsSheet({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[400] bg-black/50"
+        className="fixed inset-0 z-[620] bg-black/50"
         onClick={onClose}
       />
 
       {/* Sheet */}
-      <div className="fixed inset-y-0 right-0 z-[410] w-80 max-w-[calc(100vw-2rem)] bg-zinc-950 border-l border-zinc-800 shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-200">
+      <div className="fixed inset-y-0 right-0 z-[630] w-80 max-w-[calc(100vw-2rem)] bg-zinc-950 border-l border-zinc-800 shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-200 pt-[max(1.5rem,env(safe-area-inset-top))]">
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-4 py-3 backdrop-blur">
           <h2 className="text-sm font-bold text-amber-100">
@@ -215,15 +220,13 @@ export default function LeaderToolsSheet({
                 ⭐ 快速發放 EXP
               </p>
               <input
-                type="number"
-                min={1}
-                max={1000}
+                type="text"
+                inputMode="numeric"
                 value={expDelta}
-                onChange={(e) =>
-                  setExpDelta(
-                    Math.max(1, Math.min(1000, Number(e.target.value))),
-                  )
-                }
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, "");
+                  setExpDelta(val);
+                }}
                 className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
                 placeholder="EXP 數量"
               />
@@ -290,7 +293,7 @@ export default function LeaderToolsSheet({
       {/* Ban Confirm Dialog */}
       {showBanConfirm && (
         <div
-          className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-[640] flex items-center justify-center bg-black/60 p-4"
           onClick={() => setShowBanConfirm(false)}
         >
           <div
@@ -332,7 +335,7 @@ export default function LeaderToolsSheet({
       {/* Unban Confirm Dialog */}
       {showUnbanConfirm && (
         <div
-          className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-[640] flex items-center justify-center bg-black/60 p-4"
           onClick={() => setShowUnbanConfirm(false)}
         >
           <div

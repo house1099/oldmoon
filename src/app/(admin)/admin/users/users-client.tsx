@@ -609,8 +609,13 @@ export default function UsersClient({
                     <span className="text-sm font-medium text-gray-700">
                       信譽分
                     </span>
-                    <span className="text-sm font-bold text-gray-900">
+                    <span className="text-sm font-bold text-gray-900 inline-flex items-center flex-wrap gap-x-1">
                       {selectedUser.reputation_score ?? 100}
+                      {(selectedUser.reputation_score ?? 100) < 30 ? (
+                        <span className="text-xs text-red-400 font-normal">
+                          ⚠️ 建議封鎖
+                        </span>
+                      ) : null}
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">

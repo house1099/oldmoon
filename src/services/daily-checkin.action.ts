@@ -8,7 +8,10 @@ import {
   isUniqueConstraintError,
 } from "@/lib/repositories/server/exp.repository";
 import { DAILY_CHECKIN_ALREADY_CLAIMED } from "@/lib/constants/daily-checkin";
-import { updateLastCheckinAt } from "@/lib/repositories/server/user.repository";
+import {
+  restoreActivityOnCheckin,
+  updateLastCheckinAt,
+} from "@/lib/repositories/server/user.repository";
 
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
@@ -143,6 +146,12 @@ export async function claimDailyCheckin(): Promise<ClaimDailyCheckinResult> {
   } catch (error) {
     logCheckinRawError(error);
     return { ok: false, error: formatCheckinErrorForClient(error) };
+  }
+
+  try {
+    await restoreActivityOnCheckin(user.id);
+  } catch (e) {
+    console.error("restoreActivityOnCheckin:", e);
   }
 
   revalidatePath("/");

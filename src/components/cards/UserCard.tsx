@@ -88,6 +88,11 @@ export function UserCard({
                 <h2 className="truncate font-serif text-lg font-semibold text-amber-50/95">
                   {user.nickname}
                 </h2>
+                {user.activity_status === "resting" ? (
+                  <span className="bg-zinc-700/60 text-zinc-400 text-[10px] rounded-full px-2 py-0.5 ml-1 shrink-0">
+                    💤 休息中
+                  </span>
+                ) : null}
                 <span
                   className="inline-flex items-center gap-1 rounded-md border border-amber-600/50 bg-amber-950/55 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-100/95"
                   title="等級"
