@@ -11,13 +11,6 @@ export {
   MASTER_AVATAR_LIGHTNING_OVERLAY_PERCENT,
 } from "@/lib/constants/master-avatar-frame";
 
-/**
- * 霸道測試：Master 裝飾框 `<img>` 用，確認 PNG 是否會畫在視窗上（正式上線前應移除或還原）。
- * 勿加 `opacity-0` / `hidden`。
- */
-export const MASTER_AVATAR_FRAME_BRUTE_TEST_IMG_CLASSNAME =
-  "fixed inset-0 z-[100] h-[300px] w-[300px]";
-
 let didLogFramePercent = false;
 
 interface AvatarProps {
