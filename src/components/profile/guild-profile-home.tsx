@@ -32,6 +32,7 @@ import {
   Lock,
   LogOut,
   PencilLine,
+  Settings,
 } from "lucide-react";
 import {
   Dialog,
@@ -960,6 +961,26 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           </span>
           <ChevronRight className="size-5 shrink-0 text-zinc-500" aria-hidden />
         </button>
+
+        {profile.role === "master" ? (
+          <button
+            type="button"
+            onClick={() => router.push("/admin")}
+            className="mb-3 flex w-full cursor-pointer items-center justify-between rounded-2xl border border-zinc-700/30 bg-zinc-900/50 p-3 text-left active:opacity-90"
+          >
+            <span className="flex items-center gap-3">
+              <Settings
+                className="h-4 w-4 shrink-0 text-zinc-500"
+                aria-hidden
+              />
+              <span className="text-sm text-zinc-400">管理後台</span>
+            </span>
+            <ChevronRight
+              className="h-4 w-4 shrink-0 text-zinc-600"
+              aria-hidden
+            />
+          </button>
+        ) : null}
 
         <button
           type="button"
