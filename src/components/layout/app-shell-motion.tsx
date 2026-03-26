@@ -77,9 +77,15 @@ export function AppShellMotion({ children }: { children: React.ReactNode }) {
         style={{ "--nav-reserve": NAV_BOTTOM_RESERVE } as CSSProperties}
       >
         <div className="relative min-h-screen overflow-hidden pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]">
+          {/* pb 預留區若不填色會透出外層 radial，切頁時與內頁 zinc-950 閃一條藍帶 */}
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] bg-zinc-950"
+            style={{ height: NAV_BOTTOM_RESERVE }}
+            aria-hidden
+          />
           <div
             className={cn(
-              "pointer-events-none absolute inset-x-0 top-0 bottom-[var(--nav-reserve)]",
+              "pointer-events-none absolute inset-x-0 top-0 bottom-[var(--nav-reserve)] z-30",
               stage !== "idle" && "pointer-events-auto",
             )}
             aria-hidden
@@ -103,7 +109,7 @@ export function AppShellMotion({ children }: { children: React.ReactNode }) {
               }}
             />
           </div>
-          <div className="relative z-0">{children}</div>
+          <div className="relative z-[2] min-h-0">{children}</div>
         </div>
         <Navbar />
       </div>
