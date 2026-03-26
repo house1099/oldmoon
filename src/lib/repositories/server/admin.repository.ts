@@ -383,7 +383,11 @@ export async function batchGrantExp(params: {
   delta: number;
   source: string;
   adminId: string;
-}): Promise<{ success: number; failed: number }> {
+}): Promise<{
+  success: number;
+  failed: number;
+  successfulUserIds: string[];
+}> {
   const admin = createAdminClient();
   const results = await Promise.allSettled(
     params.userIds.map((uid) =>
@@ -392,21 +396,29 @@ export async function batchGrantExp(params: {
   );
   let success = 0;
   let failed = 0;
-  for (const r of results) {
-    if (r.status === "fulfilled") success++;
-    else {
+  const successfulUserIds: string[] = [];
+  results.forEach((r, i) => {
+    if (r.status === "fulfilled") {
+      success++;
+      const id = params.userIds[i];
+      if (id) successfulUserIds.push(id);
+    } else {
       failed++;
       console.error("batchGrantExp single failed:", r.reason);
     }
-  }
-  return { success, failed };
+  });
+  return { success, failed, successfulUserIds };
 }
 
 export async function grantExpToAll(params: {
   delta: number;
   source: string;
   adminId: string;
-}): Promise<{ success: number; failed: number }> {
+}): Promise<{
+  success: number;
+  failed: number;
+  successfulUserIds: string[];
+}> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("users")
@@ -424,7 +436,11 @@ export async function grantExpByLevel(params: {
   delta: number;
   source: string;
   adminId: string;
-}): Promise<{ success: number; failed: number }> {
+}): Promise<{
+  success: number;
+  failed: number;
+  successfulUserIds: string[];
+}> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("users")

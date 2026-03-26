@@ -16,7 +16,7 @@
 
 - **Layer 1（連線）**：Supabase Client／Server／Admin 已完備。
 - **Layer 2（資料）**：`user.repository.ts`（含 **`updateLastCheckinAt`**）、`exp.repository.ts` 支援 **`total_exp`**（SSOT）；**`chat.repository.ts`**（**`conversations`**／**`chat_messages`**／**`blocks`**／**`reports`**，admin，供私訊／封鎖／檢舉接線）。
-- **Layer 3（業務）**：`daily-checkin.action.ts` 之 **`claimDailyCheckin`** 以 **`users.last_checkin_at`** 為簽到 **24h 滾動冷卻** SSOT；**`exp_logs.unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**；**`chat.action.ts`**（開啟對話／訊息／列表／封鎖／檢舉）、**`notification.action.ts`**（通知列表／**`markNotificationReadAction`** 單筆已讀／**`markAllNotificationsReadAction`**／清除／未讀數）。
+- **Layer 3（業務）**：`daily-checkin.action.ts` 之 **`claimDailyCheckin`** 以 **`users.last_checkin_at`** 為簽到 **24h 滾動冷卻** SSOT；**`exp_logs.unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**；**`chat.action.ts`**（開啟對話／訊息／列表／封鎖／檢舉）、**`notification.action.ts`**（**`getMyNotificationsAction`**（**`unstable_cache` 30s**＋批量載入發送者）／**`insertMailboxNotificationAction`／`notifyUserMailboxSilent`**／**`markNotificationReadAction`**／**`markAllNotificationsReadAction`**／清除／未讀數）。
 - **Layer 4（狀態／常數）**：`levels.ts`（門檻 0〜1350）、Zod 驗證已就緒；**`date.ts`** 之 **`taipeiCalendarDateKey()`** 仍為全系統**日曆日** SSOT（簽到冷卻**不再**依此判斷）；**`useChat.ts`** — **`useConversations`**／**`useMessages`**、**`useUnreadNotificationCount`**、**`useUnreadChatConversationsCount`**／**`useUnreadChatCount`**（別名，**`SWR_KEYS.unreadChatConversations`**；**`SWR_KEYS.conversations`**／**`messages(id)`**／**`unreadNotifications`**）。
 - **Layer 5（UI）**：**`Navbar.tsx`**（五項 **lucide** 圖示底欄：**Home／Compass／Swords／Heart／ShoppingBag**）、**`LevelFrame.tsx`**、**`UserCard`**、**`UserCardSkeleton`**（市集列表首次載入）、**`/explore`**（**Server Component** 預載村莊；**`ExploreClient`** 頂部 **safe-area**、村莊＋市集 **tab**、**市集 `useSWR`（query key + `keepPreviousData`）**＋**`hidden`／`block` 切 tab 不 unmount**）、**`/guild`**（**`hidden` 切 tab**；**血盟** **`AllianceList`**＋**pending 角標**；**聊天** **`useConversations`**＋**`ChatModal`**；**信件** **`SWR_KEYS.notifications`**＋**`useUnreadNotificationCount`** 紅點；血盟列點擊 **`getOrCreateConversationAction`** 開聊）、**`UserDetailModal`** 內 **`ChatModal`**（私訊＋Realtime＋檢舉）、**`/matchmaking`**／**`/shop`**（預留）。
 
@@ -37,6 +37,14 @@
 - **Layer 2 `findActiveHomeAds`**：併查 **`position = banner`**（最多 **15** 則）與 **`card`**（最多 **3** 則），權重降序、**`is_active`** 與上下架時間窗與先前一致；**`getHomeAdsAction`** 仍回傳單一陣列，**UI 依 `position` 分流**（橫幅輪播／卡片橫滑互不混用）。
 - **首頁 `guild-profile-home`**：**公告區塊上方**為 **Banner 輪播**（僅有 banner 時渲染；**`h-40` `rounded-2xl`**、底層漸層＋標題；**4 秒**自動切換、**`duration-500` opacity**；**多則**底部白點指示；**單則**不輪播、不顯示點；點擊有 **`link_url`** 則 **`window.open(..., '_blank')`** 並 **`recordAdClickAction`**）。**今日心情下方「贊助」橫滑**僅 **`card`**：固定 **`min/max-w-[240px]`**、整卡 **`h-[236px]`**；有圖 **`h-32` `object-cover`**；無圖 **`h-16` `bg-zinc-800/60`** 置中標題；標題／說明 **truncate／line-clamp-2** 規格見程式。
 - **後台 `/admin/publish`（廣告）**：位置 **badge／select** 使用中文對照 **`AD_POSITION_LABELS`**（橫幅／卡片／公告置頂），**DB 與 API 仍存英文 `banner`／`card`／`announcement`**。**權重**改純數字文字輸入，**送出時**驗證 **1–10**。**`/admin/exp`**（EXP **1–1000**）、**`/admin/invitations`**（批量 **1–50**、有效天數 **≥0**）同樣改 **`type="text"`** 過濾數字、**送出時 toast 驗證**。
+
+### 通知系統（信件／`notifications`）（2026-03-26 起）
+
+- **讀取效能**：**`getMyNotificationsAction`** 內層 **`loadNotificationsForUser(userId)`** 使用 **`unstable_cache`**（**`revalidate: 30`**，key **`['notifications', userId]`**，tag **`notifications-{userId}`** — 常數見 **`src/lib/constants/notification-cache.ts`**）；通知列 **最多 50 筆**；發送者以 **`from_user_id` 去重後單次 `users.in('id', …)`** 批量載入（非逐筆 await）。**已讀／全部已讀／清除**成功後對該使用者 **`revalidateTag(notifications-{userId})`**。
+- **冒險團 `MailBox`**（**`guild/page.tsx`**）：載入中顯示 **3 枚** **`glass-panel` + `animate-pulse`** 骨架（圓形頭像位＋兩條橫條），避免空白。
+- **寫入 API（Layer 3）**：**`insertMailboxNotificationAction`**（寫入＋**`revalidateTag`**，供領袖邀請碼等需回報錯誤）、**`notifyUserMailboxSilent`**（管理員副作用：**`catch` 僅 `console.error`**，不拋錯）。
+- **`invitation_code`**：**`LeaderToolsSheet`**「產生並發送邀請碼」改為 **`generateInvitationCodeAction`** → **`insertMailboxNotificationAction`**（**`type: 'invitation_code'`**、**`from_user_id`**＝領袖、**`user_id`**＝對方），**不再**經 **`getOrCreateConversationAction`／`sendMessageAction`**。
+- **管理員操作 → 信件（`type: 'system'`，皆 `notifyUserMailboxSilent`）**：**`banUserAction`／`suspendUserAction`／`unbanUserAction`／`adjustExpAction`／`adjustReputationAction`／`updateUserRoleAction`**（升 **moderator**／降 **member**）、**`reviewIgRequestFromAdminAction`**（核准／拒絕）、**`batchGrantExpAction`／`grantExpToAllAction`／`grantExpByLevelAction`**（對 **`batchGrantExp` 回傳之 `successfulUserIds`** 每人一則 **`🎁 你獲得了 +{delta} EXP！活動名稱：{source}`**，**`Promise.allSettled`** 並行寫入）。**`reviewIgRequestAction`**（**`ig-request.action.ts`**／前台審核頁）成功後同樣對申請者寫入核准／拒絕文案。
 
 ## Phase 2.1 首頁個人卡重構（完成）
 
@@ -118,10 +126,10 @@
 | 雙人血盟（Layer 2） | **`src/lib/repositories/server/alliance.repository.ts`** |
 | 私訊／封鎖／檢舉（Layer 2） | **`src/lib/repositories/server/chat.repository.ts`**（**`conversations`**、**`chat_messages`**、**`blocks`**、**`reports`**；見 🗄️ 與 **`database.types.ts`**） |
 | 私訊／封鎖／檢舉（Layer 3） | **`chat.action.ts`** — 上列＋**`getUnreadChatConversationsCountAction`**、**`ConversationListItemDto`**（**`hasUnreadFromPartner`**）；**新訊息不再 `insertNotification`**（僅導航／聊天列表提示） |
-| 通知（Layer 3） | **`src/services/notification.action.ts`** — **`getMyNotificationsAction`**（分開查 **`users`**）、**`markAllNotificationsReadAction`**（**`is_read: true`**）、**`clearAllNotificationsAction`**、**`getUnreadNotificationCountAction`**（欄位 **`type`／`is_read`**） |
+| 通知（Layer 3） | **`src/services/notification.action.ts`** — **`getMyNotificationsAction`**（**`unstable_cache` 30s**、**≤50** 筆、發送者 **`in` 批量查**）、**`insertMailboxNotificationAction`／`notifyUserMailboxSilent`**、**`markNotificationReadAction`**、**`markAllNotificationsReadAction`**、**`clearAllNotificationsAction`**、**`getUnreadNotificationCountAction`** |
 | 月老／商店預留 | `src/app/(app)/matchmaking/page.tsx`、`src/app/(app)/shop/page.tsx`（**即將開放**） |
 | 舊路由轉址 | **`/village`**、**`/market`** → **`/explore`**；**`/alliances`**、**`/inbox`** → **`/guild`** |
-| 使用者詳情 Modal | **`UserDetailModal.tsx`**：**IG** 僅在 **`instagram_handle` 有值** 且（**`ig_public === true`** 或 **血盟 `accepted`**）時顯示；**「在 Instagram 開啟」**（**`https://www.instagram.com/{handle}/`**，**`instagram.ts`** strip **`@`**）；關閉 **`ChatModal`** 時 **`mutate`** **`conversations`／`unreadChatConversations`**；**master** 可開啟 **`LeaderToolsSheet`**（IG 強制顯示、EXP 發放、邀請碼私訊、放逐） |
+| 使用者詳情 Modal | **`UserDetailModal.tsx`**：**IG** 僅在 **`instagram_handle` 有值** 且（**`ig_public === true`** 或 **血盟 `accepted`**）時顯示；**「在 Instagram 開啟」**（**`https://www.instagram.com/{handle}/`**，**`instagram.ts`** strip **`@`**）；關閉 **`ChatModal`** 時 **`mutate`** **`conversations`／`unreadChatConversations`**；**master** 可開啟 **`LeaderToolsSheet`**（IG 強制顯示、EXP 發放、**邀請碼改走信件 `invitation_code`**、放逐） |
 || 領袖快捷面板 | **`src/components/modals/LeaderToolsSheet.tsx`**（僅 **master** 可見；從 **`UserDetailModal`** 觸發；右側滑出 **`w-80` `z-[410]`**） |
 | 私訊全螢幕 UI | **`ChatModal.tsx`**：送出／開啟讀取後／**Realtime INSERT** 皆 **`mutate(SWR_KEYS.conversations)`**＋**`unreadChatConversations`**（列表預覽與未讀點同步） |
 | 有緣分＋互讚／Modal 合併載入 | **`src/services/social.action.ts`**（**`getModalSocialStatusAction`**：一次 **`auth.getUser()`** + **`Promise.all`**：**`findLike`** 雙向 + **`findAllianceBetween`**；仍含 **`getLikeStatusForTargetAction`**／**`checkMutualLikeWithTargetAction`**／**`toggleLikeAction`**） |

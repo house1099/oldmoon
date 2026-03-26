@@ -1,7 +1,13 @@
 "use server";
 
+import { unstable_cache, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  insertNotification as repoInsertNotification,
+  type NotificationInsert,
+} from "@/lib/repositories/server/notification.repository";
+import { notificationsUserCacheTag } from "@/lib/constants/notification-cache";
 import type { NotificationRow } from "@/types/database.types";
 
 export type NotificationListItem = NotificationRow & {
@@ -12,7 +18,61 @@ export type NotificationListItem = NotificationRow & {
   } | null;
 };
 
-/** 分開查 **`notifications`** 與 **`users`**，避免 PostgREST FK embed 問題。欄位：**`type`**／**`from_user_id`**／**`message`**／**`is_read`** */
+async function loadNotificationsForUser(
+  userId: string,
+): Promise<NotificationListItem[]> {
+  const admin = createAdminClient();
+  const { data: notifications, error } = await admin
+    .from("notifications")
+    .select("id, user_id, type, message, is_read, created_at, from_user_id")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (error) {
+    console.error("loadNotificationsForUser 失敗:", error);
+    return [];
+  }
+
+  const rows = notifications ?? [];
+  const fromIds = Array.from(
+    new Set(
+      rows
+        .map((n) => n.from_user_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+
+  const fromMap: Record<
+    string,
+    { id: string; nickname: string; avatar_url: string | null }
+  > = {};
+
+  if (fromIds.length > 0) {
+    const { data: users, error: usersErr } = await admin
+      .from("users")
+      .select("id, nickname, avatar_url")
+      .in("id", fromIds);
+    if (usersErr) {
+      console.error("loadNotificationsForUser users:", usersErr);
+    } else {
+      for (const u of users ?? []) {
+        fromMap[u.id] = u as {
+          id: string;
+          nickname: string;
+          avatar_url: string | null;
+        };
+      }
+    }
+  }
+
+  return rows.map((n) => ({
+    ...n,
+    fromUser: n.from_user_id ? (fromMap[n.from_user_id] ?? null) : null,
+  })) as NotificationListItem[];
+}
+
+/** 分開查 **`notifications`** 與 **`users`**；發送者以單次 **`in`** 並行載入。快取 **30s**，tag **`notifications-{userId}`** 供寫入後 **`revalidateTag`**。 */
 export async function getMyNotificationsAction(): Promise<
   NotificationListItem[]
 > {
@@ -25,37 +85,35 @@ export async function getMyNotificationsAction(): Promise<
     return [];
   }
 
-  const admin = createAdminClient();
-  const { data: notifications, error } = await admin
-    .from("notifications")
-    .select("id, user_id, type, message, is_read, created_at, from_user_id")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(50);
+  const userId = user.id;
+  return unstable_cache(
+    () => loadNotificationsForUser(userId),
+    ["notifications", userId],
+    {
+      revalidate: 30,
+      tags: [notificationsUserCacheTag(userId)],
+    },
+  )();
+}
 
-  if (error) {
-    console.error("getMyNotificationsAction 失敗:", error);
-    return [];
+/** 寫入單筆通知並刷新該使用者列表快取（領袖邀請碼等需對錯誤處理時使用）。 */
+export async function insertMailboxNotificationAction(
+  row: NotificationInsert,
+): Promise<void> {
+  await repoInsertNotification(row);
+  revalidateTag(notificationsUserCacheTag(row.user_id));
+}
+
+/** 管理員／系統寫入：**靜默失敗**（僅 **`console.error`**），不影響主流程。 */
+export async function notifyUserMailboxSilent(
+  row: NotificationInsert,
+): Promise<void> {
+  try {
+    await repoInsertNotification(row);
+    revalidateTag(notificationsUserCacheTag(row.user_id));
+  } catch (e) {
+    console.error("notifyUserMailboxSilent:", e);
   }
-
-  const enriched = await Promise.all(
-    (notifications ?? []).map(async (n) => {
-      if (!n.from_user_id) {
-        return { ...n, fromUser: null };
-      }
-      const { data: fromUser } = await admin
-        .from("users")
-        .select("id, nickname, avatar_url")
-        .eq("id", n.from_user_id)
-        .single();
-      return {
-        ...n,
-        fromUser: fromUser ?? null,
-      };
-    }),
-  );
-
-  return enriched as NotificationListItem[];
 }
 
 export async function markAllNotificationsReadAction() {
@@ -79,6 +137,7 @@ export async function markAllNotificationsReadAction() {
     console.error("markAllNotificationsReadAction:", error);
     return { ok: false as const };
   }
+  revalidateTag(notificationsUserCacheTag(user.id));
   return { ok: true as const };
 }
 
@@ -105,6 +164,7 @@ export async function markNotificationReadAction(notificationId: string) {
     console.error("markNotificationReadAction:", error);
     return { ok: false as const };
   }
+  revalidateTag(notificationsUserCacheTag(user.id));
   return { ok: true as const };
 }
 
@@ -128,6 +188,7 @@ export async function clearAllNotificationsAction() {
     console.error("clearAllNotificationsAction:", error);
     return { ok: false as const };
   }
+  revalidateTag(notificationsUserCacheTag(user.id));
   return { ok: true as const };
 }
 

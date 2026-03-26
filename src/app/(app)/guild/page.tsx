@@ -442,6 +442,7 @@ const NOTIF_TYPE_LABEL: Record<string, string> = {
   alliance_dissolved: "💔 解除了血盟",
   new_message: "💬 傳了一則訊息給你",
   system: "📢 系統通知",
+  invitation_code: "🎟️ 寄給你一組邀請碼",
 };
 
 function formatNotificationTimeTaipei(iso: string): string {
@@ -467,6 +468,8 @@ function notificationDetailDescription(
     case "alliance_accepted":
       return `🎉 ${nick} 接受了你的血盟申請`;
     case "system":
+      return (notif.message ?? "").trim();
+    case "invitation_code":
       return (notif.message ?? "").trim();
     default:
       return (
@@ -529,12 +532,18 @@ function MailBox() {
 
   if (isLoading) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-2">
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="h-16 animate-pulse rounded-2xl bg-zinc-800/50"
-          />
+            className="glass-panel flex animate-pulse items-center gap-3 p-4"
+          >
+            <div className="h-10 w-10 shrink-0 rounded-full bg-zinc-700/80" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="h-3.5 w-3/4 max-w-[220px] rounded bg-zinc-700/80" />
+              <div className="h-3 w-24 rounded bg-zinc-800/80" />
+            </div>
+          </div>
         ))}
       </div>
     );

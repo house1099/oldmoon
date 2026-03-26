@@ -56,6 +56,7 @@ import type {
   AnnouncementDto,
   AdvertisementRow,
 } from "@/types/database.types";
+import { notifyUserMailboxSilent } from "@/services/notification.action";
 
 type ActionResult<T = void> =
   | { ok: true; data: T }
@@ -132,6 +133,12 @@ export async function banUserAction(
       action_type: "ban",
       reason,
     });
+    await notifyUserMailboxSilent({
+      user_id: userId,
+      type: "system",
+      message: `⚠️ 你的帳號已被放逐，原因：${reason}`,
+      is_read: false,
+    });
     return { ok: true, data: undefined };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
@@ -156,6 +163,12 @@ export async function suspendUserAction(
       reason,
       metadata: suspendedUntil ? { suspended_until: suspendedUntil } : undefined,
     });
+    await notifyUserMailboxSilent({
+      user_id: userId,
+      type: "system",
+      message: `⚠️ 你的帳號已被停權，原因：${reason}`,
+      is_read: false,
+    });
     return { ok: true, data: undefined };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
@@ -170,6 +183,12 @@ export async function unbanUserAction(userId: string): Promise<ActionResult> {
       admin_id: user.id,
       target_user_id: userId,
       action_type: "unban",
+    });
+    await notifyUserMailboxSilent({
+      user_id: userId,
+      type: "system",
+      message: "✅ 你的帳號已恢復正常，歡迎回來！",
+      is_read: false,
     });
     return { ok: true, data: undefined };
   } catch (e: unknown) {
@@ -192,6 +211,16 @@ export async function adjustExpAction(
       reason,
       metadata: { delta },
     });
+    const expMsg =
+      delta > 0
+        ? `⭐ 管理員發放了 +${delta} EXP 給你，原因：${reason}`
+        : `📉 管理員扣除了 ${Math.abs(delta)} EXP，原因：${reason}`;
+    await notifyUserMailboxSilent({
+      user_id: userId,
+      type: "system",
+      message: expMsg,
+      is_read: false,
+    });
     return { ok: true, data: undefined };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
@@ -212,6 +241,16 @@ export async function adjustReputationAction(
       action_type: "reputation_adjust",
       reason,
       metadata: { delta },
+    });
+    const repMsg =
+      delta > 0
+        ? `✨ 你的信譽分 +${delta}，原因：${reason}`
+        : `📉 你的信譽分 -${Math.abs(delta)}，原因：${reason}`;
+    await notifyUserMailboxSilent({
+      user_id: userId,
+      type: "system",
+      message: repMsg,
+      is_read: false,
     });
     return { ok: true, data: undefined };
   } catch (e: unknown) {
@@ -382,6 +421,21 @@ export async function updateUserRoleAction(
       action_type: "role_change",
       metadata: { new_role: role },
     });
+    if (role === "moderator") {
+      await notifyUserMailboxSilent({
+        user_id: userId,
+        type: "system",
+        message: "🛡️ 恭喜！你已被授予版主權限",
+        is_read: false,
+      });
+    } else if (role === "member") {
+      await notifyUserMailboxSilent({
+        user_id: userId,
+        type: "system",
+        message: "你的管理員權限已被撤銷",
+        is_read: false,
+      });
+    }
     return { ok: true, data: undefined };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
@@ -506,6 +560,18 @@ export async function reviewIgRequestFromAdminAction(
       metadata: { request_id: requestId },
     });
 
+    if (igReq?.user_id) {
+      await notifyUserMailboxSilent({
+        user_id: igReq.user_id,
+        type: "system",
+        message:
+          action === "approved"
+            ? "✅ 你的 IG 帳號變更申請已核准！"
+            : "❌ 你的 IG 帳號變更申請未通過審核",
+        is_read: false,
+      });
+    }
+
     return { ok: true, data: undefined };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
@@ -547,6 +613,18 @@ export async function batchGrantExpAction(params: {
         failed: result.failed,
       },
     });
+    const src = params.source.trim();
+    const msg = `🎁 你獲得了 +${params.delta} EXP！活動名稱：${src}`;
+    await Promise.allSettled(
+      result.successfulUserIds.map((uid) =>
+        notifyUserMailboxSilent({
+          user_id: uid,
+          type: "system",
+          message: msg,
+          is_read: false,
+        }),
+      ),
+    );
     return { ok: true, data: result };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
@@ -580,6 +658,18 @@ export async function grantExpToAllAction(params: {
         failed: result.failed,
       },
     });
+    const src = params.source.trim();
+    const msg = `🎁 你獲得了 +${params.delta} EXP！活動名稱：${src}`;
+    await Promise.allSettled(
+      result.successfulUserIds.map((uid) =>
+        notifyUserMailboxSilent({
+          user_id: uid,
+          type: "system",
+          message: msg,
+          is_read: false,
+        }),
+      ),
+    );
     return { ok: true, data: result };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
@@ -619,6 +709,18 @@ export async function grantExpByLevelAction(params: {
         failed: result.failed,
       },
     });
+    const src = params.source.trim();
+    const msg = `🎁 你獲得了 +${params.delta} EXP！活動名稱：${src}`;
+    await Promise.allSettled(
+      result.successfulUserIds.map((uid) =>
+        notifyUserMailboxSilent({
+          user_id: uid,
+          type: "system",
+          message: msg,
+          is_read: false,
+        }),
+      ),
+    );
     return { ok: true, data: result };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };

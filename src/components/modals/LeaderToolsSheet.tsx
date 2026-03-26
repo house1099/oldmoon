@@ -11,10 +11,7 @@ import {
   unbanUserAction,
   generateInvitationCodeAction,
 } from "@/services/admin.action";
-import {
-  getOrCreateConversationAction,
-  sendMessageAction,
-} from "@/services/chat.action";
+import { insertMailboxNotificationAction } from "@/services/notification.action";
 import { instagramProfileUrlFromHandle } from "@/lib/utils/instagram";
 import type { UserRow } from "@/types/database.types";
 
@@ -89,20 +86,17 @@ export default function LeaderToolsSheet({
         toast.error(codeRes.error);
         return;
       }
-      const convRes = await getOrCreateConversationAction(targetUserId);
-      if (!convRes.ok || !convRes.conversation) {
-        toast.error("無法建立對話");
-        return;
-      }
-      const msgRes = await sendMessageAction(
-        convRes.conversation.id,
-        `🎟️ 這是你的邀請碼：${codeRes.data.code}，有效期 30 天，快分享給好友加入公會吧！`,
-      );
-      if (msgRes.ok) {
-        toast.success(`邀請碼已透過私訊發送給 ${targetNickname}`);
-      } else {
-        toast.error(msgRes.error ?? "發送訊息失敗");
-      }
+      await insertMailboxNotificationAction({
+        user_id: targetUserId,
+        type: "invitation_code",
+        from_user_id: currentUserId,
+        message: `🎟️ 你收到一組邀請碼：${codeRes.data.code}，有效期 30 天，快分享給好友加入公會吧！`,
+        is_read: false,
+      });
+      toast.success(`邀請碼已透過信件發送給 ${targetNickname} 📬`);
+    } catch (e) {
+      console.error(e);
+      toast.error("信件發送失敗，請稍後再試");
     } finally {
       setInvitePending(false);
     }
@@ -262,7 +256,7 @@ export default function LeaderToolsSheet({
                 {invitePending ? "發送中…" : "產生並發送邀請碼"}
               </button>
               <p className="text-xs text-zinc-600">
-                自動產生 30 天邀請碼並透過私訊送給對方
+                自動產生 30 天邀請碼並透過信件（通知）送給對方
               </p>
             </div>
 

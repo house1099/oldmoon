@@ -2,12 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   getPendingIgRequests,
   insertIgChangeRequest,
   reviewIgRequest,
   type PendingIgRequestRow,
 } from "@/lib/repositories/server/ig-request.repository";
+import { notifyUserMailboxSilent } from "@/services/notification.action";
 import { instagramHandleSchema } from "@/lib/validation/instagram-handle";
 
 function isStaffRole(role: string | null | undefined): boolean {
@@ -82,6 +84,24 @@ export async function reviewIgRequestAction(
   } catch (e) {
     console.error("❌ reviewIgRequest:", e);
     return { ok: false, error: "審核失敗，請稍後再試。" };
+  }
+
+  const admin = createAdminClient();
+  const { data: reqRow } = await admin
+    .from("ig_change_requests")
+    .select("user_id")
+    .eq("id", requestId)
+    .single();
+  if (reqRow?.user_id) {
+    await notifyUserMailboxSilent({
+      user_id: reqRow.user_id,
+      type: "system",
+      message:
+        action === "approved"
+          ? "✅ 你的 IG 帳號變更申請已核准！"
+          : "❌ 你的 IG 帳號變更申請未通過審核",
+      is_read: false,
+    });
   }
 
   revalidatePath("/");
