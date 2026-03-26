@@ -1,12 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Lottie from "lottie-react";
-import lightningAnimation from "@/assets/animations/yellow-circle.json";
 import Avatar, {
   MASTER_AVATAR_FRAME_OVERLAY_PERCENT,
   MASTER_AVATAR_HOLE_TO_FRAME_ASSET_RATIO,
-  MASTER_AVATAR_LIGHTNING_OVERLAY_PERCENT,
 } from "@/components/ui/Avatar";
 import { cn } from "@/lib/utils";
 
@@ -23,8 +20,9 @@ export type MasterAvatarShellProps = {
 };
 
 /**
- * `role === "master"`：最外層 **relative** + **overflow-visible** 作為對齊基準；內層 **size×size** 為百分比框的參考。
- * 圓形照片 **z-10**；Lottie **z-15**（在金框下）；PNG **z-20**（`pointer-events-none`，無背景色）。
+ * `role === "master"`：最外層 **relative** + **overflow-visible**；內層 **size×size** 為框百分比參考。
+ * 照片直徑 = `size * (MASTER_AVATAR_FRAME_OVERLAY_PERCENT / 100) * MASTER_AVATAR_HOLE_TO_FRAME_ASSET_RATIO`（與框連動）。
+ * 圓形照片 **z-10**；PNG 金框 **z-20**、`pointer-events-none`；兩者皆 **absolute** 居中。
  */
 export function MasterAvatarShell({
   role,
@@ -37,11 +35,13 @@ export function MasterAvatarShell({
 }: MasterAvatarShellProps) {
   const isMaster = role === "master";
   const framePct = MASTER_AVATAR_FRAME_OVERLAY_PERCENT;
-  const lightningPct = MASTER_AVATAR_LIGHTNING_OVERLAY_PERCENT;
-  const frameDisplayPx = size * (framePct / 100);
   const photoDiameter = Math.max(
     1,
-    Math.round(frameDisplayPx * MASTER_AVATAR_HOLE_TO_FRAME_ASSET_RATIO),
+    Math.round(
+      size *
+        (MASTER_AVATAR_FRAME_OVERLAY_PERCENT / 100) *
+        MASTER_AVATAR_HOLE_TO_FRAME_ASSET_RATIO,
+    ),
   );
 
   if (!isMaster) {
@@ -73,17 +73,6 @@ export function MasterAvatarShell({
             src={src}
             nickname={nickname}
             className={cn("border-0 bg-transparent", avatarClassName)}
-          />
-        </div>
-        <div
-          className="pointer-events-none absolute top-1/2 left-1/2 z-[15] -translate-x-1/2 -translate-y-1/2"
-          style={{ width: `${lightningPct}%`, height: `${lightningPct}%` }}
-          aria-hidden
-        >
-          <Lottie
-            animationData={lightningAnimation}
-            loop
-            className="h-full w-full"
           />
         </div>
         {/* eslint-disable-next-line @next/next/no-img-element -- 本地裝飾框 */}

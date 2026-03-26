@@ -8,7 +8,6 @@ export {
   FRAME_SIZE_PERCENT,
   MASTER_AVATAR_FRAME_OVERLAY_PERCENT,
   MASTER_AVATAR_HOLE_TO_FRAME_ASSET_RATIO,
-  MASTER_AVATAR_LIGHTNING_OVERLAY_PERCENT,
 } from "@/lib/constants/master-avatar-frame";
 
 let didLogFramePercent = false;
