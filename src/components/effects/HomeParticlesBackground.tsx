@@ -23,10 +23,6 @@ function normalizeParticleOptions(raw: unknown): ISourceOptions {
     typeof base.background === "object" && base.background !== null
       ? (base.background as Record<string, unknown>)
       : {};
-  const prevBgColor =
-    typeof prevBg.color === "object" && prevBg.color !== null
-      ? (prevBg.color as Record<string, unknown>)
-      : {};
 
   return {
     ...base,
@@ -37,10 +33,7 @@ function normalizeParticleOptions(raw: unknown): ISourceOptions {
     },
     background: {
       ...prevBg,
-      color: {
-        ...prevBgColor,
-        value: "transparent",
-      },
+      color: "transparent",
     },
   } as ISourceOptions;
 }
@@ -64,7 +57,6 @@ export function HomeParticlesBackground() {
 
   useEffect(() => {
     void initParticlesEngine(async (engine) => {
-      /** 完整 bundle（內含 slim、emitters、多數 updater）；圖片形狀需另載 */
       await loadFull(engine);
       await loadImageShape(engine);
     })

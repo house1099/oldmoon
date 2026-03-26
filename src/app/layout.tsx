@@ -17,9 +17,11 @@ export const metadata: Metadata = {
     apple: "/icons/apple-touch-icon.png",
   },
   appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
     title: "傳奇公會",
+    statusBarStyle: "black-translucent",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
   },
 };
 
