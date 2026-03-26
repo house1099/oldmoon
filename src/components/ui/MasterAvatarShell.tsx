@@ -5,6 +5,7 @@ import Lottie from "lottie-react";
 import lightningAnimation from "@/assets/animations/yellow-circle.json";
 import Avatar, {
   MASTER_AVATAR_FRAME_OVERLAY_PERCENT,
+  MASTER_AVATAR_LIGHTNING_OVERLAY_PERCENT,
 } from "@/components/ui/Avatar";
 import { cn } from "@/lib/utils";
 
@@ -33,7 +34,8 @@ export function MasterAvatarShell({
   children,
 }: MasterAvatarShellProps) {
   const isMaster = role === "master";
-  const layerPct = MASTER_AVATAR_FRAME_OVERLAY_PERCENT;
+  const framePct = MASTER_AVATAR_FRAME_OVERLAY_PERCENT;
+  const lightningPct = MASTER_AVATAR_LIGHTNING_OVERLAY_PERCENT;
 
   if (!isMaster) {
     return (
@@ -68,11 +70,11 @@ export function MasterAvatarShell({
         alt=""
         aria-hidden
         className="pointer-events-none absolute top-1/2 left-1/2 z-[10] -translate-x-1/2 -translate-y-1/2 object-contain select-none"
-        style={{ width: `${layerPct}%`, height: `${layerPct}%` }}
+        style={{ width: `${framePct}%`, height: `${framePct}%` }}
       />
       <div
         className="pointer-events-none absolute top-1/2 left-1/2 z-[11] -translate-x-1/2 -translate-y-1/2"
-        style={{ width: `${layerPct}%`, height: `${layerPct}%` }}
+        style={{ width: `${lightningPct}%`, height: `${lightningPct}%` }}
         aria-hidden
       >
         <Lottie

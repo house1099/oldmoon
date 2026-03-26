@@ -817,7 +817,12 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         </Dialog>
       )}
 
-      <section className="glass-panel relative p-6 sm:p-8">
+      <section
+        className={cn(
+          "glass-panel relative p-6 sm:p-8",
+          profile.role === "master" && "!overflow-visible",
+        )}
+      >
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.06]"
           style={{

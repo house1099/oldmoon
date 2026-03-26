@@ -1,10 +1,16 @@
-import Image from "next/image";
+"use client";
 
-/**
- * 領袖雷框／Lottie 縮放百分比（單一設定源在 `master-avatar-frame.ts`）。
- * `MasterAvatarShell` 由此匯入；改數值請編輯 `src/lib/constants/master-avatar-frame.ts` 後存檔並重新整理頁面（必要時重啟 `npm run dev`）。
- */
-export { MASTER_AVATAR_FRAME_OVERLAY_PERCENT } from "@/lib/constants/master-avatar-frame";
+import { useEffect } from "react";
+import Image from "next/image";
+import { FRAME_SIZE_PERCENT } from "@/lib/constants/master-avatar-frame";
+
+export {
+  FRAME_SIZE_PERCENT,
+  MASTER_AVATAR_FRAME_OVERLAY_PERCENT,
+  MASTER_AVATAR_LIGHTNING_OVERLAY_PERCENT,
+} from "@/lib/constants/master-avatar-frame";
+
+let didLogFramePercent = false;
 
 interface AvatarProps {
   src?: string | null;
@@ -21,6 +27,12 @@ export default function Avatar({
 }: AvatarProps) {
   const trimmed = src?.trim() || null;
 
+  useEffect(() => {
+    if (didLogFramePercent) return;
+    didLogFramePercent = true;
+    console.log("當前框框比例:", FRAME_SIZE_PERCENT);
+  }, []);
+
   if (trimmed) {
     const optimizedSrc = trimmed.includes("cloudinary.com")
       ? trimmed.replace(
@@ -34,6 +46,7 @@ export default function Avatar({
       <div
         className={`relative flex-shrink-0 overflow-hidden rounded-full bg-zinc-700 ${className}`}
         style={{ width: size, height: size }}
+        data-frame-size-percent={FRAME_SIZE_PERCENT}
       >
         {isCloudinary ? (
           <Image
@@ -60,6 +73,7 @@ export default function Avatar({
     <div
       className={`flex flex-shrink-0 items-center justify-center rounded-full bg-zinc-700 ${className}`}
       style={{ width: size, height: size }}
+      data-frame-size-percent={FRAME_SIZE_PERCENT}
     >
       <span
         className="font-medium text-white"

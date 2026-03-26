@@ -643,10 +643,11 @@ NOTIFY pgrst, 'reload schema';
 
 ### 領袖頭像雷框（`master`／`MasterAvatarShell`）
 
-- **設定檔（唯一數值來源）**：**`src/lib/constants/master-avatar-frame.ts`** — **`MASTER_AVATAR_FRAME_OVERLAY_PERCENT`**（雷框 PNG 與閃電 Lottie 相對於頭像邊長的百分比；數值愈大，裝飾愈外擴）。
-- **連結方式**：**`Avatar.tsx`** **re-export** 上述常數（註解標明用途）；**`MasterAvatarShell.tsx`** 從 **`Avatar.tsx`** **import** **`MASTER_AVATAR_FRAME_OVERLAY_PERCENT`**，與 **`Avatar`** 預設匯出並用。**`Avatar.tsx` 本體不畫雷框**（僅圓形頭像）；**`role === "master"`** 時務必走 **`MasterAvatarShell`** 才會套用框與 Lottie。
-- **套用點**：**`UserCard`**、**`UserDetailModal`**、**`/guild`**（血盟／聊天／通知列表等）、**`ChatModal`**、**`TavernModal`**、**`LeaderToolsSheet`**、**`guild-profile-home`** 大頭貼。
-- **除錯**：改常數後若畫面無變，請**硬重新整理**或**重啟 `npm run dev`**（避免 HMR 快取）；並確認檢視的用戶 **`role`** 確實為 **`master`**。
+- **設定檔**：**`src/lib/constants/master-avatar-frame.ts`** — **`MASTER_AVATAR_FRAME_OVERLAY_PERCENT`**（雷框 PNG）、**`MASTER_AVATAR_LIGHTNING_OVERLAY_PERCENT`**（閃電 Lottie，建議略大於框）；**`FRAME_SIZE_PERCENT`** 為框比例別名（除錯用）。
+- **`Avatar.tsx`**（**`use client`**）：自設定檔 **import** **`FRAME_SIZE_PERCENT`**；首次掛載時 **`console.log('當前框框比例:', FRAME_SIZE_PERCENT)`**（全頁只印一次）；根節點 **`data-frame-size-percent`** 供 DevTools 對照；並 **re-export** 三常數。**`MasterAvatarShell`** 自 **`Avatar.tsx`** 讀取框／閃電兩個百分比。
+- **裁切**：**`.glass-panel`** 在 **`globals.css`** 含 **`overflow-hidden`**，會切掉超出圓形的雷框；**`guild-profile-home`** 頂部個人區塊在 **`role === "master"`** 時加 **`!overflow-visible`** 覆蓋。**頭像圓形本體**仍靠 **`MasterAvatarShell`** 內層 **`overflow-hidden rounded-full`** 只裁照片，不裁外層框。
+- **套用點**：**`UserCard`**、**`UserDetailModal`**、**`/guild`**、**`ChatModal`**、**`TavernModal`**、**`LeaderToolsSheet`**、**`guild-profile-home`**。
+- **除錯**：改常數後請**硬重新整理**或**重啟 `npm run dev`**；確認 **`role === "master"`**。
 
 ### 2026-03-24 — 效能修復 Phase 3：Modal 社交狀態合併查詢
 
