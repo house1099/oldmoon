@@ -105,8 +105,17 @@ function BatchGrantTab({ userRole }: { userRole: string | null }) {
   const [usersLoading, setUsersLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const [minLevel, setMinLevel] = useState(1);
-  const [maxLevel, setMaxLevel] = useState(10);
+  const [minLevelStr, setMinLevelStr] = useState("1");
+  const [maxLevelStr, setMaxLevelStr] = useState("10");
+
+  const minLevelNum = parseInt(minLevelStr, 10);
+  const maxLevelNum = parseInt(maxLevelStr, 10);
+  const levelRangeValid =
+    Number.isFinite(minLevelNum) &&
+    Number.isFinite(maxLevelNum) &&
+    minLevelNum >= 1 &&
+    maxLevelNum >= minLevelNum &&
+    maxLevelNum <= 10;
 
   const [showConfirm, setShowConfirm] = useState(false);
   const [executing, setExecuting] = useState(false);
@@ -150,13 +159,32 @@ function BatchGrantTab({ userRole }: { userRole: string | null }) {
     if (target === "select")
       return `${selectedIds.size} 人 × ${deltaNum} EXP = ${selectedIds.size * deltaNum} EXP`;
     if (target === "all") return `所有 active 用戶 × ${deltaNum} EXP`;
-    return `Lv.${minLevel}–${maxLevel} 用戶 × ${deltaNum} EXP`;
+    if (target === "level" && !levelRangeValid) return "—";
+    return `Lv.${minLevelNum}–${maxLevelNum} 用戶 × ${deltaNum} EXP`;
   }
 
   async function handleExecute() {
     if (!deltaValid) {
       toast.error("EXP 數量須為 1–1000");
       return;
+    }
+    if (target === "level") {
+      if (!Number.isFinite(minLevelNum) || minLevelStr === "" || minLevelNum < 1) {
+        toast.error("最小等級須為至少 1");
+        return;
+      }
+      if (!Number.isFinite(maxLevelNum) || maxLevelStr === "") {
+        toast.error("請輸入有效的最高等級");
+        return;
+      }
+      if (maxLevelNum < minLevelNum) {
+        toast.error("最大等級須大於或等於最小等級");
+        return;
+      }
+      if (maxLevelNum > 10) {
+        toast.error("最大等級不得超過 10");
+        return;
+      }
     }
     setExecuting(true);
     setResult(null);
@@ -171,8 +199,8 @@ function BatchGrantTab({ userRole }: { userRole: string | null }) {
       res = await grantExpToAllAction({ delta: deltaNum, source: source.trim() });
     } else {
       res = await grantExpByLevelAction({
-        minLevel,
-        maxLevel,
+        minLevel: minLevelNum,
+        maxLevel: maxLevelNum,
         delta: deltaNum,
         source: source.trim(),
       });
@@ -190,7 +218,8 @@ function BatchGrantTab({ userRole }: { userRole: string | null }) {
   const canSubmit =
     source.trim().length > 0 &&
     deltaValid &&
-    (target !== "select" || selectedIds.size > 0);
+    (target !== "select" || selectedIds.size > 0) &&
+    (target !== "level" || levelRangeValid);
 
   return (
     <div className="space-y-6">
@@ -317,11 +346,13 @@ function BatchGrantTab({ userRole }: { userRole: string | null }) {
               最低等級
             </label>
             <input
-              type="number"
-              min={1}
-              max={10}
-              value={minLevel}
-              onChange={(e) => setMinLevel(Number(e.target.value))}
+              type="text"
+              inputMode="numeric"
+              value={minLevelStr}
+              onChange={(e) =>
+                setMinLevelStr(e.target.value.replace(/[^0-9]/g, ""))
+              }
+              placeholder="1–10"
               className="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm"
             />
           </div>
@@ -331,11 +362,13 @@ function BatchGrantTab({ userRole }: { userRole: string | null }) {
               最高等級
             </label>
             <input
-              type="number"
-              min={1}
-              max={10}
-              value={maxLevel}
-              onChange={(e) => setMaxLevel(Number(e.target.value))}
+              type="text"
+              inputMode="numeric"
+              value={maxLevelStr}
+              onChange={(e) =>
+                setMaxLevelStr(e.target.value.replace(/[^0-9]/g, ""))
+              }
+              placeholder="1–10"
               className="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm"
             />
           </div>
