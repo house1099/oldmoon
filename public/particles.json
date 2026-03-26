@@ -2,13 +2,13 @@
   "autoPlay": true,
   "background": {
     "color": {
-      "value": ""
+      "value": "#f4f5f5"
     },
     "image": "",
     "position": "",
     "repeat": "",
     "size": "",
-    "opacity": 0
+    "opacity": 1
   },
   "backgroundMask": {
     "composite": "destination-out",
@@ -34,8 +34,8 @@
     "detectsOn": "window",
     "events": {
       "onClick": {
-        "enable": false,
-        "mode": {}
+        "enable": true,
+        "mode": "push"
       },
       "onDiv": {
         "selectors": {},
@@ -44,8 +44,8 @@
         "type": "circle"
       },
       "onHover": {
-        "enable": false,
-        "mode": {},
+        "enable": true,
+        "mode": "repulse",
         "parallax": {
           "enable": false,
           "force": 2,
@@ -75,14 +75,16 @@
         "distance": 200
       },
       "bubble": {
-        "distance": 200,
-        "duration": 0.4,
+        "distance": 400,
+        "duration": 2,
         "mix": false,
+        "opacity": 0.8,
+        "size": 40,
         "divs": {
           "distance": 200,
           "duration": 0.4,
           "mix": false,
-          "selectors": []
+          "selectors": {}
         }
       },
       "connect": {
@@ -93,7 +95,7 @@
         "radius": 60
       },
       "grab": {
-        "distance": 100,
+        "distance": 400,
         "links": {
           "blink": false,
           "consent": false,
@@ -123,7 +125,7 @@
           "speed": 1,
           "maxSpeed": 50,
           "easing": "ease-out-quad",
-          "selectors": []
+          "selectors": {}
         }
       },
       "slow": {
@@ -149,7 +151,7 @@
         },
         "shadow": {
           "color": {
-            "value": "#000000"
+            "value": "#d4adad"
           },
           "length": 2000
         }
@@ -187,12 +189,12 @@
       }
     },
     "color": {
-      "value": "#fff",
+      "value": "#ff0000",
       "animation": {
         "h": {
           "count": 0,
           "enable": false,
-          "speed": 20,
+          "speed": 1,
           "decay": 0,
           "delay": 0,
           "sync": true,
@@ -228,7 +230,7 @@
     "move": {
       "angle": {
         "offset": 0,
-        "value": 10
+        "value": 90
       },
       "attract": {
         "distance": 200,
@@ -246,7 +248,7 @@
       },
       "decay": 0,
       "distance": {},
-      "direction": "right",
+      "direction": "none",
       "drift": 0,
       "enable": true,
       "gravity": {
@@ -272,7 +274,7 @@
       },
       "random": false,
       "size": false,
-      "speed": 5,
+      "speed": 2,
       "spin": {
         "acceleration": 0,
         "enable": false
@@ -288,7 +290,7 @@
     },
     "number": {
       "density": {
-        "enable": false,
+        "enable": true,
         "width": 1920,
         "height": 1080
       },
@@ -296,14 +298,17 @@
         "mode": "delete",
         "value": 0
       },
-      "value": 200
+      "value": 80
     },
     "opacity": {
-      "value": 1,
+      "value": {
+        "min": 0.1,
+        "max": 0.5
+      },
       "animation": {
         "count": 0,
-        "enable": false,
-        "speed": 2,
+        "enable": true,
+        "speed": 3,
         "decay": 0,
         "delay": 0,
         "sync": false,
@@ -331,11 +336,14 @@
       "type": "circle"
     },
     "size": {
-      "value": 3,
+      "value": {
+        "min": 0.1,
+        "max": 5
+      },
       "animation": {
         "count": 0,
-        "enable": false,
-        "speed": 5,
+        "enable": true,
+        "speed": 20,
         "decay": 0,
         "delay": 0,
         "sync": false,
@@ -348,8 +356,8 @@
       "width": 0
     },
     "zIndex": {
-      "value": 5,
-      "opacityRate": 0.5,
+      "value": 0,
+      "opacityRate": 1,
       "sizeRate": 1,
       "velocityRate": 1
     },
@@ -397,14 +405,20 @@
     },
     "twinkle": {
       "lines": {
-        "enable": false,
-        "frequency": 0.05,
-        "opacity": 1
+        "enable": true,
+        "frequency": 0.005,
+        "opacity": 1,
+        "color": {
+          "value": "#ff1414"
+        }
       },
       "particles": {
-        "enable": false,
+        "enable": true,
         "frequency": 0.05,
-        "opacity": 1
+        "opacity": 1,
+        "color": {
+          "value": "#242421"
+        }
       }
     },
     "wobble": {
@@ -456,13 +470,13 @@
     "links": {
       "blink": false,
       "color": {
-        "value": "#fff"
+        "value": "#ffffff"
       },
       "consent": false,
-      "distance": 100,
-      "enable": false,
+      "distance": 150,
+      "enable": true,
       "frequency": 1,
-      "opacity": 1,
+      "opacity": 0.4,
       "shadow": {
         "blur": 5,
         "color": {
@@ -493,74 +507,8 @@
   "style": {},
   "themes": [],
   "zLayers": 100,
-  "key": "amongUs",
-  "name": "Among Us",
-  "emitters": {
-    "autoPlay": true,
-    "fill": true,
-    "life": {
-      "wait": false
-    },
-    "rate": {
-      "quantity": 1,
-      "delay": 7
-    },
-    "shape": {
-      "options": {},
-      "replace": {
-        "color": false,
-        "opacity": false
-      },
-      "type": "square"
-    },
-    "startCount": 0,
-    "size": {
-      "mode": "percent",
-      "height": 0,
-      "width": 0
-    },
-    "particles": {
-      "shape": {
-        "type": "images",
-        "options": {
-          "images": {
-            "src": "https://particles.js.org/images/cyan_amongus.png",
-            "width": 500,
-            "height": 634
-          }
-        }
-      },
-      "size": {
-        "value": 40
-      },
-      "move": {
-        "speed": 10,
-        "outModes": {
-          "default": "none",
-          "right": "destroy"
-        },
-        "straight": true
-      },
-      "zIndex": {
-        "value": 0
-      },
-      "rotate": {
-        "value": {
-          "min": 0,
-          "max": 360
-        },
-        "animation": {
-          "enable": true,
-          "speed": 10,
-          "sync": true
-        }
-      }
-    },
-    "position": {
-      "x": -5,
-      "y": 55
-    }
-  },
+  "key": "twinkle",
+  "name": "Twinkle",
   "motion": {
     "disable": true,
     "reduce": {
