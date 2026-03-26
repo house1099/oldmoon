@@ -57,6 +57,7 @@ import type {
   AdvertisementRow,
 } from "@/types/database.types";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
+import { isTavernBanned } from "@/lib/repositories/server/tavern.repository";
 
 type ActionResult<T = void> =
   | { ok: true; data: T }
@@ -110,11 +111,19 @@ export async function getUsersAction(params: {
 
 export async function getUserDetailAction(
   userId: string,
-): Promise<ActionResult<(UserRow & { email: string }) | null>> {
+): Promise<
+  ActionResult<
+    (UserRow & { email: string; tavern_banned: boolean }) | null
+  >
+> {
   try {
     await requireRole(["master", "moderator"]);
     const detail = await findUserDetailById(userId);
-    return { ok: true, data: detail };
+    if (!detail) {
+      return { ok: true, data: null };
+    }
+    const tavern_banned = await isTavernBanned(userId);
+    return { ok: true, data: { ...detail, tavern_banned } };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
   }

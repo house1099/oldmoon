@@ -1,3 +1,5 @@
+import { createClient } from "@/lib/supabase/server";
+import { findProfileById } from "@/lib/repositories/server/user.repository";
 import { getUsersAction } from "@/services/admin.action";
 import UsersClient from "./users-client";
 
@@ -19,5 +21,21 @@ export default async function AdminUsersPage({
   });
   const initialData = result.ok ? result.data : { users: [], total: 0 };
 
-  return <UsersClient initialData={initialData} initialFilter={filter} />;
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let viewerIsMaster = false;
+  if (user) {
+    const p = await findProfileById(user.id);
+    viewerIsMaster = p?.role === "master";
+  }
+
+  return (
+    <UsersClient
+      initialData={initialData}
+      initialFilter={filter}
+      viewerIsMaster={viewerIsMaster}
+    />
+  );
 }

@@ -1,7 +1,8 @@
 /**
  * 與 Supabase `public` schema 對齊的型別（手動維護，請在雲端 Schema 變更後同步更新）。
  * 表：users, exp_logs, likes, alliances（雙人血盟）, conversations, chat_messages, blocks, reports, messages, notifications, ig_change_requests,
- *     admin_actions, moderator_permissions, system_settings, advertisements, ad_clicks, invitation_codes, announcements
+ *     admin_actions, moderator_permissions, system_settings, advertisements, ad_clicks, invitation_codes, announcements,
+ *     tavern_messages, tavern_bans
  */
 
 export type Json =
@@ -816,6 +817,74 @@ export interface Database {
           },
         ];
       };
+      tavern_messages: {
+        Row: {
+          id: string;
+          user_id: string;
+          content: string;
+          type: "text" | "emoji";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          content: string;
+          type: "text" | "emoji";
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          content?: string;
+          type?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tavern_messages_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      tavern_bans: {
+        Row: {
+          id: string;
+          user_id: string;
+          banned_by: string;
+          reason: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          banned_by: string;
+          reason?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          banned_by?: string;
+          reason?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tavern_bans_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "tavern_bans_banned_by_fkey";
+            columns: ["banned_by"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       invitation_codes: {
         Row: {
           id: string;
@@ -891,6 +960,18 @@ export type AdvertisementRow = PublicTables["advertisements"]["Row"];
 export type AdClickRow = PublicTables["ad_clicks"]["Row"];
 export type InvitationCodeRow = PublicTables["invitation_codes"]["Row"];
 export type AnnouncementRow = PublicTables["announcements"]["Row"];
+
+export type TavernMessageRow = PublicTables["tavern_messages"]["Row"];
+export type TavernBanRow = PublicTables["tavern_bans"]["Row"];
+
+export type TavernMessageDto = TavernMessageRow & {
+  user: {
+    id: string;
+    nickname: string;
+    avatar_url: string | null;
+    level: number;
+  };
+};
 
 /** 前端顯示用 DTO（含關聯用戶資料） */
 export type InvitationCodeDto = InvitationCodeRow & {

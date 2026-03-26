@@ -10,4 +10,5 @@ export const SWR_KEYS = {
   /** 至少一則對話有「對方未讀訊息」的對話數 */
   unreadChatConversations: 'unread-chat-conversations',
   notifications: 'notifications',
+  tavernMessages: 'tavern-messages',
 } as const

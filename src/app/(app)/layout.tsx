@@ -1,4 +1,8 @@
 import { AppShellMotion } from "@/components/layout/app-shell-motion";
+import { Navbar } from "@/components/layout/Navbar";
+import { TavernFab } from "@/components/tavern/TavernFab";
+import { TavernMarquee } from "@/components/tavern/TavernMarquee";
+import { GuildTabProvider } from "@/contexts/guild-tab-context";
 import SWRProvider from "@/lib/swr/provider";
 
 export default function AppGroupLayout({
@@ -8,7 +12,12 @@ export default function AppGroupLayout({
 }>) {
   return (
     <SWRProvider>
-      <AppShellMotion>{children}</AppShellMotion>
+      <GuildTabProvider>
+        <TavernMarquee />
+        <AppShellMotion>{children}</AppShellMotion>
+        <Navbar />
+        <TavernFab />
+      </GuildTabProvider>
     </SWRProvider>
   );
 }

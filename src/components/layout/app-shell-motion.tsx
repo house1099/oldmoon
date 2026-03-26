@@ -4,8 +4,6 @@ import type { CSSProperties } from "react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Navbar } from "@/components/layout/Navbar";
-import { GuildTabProvider } from "@/contexts/guild-tab-context";
 
 type SplitStage = "idle" | "closing" | "opening";
 
@@ -56,9 +54,9 @@ export function AppShellMotion({ children }: { children: React.ReactNode }) {
     stage === "closing" ? CLOSE_MS : stage === "opening" ? OPEN_MS : 0;
 
   return (
-    <GuildTabProvider>
+    <>
       <div
-        className="dark min-h-[100dvh] bg-[radial-gradient(ellipse_100%_55%_at_50%_0%,rgba(88,28,135,0.38),#020617_52%)] text-foreground"
+        className="dark min-h-[100dvh] bg-[radial-gradient(ellipse_100%_55%_at_50%_0%,rgba(88,28,135,0.38),#020617_52%)] text-foreground pt-[calc(2rem+env(safe-area-inset-top,0px))]"
         style={{ "--nav-reserve": NAV_BOTTOM_RESERVE } as CSSProperties}
       >
         <div className="relative min-h-[100dvh] pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]">
@@ -70,7 +68,6 @@ export function AppShellMotion({ children }: { children: React.ReactNode }) {
           />
           <div className="relative z-[2] min-h-0">{children}</div>
         </div>
-        <Navbar />
       </div>
 
       {/* 過場雙扇門 — fixed 定位覆蓋整個視口，不受頁面高度影響 */}
@@ -110,6 +107,6 @@ export function AppShellMotion({ children }: { children: React.ReactNode }) {
           }}
         />
       </div>
-    </GuildTabProvider>
+    </>
   );
 }

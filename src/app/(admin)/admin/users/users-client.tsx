@@ -19,6 +19,16 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import Avatar from "@/components/ui/Avatar";
 import type { UserRow } from "@/types/database.types";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   getUsersAction,
   getUserDetailAction,
   banUserAction,
@@ -29,6 +39,10 @@ import {
   getPendingIgRequestsForUserAction,
   reviewIgRequestFromAdminAction,
 } from "@/services/admin.action";
+import {
+  banTavernUserAction,
+  unbanTavernUserAction,
+} from "@/services/tavern.action";
 
 const STATUS_OPTIONS = [
   { value: "", label: "全部狀態" },
@@ -61,9 +75,16 @@ const ROLE_BADGE: Record<string, string> = {
 type Props = {
   initialData: { users: UserRow[]; total: number };
   initialFilter?: string;
+  viewerIsMaster: boolean;
 };
 
-export default function UsersClient({ initialData, initialFilter = "" }: Props) {
+type UserDetail = UserRow & { email: string; tavern_banned: boolean };
+
+export default function UsersClient({
+  initialData,
+  initialFilter = "",
+  viewerIsMaster,
+}: Props) {
   const [users, setUsers] = useState(initialData.users);
   const [total, setTotal] = useState(initialData.total);
   const [page, setPage] = useState(1);
@@ -80,9 +101,7 @@ export default function UsersClient({ initialData, initialFilter = "" }: Props) 
   const didMount = useRef(false);
 
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<
-    (UserRow & { email: string }) | null
-  >(null);
+  const [selectedUser, setSelectedUser] = useState<UserDetail | null>(null);
   const [igRequests, setIgRequests] = useState<
     { id: string; old_handle: string | null; new_handle: string; status: string }[]
   >([]);
@@ -97,6 +116,9 @@ export default function UsersClient({ initialData, initialFilter = "" }: Props) 
   const [showSuspendDialog, setShowSuspendDialog] = useState(false);
   const [showExpDialog, setShowExpDialog] = useState(false);
   const [showRepDialog, setShowRepDialog] = useState(false);
+  const [tavernBanDialogOpen, setTavernBanDialogOpen] = useState(false);
+  const [tavernUnbanDialogOpen, setTavernUnbanDialogOpen] = useState(false);
+  const [tavernBanReason, setTavernBanReason] = useState("");
 
   useEffect(() => {
     if (didMount.current) return;
@@ -263,6 +285,31 @@ export default function UsersClient({ initialData, initialFilter = "" }: Props) 
       refreshDetail(selectedUser.id);
     } else {
       toast.error(result.error);
+    }
+  };
+
+  const handleTavernBan = async () => {
+    if (!selectedUser || !tavernBanReason.trim()) return;
+    try {
+      await banTavernUserAction(selectedUser.id, tavernBanReason.trim());
+      toast.success("已禁止該用戶在酒館發言");
+      setTavernBanDialogOpen(false);
+      setTavernBanReason("");
+      await refreshDetail(selectedUser.id);
+    } catch (e) {
+      toast.error((e as Error).message ?? "操作失敗");
+    }
+  };
+
+  const handleTavernUnban = async () => {
+    if (!selectedUser) return;
+    try {
+      await unbanTavernUserAction(selectedUser.id);
+      toast.success("已恢復該用戶酒館發言權");
+      setTavernUnbanDialogOpen(false);
+      await refreshDetail(selectedUser.id);
+    } catch (e) {
+      toast.error((e as Error).message ?? "操作失敗");
     }
   };
 
@@ -756,6 +803,31 @@ export default function UsersClient({ initialData, initialFilter = "" }: Props) 
                     <Star className="w-4 h-4" />
                     調整信譽分
                   </button>
+
+                  {viewerIsMaster && (
+                    <>
+                      {!selectedUser.tavern_banned ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTavernBanReason("");
+                            setTavernBanDialogOpen(true);
+                          }}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-zinc-100 text-zinc-800 hover:bg-zinc-200 transition-colors"
+                        >
+                          🔇 酒館禁言
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setTavernUnbanDialogOpen(true)}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors"
+                        >
+                          ✅ 解除酒館禁言
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
               </>
             ) : (
@@ -838,6 +910,55 @@ export default function UsersClient({ initialData, initialFilter = "" }: Props) 
           />
         </ActionDialog>
       )}
+
+      <AlertDialog
+        open={tavernBanDialogOpen}
+        onOpenChange={setTavernBanDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>酒館禁言</AlertDialogTitle>
+            <AlertDialogDescription>
+              該用戶將無法在酒館廣場發言，並會收到系統通知。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <textarea
+            value={tavernBanReason}
+            onChange={(e) => setTavernBanReason(e.target.value)}
+            placeholder="請填寫禁言原因..."
+            className="w-full min-h-[80px] px-3 py-2 border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleTavernBan()}
+              disabled={!tavernBanReason.trim()}
+            >
+              確認禁言
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={tavernUnbanDialogOpen}
+        onOpenChange={setTavernUnbanDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>解除酒館禁言？</AlertDialogTitle>
+            <AlertDialogDescription>
+              確認恢復此用戶在酒館廣場的發言權限？
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleTavernUnban()}>
+              確認解除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
