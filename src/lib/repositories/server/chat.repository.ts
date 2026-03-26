@@ -91,8 +91,8 @@ export async function sendMessage(payload: {
     .from("conversations")
     .update({
       last_message: payload.content.slice(0, 50),
-      last_message_sender_id: payload.sender_id,
       last_message_at: new Date().toISOString(),
+      last_message_sender_id: payload.sender_id,
     })
     .eq("id", payload.conversation_id);
 

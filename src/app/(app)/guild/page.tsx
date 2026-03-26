@@ -27,13 +27,25 @@ import { SWR_KEYS } from "@/lib/swr/keys";
 import { createClient } from "@/lib/supabase/client";
 import {
   useConversations,
-  useUnreadChatConversationsCount,
+  useUnreadChatCount,
   useUnreadNotificationCount,
 } from "@/hooks/useChat";
 import { useGuildTabContext } from "@/contexts/guild-tab-context";
 import { getMemberProfileByIdAction } from "@/services/profile.action";
 
 const tabs = ["血盟", "聊天", "信件"] as const;
+
+function GuildTabCountBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-zinc-950"
+      aria-hidden
+    >
+      {count > 9 ? "9+" : count}
+    </span>
+  );
+}
 
 function formatConversationPreview(
   me: string,
@@ -56,7 +68,7 @@ export default function GuildPage() {
   const [tab, setTab] = useState<(typeof tabs)[number]>("血盟");
   const guildTabCtx = useGuildTabContext();
   const { count: unreadNotifCount } = useUnreadNotificationCount();
-  const { count: unreadChatConvCount } = useUnreadChatConversationsCount();
+  const { count: unreadChatConvCount } = useUnreadChatCount();
 
   useEffect(() => {
     guildTabCtx?.setGuildSubTab(tab);
@@ -72,7 +84,7 @@ export default function GuildPage() {
 
   return (
     <div className="min-h-screen bg-zinc-950">
-      <div className="sticky top-0 z-10 border-b border-white/10 bg-zinc-950/90 px-4 py-3 backdrop-blur-xl">
+      <div className="sticky top-0 z-10 border-b border-white/10 bg-zinc-950/90 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top,0px))] backdrop-blur-xl">
         <h1 className="mb-3 text-center text-base font-bold text-white">
           冒險團
         </h1>
@@ -82,6 +94,15 @@ export default function GuildPage() {
               key={t}
               type="button"
               onClick={() => setTab(t)}
+              aria-label={
+                t === "血盟" && pendingCount > 0
+                  ? `血盟，${pendingCount} 筆待確認`
+                  : t === "聊天" && unreadChatConvCount > 0
+                    ? `聊天，${unreadChatConvCount} 個對話有未讀`
+                    : t === "信件" && unreadNotifCount > 0
+                      ? `信件，${unreadNotifCount} 則未讀`
+                      : t
+              }
               className={`relative flex-1 rounded-full py-2 text-xs font-medium transition-all ${
                 tab === t
                   ? "bg-white/15 text-white"
@@ -89,22 +110,14 @@ export default function GuildPage() {
               }`}
             >
               {t}
-              {t === "血盟" && pendingCount > 0 ? (
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">
-                  {pendingCount > 9 ? "9+" : pendingCount}
-                </span>
+              {t === "血盟" ? (
+                <GuildTabCountBadge count={pendingCount} />
               ) : null}
-              {t === "聊天" && unreadChatConvCount > 0 ? (
-                <span
-                  className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-zinc-900"
-                  aria-hidden
-                />
+              {t === "聊天" ? (
+                <GuildTabCountBadge count={unreadChatConvCount} />
               ) : null}
-              {t === "信件" && unreadNotifCount > 0 ? (
-                <span
-                  className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-zinc-900"
-                  aria-hidden
-                />
+              {t === "信件" ? (
+                <GuildTabCountBadge count={unreadNotifCount} />
               ) : null}
             </button>
           ))}
@@ -343,7 +356,11 @@ function ChatList() {
             key={conv.id}
             type="button"
             onClick={() => setActiveConv(conv)}
-            className="glass-panel flex w-full items-center gap-3 p-4 text-left transition-all hover:bg-white/5 active:scale-[0.99]"
+            className={`glass-panel flex w-full items-center gap-3 p-4 text-left transition-all hover:bg-white/5 active:scale-[0.99] ${
+              conv.hasUnreadFromPartner
+                ? "border-rose-500/25 bg-rose-950/15 ring-1 ring-rose-500/20"
+                : ""
+            }`}
           >
             <Avatar
               src={conv.partner?.avatar_url}
@@ -373,10 +390,11 @@ function ChatList() {
               </span>
               {conv.hasUnreadFromPartner ? (
                 <span
-                  className="h-2 w-2 rounded-full bg-rose-500"
+                  className="rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] font-semibold text-rose-200 ring-1 ring-rose-500/35"
                   title="未讀訊息"
-                  aria-label="未讀訊息"
-                />
+                >
+                  未讀
+                </span>
               ) : null}
             </div>
           </button>

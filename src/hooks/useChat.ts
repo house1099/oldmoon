@@ -65,3 +65,6 @@ export function useUnreadChatConversationsCount() {
 
   return { count: data ?? 0, mutate, isLoading }
 }
+
+/** 未讀私訊「對話」數（至少一則對方發送且未讀）；等同 {@link useUnreadChatConversationsCount}。 */
+export const useUnreadChatCount = useUnreadChatConversationsCount

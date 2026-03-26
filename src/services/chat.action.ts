@@ -134,9 +134,19 @@ export async function getMyConversationsAction(): Promise<
       conversations.map(async (conv) => {
         const partnerId =
           conv.user_a === user.id ? conv.user_b : conv.user_a;
-        const partner = await findProfileById(partnerId);
+        let partner: UserRow | null = null;
+        try {
+          partner = await findProfileById(partnerId);
+        } catch (err) {
+          console.error(
+            "getMyConversationsAction: findProfileById failed",
+            partnerId,
+            err,
+          );
+        }
         return {
           ...conv,
+          last_message_at: conv.last_message_at ?? "",
           partner,
           hasUnreadFromPartner: unreadSet.has(conv.id),
         };

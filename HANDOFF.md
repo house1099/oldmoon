@@ -17,7 +17,7 @@
 - **Layer 1（連線）**：Supabase Client／Server／Admin 已完備。
 - **Layer 2（資料）**：`user.repository.ts`（含 **`updateLastCheckinAt`**）、`exp.repository.ts` 支援 **`total_exp`**（SSOT）；**`chat.repository.ts`**（**`conversations`**／**`chat_messages`**／**`blocks`**／**`reports`**，admin，供私訊／封鎖／檢舉接線）。
 - **Layer 3（業務）**：`daily-checkin.action.ts` 之 **`claimDailyCheckin`** 以 **`users.last_checkin_at`** 為簽到 **24h 滾動冷卻** SSOT；**`exp_logs.unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**；**`chat.action.ts`**（開啟對話／訊息／列表／封鎖／檢舉）、**`notification.action.ts`**（通知列表／已讀／清除／未讀數）。
-- **Layer 4（狀態／常數）**：`levels.ts`（門檻 0〜1350）、Zod 驗證已就緒；**`date.ts`** 之 **`taipeiCalendarDateKey()`** 仍為全系統**日曆日** SSOT（簽到冷卻**不再**依此判斷）；**`useChat.ts`** — **`useConversations`**／**`useMessages`**、**`useUnreadNotificationCount`**（**`SWR_KEYS.conversations`**／**`messages(id)`**／**`unreadNotifications`**）。
+- **Layer 4（狀態／常數）**：`levels.ts`（門檻 0〜1350）、Zod 驗證已就緒；**`date.ts`** 之 **`taipeiCalendarDateKey()`** 仍為全系統**日曆日** SSOT（簽到冷卻**不再**依此判斷）；**`useChat.ts`** — **`useConversations`**／**`useMessages`**、**`useUnreadNotificationCount`**、**`useUnreadChatConversationsCount`**／**`useUnreadChatCount`**（別名，**`SWR_KEYS.unreadChatConversations`**；**`SWR_KEYS.conversations`**／**`messages(id)`**／**`unreadNotifications`**）。
 - **Layer 5（UI）**：**`Navbar.tsx`**（五項 **lucide** 圖示底欄：**Home／Compass／Swords／Heart／ShoppingBag**）、**`LevelFrame.tsx`**、**`UserCard`**、**`UserCardSkeleton`**（市集列表首次載入）、**`/explore`**（**Server Component** 預載村莊；**`ExploreClient`** 頂部 **safe-area**、村莊＋市集 **tab**、**市集 `useSWR`（query key + `keepPreviousData`）**＋**`hidden`／`block` 切 tab 不 unmount**）、**`/guild`**（**`hidden` 切 tab**；**血盟** **`AllianceList`**＋**pending 角標**；**聊天** **`useConversations`**＋**`ChatModal`**；**信件** **`SWR_KEYS.notifications`**＋**`useUnreadNotificationCount`** 紅點；血盟列點擊 **`getOrCreateConversationAction`** 開聊）、**`UserDetailModal`** 內 **`ChatModal`**（私訊＋Realtime＋檢舉）、**`/matchmaking`**／**`/shop`**（預留）。
 
 ### 📈 開發進度
@@ -89,7 +89,7 @@
 || 管理員常數 | **src/lib/constants/admin-permissions.ts** |
 | 個人頁 EXP 紀錄 | `src/services/exp-logs.action.ts`（**`getMyRecentExpLogsAction`**）→ **`exp.repository`** **`findRecentExpLogsForUser`** |
 | 首頁個人頁 UI | `src/app/(app)/page.tsx`（**`'use client'`**、**`useMyProfile`** SWR + **`HomePageSkeleton`**） → `src/components/profile/guild-profile-home.tsx` |
-| SWR：聊天／未讀通知 | **`src/hooks/useChat.ts`** — **`useConversations`**、**`useMessages`**、**`useUnreadNotificationCount`**、**`useUnreadChatConversationsCount`**（**`SWR_KEYS.unreadChatConversations`**） |
+| SWR：聊天／未讀通知 | **`src/hooks/useChat.ts`** — **`useConversations`**、**`useMessages`**、**`useUnreadNotificationCount`**、**`useUnreadChatConversationsCount`**／**`useUnreadChatCount`**（別名；**`SWR_KEYS.unreadChatConversations`**；Layer 3 **`getUnreadChatConversationsCountAction`**） |
 | 頭像裁切＋Cloudinary | **`react-easy-crop`** 全螢幕裁切；**`src/lib/utils/cropImage.ts`**（**`getCroppedImg`**）；**`src/lib/utils/cloudinary.ts`**（**`uploadAvatarToCloudinary`**）→ **`updateMyProfile({ avatar_url })`**（**禁止** **`supabase.storage`** 上傳頭像）；**顯示** **`src/components/ui/Avatar.tsx`**（**`next/image`** + Cloudinary **`/upload/w_{2×size},h_{2×size},c_fill,q_auto,f_auto/`**；**`next.config.mjs`** **`images.remotePatterns`**：**`res.cloudinary.com`**） |
 | 底部導航 | **`src/components/layout/Navbar.tsx`**（**五項 lucide**；**冒險團**圖示：**有未讀信件或私訊時** **紅點**＋**玫瑰發光**；在 **`/guild` 且子 tab 為「聊天」** 時不計入私訊未讀以免重複提示，**信件未讀仍顯示**） |
 | 探索（村莊＋市集） | **`explore/page.tsx`**（**Server**：**`getVillageUsersAction`** 預載村莊）；**`ExploreClient.tsx`**（**`useSWR`** **`SWR_KEYS.villageUsers`** ＋ **`fallbackData`／`revalidateOnMount: false`**；市集 **`SWR_KEYS.marketUsers(query)`**、**`keepPreviousData`**；**`hidden`／`block`** 切 tab）；市集初次 **`isLoading`** 時 **6×`UserCardSkeleton`** |
@@ -763,7 +763,13 @@ Phase 4 — 市集搜尋快取
 - **Layer 5 — `UserDetailModal`**：**Instagram** **https** 外連按鈕（**`lib/utils/instagram.ts`**）。
 - **Layer 5 — `ChatModal`**：**SWR** 同步 **`conversations`／`unreadChatConversations`**（送出、讀取後、Realtime）。
 
-*最後更新：2026-03-25 — **冒險團私訊 UX**（預覽、未讀、底欄／tab 紅點、血盟 **`UserDetailModal`**、IG https、**`last_message_sender_id`**）；併：血盟／通知**分開查詢**、通知欄位 **`type`／`from_user_id`**、**`console.error`** 診斷、**ChatModal Realtime**、**useChat**＋**SWR_KEYS** 等。*
+### 2026-03-26 — `conversations` 最後訊息欄位、`useUnreadChatCount`、底欄未讀合計語意
+
+- **🗄️**：**`public.conversations.last_message_sender_id`**（最後一則發送者 uuid，列表 **你：／對方：**）；遷移 **`supabase/migrations/20260325230000_conversations_last_message_sender.sql`**（雲端若尚未執行請補）。
+- **Layer 2 — `chat.repository.ts`**：**`sendMessage`** 更新對話列時寫入 **`last_message`**、**`last_message_at`**、**`last_message_sender_id`**（**`payload.sender_id`**）。
+- **Layer 4 — `useChat.ts`**：新增 **`useUnreadChatCount`**，為 **`useUnreadChatConversationsCount`** 之**別名**（同一 **SWR key**：**`SWR_KEYS.unreadChatConversations`**；仍由 **`getUnreadChatConversationsCountAction`** → **`countConversationsWithUnreadFromOthers`**，**未**另建 **`getUnreadChatCountAction`** 以免重複邏輯）。
+- **Layer 5 — `guild/page.tsx`**：**`/guild`** 頂部「聊天」tab 角標使用 **`useUnreadChatCount()`**（與先前 **`useUnreadChatConversationsCount`** 行為相同）。
+- **Layer 5 — `Navbar.tsx`**：**冒險團**圖示紅點／發光條件為 **`(信件未讀 + 私訊未讀對話數)`**（在 **`/guild`** 對應子分頁時略過同類重複提示）**或** **待確認血盟**（在血盟分頁時略過 pending 角標）。
 
 ### 2026-03-26 — 管理員後台 Wave 1
 
