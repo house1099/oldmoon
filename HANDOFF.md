@@ -116,7 +116,7 @@
 || 管理員常數 | **src/lib/constants/admin-permissions.ts** |
 | 個人頁 EXP 紀錄 | `src/services/exp-logs.action.ts`（**`getMyRecentExpLogsAction`**）→ **`exp.repository`** **`findRecentExpLogsForUser`** |
 | 首頁個人頁 UI | `src/app/(app)/page.tsx`（**`'use client'`**、**`useMyProfile`** SWR + **`HomePageSkeleton`**） → `src/components/profile/guild-profile-home.tsx`（**公告上方**：**banner 輪播**；**公告區塊**（**滿版垂直堆疊**、**`line-clamp-2`＋「⋯ 展開」**、整卡 **Dialog**）；**今日心情下方**：**card 贊助橫滑**（最多 3 則、固定卡尺寸；點擊開連結並 **`recordAdClickAction`**）） |
-| 頁面切換「開門」過場 | **`src/components/layout/app-shell-motion.tsx`**：**`pathname` 變更**時**單片全幅** **`splash.png`**（**`bg-cover` `bg-center`**，**不**左右切半）；**由下往上**滑入蓋版（**150ms**）→ 停 **150ms** → **向上滑出消失**（**1.8s**）；遮罩 **`z-30`**、**`bottom: var(--nav-reserve)`** 不蓋 **`Navbar`（`z-40`）**；**`closeArmed`** + **雙 `requestAnimationFrame`** 避免從待命態橫掃；**`idle`** 用 **`opacity-0`** 重置位置不閃爍。 |
+| 頁面切換「開門」過場 | **`src/components/layout/app-shell-motion.tsx`**：**`pathname` 變更**時**上下對開**（**`public/images/splash.png`**：上／下各 **`h-1/2`**，**`backgroundSize: 100% 200%`**、**`center top`／`center bottom`**，接縫在圖垂直中線／**X**，**不用 `cover`** 以免首頁與他頁裁切不一致）；**關** 上滑下＋下滑上 **150ms** → 停 **150ms** → **開** 上往上、下往下 **1.8s**；區域 **`bottom: var(--nav-reserve)`**、**`z-30`**，不蓋 **`Navbar`（`z-40`）**。 |
 | SWR：聊天／未讀通知 | **`src/hooks/useChat.ts`** — **`useConversations`**、**`useMessages`**、**`useUnreadNotificationCount`**、**`useUnreadChatConversationsCount`**／**`useUnreadChatCount`**（別名；**`SWR_KEYS.unreadChatConversations`**；Layer 3 **`getUnreadChatConversationsCountAction`**） |
 | 頭像裁切＋Cloudinary | **`react-easy-crop`** 全螢幕裁切；**`src/lib/utils/cropImage.ts`**（**`getCroppedImg`**）；**`src/lib/utils/cloudinary.ts`**（**`uploadAvatarToCloudinary`**）→ **`updateMyProfile({ avatar_url })`**（**禁止** **`supabase.storage`** 上傳頭像）；**顯示** **`src/components/ui/Avatar.tsx`**（**`next/image`** + Cloudinary **`/upload/w_{2×size},h_{2×size},c_fill,q_auto,f_auto/`**；**`next.config.mjs`** **`images.remotePatterns`**：**`res.cloudinary.com`**） |
 | 底部導航 | **`src/components/layout/Navbar.tsx`**（**五項 lucide**；**冒險團**圖示：**有未讀信件或私訊時** **紅點**＋**玫瑰發光**；在 **`/guild` 且子 tab 為「聊天」** 時不計入私訊未讀以免重複提示，**信件未讀仍顯示**） |
@@ -218,7 +218,7 @@
 | **Layer 2** 資料 | `src/lib/repositories/server/` | ✅ `user.repository.ts`（`findProfileById`、`createProfile`、**`findActiveUsers`**、**`findVillageUsers`**、**`findMarketUsers`**、**`updateLastCheckinAt`**）、`exp.repository.ts`（admin）；`client/` 尚空 |
 | **Layer 3** 業務 | `src/services/` | ✅ **`village.service.ts`**、**`market.service.ts`**（快取如前）；✅ **`profile.action.ts`**（**`getMyProfileAction`**） |
 | **Layer 4** 狀態 | `src/hooks/`、`src/lib/swr/`、`src/store/`、`src/lib/constants/`、`src/lib/validation/`、`src/lib/utils/` | ✅ **`useMyProfile`**（**SWR** **`profile`** key）；✅ **`useChat.ts`**：**`useConversations`**、**`useMessages`**、**`useUnreadNotificationCount`**；✅ **`SWR_KEYS`**（含 **`conversations`**／**`messages`**／**`unreadNotifications`**／**`notifications`**）、**`SWRProvider`**；⏳ **Zustand** 尚未實作；✅ **常數、Zod schema、forbidden-words**；✅ **`date.ts`**（台灣日界 SSOT）；✅ **`matching.ts`**（性向／興趣／技能分數） |
-| **Layer 5** UI | `src/components/*`、`src/app/*` | ✅ shadcn；**`Navbar`**（五欄底欄）、**`AppShellMotion`**（**`pathname` 簾幕**：由下往上蓋／再向上消失）、**`/explore`**（**`ExploreClient`**）、**`/guild`**、**`/matchmaking`**、**`/shop`**、**`UserCard`**、**`LevelFrame`**、個人頁與認證殼 |
+| **Layer 5** UI | `src/components/*`、`src/app/*` | ✅ shadcn；**`Navbar`**（五欄底欄）、**`AppShellMotion`**（**`pathname`** 上下對開 **`splash`**、**`100% 200%`** 半圖）、**`/explore`**（**`ExploreClient`**）、**`/guild`**、**`/matchmaking`**、**`/shop`**、**`UserCard`**、**`LevelFrame`**、個人頁與認證殼 |
 
 **規則重申**：UI 不得直連 Supabase／SQL；僅 Layer 1 建立 client；寫入 `exp_logs` 等應經 Layer 2 → Layer 3。
 
@@ -717,7 +717,7 @@ Phase 4 — 市集搜尋快取
 ### 2026-03-26 — 首頁公告滿版垂直堆疊 + 路由「開門」過場（splash 雙扇 → 簾幕由下往上）
 
 - **Layer 5 — `guild-profile-home.tsx`**：公告改 **`w-full`** 垂直列表；置頂／一般樣式與 **`line-clamp-2`＋「⋯ 展開」**（截斷偵測）；整卡開 **Dialog**。
-- **Layer 5 — `app-shell-motion.tsx`**：（**後續**）改**單片簾幕**：**`pathname` 變更** → **由下往上**滑入（**150ms**）→ 停 **150ms** → **向上滑出消失**（**1.8s**）；**`splash` 全幅 `cover`**，**不**左右切半；**`z-30`**、**`--nav-reserve`**、**`closeArmed` 雙 rAF**、**`idle` `opacity-0` 重置**。
+- **Layer 5 — `app-shell-motion.tsx`**：（**後續**）改**上下對開**：**`pathname` 變更** → 上／下扇合屏（**150ms**）→ 停 **150ms** → 上往上、下往下滑出（**1.8s**）；**`splash`** **`backgroundSize: 100% 200%`** + **`center top`／`bottom`**（**X** 中線接縫、各頁一致）；**`z-30`**、**`--nav-reserve`**。
 - **Layer 3 — `notification.action.ts`**：**`getMyNotificationsAction`** 移除 **`unstable_cache`**，改直接 **`loadNotificationsForUser`**（改善 **`/guild` 信件** SWR 首包體感）。
 - **Layer 5 — `guild/page.tsx` `MailBox`**：**`revalidateOnFocus: false`**、**`dedupingInterval: 3000`**。
 
@@ -879,4 +879,4 @@ Phase 4 — 市集搜尋快取
 - **前台公告區塊**（`guild-profile-home.tsx` 頁面最頂部）：置頂 **`w-full`**（**`rounded-2xl`**、**`px-4 py-3`**、**`bg-amber-950/40 border-amber-500/30`**）；一般公告 **`w-full`**（**`rounded-xl`**、**`px-4 py-3`**、**`bg-zinc-900/50 border-zinc-700/30`**），多則 **`space-y-2` 垂直堆疊**（**不**橫滑）；內文 **`line-clamp-2`**，截斷時 **「⋯ 展開」**；**點整卡**開 **Dialog**（完整內容＋圖片）；無公告時完全不顯示。
 - **前台廣告區塊**（`guild-profile-home.tsx` 今日心情下方）：**`贊助`** 小標＋橫向滑動 card 廣告（**`min-w-[240px]`**，圖片 `h-32 object-cover`＋標題＋說明）；點擊開連結 + 靜默 **`recordAdClickAction`**；無廣告時完全不顯示。
 
-*最後更新：2026-03-26 — **路由簾幕**改**由下往上**（非左右切半）；**開門 1.8s**、不遮底欄；**信件**／**公告**等見上。*
+*最後更新：2026-03-26 — **`splash` 上下對開**（**`100% 200%`** 半圖、**X** 中線）；**開門 1.8s**、不遮底欄；**信件**／**公告**等見上。*

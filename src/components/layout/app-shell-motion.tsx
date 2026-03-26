@@ -7,33 +7,32 @@ import { cn } from "@/lib/utils";
 import { Navbar } from "@/components/layout/Navbar";
 import { GuildTabProvider } from "@/contexts/guild-tab-context";
 
-type CurtainStage = "idle" | "closing" | "opening";
+type SplitStage = "idle" | "closing" | "opening";
 
-/** 與 **`Navbar` fixed** 預留、`app-shell` **`pb-[calc(5.25rem+…)]`** 一致；遮罩下緣不進入底欄區。 */
+/** 與 **`Navbar` fixed** 預留、`app-shell` **`pb-[calc(5.25rem+…)]`** 一致。 */
 const NAV_BOTTOM_RESERVE =
   "calc(5.25rem + env(safe-area-inset-bottom, 0px))" as const;
 
-/** 由下往上滑入蓋版 ms + 等待 ms + 向上滑出消失 ms */
+/** 上下合屏 ms + 等待 ms + 上下滑出 ms（全站 **`pathname`** 同一套）。 */
 const CLOSE_MS = 150;
 const HOLD_MS = 150;
 const OPEN_MS = 1800;
 const OPEN_AT_MS = CLOSE_MS + HOLD_MS;
 const IDLE_AT_MS = OPEN_AT_MS + OPEN_MS;
 
+const splashBg: CSSProperties = {
+  backgroundImage: "url(/images/splash.png)",
+  backgroundRepeat: "no-repeat",
+  /** 半高面板 × 200% 高 = 整張圖等比例鋪滿兩扇，接縫在垂直中線（X），各頁一致、不依賴 cover 裁切。 */
+  backgroundSize: "100% 200%",
+};
+
 export function AppShellMotion({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [stage, setStage] = useState<CurtainStage>("idle");
-  /** 關閉段：先置於畫面下緣外，下一幀再滑入（不從中線左右切）。 */
-  const [closeArmed, setCloseArmed] = useState(false);
+  const [stage, setStage] = useState<SplitStage>("idle");
 
   useEffect(() => {
-    setCloseArmed(false);
     setStage("closing");
-
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => setCloseArmed(true));
-    });
 
     const openTimer = window.setTimeout(() => {
       setStage("opening");
@@ -41,37 +40,30 @@ export function AppShellMotion({ children }: { children: React.ReactNode }) {
 
     const idleTimer = window.setTimeout(() => {
       setStage("idle");
-      setCloseArmed(false);
     }, IDLE_AT_MS);
 
     return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
       window.clearTimeout(openTimer);
       window.clearTimeout(idleTimer);
     };
   }, [pathname]);
 
-  const curtainClass = cn(
-    "absolute inset-x-0 top-0 z-30 bg-black bg-cover bg-center bg-no-repeat will-change-transform",
-    "bottom-[var(--nav-reserve)] transition-transform",
-    stage === "idle" &&
-      "pointer-events-none translate-y-full opacity-0 [transition-duration:0ms]",
-    stage === "closing" &&
-      !closeArmed &&
-      "translate-y-full opacity-0 [transition-duration:0ms]",
-    stage === "closing" &&
-      closeArmed &&
-      "translate-y-0 opacity-100 duration-150 ease-in",
-    stage === "opening" && "-translate-y-full opacity-100 ease-in-out",
+  const transitionMs =
+    stage === "closing" ? CLOSE_MS : stage === "opening" ? OPEN_MS : 0;
+
+  const topClass = cn(
+    "absolute left-0 right-0 top-0 z-30 h-1/2 bg-black will-change-transform transition-transform",
+    stage === "idle" && "-translate-y-full pointer-events-none",
+    stage === "closing" && "translate-y-0 ease-in",
+    stage === "opening" && "-translate-y-full ease-in-out",
   );
 
-  const transitionMs =
-    stage === "closing" && closeArmed
-      ? CLOSE_MS
-      : stage === "opening"
-        ? OPEN_MS
-        : 0;
+  const bottomClass = cn(
+    "absolute bottom-0 left-0 right-0 z-30 h-1/2 bg-black will-change-transform transition-transform",
+    stage === "idle" && "translate-y-full pointer-events-none",
+    stage === "closing" && "translate-y-0 ease-in",
+    stage === "opening" && "translate-y-full ease-in-out",
+  );
 
   return (
     <GuildTabProvider>
@@ -81,14 +73,31 @@ export function AppShellMotion({ children }: { children: React.ReactNode }) {
       >
         <div className="relative min-h-screen overflow-hidden pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]">
           <div
-            className={curtainClass}
-            style={{
-              backgroundImage: "url(/images/splash.png)",
-              transitionDuration:
-                transitionMs > 0 ? `${transitionMs}ms` : undefined,
-            }}
+            className={cn(
+              "pointer-events-none absolute inset-x-0 top-0 bottom-[var(--nav-reserve)]",
+              stage !== "idle" && "pointer-events-auto",
+            )}
             aria-hidden
-          />
+          >
+            <div
+              className={topClass}
+              style={{
+                ...splashBg,
+                backgroundPosition: "center top",
+                transitionDuration:
+                  transitionMs > 0 ? `${transitionMs}ms` : undefined,
+              }}
+            />
+            <div
+              className={bottomClass}
+              style={{
+                ...splashBg,
+                backgroundPosition: "center bottom",
+                transitionDuration:
+                  transitionMs > 0 ? `${transitionMs}ms` : undefined,
+              }}
+            />
+          </div>
           <div className="relative z-0">{children}</div>
         </div>
         <Navbar />
