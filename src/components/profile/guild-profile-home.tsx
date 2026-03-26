@@ -690,37 +690,18 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           ) : null}
         </div>
 
-        <div className="relative">
-          <textarea
-            value={moodInput}
-            onChange={(e) => setMoodInput(e.target.value)}
-            onFocus={handleIosTextareaFocus}
-            placeholder="今天的心情是..."
-            maxLength={50}
-            rows={2}
-            className={cn(
-              IOS_TEXTAREA_CLASS,
-              !isMoodActive(moodAt) &&
-                !moodInput.trim() &&
-                "text-transparent caret-zinc-100",
-            )}
-            aria-describedby={
-              !isMoodActive(moodAt) && !moodInput.trim()
-                ? "mood-nudge-hint"
-                : undefined
-            }
-          />
-          {!isMoodActive(moodAt) && !moodInput.trim() ? (
-            <div
-              id="mood-nudge-hint"
-              className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl border border-white/5 bg-zinc-900/40 px-4 py-3"
-            >
-              <p className="text-center text-sm leading-snug text-zinc-500">
-                趕快填寫今日心情喔！
-              </p>
-            </div>
-          ) : null}
-        </div>
+        <textarea
+          value={moodInput}
+          onChange={(e) => setMoodInput(e.target.value)}
+          onFocus={handleIosTextareaFocus}
+          placeholder="今天的心情是..."
+          maxLength={50}
+          rows={2}
+          className={cn(
+            IOS_TEXTAREA_CLASS,
+            "border-violet-500/20 py-2.5 focus:border-violet-400/50",
+          )}
+        />
 
         <div className="flex items-center justify-between">
           <span className="text-xs text-zinc-600">{moodInput.length}/50</span>

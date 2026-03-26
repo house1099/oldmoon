@@ -16,6 +16,7 @@ import type { ConversationListItemDto } from "@/services/chat.action";
 import {
   getMyNotificationsAction,
   markAllNotificationsReadAction,
+  markNotificationReadAction,
   clearAllNotificationsAction,
 } from "@/services/notification.action";
 import type { NotificationListItem } from "@/services/notification.action";
@@ -32,6 +33,14 @@ import {
 } from "@/hooks/useChat";
 import { useGuildTabContext } from "@/contexts/guild-tab-context";
 import { getMemberProfileByIdAction } from "@/services/profile.action";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 const tabs = ["血盟", "聊天", "信件"] as const;
 
@@ -435,6 +444,39 @@ const NOTIF_TYPE_LABEL: Record<string, string> = {
   system: "📢 系統通知",
 };
 
+function formatNotificationTimeTaipei(iso: string): string {
+  return new Intl.DateTimeFormat("zh-TW", {
+    timeZone: "Asia/Taipei",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(iso));
+}
+
+function notificationDetailDescription(
+  notif: NotificationListItem,
+): string {
+  const nick = notif.fromUser?.nickname?.trim() || "對方";
+  switch (notif.type) {
+    case "like":
+      return `💘 ${nick} 對你送出了緣分`;
+    case "alliance_request":
+      return `⚔️ ${nick} 向你申請血盟`;
+    case "alliance_accepted":
+      return `🎉 ${nick} 接受了你的血盟申請`;
+    case "system":
+      return (notif.message ?? "").trim();
+    default:
+      return (
+        (notif.message ?? "").trim() ||
+        NOTIF_TYPE_LABEL[notif.type] ||
+        ""
+      );
+  }
+}
+
 function MailBox() {
   const { mutate: mutateGlobal } = useSWRConfig();
   const { data: notifications, isLoading, mutate } = useSWR(
@@ -442,6 +484,28 @@ function MailBox() {
     () => getMyNotificationsAction(),
     { revalidateOnFocus: true },
   );
+  const [detailNotif, setDetailNotif] =
+    useState<NotificationListItem | null>(null);
+  const [notifProfileUser, setNotifProfileUser] = useState<UserRow | null>(
+    null,
+  );
+  const [notifProfileLoading, setNotifProfileLoading] = useState(false);
+
+  function handleNotificationDialogOpenChange(open: boolean) {
+    if (open) return;
+    setDetailNotif((current) => {
+      if (current && current.is_read === false) {
+        void (async () => {
+          const r = await markNotificationReadAction(current.id);
+          if (r.ok) {
+            await mutate();
+            void mutateGlobal(SWR_KEYS.unreadNotifications);
+          }
+        })();
+      }
+      return null;
+    });
+  }
 
   async function handleMarkAllRead() {
     const r = await markAllNotificationsReadAction();
@@ -511,9 +575,11 @@ function MailBox() {
             const actionText =
               NOTIF_TYPE_LABEL[notif.type] ?? notif.message ?? "";
             return (
-              <div
+              <button
                 key={notif.id}
-                className={`glass-panel flex items-center gap-3 p-4 transition-all ${
+                type="button"
+                onClick={() => setDetailNotif(notif)}
+                className={`glass-panel flex w-full cursor-pointer items-center gap-3 p-4 text-left transition-all ${
                   isUnread ? "border-violet-500/30 bg-violet-950/20" : ""
                 }`}
               >
@@ -541,11 +607,87 @@ function MailBox() {
                 {isUnread ? (
                   <div className="h-2 w-2 shrink-0 rounded-full bg-violet-500" />
                 ) : null}
-              </div>
+              </button>
             );
           })}
         </div>
       )}
+
+      <Dialog
+        open={detailNotif !== null}
+        onOpenChange={handleNotificationDialogOpenChange}
+      >
+        {detailNotif ? (
+          <DialogContent
+            overlayClassName="z-[200]"
+            className="z-[210] max-w-[calc(100%-2rem)] gap-0 border-zinc-800 bg-zinc-950 p-0 text-zinc-100 sm:max-w-md"
+            showCloseButton
+          >
+            <DialogHeader className="border-b border-white/10 px-4 pb-3 pt-4">
+              <DialogTitle className="text-base font-semibold text-white">
+                通知詳情
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 px-4 py-4">
+              <div className="flex items-center gap-3">
+                <Avatar
+                  src={detailNotif.fromUser?.avatar_url}
+                  nickname={detailNotif.fromUser?.nickname}
+                  size={48}
+                />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-white">
+                    {detailNotif.fromUser?.nickname ?? "系統"}
+                  </p>
+                  <p className="text-xs text-zinc-500">
+                    {formatNotificationTimeTaipei(detailNotif.created_at)}
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm leading-relaxed text-zinc-200">
+                {notificationDetailDescription(detailNotif) || "—"}
+              </p>
+            </div>
+            <DialogFooter className="flex-col gap-2 border-t border-white/10 bg-zinc-950/80 px-4 py-4 sm:flex-col">
+              {detailNotif.from_user_id ? (
+                <Button
+                  type="button"
+                  disabled={notifProfileLoading}
+                  className="w-full rounded-full bg-violet-600 text-white hover:bg-violet-500"
+                  onClick={async () => {
+                    if (!detailNotif.from_user_id) return;
+                    setNotifProfileLoading(true);
+                    try {
+                      const profile = await getMemberProfileByIdAction(
+                        detailNotif.from_user_id,
+                      );
+                      if (!profile) {
+                        toast.error("無法載入對方資料");
+                        return;
+                      }
+                      setNotifProfileUser(profile);
+                    } finally {
+                      setNotifProfileLoading(false);
+                    }
+                  }}
+                >
+                  {notifProfileLoading ? "載入中…" : "查看對方資料"}
+                </Button>
+              ) : null}
+            </DialogFooter>
+          </DialogContent>
+        ) : null}
+      </Dialog>
+
+      {notifProfileUser ? (
+        <UserDetailModal
+          user={notifProfileUser}
+          open
+          onOpenChange={(open) => {
+            if (!open) setNotifProfileUser(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

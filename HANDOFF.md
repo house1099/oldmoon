@@ -16,7 +16,7 @@
 
 - **Layer 1（連線）**：Supabase Client／Server／Admin 已完備。
 - **Layer 2（資料）**：`user.repository.ts`（含 **`updateLastCheckinAt`**）、`exp.repository.ts` 支援 **`total_exp`**（SSOT）；**`chat.repository.ts`**（**`conversations`**／**`chat_messages`**／**`blocks`**／**`reports`**，admin，供私訊／封鎖／檢舉接線）。
-- **Layer 3（業務）**：`daily-checkin.action.ts` 之 **`claimDailyCheckin`** 以 **`users.last_checkin_at`** 為簽到 **24h 滾動冷卻** SSOT；**`exp_logs.unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**；**`chat.action.ts`**（開啟對話／訊息／列表／封鎖／檢舉）、**`notification.action.ts`**（通知列表／已讀／清除／未讀數）。
+- **Layer 3（業務）**：`daily-checkin.action.ts` 之 **`claimDailyCheckin`** 以 **`users.last_checkin_at`** 為簽到 **24h 滾動冷卻** SSOT；**`exp_logs.unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**；**`chat.action.ts`**（開啟對話／訊息／列表／封鎖／檢舉）、**`notification.action.ts`**（通知列表／**`markNotificationReadAction`** 單筆已讀／**`markAllNotificationsReadAction`**／清除／未讀數）。
 - **Layer 4（狀態／常數）**：`levels.ts`（門檻 0〜1350）、Zod 驗證已就緒；**`date.ts`** 之 **`taipeiCalendarDateKey()`** 仍為全系統**日曆日** SSOT（簽到冷卻**不再**依此判斷）；**`useChat.ts`** — **`useConversations`**／**`useMessages`**、**`useUnreadNotificationCount`**、**`useUnreadChatConversationsCount`**／**`useUnreadChatCount`**（別名，**`SWR_KEYS.unreadChatConversations`**；**`SWR_KEYS.conversations`**／**`messages(id)`**／**`unreadNotifications`**）。
 - **Layer 5（UI）**：**`Navbar.tsx`**（五項 **lucide** 圖示底欄：**Home／Compass／Swords／Heart／ShoppingBag**）、**`LevelFrame.tsx`**、**`UserCard`**、**`UserCardSkeleton`**（市集列表首次載入）、**`/explore`**（**Server Component** 預載村莊；**`ExploreClient`** 頂部 **safe-area**、村莊＋市集 **tab**、**市集 `useSWR`（query key + `keepPreviousData`）**＋**`hidden`／`block` 切 tab 不 unmount**）、**`/guild`**（**`hidden` 切 tab**；**血盟** **`AllianceList`**＋**pending 角標**；**聊天** **`useConversations`**＋**`ChatModal`**；**信件** **`SWR_KEYS.notifications`**＋**`useUnreadNotificationCount`** 紅點；血盟列點擊 **`getOrCreateConversationAction`** 開聊）、**`UserDetailModal`** 內 **`ChatModal`**（私訊＋Realtime＋檢舉）、**`/matchmaking`**／**`/shop`**（預留）。
 
@@ -26,11 +26,17 @@
 - [x] **Phase 2.1（核心已交付）**：探索 **Tab「興趣村莊」** 同縣市＋**性向雙向篩選**＋**興趣分數**排序、列表卡僅興趣（最多 3 +N）；**Tab「技能市集」** 全台＋**互補／同好分數**、**Perfect Match** 仍優先、**`getMarketUsersAction`** 搜尋；入口 **`/explore`**（**Server** 預載村莊；**`ExploreClient`** 以 **`useSWR`** 綁村莊／市集 **Server Action**；**tab 以 `hidden` 切換不重打列表**）；**`village.service`** **`unstable_cache` 30s**、**`market.service`** 基礎列表 **60s**、**`getCachedMySkills`（60s，`profileCacheTag`）** 避免每次搜尋重查自己技能、**關鍵字篩選在列表快取回傳後**；舊 **`/village`**／**`/market`** → **`redirect('/explore')`**；Layer 2 **`findVillageUsers`**／**`findMarketUsers`**；Layer 4 **`matching.ts`**。可持續打磨 UX／RLS。
 - [ ] **Phase 2.2（進行中）**：**Likes** 已接線；**雙人血盟**（**`public.alliances`**：`user_a`／`user_b`／`initiated_by`）UI 與 Layer 2／3 已接線；詳情 Modal 血盟四態＋IG 解鎖；**`/guild`** 血盟列表與 tab 徽章；**RLS** 可後補。
 
+### 前台 Bug 修復紀錄（2026-03-26）
+
+1. **`UserDetailModal` IG 區塊**：顯示條件 SSOT — 僅在 **`instagram_handle` 有值** 且（**`ig_public === true`** 或 **血盟 `allianceStatus === 'accepted'`**）時渲染；**`ig_public === false` 且非血盟**時不顯示 IG。
+2. **`/guild` 信件（`MailBox`）**：通知卡片可點；**`Dialog`** 顯示詳情（發送者頭像＋暱稱、依 **`type`** 的完整文案或 **`message`**、台北時間 **`Intl` `Asia/Taipei`**）、**「查看對方資料」**（**`getMemberProfileByIdAction`** → **`UserDetailModal`**，無 **`from_user_id`** 則無按鈕）；關閉 Modal 時若未讀則 **`markNotificationReadAction(id)`** 單筆已讀並 **`mutate` SWR**。層級：**通知 Modal** **`z-[200]`／`z-[210]`**；**`UserDetailModal`** **`z-[300]`／`z-[310]`**（**`DialogContent` `overlayClassName`**）；取消緣分底欄 **`z-[320]`**。**`DialogContent`** 支援可選 **`overlayClassName`**。
+3. **首頁今日心情**：**`guild-profile-home.tsx`** 僅保留**一處**獨立區塊（**`placeholder="今天的心情是..."`**）；移除覆蓋式「趕快填寫…」占位層與 **`text-transparent`** 雙層視覺，避免像兩個心情區塊；樣式維持 **`rounded-3xl`**、**`border-violet-500/30`**、**`bg-violet-950/40`**、**`backdrop-blur-xl`**、紫微 **`box-shadow`**。
+
 ## Phase 2.1 首頁個人卡重構（完成）
 
 - **iOS／PWA**：首頁三處 **textarea**（今日心情、興趣自白、技能自白）使用 **`text-base`（16px）** 避免 Safari 聚焦自動縮放；**`onFocus` → `scrollIntoView({ block: 'center' })`**（延遲 300ms）減輕鍵盤頂動；根 **`layout.tsx`** **`viewport.maximumScale: 1`** + **`viewport-fit=cover`**（**不**使用 **`user-scalable=no`**）
 - **帳號設定 Dialog**：**無 IG** 時可直接 **`updateMyProfile({ instagram_handle })`** 綁定；**已有 IG** 時畫面鎖定顯示，改帳須 **`requestIgChangeAction`** 寫入 **`ig_change_requests`**，由 **admin／leader** 於 **`/admin/ig-requests`** 審核（**`reviewIgRequestAction`**）。**`ig_public`** 開關仍即時寫入
-- **今日心情**：與頭像卡同級之**獨立區塊**；**微光紫邊**（**`border-violet-500/30`**、**`box-shadow: 0 0 20px rgba(139,92,246,0.15)`**）、**`bg-violet-950/40`**、**`backdrop-blur-xl`**、**`rounded-3xl`**；標題列 **✨ 今日心情** 左對齊、**`getMoodCountdown`** 或「已過期」右對齊（**`text-violet-300/70`**）；**窄版** **`textarea`**（**`rows={2}`**、**`py-2.5`**、**`border-violet-500/20`** **`focus:border-violet-400/50`**）；確認為**小膠囊**（**`px-5 py-1.5 text-xs`**、**`bg-violet-600/80`**），儲存中 **「更新中…」**
+- **今日心情**：與頭像卡同級之**獨立區塊**（**全頁僅此一段**，勿再疊第二層占位 UI）；**微光紫邊**（**`border-violet-500/30`**、**`box-shadow: 0 0 20px rgba(139,92,246,0.15)`**）、**`bg-violet-950/40`**、**`backdrop-blur-xl`**、**`rounded-3xl`**；標題列 **✨ 今日心情** 左對齊、**`getMoodCountdown`** 或「已過期」右對齊（**`text-violet-300/70`**）；**窄版** **`textarea`**（**`placeholder="今天的心情是..."`**、**`rows={2}`**、**`py-2.5`**、**`border-violet-500/20`** **`focus:border-violet-400/50`**）；確認為**小膠囊**（**`px-5 py-1.5 text-xs`**、**`bg-violet-600/80`**），儲存中 **「更新中…」**
 - **我的狀態**：同一 `glass-panel` 內僅含三區，皆為**手風琴**（`openSection` 單開），**預設收折**，點標題展開
   - **自白**：**`bio_village`**（興趣自白）+ **`bio_market`**（技能自白），各自獨立確認按鈕
   - **信譽與紀錄**：**`created_at`**、**`invite_code`**、**`invited_by`**、**`exp_logs`** 近三個月橫向滑動（Layer 3 **`getMyRecentExpLogsAction`** → Layer 2 **`findRecentExpLogsForUser`**）
@@ -94,7 +100,7 @@
 | 底部導航 | **`src/components/layout/Navbar.tsx`**（**五項 lucide**；**冒險團**圖示：**有未讀信件或私訊時** **紅點**＋**玫瑰發光**；在 **`/guild` 且子 tab 為「聊天」** 時不計入私訊未讀以免重複提示，**信件未讀仍顯示**） |
 | 探索（村莊＋市集） | **`explore/page.tsx`**（**Server**：**`getVillageUsersAction`** 預載村莊）；**`ExploreClient.tsx`**（**`useSWR`** **`SWR_KEYS.villageUsers`** ＋ **`fallbackData`／`revalidateOnMount: false`**；市集 **`SWR_KEYS.marketUsers(query)`**、**`keepPreviousData`**；**`hidden`／`block`** 切 tab）；市集初次 **`isLoading`** 時 **6×`UserCardSkeleton`** |
 | 列表骨架屏 | **`src/components/ui/UserCardSkeleton.tsx`**（**`animate-pulse`**） |
-| 冒險團 | **`guild/page.tsx`**：**血盟**夥伴列 → **`getMemberProfileByIdAction`** → **`UserDetailModal`**（與探索相同詳情），**聊聊** 再開 **`ChatModal`**；**聊天** 列表 **你：／對方：** 預覽、**未讀紅點**（對方訊息未讀）；頂部 **聊天／信件** tab **紅點**；**`GuildTabProvider`**（**`guild-tab-context.tsx`**）同步子 tab 供 **`Navbar`**；**信件** — **`notifications`** **`type`／`is_read`** |
+| 冒險團 | **`guild/page.tsx`**：**血盟**夥伴列 → **`getMemberProfileByIdAction`** → **`UserDetailModal`**（與探索相同詳情），**聊聊** 再開 **`ChatModal`**；**聊天** 列表 **你：／對方：** 預覽、**未讀紅點**（對方訊息未讀）；頂部 **聊天／信件** tab **紅點**；**`GuildTabProvider`**（**`guild-tab-context.tsx`**）同步子 tab 供 **`Navbar`**；**信件** — 點卡片開 **`Dialog`** 詳情、可開 **`UserDetailModal`**；**`notifications`** **`type`／`message`／`is_read`／`from_user_id`** |
 | 雙人血盟（Layer 3） | **`src/services/alliance.action.ts`**（**`getAllianceStatusAction`**、**`requestAllianceAction`**、**`respondAllianceAction`**、**`dissolveAllianceAction`**、**`getMyAlliancesAction`**、**`getPendingRequestsAction`**） |
 | 雙人血盟（Layer 2） | **`src/lib/repositories/server/alliance.repository.ts`** |
 | 私訊／封鎖／檢舉（Layer 2） | **`src/lib/repositories/server/chat.repository.ts`**（**`conversations`**、**`chat_messages`**、**`blocks`**、**`reports`**；見 🗄️ 與 **`database.types.ts`**） |
@@ -102,7 +108,7 @@
 | 通知（Layer 3） | **`src/services/notification.action.ts`** — **`getMyNotificationsAction`**（分開查 **`users`**）、**`markAllNotificationsReadAction`**（**`is_read: true`**）、**`clearAllNotificationsAction`**、**`getUnreadNotificationCountAction`**（欄位 **`type`／`is_read`**） |
 | 月老／商店預留 | `src/app/(app)/matchmaking/page.tsx`、`src/app/(app)/shop/page.tsx`（**即將開放**） |
 | 舊路由轉址 | **`/village`**、**`/market`** → **`/explore`**；**`/alliances`**、**`/inbox`** → **`/guild`** |
-| 使用者詳情 Modal | **`UserDetailModal.tsx`**：**IG** 區塊 **「在 Instagram 開啟」** 按鈕（**`https://www.instagram.com/{handle}/`**，**`instagram.ts`** strip **`@`**）；關閉 **`ChatModal`** 時 **`mutate`** **`conversations`／`unreadChatConversations`** |
+| 使用者詳情 Modal | **`UserDetailModal.tsx`**：**IG** 僅在 **`instagram_handle` 有值** 且（**`ig_public === true`** 或 **血盟 `accepted`**）時顯示；**「在 Instagram 開啟」**（**`https://www.instagram.com/{handle}/`**，**`instagram.ts`** strip **`@`**）；關閉 **`ChatModal`** 時 **`mutate`** **`conversations`／`unreadChatConversations`** |
 | 私訊全螢幕 UI | **`ChatModal.tsx`**：送出／開啟讀取後／**Realtime INSERT** 皆 **`mutate(SWR_KEYS.conversations)`**＋**`unreadChatConversations`**（列表預覽與未讀點同步） |
 | 有緣分＋互讚／Modal 合併載入 | **`src/services/social.action.ts`**（**`getModalSocialStatusAction`**：一次 **`auth.getUser()`** + **`Promise.all`**：**`findLike`** 雙向 + **`findAllianceBetween`**；仍含 **`getLikeStatusForTargetAction`**／**`checkMutualLikeWithTargetAction`**／**`toggleLikeAction`**） |
 | 技能市集（邏輯） | `src/services/market.service.ts`（**`getMarketUsersAction`**、**`getCachedMySkills`** **`unstable_cache` 60s** **`tags: profileCacheTag`**、**`unstable_cache` 60s** 快取 **`findMarketUsers`**、**搜尋篩選在列表快取回傳後**、檔內 **Perfect Match**）；UI 見 **`MarketContent`** |

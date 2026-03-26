@@ -82,6 +82,32 @@ export async function markAllNotificationsReadAction() {
   return { ok: true as const };
 }
 
+/** 將單筆通知標為已讀（僅限當前使用者自己的列） */
+export async function markNotificationReadAction(notificationId: string) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { ok: false as const };
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("id", notificationId)
+    .eq("user_id", user.id)
+    .eq("is_read", false);
+
+  if (error) {
+    console.error("markNotificationReadAction:", error);
+    return { ok: false as const };
+  }
+  return { ok: true as const };
+}
+
 export async function clearAllNotificationsAction() {
   const supabase = createClient();
   const {

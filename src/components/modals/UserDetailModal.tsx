@@ -122,6 +122,10 @@ export function UserDetailModal({
     allianceId,
   } = socialStatus;
 
+  const showInstagram =
+    Boolean(user.instagram_handle?.trim()) &&
+    (user.ig_public === true || allianceStatus === "accepted");
+
   const active = isRecentlyActive(user.last_seen_at, 15 * 60 * 1000);
   const genderLabel = resolveLegacyLabel(user.gender, GENDER_OPTIONS);
   const regionLabel = resolveLegacyLabel(
@@ -252,7 +256,8 @@ export function UserDetailModal({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
           showCloseButton
-          className="max-w-[calc(100%-2rem)] gap-0 overflow-hidden border border-amber-900/45 bg-zinc-950 p-0 text-slate-200 sm:max-w-md"
+          overlayClassName="z-[300]"
+          className="z-[310] max-w-[calc(100%-2rem)] gap-0 overflow-hidden border border-amber-900/45 bg-zinc-950 p-0 text-slate-200 sm:max-w-md"
         >
           <DialogHeader className="relative border-b border-amber-900/35 bg-zinc-950/95 px-4 pb-4 pt-5">
             <div className="flex gap-4 pr-8">
@@ -484,8 +489,7 @@ export function UserDetailModal({
               </div>
             ) : null}
 
-            {(allianceStatus === "accepted" || user.ig_public) &&
-            user.instagram_handle
+            {showInstagram && user.instagram_handle
               ? (() => {
                   const igUrl = instagramProfileUrlFromHandle(
                     user.instagram_handle,
@@ -521,7 +525,7 @@ export function UserDetailModal({
 
       {showCancelSheet && (
         <div
-          className="fixed inset-0 z-[100]"
+          className="fixed inset-0 z-[320]"
           onClick={() => setShowCancelSheet(false)}
         >
           <div className="absolute inset-0 bg-black/60" />
