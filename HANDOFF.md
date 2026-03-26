@@ -130,7 +130,7 @@
 || 管理員後台 Layer 3 | **src/services/admin.action.ts** |
 || 管理員常數 | **src/lib/constants/admin-permissions.ts** |
 | 個人頁 EXP 紀錄 | `src/services/exp-logs.action.ts`（**`getMyRecentExpLogsAction`**）→ **`exp.repository`** **`findRecentExpLogsForUser`** |
-| 首頁個人頁 UI | `src/app/(app)/page.tsx`（**`'use client'`**、**`useMyProfile`** SWR + **`HomePageSkeleton`**） → `src/components/profile/guild-profile-home.tsx`（**公告上方**：**banner 輪播**；**公告區塊**（**滿版垂直堆疊**、**`line-clamp-2`＋「⋯ 展開」**、整卡 **Dialog**）；**今日心情下方**：**card 贊助橫滑**（最多 3 則、固定卡尺寸；點擊開連結並 **`recordAdClickAction`**）） |
+| 首頁個人頁 UI | `src/app/(app)/page.tsx`（**`'use client'`**、**`useMyProfile`** SWR + **`HomePageSkeleton`**、背景 **`HomeParticlesBackground`**／**`src/config/home-particles.json`**（tsParticles）） → `guild-profile-home.tsx`（**公告上方**：**banner 輪播**；**公告區塊**（**滿版垂直堆疊**、**`line-clamp-2`＋「⋯ 展開」**、整卡 **Dialog**）；**今日心情下方**：**card 贊助橫滑**（最多 3 則、固定卡尺寸；點擊開連結並 **`recordAdClickAction`**）） |
 | 頁面切換「開門」過場 | **`src/components/layout/app-shell-motion.tsx`**：**`pathname` 變更**（**`/` 首頁不播**）→ 上／下扇 **`fixed`** 覆蓋**整個視口**（各 **`h-1/2`**、**`z-[9999]`**），**不受內容區高度／`overflow` 裁切**；**`splash`** **`backgroundSize: 100% 200%`**、**`center top`／`bottom`**（**X** 中線接縫）。**時序**：關 **100ms** → 停 **1s** → 開 **1s**。扇門 **`pointer-events-none`**；過場中外層暫 **`pointer-events-auto`** 阻擋誤觸；**idle** 時上下扇分別 **`-translate-y-full`／`translate-y-full`** 完全離開可視區。內容區 **`min-h-[100dvh]`**、**`pt-[calc(2rem+env(safe-area-inset-top,0px))]`** 預留頂部 **`TavernMarquee`**；**無 `overflow-hidden`**；**pb** 預留底欄＋底部 **`bg-zinc-950`** 條避免切頁藍線。**`GuildTabProvider`**／**`Navbar`**（**`z-40`**）／**`TavernFab`** 掛在 **`src/app/(app)/layout.tsx`**，與 **`AppShellMotion`** 同層，**不受開門動畫裁切**；過場層在上，播完 idle 後不擋導航。 |
 | 酒館廣場（全頁） | **`TavernMarquee`**（**`src/components/tavern/TavernMarquee.tsx`**）：頂欄跑馬燈最新 5 則、**`useTavern`**；**`TavernFab`**＋**`TavernModal`**（**`src/components/tavern/TavernFab.tsx`**／**`TavernModal.tsx`**）全螢幕聊天、貼圖、**master** 長按訊息刪除；**`globals.css`** **`.animate-marquee`**。 |
 | 酒館 Layer 2／3 | **`src/lib/repositories/server/tavern.repository.ts`**、**`src/services/tavern.action.ts`**（**`getTavernMessagesAction`**、**`sendTavernMessageAction`**、**`getMyTavernBanStatusAction`**、**`banTavernUserAction`**／**`unbanTavernUserAction`**、**`deleteTavernMessageAction`**、**`getTavernBansAction`**）。 |
@@ -818,6 +818,12 @@ Phase 4 — 市集搜尋快取
 - **Layer 5 — `UserDetailModal`**：**Instagram** **https** 外連按鈕（**`lib/utils/instagram.ts`**）。
 - **Layer 5 — `ChatModal`**：**SWR** 同步 **`conversations`／`unreadChatConversations`**（送出、讀取後、Realtime）。
 
+### 2026-03-26 — 首頁 tsParticles 背景（Among Us 配方）
+
+- **依賴**：**`tsparticles`**、**`@tsparticles/react`**、**`@tsparticles/engine`**、**`@tsparticles/slim`**、**`@tsparticles/plugin-emitters`**、**`@tsparticles/shape-image`**（版本對齊 **3.0.x**，與 **`@tsparticles/react@3.0.0`** 相容）。
+- **設定**：**`src/config/home-particles.json`**（由設計器匯出；**`fullScreen.enable: false`** 以利與版面疊層；含 **emitters** 圖片 **`particles.js.org`** 之 cyan Among Us）。
+- **Layer 5**：**`src/components/effects/HomeParticlesBackground.tsx`** — **`initParticlesEngine`** 載入 **slim + emitters + image**；**`src/app/(app)/page.tsx`** 首頁 **`relative isolate`** 下背景層 **z-0**、內容 **z-10**（載入骨架同樣顯示背景）。
+
 ### 2026-03-26 — `conversations` 最後訊息欄位、`useUnreadChatCount`、底欄未讀合計語意
 
 - **🗄️**：**`public.conversations.last_message_sender_id`**（最後一則發送者 uuid，列表 **你：／對方：**）；遷移 **`supabase/migrations/20260325230000_conversations_last_message_sender.sql`**（雲端若尚未執行請補）。
@@ -907,4 +913,4 @@ Phase 4 — 市集搜尋快取
 - **`/admin/users`**：**`page.tsx`** 讀 **`searchParams.filter`**，**`pending`／`active`** 預先帶入 **`getUsersAction`** 之 **`status`**；**`UsersClient`** 接收 **`initialFilter`**：**`today`** 客戶端以台北日曆日 **`sv-SE` + `Asia/Taipei`** 比對 **`created_at` 字首**（先拉一頁較大 **`pageSize`** 再篩）；**`ig_pending`** 目前僅顯示篩選標籤與「清除篩選」，**完整「僅列有 pending `ig_change_requests` 用戶」**待 Layer 2 **`findUsersForAdmin`** 擴充。
 - **`/admin/exp`**：等級範圍改 **`type="text"`** 數字過濾＋送出前 **1–10／min≤max** **`toast` 驗證**（見先前批次）。
 
-*最後更新：2026-03-26 — **過場** **`fixed` 全視窗 `z-[9999]`**、**100ms／1s／1s**、首頁不播；**`100dvh` + zinc 底帶**；**後台 `text-gray-900` + `color-scheme: light`**；**Sheet safe-area-top**；**儀表板卡片導航 + users `?filter=`**（**`ig_pending`** 列表待後端）。*
+*最後更新：2026-03-26 — **管理員後台 Wave 1**、**邀請碼／EXP／發布中心**、**過場 `fixed` 全視窗**、**後台淺色語意／Sheet safe-area**、**儀表板導航**；併 **首頁 tsParticles 背景**、**`last_message_sender_id`**、**`useUnreadChatCount`**、**Navbar 未讀**、2026-03-25 **冒險團私訊 UX** 等。*
