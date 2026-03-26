@@ -5,11 +5,12 @@ import Lottie from "lottie-react";
 import lightningAnimation from "@/assets/animations/yellow-circle.json";
 import Avatar, {
   MASTER_AVATAR_FRAME_OVERLAY_PERCENT,
+  MASTER_AVATAR_HOLE_TO_FRAME_ASSET_RATIO,
   MASTER_AVATAR_LIGHTNING_OVERLAY_PERCENT,
 } from "@/components/ui/Avatar";
 import { cn } from "@/lib/utils";
 
-const THUNDER_FRAME_SRC = "/frames/thunder-frame.png";
+const MASTER_FRAME_SRC = "/frames/master-avatar-frame.png";
 
 export type MasterAvatarShellProps = {
   role?: string | null;
@@ -22,8 +23,8 @@ export type MasterAvatarShellProps = {
 };
 
 /**
- * `role === "master"`：雷框／Lottie 在 **頭像下層**（z 較低），圓形照片在最上層，避免 PNG 壓臉；
- * 裝飾仍可依百分比大於 100% 向外超出 `size`（父層需 `overflow-visible`）。
+ * `role === "master"`：圓形照片 **z-10** 在下；Lottie **z-15**；PNG 金邊框 **z-20** 在上（`pointer-events-none` 可穿透點擊臉部）。
+ * 裝飾百分比可大於 100% 向外超出 `size`（父層需 `overflow-visible`）。
  */
 export function MasterAvatarShell({
   role,
@@ -37,6 +38,11 @@ export function MasterAvatarShell({
   const isMaster = role === "master";
   const framePct = MASTER_AVATAR_FRAME_OVERLAY_PERCENT;
   const lightningPct = MASTER_AVATAR_LIGHTNING_OVERLAY_PERCENT;
+  const frameDisplayPx = size * (framePct / 100);
+  const photoDiameter = Math.max(
+    1,
+    Math.round(frameDisplayPx * MASTER_AVATAR_HOLE_TO_FRAME_ASSET_RATIO),
+  );
 
   if (!isMaster) {
     return (
@@ -57,16 +63,19 @@ export function MasterAvatarShell({
       className={cn("relative isolate shrink-0 overflow-visible", className)}
       style={{ width: size, height: size }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- 本地裝飾框 */}
-      <img
-        src={THUNDER_FRAME_SRC}
-        alt=""
-        aria-hidden
-        className="pointer-events-none absolute top-1/2 left-1/2 z-[1] -translate-x-1/2 -translate-y-1/2 object-contain select-none"
-        style={{ width: `${framePct}%`, height: `${framePct}%` }}
-      />
       <div
-        className="pointer-events-none absolute top-1/2 left-1/2 z-[2] -translate-x-1/2 -translate-y-1/2"
+        className="absolute top-1/2 left-1/2 z-10 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full"
+        style={{ width: photoDiameter, height: photoDiameter }}
+      >
+        <Avatar
+          size={photoDiameter}
+          src={src}
+          nickname={nickname}
+          className={cn("border-0 bg-transparent", avatarClassName)}
+        />
+      </div>
+      <div
+        className="pointer-events-none absolute top-1/2 left-1/2 z-[15] -translate-x-1/2 -translate-y-1/2"
         style={{ width: `${lightningPct}%`, height: `${lightningPct}%` }}
         aria-hidden
       >
@@ -76,14 +85,14 @@ export function MasterAvatarShell({
           className="h-full w-full"
         />
       </div>
-      <div className="absolute inset-0 z-[10] overflow-hidden rounded-full">
-        <Avatar
-          size={size}
-          src={src}
-          nickname={nickname}
-          className={cn("border-0 bg-transparent", avatarClassName)}
-        />
-      </div>
+      {/* eslint-disable-next-line @next/next/no-img-element -- 本地裝飾框 */}
+      <img
+        src={MASTER_FRAME_SRC}
+        alt=""
+        aria-hidden
+        className="pointer-events-none absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 object-contain select-none"
+        style={{ width: `${framePct}%`, height: `${framePct}%` }}
+      />
       {children}
     </div>
   );
