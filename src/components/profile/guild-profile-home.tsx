@@ -27,6 +27,7 @@ import type { Area } from "react-easy-crop";
 import { Button } from "@/components/ui/button";
 import LoadingButton, { PendingLabel } from "@/components/ui/LoadingButton";
 import Avatar from "@/components/ui/Avatar";
+import { LeaderAvatarOverlays } from "@/components/profile/LeaderAvatarOverlays";
 import {
   CalendarCheck,
   ChevronRight,
@@ -829,11 +830,13 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
 
         <div className="relative flex w-full flex-col items-center gap-5 text-center">
           <div
-            className={`relative mx-auto overflow-hidden rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50 ${
+            className={cn(
+              "relative mx-auto rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
+              profile.role === "master" ? "overflow-visible" : "overflow-hidden",
               uploading || cropOpen
                 ? "cursor-not-allowed opacity-80"
-                : "cursor-pointer"
-            }`}
+                : "cursor-pointer",
+            )}
             style={{ width: 96, height: 96 }}
             role="button"
             tabIndex={uploading || cropOpen ? -1 : 0}
@@ -851,21 +854,25 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               }
             }}
           >
-            <Avatar
-              src={avatarUrl}
-              nickname={profile?.nickname}
-              size={96}
-              className="border-0 bg-transparent"
-            />
+            <div className="absolute inset-0 overflow-hidden rounded-full">
+              <Avatar
+                src={avatarUrl}
+                nickname={profile?.nickname}
+                size={96}
+                className="border-0 bg-transparent"
+              />
+            </div>
+
+            {profile.role === "master" ? <LeaderAvatarOverlays /> : null}
 
             {uploading && (
-              <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/60">
+              <div className="absolute inset-0 z-20 flex items-center justify-center rounded-full bg-black/60">
                 <span className="text-xs text-white">上傳中…</span>
               </div>
             )}
 
             {!uploading && (
-              <div className="absolute inset-0 hidden items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity md:flex md:hover:opacity-100">
+              <div className="absolute inset-0 z-20 hidden items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity md:flex md:hover:opacity-100">
                 <span className="text-xs font-medium text-white">更換</span>
               </div>
             )}
