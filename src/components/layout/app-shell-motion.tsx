@@ -13,10 +13,10 @@ type SplitStage = "idle" | "closing" | "opening";
 const NAV_BOTTOM_RESERVE =
   "calc(5.25rem + env(safe-area-inset-bottom, 0px))" as const;
 
-/** 上下合屏 ms + 等待 ms + 上下滑出 ms（全站 **`pathname`** 同一套）。 */
-const CLOSE_MS = 150;
-const HOLD_MS = 150;
-const OPEN_MS = 1800;
+/** 首頁 `/` 無過場；其餘路由：關 → 開 各 1.5s，合計 3s。 */
+const CLOSE_MS = 1500;
+const HOLD_MS = 0;
+const OPEN_MS = 1500;
 const OPEN_AT_MS = CLOSE_MS + HOLD_MS;
 const IDLE_AT_MS = OPEN_AT_MS + OPEN_MS;
 
@@ -32,6 +32,11 @@ export function AppShellMotion({ children }: { children: React.ReactNode }) {
   const [stage, setStage] = useState<SplitStage>("idle");
 
   useEffect(() => {
+    if (pathname === "/") {
+      setStage("idle");
+      return;
+    }
+
     setStage("closing");
 
     const openTimer = window.setTimeout(() => {
