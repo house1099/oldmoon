@@ -1,7 +1,7 @@
 /**
  * 與 Supabase `public` schema 對齊的型別（手動維護，請在雲端 Schema 變更後同步更新）。
  * 表：users, exp_logs, likes, alliances（雙人血盟）, conversations, chat_messages, blocks, reports, messages, notifications, ig_change_requests,
- *     admin_actions, moderator_permissions, system_settings, advertisements, ad_clicks, invitation_codes
+ *     admin_actions, moderator_permissions, system_settings, advertisements, ad_clicks, invitation_codes, announcements
  */
 
 export type Json =
@@ -776,6 +776,46 @@ export interface Database {
           },
         ];
       };
+      announcements: {
+        Row: {
+          id: string;
+          title: string;
+          content: string;
+          image_url: string | null;
+          is_pinned: boolean;
+          is_active: boolean;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          content: string;
+          image_url?: string | null;
+          is_pinned?: boolean;
+          is_active?: boolean;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string;
+          content?: string;
+          image_url?: string | null;
+          is_pinned?: boolean;
+          is_active?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "announcements_created_by_fkey";
+            columns: ["created_by"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       invitation_codes: {
         Row: {
           id: string;
@@ -850,9 +890,14 @@ export type SystemSettingRow = PublicTables["system_settings"]["Row"];
 export type AdvertisementRow = PublicTables["advertisements"]["Row"];
 export type AdClickRow = PublicTables["ad_clicks"]["Row"];
 export type InvitationCodeRow = PublicTables["invitation_codes"]["Row"];
+export type AnnouncementRow = PublicTables["announcements"]["Row"];
 
 /** 前端顯示用 DTO（含關聯用戶資料） */
 export type InvitationCodeDto = InvitationCodeRow & {
   creator?: { id: string; nickname: string; avatar_url: string | null };
   user?: { id: string; nickname: string; avatar_url: string | null };
+};
+
+export type AnnouncementDto = AnnouncementRow & {
+  creator?: { id: string; nickname: string; avatar_url: string | null };
 };

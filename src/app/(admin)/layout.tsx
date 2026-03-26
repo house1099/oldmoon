@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   MailPlus,
   Gift,
+  Megaphone,
 } from "lucide-react";
 
 type NavItem = {
@@ -49,6 +50,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "EXP 管理",
     href: "/admin/exp",
     icon: Gift,
+    roles: ["master", "moderator"],
+  },
+  {
+    label: "發布中心",
+    href: "/admin/publish",
+    icon: Megaphone,
     roles: ["master", "moderator"],
   },
   {

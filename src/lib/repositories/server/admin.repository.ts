@@ -4,6 +4,7 @@ import type {
   ExpLogRow,
   ModeratorPermissionRow,
   SystemSettingRow,
+  AdvertisementRow,
 } from "@/types/database.types";
 
 export type DashboardStats = {
@@ -507,4 +508,100 @@ export async function findAdminExpGrantHistory(): Promise<
       (a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
+}
+
+// ─── Advertisement Management ───
+
+export async function findAllAdvertisements(): Promise<AdvertisementRow[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("advertisements")
+    .select("*")
+    .order("position")
+    .order("weight", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as AdvertisementRow[];
+}
+
+export async function findActiveHomeAds(): Promise<AdvertisementRow[]> {
+  const admin = createAdminClient();
+  const now = new Date().toISOString();
+  const { data, error } = await admin
+    .from("advertisements")
+    .select("*")
+    .eq("is_active", true)
+    .eq("position", "card")
+    .or(`starts_at.is.null,starts_at.lte.${now}`)
+    .or(`ends_at.is.null,ends_at.gte.${now}`)
+    .order("weight", { ascending: false })
+    .limit(3);
+  if (error) throw error;
+  return (data ?? []) as AdvertisementRow[];
+}
+
+export async function insertAdvertisement(payload: {
+  title: string;
+  description: string | null;
+  image_url: string | null;
+  link_url: string | null;
+  position: "banner" | "card" | "announcement";
+  weight: number;
+  is_active: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  created_by: string;
+}): Promise<AdvertisementRow> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("advertisements")
+    .insert(payload)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as AdvertisementRow;
+}
+
+export async function updateAdvertisement(
+  id: string,
+  payload: Partial<AdvertisementRow>,
+): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("advertisements")
+    .update({ ...payload, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteAdvertisement(id: string): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("advertisements")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function recordAdClick(
+  adId: string,
+  userId: string,
+): Promise<void> {
+  const admin = createAdminClient();
+  const { error: clickErr } = await admin
+    .from("ad_clicks")
+    .insert({ ad_id: adId, user_id: userId });
+  if (clickErr) console.error("recordAdClick insert:", clickErr);
+
+  const { data: ad } = await admin
+    .from("advertisements")
+    .select("click_count")
+    .eq("id", adId)
+    .single();
+  if (ad) {
+    await admin
+      .from("advertisements")
+      .update({ click_count: (ad.click_count ?? 0) + 1 })
+      .eq("id", adId);
+  }
 }

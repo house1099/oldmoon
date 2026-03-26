@@ -56,6 +56,10 @@ import { LEVEL_MIN_EXP_BY_LEVEL, getLevelTierByExp } from "@/lib/constants/level
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { cn } from "@/lib/utils";
 import { getMoodCountdown, isMoodActive } from "@/lib/utils/mood";
+import { getActiveAnnouncementsAction } from "@/services/announcement.action";
+import { getHomeAdsAction } from "@/services/advertisement.action";
+import { recordAdClickAction } from "@/services/advertisement.action";
+import type { AnnouncementRow, AdvertisementRow } from "@/types/database.types";
 
 const IOS_TEXTAREA_CLASS =
   "w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-base text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none";
@@ -189,6 +193,9 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [expLogs, setExpLogs] = useState<ExpLogProfileEntry[]>([]);
   const [openSection, setOpenSection] = useState<string | null>(null);
+  const [announcements, setAnnouncements] = useState<AnnouncementRow[]>([]);
+  const [homeAds, setHomeAds] = useState<AdvertisementRow[]>([]);
+  const [expandedAnnouncement, setExpandedAnnouncement] = useState<AnnouncementRow | null>(null);
 
   useEffect(() => {
     setBioVillage(profile.bio_village ?? "");
@@ -199,6 +206,11 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     setMoodInput(isMoodActive(at) ? (profile.mood ?? "") : "");
     setAvatarUrl(profile.avatar_url?.trim() || null);
   }, [profile]);
+
+  useEffect(() => {
+    getActiveAnnouncementsAction().then(setAnnouncements).catch(() => {});
+    getHomeAdsAction().then(setHomeAds).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!editOpen) return;
@@ -559,8 +571,119 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   );
   const offlineLabel = resolveOfflineOkLabel(profile.offline_ok);
 
+  const pinnedAnnouncements = announcements.filter((a) => a.is_pinned);
+  const normalAnnouncements = announcements.filter((a) => !a.is_pinned);
+
   return (
     <main className="flex w-full flex-col gap-6">
+      {announcements.length > 0 && (
+        <div className="space-y-3">
+          {pinnedAnnouncements.map((a) => (
+            <div
+              key={a.id}
+              className="rounded-2xl border border-amber-500/30 bg-amber-950/40 p-4 backdrop-blur-xl"
+            >
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 shrink-0">📌</span>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-amber-300">{a.title}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-amber-100/80 line-clamp-3">
+                    {a.content}
+                  </p>
+                  {a.content.length > 120 && (
+                    <button
+                      onClick={() => setExpandedAnnouncement(a)}
+                      className="mt-1 text-xs text-amber-400 hover:text-amber-300"
+                    >
+                      ...展開
+                    </button>
+                  )}
+                  {a.image_url && (
+                    <img
+                      src={a.image_url}
+                      alt=""
+                      className="mt-2 max-h-40 rounded-xl object-cover cursor-pointer"
+                      onClick={() => setExpandedAnnouncement(a)}
+                    />
+                  )}
+                  <p className="mt-2 text-xs text-amber-500/60">
+                    {new Intl.DateTimeFormat("zh-TW", {
+                      timeZone: "Asia/Taipei",
+                      month: "2-digit",
+                      day: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }).format(new Date(a.created_at))}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {normalAnnouncements.length > 0 && (
+            <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
+              {normalAnnouncements.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => setExpandedAnnouncement(a)}
+                  className="min-w-[280px] shrink-0 rounded-2xl border border-zinc-700/30 bg-zinc-900/60 p-3 text-left"
+                >
+                  <h4 className="text-sm font-medium text-zinc-200 truncate">
+                    {a.title}
+                  </h4>
+                  <p className="mt-1 text-xs leading-relaxed text-zinc-400 line-clamp-2">
+                    {a.content.slice(0, 60)}
+                    {a.content.length > 60 ? "..." : ""}
+                  </p>
+                  <p className="mt-2 text-[10px] text-zinc-500">
+                    {new Intl.DateTimeFormat("zh-TW", {
+                      timeZone: "Asia/Taipei",
+                      month: "2-digit",
+                      day: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }).format(new Date(a.created_at))}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {expandedAnnouncement && (
+        <Dialog open onOpenChange={() => setExpandedAnnouncement(null)}>
+          <DialogContent className="max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{expandedAnnouncement.title}</DialogTitle>
+              <DialogDescription className="text-xs text-zinc-500">
+                {new Intl.DateTimeFormat("zh-TW", {
+                  timeZone: "Asia/Taipei",
+                  year: "numeric",
+                  month: "2-digit",
+                  day: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }).format(new Date(expandedAnnouncement.created_at))}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">
+                {expandedAnnouncement.content}
+              </p>
+              {expandedAnnouncement.image_url && (
+                <img
+                  src={expandedAnnouncement.image_url}
+                  alt=""
+                  className="w-full rounded-xl object-cover"
+                />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
       <section className="glass-panel relative p-6 sm:p-8">
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.06]"
@@ -717,6 +840,43 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           </LoadingButton>
         </div>
       </section>
+
+      {homeAds.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[10px] text-zinc-500">贊助</p>
+          <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
+            {homeAds.map((ad) => (
+              <button
+                key={ad.id}
+                type="button"
+                onClick={() => {
+                  if (ad.link_url) window.open(ad.link_url, "_blank");
+                  void recordAdClickAction(ad.id);
+                }}
+                className="min-w-[240px] shrink-0 overflow-hidden rounded-2xl border border-zinc-700/20 bg-zinc-900/40 text-left"
+              >
+                {ad.image_url && (
+                  <img
+                    src={ad.image_url}
+                    alt=""
+                    className="h-32 w-full object-cover"
+                  />
+                )}
+                <div className="p-3">
+                  <h4 className="text-sm font-medium text-zinc-200">
+                    {ad.title}
+                  </h4>
+                  {ad.description && (
+                    <p className="mt-0.5 text-xs text-zinc-400 line-clamp-2">
+                      {ad.description}
+                    </p>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <section className="glass-panel overflow-hidden p-0 shadow-xl">
         <p className="border-b border-white/10 px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-zinc-400">

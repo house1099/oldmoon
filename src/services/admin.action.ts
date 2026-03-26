@@ -23,8 +23,18 @@ import {
   grantExpByLevel as repoGrantExpByLevel,
   findExpLogsByUser as repoFindExpLogsByUser,
   findAdminExpGrantHistory as repoFindAdminExpGrantHistory,
+  findAllAdvertisements as repoFindAllAds,
+  insertAdvertisement as repoInsertAd,
+  updateAdvertisement as repoUpdateAd,
+  deleteAdvertisement as repoDeleteAd,
 } from "@/lib/repositories/server/admin.repository";
 import type { AdminExpGrantSummary } from "@/lib/repositories/server/admin.repository";
+import {
+  findAllAnnouncements as repoFindAllAnnouncements,
+  insertAnnouncement as repoInsertAnnouncement,
+  updateAnnouncement as repoUpdateAnnouncement,
+  deleteAnnouncement as repoDeleteAnnouncement,
+} from "@/lib/repositories/server/announcement.repository";
 import {
   findAllInvitationCodes,
   findInvitationByCode,
@@ -42,6 +52,9 @@ import type {
   SystemSettingRow,
   InvitationCodeRow,
   InvitationCodeDto,
+  AnnouncementRow,
+  AnnouncementDto,
+  AdvertisementRow,
 } from "@/types/database.types";
 
 type ActionResult<T = void> =
@@ -872,5 +885,246 @@ export async function claimInviteCodeAfterRegisterAction(
     await claimInvitationCode(code.trim().toUpperCase(), userId);
   } catch {
     // silent — backward compatible
+  }
+}
+
+// ─── Announcement Management ───
+
+export async function getAnnouncementsAction(): Promise<
+  ActionResult<AnnouncementDto[]>
+> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const data = await repoFindAllAnnouncements();
+    return { ok: true, data };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function createAnnouncementAction(payload: {
+  title: string;
+  content: string;
+  image_url?: string;
+  is_pinned: boolean;
+}): Promise<ActionResult<AnnouncementRow>> {
+  try {
+    const user = await requireRole(["master", "moderator"]);
+    if (!payload.title?.trim() || payload.title.length > 100)
+      return { ok: false, error: "標題必填且不超過 100 字" };
+    if (!payload.content?.trim() || payload.content.length > 2000)
+      return { ok: false, error: "內文必填且不超過 2000 字" };
+
+    const row = await repoInsertAnnouncement({
+      title: payload.title.trim(),
+      content: payload.content.trim(),
+      image_url: payload.image_url?.trim() || null,
+      is_pinned: payload.is_pinned,
+      created_by: user.id,
+    });
+
+    await insertAdminAction({
+      admin_id: user.id,
+      action_type: "announcement_create",
+      metadata: { title: row.title, id: row.id },
+    });
+
+    return { ok: true, data: row };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function updateAnnouncementAction(
+  id: string,
+  payload: Partial<{
+    title: string;
+    content: string;
+    image_url: string | null;
+    is_pinned: boolean;
+    is_active: boolean;
+  }>,
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requireRole(["master", "moderator"]);
+    if (payload.title !== undefined && (!payload.title.trim() || payload.title.length > 100))
+      return { ok: false, error: "標題必填且不超過 100 字" };
+    if (payload.content !== undefined && (!payload.content.trim() || payload.content.length > 2000))
+      return { ok: false, error: "內文必填且不超過 2000 字" };
+
+    await repoUpdateAnnouncement(id, payload);
+
+    await insertAdminAction({
+      admin_id: user.id,
+      action_type: "announcement_update",
+      metadata: { id, ...payload },
+    });
+
+    return { ok: true, data: undefined };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function deleteAnnouncementAction(
+  id: string,
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requireRole(["master", "moderator"]);
+    await repoDeleteAnnouncement(id);
+
+    await insertAdminAction({
+      admin_id: user.id,
+      action_type: "announcement_delete",
+      metadata: { id },
+    });
+
+    return { ok: true, data: undefined };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function toggleAnnouncementPinAction(
+  id: string,
+  is_pinned: boolean,
+): Promise<ActionResult<void>> {
+  try {
+    await requireRole(["master", "moderator"]);
+    await repoUpdateAnnouncement(id, { is_pinned });
+    return { ok: true, data: undefined };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function toggleAnnouncementActiveAction(
+  id: string,
+  is_active: boolean,
+): Promise<ActionResult<void>> {
+  try {
+    await requireRole(["master", "moderator"]);
+    await repoUpdateAnnouncement(id, { is_active });
+    return { ok: true, data: undefined };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+// ─── Advertisement Management ───
+
+export async function getAdvertisementsAction(): Promise<
+  ActionResult<AdvertisementRow[]>
+> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const data = await repoFindAllAds();
+    return { ok: true, data };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function createAdvertisementAction(payload: {
+  title: string;
+  description?: string;
+  image_url?: string;
+  link_url?: string;
+  position: "banner" | "card" | "announcement";
+  weight: number;
+  is_active: boolean;
+  starts_at?: string;
+  ends_at?: string;
+}): Promise<ActionResult<AdvertisementRow>> {
+  try {
+    const user = await requireRole(["master", "moderator"]);
+    if (!payload.title?.trim()) return { ok: false, error: "標題必填" };
+    if (payload.weight < 1 || payload.weight > 10)
+      return { ok: false, error: "權重須為 1-10" };
+
+    const row = await repoInsertAd({
+      title: payload.title.trim(),
+      description: payload.description?.trim() || null,
+      image_url: payload.image_url?.trim() || null,
+      link_url: payload.link_url?.trim() || null,
+      position: payload.position,
+      weight: payload.weight,
+      is_active: payload.is_active,
+      starts_at: payload.starts_at || null,
+      ends_at: payload.ends_at || null,
+      created_by: user.id,
+    });
+
+    await insertAdminAction({
+      admin_id: user.id,
+      action_type: "ad_create",
+      metadata: { title: row.title, id: row.id },
+    });
+
+    return { ok: true, data: row };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function updateAdvertisementAction(
+  id: string,
+  payload: Partial<{
+    title: string;
+    description: string | null;
+    image_url: string | null;
+    link_url: string | null;
+    position: "banner" | "card" | "announcement";
+    weight: number;
+    is_active: boolean;
+    starts_at: string | null;
+    ends_at: string | null;
+  }>,
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requireRole(["master", "moderator"]);
+    await repoUpdateAd(id, payload);
+
+    await insertAdminAction({
+      admin_id: user.id,
+      action_type: "ad_update",
+      metadata: { id, ...payload },
+    });
+
+    return { ok: true, data: undefined };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function deleteAdvertisementAction(
+  id: string,
+): Promise<ActionResult<void>> {
+  try {
+    const user = await requireRole(["master", "moderator"]);
+    await repoDeleteAd(id);
+
+    await insertAdminAction({
+      admin_id: user.id,
+      action_type: "ad_delete",
+      metadata: { id },
+    });
+
+    return { ok: true, data: undefined };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function toggleAdvertisementAction(
+  id: string,
+  is_active: boolean,
+): Promise<ActionResult<void>> {
+  try {
+    await requireRole(["master", "moderator"]);
+    await repoUpdateAd(id, { is_active });
+    return { ok: true, data: undefined };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
   }
 }
