@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useTransition } from "react";
+import React, { useState, useCallback, useTransition, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import {
   Search,
@@ -60,16 +60,24 @@ const ROLE_BADGE: Record<string, string> = {
 
 type Props = {
   initialData: { users: UserRow[]; total: number };
+  initialFilter?: string;
 };
 
-export default function UsersClient({ initialData }: Props) {
+export default function UsersClient({ initialData, initialFilter = "" }: Props) {
   const [users, setUsers] = useState(initialData.users);
   const [total, setTotal] = useState(initialData.total);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+
+  const derivedStatus =
+    initialFilter === "pending" ? "pending" :
+    initialFilter === "active" ? "active" : "";
+  const [statusFilter, setStatusFilter] = useState(derivedStatus);
   const [roleFilter, setRoleFilter] = useState("");
   const [, startTransition] = useTransition();
+
+  const [filterLabel, setFilterLabel] = useState("");
+  const didMount = useRef(false);
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<
@@ -89,6 +97,33 @@ export default function UsersClient({ initialData }: Props) {
   const [showSuspendDialog, setShowSuspendDialog] = useState(false);
   const [showExpDialog, setShowExpDialog] = useState(false);
   const [showRepDialog, setShowRepDialog] = useState(false);
+
+  useEffect(() => {
+    if (didMount.current) return;
+    didMount.current = true;
+
+    if (initialFilter === "today") {
+      setFilterLabel("篩選：今日新增用戶");
+      const now = new Date();
+      const taipeiDateStr = now.toLocaleDateString("sv-SE", { timeZone: "Asia/Taipei" });
+      startTransition(async () => {
+        const result = await getUsersAction({ pageSize: 100, status: "active" });
+        if (result.ok) {
+          const todayUsers = result.data.users.filter((u) =>
+            u.created_at.startsWith(taipeiDateStr),
+          );
+          setUsers(todayUsers);
+          setTotal(todayUsers.length);
+        }
+      });
+    } else if (initialFilter === "ig_pending") {
+      setFilterLabel("篩選：待處理 IG 申請");
+    } else if (initialFilter === "pending") {
+      setFilterLabel("篩選：待審核用戶");
+    } else if (initialFilter === "active") {
+      setFilterLabel("篩選：活躍用戶");
+    }
+  }, [initialFilter, startTransition]);
 
   const pageSize = 20;
   const totalPages = Math.ceil(total / pageSize);
@@ -247,6 +282,25 @@ export default function UsersClient({ initialData }: Props) {
   return (
     <div>
       <h2 className="text-xl font-bold text-gray-900 mb-4">用戶管理</h2>
+
+      {filterLabel && (
+        <div className="mb-3 flex items-center gap-2">
+          <span className="text-sm text-violet-700 bg-violet-50 px-3 py-1 rounded-full font-medium">
+            {filterLabel}
+          </span>
+          <button
+            onClick={() => {
+              setFilterLabel("");
+              setStatusFilter("");
+              setPage(1);
+              fetchUsers(1, "", "", "");
+            }}
+            className="text-xs text-gray-400 hover:text-gray-600"
+          >
+            清除篩選
+          </button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">
