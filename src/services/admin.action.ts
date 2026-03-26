@@ -909,7 +909,7 @@ export async function createAnnouncementAction(payload: {
   is_pinned: boolean;
 }): Promise<ActionResult<AnnouncementRow>> {
   try {
-    const user = await requireRole(["master", "moderator"]);
+    const { user } = await requireRole(["master", "moderator"]);
     if (!payload.title?.trim() || payload.title.length > 100)
       return { ok: false, error: "標題必填且不超過 100 字" };
     if (!payload.content?.trim() || payload.content.length > 2000)
@@ -946,7 +946,7 @@ export async function updateAnnouncementAction(
   }>,
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requireRole(["master", "moderator"]);
+    const { user } = await requireRole(["master", "moderator"]);
     if (payload.title !== undefined && (!payload.title.trim() || payload.title.length > 100))
       return { ok: false, error: "標題必填且不超過 100 字" };
     if (payload.content !== undefined && (!payload.content.trim() || payload.content.length > 2000))
@@ -970,7 +970,7 @@ export async function deleteAnnouncementAction(
   id: string,
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requireRole(["master", "moderator"]);
+    const { user } = await requireRole(["master", "moderator"]);
     await repoDeleteAnnouncement(id);
 
     await insertAdminAction({
@@ -1037,7 +1037,7 @@ export async function createAdvertisementAction(payload: {
   ends_at?: string;
 }): Promise<ActionResult<AdvertisementRow>> {
   try {
-    const user = await requireRole(["master", "moderator"]);
+    const { user } = await requireRole(["master", "moderator"]);
     if (!payload.title?.trim()) return { ok: false, error: "標題必填" };
     if (payload.weight < 1 || payload.weight > 10)
       return { ok: false, error: "權重須為 1-10" };
@@ -1082,7 +1082,7 @@ export async function updateAdvertisementAction(
   }>,
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requireRole(["master", "moderator"]);
+    const { user } = await requireRole(["master", "moderator"]);
     await repoUpdateAd(id, payload);
 
     await insertAdminAction({
@@ -1101,7 +1101,7 @@ export async function deleteAdvertisementAction(
   id: string,
 ): Promise<ActionResult<void>> {
   try {
-    const user = await requireRole(["master", "moderator"]);
+    const { user } = await requireRole(["master", "moderator"]);
     await repoDeleteAd(id);
 
     await insertAdminAction({

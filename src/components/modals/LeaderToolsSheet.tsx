@@ -49,8 +49,8 @@ export default function LeaderToolsSheet({
   useEffect(() => {
     if (!open) return;
     setLoading(true);
-    getMemberProfileByIdAction(targetUserId).then((res) => {
-      if (res.ok && res.data) setProfile(res.data as UserRow);
+    getMemberProfileByIdAction(targetUserId).then((data) => {
+      if (data) setProfile(data);
       setLoading(false);
     });
   }, [open, targetUserId]);

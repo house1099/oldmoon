@@ -22,6 +22,7 @@ import {
 } from "@/services/admin.action";
 import type { UserRow, ExpLogRow } from "@/types/database.types";
 import type { AdminExpGrantSummary } from "@/lib/repositories/server/admin.repository";
+import { createBrowserClient } from "@supabase/ssr";
 
 type Tab = "grant" | "history" | "query";
 
@@ -41,7 +42,6 @@ export default function ExpManagementPage() {
   const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
-    const { createBrowserClient } = require("@supabase/ssr");
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

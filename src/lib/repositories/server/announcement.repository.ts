@@ -15,7 +15,7 @@ export async function findAllAnnouncements(): Promise<AnnouncementDto[]> {
 
   const rows = (data ?? []) as AnnouncementRow[];
 
-  const userIds = [...new Set(rows.map((r) => r.created_by))];
+  const userIds = Array.from(new Set(rows.map((r) => r.created_by)));
   const profiles: Record<
     string,
     { id: string; nickname: string; avatar_url: string | null }

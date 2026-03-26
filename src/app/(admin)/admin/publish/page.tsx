@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { toast } from "sonner";
 import {
   Plus,
@@ -12,7 +13,6 @@ import {
   Trash2,
   Loader2,
   Megaphone,
-  Image as ImageIcon,
 } from "lucide-react";
 import {
   getAnnouncementsAction,
@@ -172,10 +172,13 @@ function AnnouncementTab() {
                     {a.content}
                   </p>
                   {a.image_url && (
-                    <img
+                    <Image
                       src={a.image_url}
                       alt=""
-                      className="mt-2 h-20 rounded-lg object-cover"
+                      width={320}
+                      height={80}
+                      unoptimized
+                      className="mt-2 h-20 w-auto max-w-full rounded-lg object-cover"
                     />
                   )}
                   <div className="mt-2 flex items-center gap-3 text-xs text-gray-400">
