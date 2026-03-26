@@ -12,7 +12,7 @@ import { instagramHandleSchema } from "@/lib/validation/instagram-handle";
 
 function isStaffRole(role: string | null | undefined): boolean {
   const r = role ?? "member";
-  return r === "admin" || r === "leader";
+  return r === "master" || r === "moderator";
 }
 
 export async function requestIgChangeAction(

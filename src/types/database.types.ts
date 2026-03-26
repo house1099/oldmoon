@@ -1,6 +1,7 @@
 /**
  * 與 Supabase `public` schema 對齊的型別（手動維護，請在雲端 Schema 變更後同步更新）。
- * 表：users, exp_logs, likes, alliances（雙人血盟）, conversations, chat_messages, blocks, reports, messages, notifications, ig_change_requests
+ * 表：users, exp_logs, likes, alliances（雙人血盟）, conversations, chat_messages, blocks, reports, messages, notifications, ig_change_requests,
+ *     admin_actions, moderator_permissions, system_settings, advertisements, ad_clicks
  */
 
 export type Json =
@@ -33,8 +34,8 @@ export interface Database {
           /** 是否願意線下／實體聚會（尚未決定時以 false 表示未承諾實體） */
           offline_ok: boolean;
           avatar_url: string | null;
-          /** active：正常；banned：已放逐（路由層強制登出） */
-          status: "active" | "banned";
+          /** active / suspended / banned / pending */
+          status: "pending" | "active" | "suspended" | "banned";
           /**
            * 累積經驗值（欄位名必為 `total_exp`，勿使用不存在的 `exp` 欄位）；由 Trigger／exp_logs 等規則維護。
            * 雲端建議 **`integer` 或 `bigint`（int4／int8）**；TypeScript 對應 **`number`**，可支撐數值成長。
@@ -61,8 +62,16 @@ export interface Database {
           invited_by: string | null;
           /** 是否在公會公開 IG（隱私開關） */
           ig_public: boolean;
-          /** 公會權限：`member`（預設）／`admin`／`leader` */
-          role: string;
+          /** 公會權限：member / moderator / master */
+          role: "member" | "moderator" | "master";
+          /** 信譽分（0-100，預設 100） */
+          reputation_score: number;
+          /** 放逐原因 */
+          ban_reason: string | null;
+          /** 停權到期時間 */
+          suspended_until: string | null;
+          /** 管理備註 */
+          notes: string | null;
           /** 每日心情內文 */
           mood: string | null;
           /** 心情最後更新時間（ISO）；超過 24h 前端可不顯示內容 */
@@ -84,7 +93,7 @@ export interface Database {
           orientation: string;
           offline_ok?: boolean;
           avatar_url?: string | null;
-          status?: "active" | "banned";
+          status?: "pending" | "active" | "suspended" | "banned";
           /** 累積經驗值，欄位名 `total_exp`（Postgres int4／int8 → TS `number`） */
           total_exp?: number;
           /** 等級（Postgres int4／int8 → TS `number`） */
@@ -97,7 +106,11 @@ export interface Database {
           invite_code?: string | null;
           invited_by?: string | null;
           ig_public?: boolean;
-          role?: string;
+          role?: "member" | "moderator" | "master";
+          reputation_score?: number;
+          ban_reason?: string | null;
+          suspended_until?: string | null;
+          notes?: string | null;
           mood?: string | null;
           mood_at?: string | null;
           last_checkin_at?: string | null;
@@ -116,7 +129,7 @@ export interface Database {
           orientation?: string;
           offline_ok?: boolean;
           avatar_url?: string | null;
-          status?: "active" | "banned";
+          status?: "pending" | "active" | "suspended" | "banned";
           /** 累積經驗值，欄位名 `total_exp`（Postgres int4／int8 → TS `number`） */
           total_exp?: number;
           /** 等級（Postgres int4／int8 → TS `number`） */
@@ -129,7 +142,11 @@ export interface Database {
           invite_code?: string | null;
           invited_by?: string | null;
           ig_public?: boolean;
-          role?: string;
+          role?: "member" | "moderator" | "master";
+          reputation_score?: number;
+          ban_reason?: string | null;
+          suspended_until?: string | null;
+          notes?: string | null;
           mood?: string | null;
           mood_at?: string | null;
           last_checkin_at?: string | null;
@@ -532,6 +549,233 @@ export interface Database {
           },
         ];
       };
+      admin_actions: {
+        Row: {
+          id: string;
+          admin_id: string;
+          target_user_id: string | null;
+          action_type: string;
+          reason: string | null;
+          metadata: Record<string, unknown> | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          admin_id: string;
+          target_user_id?: string | null;
+          action_type: string;
+          reason?: string | null;
+          metadata?: Record<string, unknown> | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          admin_id?: string;
+          target_user_id?: string | null;
+          action_type?: string;
+          reason?: string | null;
+          metadata?: Record<string, unknown> | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "admin_actions_admin_id_fkey";
+            columns: ["admin_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "admin_actions_target_user_id_fkey";
+            columns: ["target_user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      moderator_permissions: {
+        Row: {
+          id: string;
+          user_id: string;
+          can_review_users: boolean;
+          can_grant_exp: boolean;
+          can_deduct_exp: boolean;
+          can_handle_reports: boolean;
+          can_manage_events: boolean;
+          can_manage_announcements: boolean;
+          can_manage_invitations: boolean;
+          can_view_analytics: boolean;
+          can_manage_ads: boolean;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          can_review_users?: boolean;
+          can_grant_exp?: boolean;
+          can_deduct_exp?: boolean;
+          can_handle_reports?: boolean;
+          can_manage_events?: boolean;
+          can_manage_announcements?: boolean;
+          can_manage_invitations?: boolean;
+          can_view_analytics?: boolean;
+          can_manage_ads?: boolean;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          can_review_users?: boolean;
+          can_grant_exp?: boolean;
+          can_deduct_exp?: boolean;
+          can_handle_reports?: boolean;
+          can_manage_events?: boolean;
+          can_manage_announcements?: boolean;
+          can_manage_invitations?: boolean;
+          can_view_analytics?: boolean;
+          can_manage_ads?: boolean;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "moderator_permissions_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "moderator_permissions_updated_by_fkey";
+            columns: ["updated_by"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      system_settings: {
+        Row: {
+          key: string;
+          value: string;
+          description: string | null;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          key: string;
+          value: string;
+          description?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          key?: string;
+          value?: string;
+          description?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "system_settings_updated_by_fkey";
+            columns: ["updated_by"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      advertisements: {
+        Row: {
+          id: string;
+          title: string;
+          description: string | null;
+          image_url: string | null;
+          link_url: string | null;
+          position: "banner" | "card" | "announcement";
+          weight: number;
+          is_active: boolean;
+          starts_at: string | null;
+          ends_at: string | null;
+          click_count: number;
+          view_count: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          description?: string | null;
+          image_url?: string | null;
+          link_url?: string | null;
+          position: "banner" | "card" | "announcement";
+          weight?: number;
+          is_active?: boolean;
+          starts_at?: string | null;
+          ends_at?: string | null;
+          click_count?: number;
+          view_count?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          title?: string;
+          description?: string | null;
+          image_url?: string | null;
+          link_url?: string | null;
+          position?: "banner" | "card" | "announcement";
+          weight?: number;
+          is_active?: boolean;
+          starts_at?: string | null;
+          ends_at?: string | null;
+          click_count?: number;
+          view_count?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "advertisements_created_by_fkey";
+            columns: ["created_by"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ad_clicks: {
+        Row: {
+          id: string;
+          ad_id: string;
+          user_id: string | null;
+          clicked_at: string;
+        };
+        Insert: {
+          id?: string;
+          ad_id: string;
+          user_id?: string | null;
+          clicked_at?: string;
+        };
+        Update: {
+          ad_id?: string;
+          user_id?: string | null;
+          clicked_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ad_clicks_ad_id_fkey";
+            columns: ["ad_id"];
+            referencedRelation: "advertisements";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "ad_clicks_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -553,3 +797,8 @@ export type ConversationRow = PublicTables["conversations"]["Row"];
 export type ChatMessageRow = PublicTables["chat_messages"]["Row"];
 export type BlockRow = PublicTables["blocks"]["Row"];
 export type ReportRow = PublicTables["reports"]["Row"];
+export type AdminActionRow = PublicTables["admin_actions"]["Row"];
+export type ModeratorPermissionRow = PublicTables["moderator_permissions"]["Row"];
+export type SystemSettingRow = PublicTables["system_settings"]["Row"];
+export type AdvertisementRow = PublicTables["advertisements"]["Row"];
+export type AdClickRow = PublicTables["ad_clicks"]["Row"];

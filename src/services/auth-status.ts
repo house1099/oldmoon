@@ -22,7 +22,7 @@ export function buildAuthStatus(
   if (!profile) {
     return { kind: "needs_profile", userId };
   }
-  if (profile.status === "banned") {
+  if (profile.status === "banned" || profile.status === "suspended") {
     return { kind: "banned", userId };
   }
   return { kind: "authenticated", userId, profile };

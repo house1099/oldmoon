@@ -83,7 +83,10 @@
 | 每日簽到 +1 EXP | `src/services/daily-checkin.action.ts`（**`claimDailyCheckin`**；冷卻 **`users.last_checkin_at`**）；**`updateLastCheckinAt`** 見 `user.repository.ts`；**`insertExpLog`（`delta`+`delta_exp`）** 見 `exp.repository.ts`；機讀錯誤 **`DAILY_CHECKIN_ALREADY_CLAIMED`**（**`already_claimed`**）見 `daily-checkin.ts`；**`taipeiCalendarDateKey()`** 仍供其他日曆日用途，**簽到判斷已不採用** |
 | 編輯自介／分域自白／**`instagram_handle`**／IG 公開／心情 | `src/services/profile-update.action.ts`（**支援部分欄位 patch**；**`mood`** 時更新 **`mood_at`**；**`bio_village`**／**`bio_market`**；**`instagram_handle`** 經 **`instagramHandleSchema`**；空字串寫入 **null**） |
 | IG 變更申請／審核 | `src/services/ig-request.action.ts`（**`requestIgChangeAction`**、**`reviewIgRequestAction`**、**`getPendingIgRequestsAction`**）→ **`src/lib/repositories/server/ig-request.repository.ts`**（**admin client** 寫入 **`ig_change_requests`**、核准時更新 **`users.instagram_handle`**） |
-| 管理：IG 待審 | `src/app/(app)/admin/ig-requests/page.tsx`（**role** 為 **admin／leader** 可進；其餘 **`redirect('/')`**） |
+|| 管理員後台 | **src/app/(admin)/layout.tsx**（獨立 layout，sidebar）；**/admin**（儀表板）、**/admin/users**（用戶管理）、**/admin/reports**（檢舉管理）、**/admin/roles**（授權管理，master only）、**/admin/settings**（Wave 2） |
+|| 管理員後台 Layer 2 | **src/lib/repositories/server/admin.repository.ts** |
+|| 管理員後台 Layer 3 | **src/services/admin.action.ts** |
+|| 管理員常數 | **src/lib/constants/admin-permissions.ts** |
 | 個人頁 EXP 紀錄 | `src/services/exp-logs.action.ts`（**`getMyRecentExpLogsAction`**）→ **`exp.repository`** **`findRecentExpLogsForUser`** |
 | 首頁個人頁 UI | `src/app/(app)/page.tsx`（**`'use client'`**、**`useMyProfile`** SWR + **`HomePageSkeleton`**） → `src/components/profile/guild-profile-home.tsx` |
 | SWR：聊天／未讀通知 | **`src/hooks/useChat.ts`** — **`useConversations`**、**`useMessages`**、**`useUnreadNotificationCount`**、**`useUnreadChatConversationsCount`**（**`SWR_KEYS.unreadChatConversations`**） |
@@ -761,3 +764,38 @@ Phase 4 — 市集搜尋快取
 - **Layer 5 — `ChatModal`**：**SWR** 同步 **`conversations`／`unreadChatConversations`**（送出、讀取後、Realtime）。
 
 *最後更新：2026-03-25 — **冒險團私訊 UX**（預覽、未讀、底欄／tab 紅點、血盟 **`UserDetailModal`**、IG https、**`last_message_sender_id`**）；併：血盟／通知**分開查詢**、通知欄位 **`type`／`from_user_id`**、**`console.error`** 診斷、**ChatModal Realtime**、**useChat**＋**SWR_KEYS** 等。*
+
+### 2026-03-26 — 管理員後台 Wave 1
+
+路由結構：
+- `/admin` → 儀表板（master + moderator）
+- `/admin/users` → 用戶管理（master + moderator）
+- `/admin/reports` → 檢舉管理（master + moderator）
+- `/admin/roles` → 授權管理（master only）
+- `/admin/settings` → 系統設定（master only，Wave 2 預留）
+
+角色 SSOT：
+- **master** = 最高領袖
+- **moderator** = 版主
+- **member** = 一般成員
+- ⚠️ 不存在 **admin** 或 **leader** 角色；後台權限判斷一律用 **`master`**／**`moderator`**
+
+新增 DB 欄位：
+- **`users.reputation_score`**（integer, default 100）
+- **`users.ban_reason`**（text, nullable）
+- **`users.suspended_until`**（timestamptz, nullable）
+- **`users.notes`**（text, nullable）
+- **`users.role`** enum 改為：`member` / `moderator` / `master`
+- **`users.status`** enum 改為：`pending` / `active` / `suspended` / `banned`
+
+新增表：**`admin_actions`** / **`moderator_permissions`** / **`system_settings`** / **`advertisements`** / **`ad_clicks`**
+
+廢棄：**`src/app/(app)/admin/ig-requests/page.tsx`**（IG 審核整合進 `/admin/users` 用戶詳情 Sheet）
+
+- **Layer 2**：**`src/lib/repositories/server/admin.repository.ts`** — `getDashboardStats`、`findUsersForAdmin`、`findUserDetailById`（含 email via admin auth）、`updateUserStatus`、`insertAdminAction`、`adminAdjustExp`、`adjustReputation`、`findStaffUsers`、`updateUserRole`、`findModeratorPermissions`、`upsertModeratorPermissions`、`findAllSystemSettings`、`updateSystemSetting`
+- **Layer 3**：**`src/services/admin.action.ts`** — `requireRole` 權限驗證 helper → 各 action（`getDashboardStatsAction`、`getUsersAction`、`getUserDetailAction`、`banUserAction`、`suspendUserAction`、`unbanUserAction`、`adjustExpAction`、`adjustReputationAction`、`getReportsAction`、`resolveReportAction`、`getStaffUsersAction`、`updateUserRoleAction`、`getModeratorPermissionsAction`、`updateModeratorPermissionsAction`、`getSystemSettingsAction`、`updateSystemSettingAction`、`getPendingIgRequestsForUserAction`、`reviewIgRequestFromAdminAction`）
+- **Layer 4**：**`src/lib/constants/admin-permissions.ts`** — `PERMISSION_LABELS`、`DEFAULT_MODERATOR_PERMISSIONS`、`SYSTEM_SETTING_LABELS`、`ADMIN_ROLES`、`MASTER_ONLY_ROLES`
+- **Layer 5**：獨立 `(admin)` route group layout（白底 sidebar、violet-600 品牌色、收合式側欄）；**`src/middleware.ts`** 新增 `/admin/*` 路由守衛（master/moderator 放行，moderator 限 `/admin`、`/admin/users`、`/admin/reports`）
+- **ig-request.action.ts**：`isStaffRole` 改為 `master` / `moderator`（原 `admin` / `leader` 已廢棄）
+
+*最後更新：2026-03-26 — **管理員後台 Wave 1**（儀表板、用戶管理+Sheet、檢舉管理、授權管理、角色 SSOT master/moderator/member）。*

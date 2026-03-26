@@ -1,0 +1,345 @@
+import { createAdminClient } from "@/lib/supabase/admin";
+import type {
+  UserRow,
+  ModeratorPermissionRow,
+  SystemSettingRow,
+} from "@/types/database.types";
+
+export type DashboardStats = {
+  todayNewUsers: number;
+  pendingUsers: number;
+  pendingReports: number;
+  activeUsers: number;
+  weekNewAlliances: number;
+  pendingIgRequests: number;
+};
+
+export async function getDashboardStats(): Promise<DashboardStats> {
+  const admin = createAdminClient();
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayISO = todayStart.toISOString();
+
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const weekISO = weekAgo.toISOString();
+
+  const [
+    todayNewRes,
+    pendingUsersRes,
+    pendingReportsRes,
+    activeUsersRes,
+    weekAlliancesRes,
+    pendingIgRes,
+  ] = await Promise.all([
+    admin
+      .from("users")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", todayISO),
+    admin
+      .from("users")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
+    admin
+      .from("reports")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
+    admin
+      .from("users")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "active"),
+    admin
+      .from("alliances")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", weekISO),
+    admin
+      .from("ig_change_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
+  ]);
+
+  return {
+    todayNewUsers: todayNewRes.count ?? 0,
+    pendingUsers: pendingUsersRes.count ?? 0,
+    pendingReports: pendingReportsRes.count ?? 0,
+    activeUsers: activeUsersRes.count ?? 0,
+    weekNewAlliances: weekAlliancesRes.count ?? 0,
+    pendingIgRequests: pendingIgRes.count ?? 0,
+  };
+}
+
+export async function findUsersForAdmin(params: {
+  search?: string;
+  status?: string;
+  role?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<{ users: UserRow[]; total: number }> {
+  const admin = createAdminClient();
+  const page = params.page ?? 1;
+  const pageSize = params.pageSize ?? 20;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let query = admin
+    .from("users")
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (params.status) {
+    query = query.eq(
+      "status",
+      params.status as "pending" | "active" | "suspended" | "banned",
+    );
+  }
+  if (params.role) {
+    query = query.eq(
+      "role",
+      params.role as "member" | "moderator" | "master",
+    );
+  }
+  if (params.search) {
+    query = query.ilike("nickname", `%${params.search}%`);
+  }
+
+  const { data, error, count } = await query;
+  if (error) throw error;
+
+  return {
+    users: (data ?? []) as UserRow[],
+    total: count ?? 0,
+  };
+}
+
+export async function findUserDetailById(
+  userId: string,
+): Promise<(UserRow & { email: string }) | null> {
+  const admin = createAdminClient();
+
+  const { data: profile, error } = await admin
+    .from("users")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!profile) return null;
+
+  const {
+    data: { user: authUser },
+  } = await admin.auth.admin.getUserById(userId);
+
+  return {
+    ...(profile as UserRow),
+    email: authUser?.email ?? "",
+  };
+}
+
+export async function updateUserStatus(
+  userId: string,
+  status: string,
+  reason?: string,
+): Promise<void> {
+  const admin = createAdminClient();
+  const patch: Record<string, unknown> = {
+    status: status as "pending" | "active" | "suspended" | "banned",
+  };
+  if (status === "banned" && reason) {
+    patch.ban_reason = reason;
+  }
+  if (status === "active") {
+    patch.ban_reason = null;
+    patch.suspended_until = null;
+  }
+
+  const { error } = await admin.from("users").update(patch).eq("id", userId);
+  if (error) throw error;
+}
+
+export async function updateSuspendedUntil(
+  userId: string,
+  suspendedUntil: string | null,
+): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("users")
+    .update({ suspended_until: suspendedUntil })
+    .eq("id", userId);
+  if (error) throw error;
+}
+
+export async function insertAdminAction(payload: {
+  admin_id: string;
+  target_user_id?: string;
+  action_type: string;
+  reason?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin.from("admin_actions").insert({
+    admin_id: payload.admin_id,
+    target_user_id: payload.target_user_id ?? null,
+    action_type: payload.action_type,
+    reason: payload.reason ?? null,
+    metadata: payload.metadata ?? null,
+  });
+  if (error) {
+    console.error("insertAdminAction failed:", error);
+    throw error;
+  }
+}
+
+export async function adminAdjustExp(
+  userId: string,
+  delta: number,
+): Promise<void> {
+  const admin = createAdminClient();
+
+  const { error: expLogErr } = await admin.from("exp_logs").insert({
+    user_id: userId,
+    source: "admin_adjust",
+    unique_key: `admin_exp:${userId}:${Date.now()}`,
+    delta,
+    delta_exp: delta,
+  });
+  if (expLogErr) throw expLogErr;
+
+  const { data: user, error: readErr } = await admin
+    .from("users")
+    .select("total_exp")
+    .eq("id", userId)
+    .single();
+  if (readErr) throw readErr;
+
+  const newExp = Math.max(0, (user?.total_exp ?? 0) + delta);
+  const { error: updateErr } = await admin
+    .from("users")
+    .update({ total_exp: newExp })
+    .eq("id", userId);
+  if (updateErr) throw updateErr;
+}
+
+export async function adjustReputation(
+  userId: string,
+  delta: number,
+): Promise<void> {
+  const admin = createAdminClient();
+
+  const { data: user, error: readErr } = await admin
+    .from("users")
+    .select("reputation_score")
+    .eq("id", userId)
+    .single();
+  if (readErr) throw readErr;
+
+  const current = user?.reputation_score ?? 100;
+  const newScore = Math.max(0, Math.min(100, current + delta));
+
+  const { error } = await admin
+    .from("users")
+    .update({ reputation_score: newScore })
+    .eq("id", userId);
+  if (error) throw error;
+}
+
+export async function findStaffUsers(): Promise<UserRow[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("users")
+    .select("*")
+    .in("role", ["master", "moderator"])
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as UserRow[];
+}
+
+export async function updateUserRole(
+  userId: string,
+  role: string,
+): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("users")
+    .update({ role: role as "member" | "moderator" | "master" })
+    .eq("id", userId);
+  if (error) throw error;
+}
+
+export async function findModeratorPermissions(
+  userId: string,
+): Promise<ModeratorPermissionRow | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("moderator_permissions")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as ModeratorPermissionRow) ?? null;
+}
+
+export async function upsertModeratorPermissions(
+  userId: string,
+  permissions: Partial<ModeratorPermissionRow>,
+  updatedBy: string,
+): Promise<void> {
+  const admin = createAdminClient();
+
+  const existing = await findModeratorPermissions(userId);
+  if (existing) {
+    const { error } = await admin
+      .from("moderator_permissions")
+      .update({
+        ...permissions,
+        updated_by: updatedBy,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId);
+    if (error) throw error;
+  } else {
+    const { error } = await admin.from("moderator_permissions").insert({
+      user_id: userId,
+      can_review_users: false,
+      can_grant_exp: false,
+      can_deduct_exp: false,
+      can_handle_reports: false,
+      can_manage_events: false,
+      can_manage_announcements: false,
+      can_manage_invitations: false,
+      can_view_analytics: false,
+      can_manage_ads: false,
+      ...permissions,
+      updated_by: updatedBy,
+    });
+    if (error) throw error;
+  }
+}
+
+export async function findAllSystemSettings(): Promise<SystemSettingRow[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("system_settings")
+    .select("*")
+    .order("key", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as SystemSettingRow[];
+}
+
+export async function updateSystemSetting(
+  key: string,
+  value: string,
+  updatedBy: string,
+): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("system_settings")
+    .update({
+      value,
+      updated_by: updatedBy,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("key", key);
+  if (error) throw error;
+}

@@ -126,6 +126,26 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // --- 後台路由：/admin/* 權限檢查 ---
+  if (pathname.startsWith("/admin")) {
+    if (auth.kind !== "authenticated") {
+      loginUrl.searchParams.set("next", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    const role = auth.profile.role;
+    if (role !== "master" && role !== "moderator") {
+      return NextResponse.redirect(homeUrl);
+    }
+    const moderatorAllowed = ["/admin", "/admin/users", "/admin/reports"];
+    if (
+      role === "moderator" &&
+      !moderatorAllowed.includes(pathname)
+    ) {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    }
+    return response;
+  }
+
   // --- 受保護路徑 ---
   if (auth.kind === "unauthenticated") {
     loginUrl.searchParams.set("next", pathname);
