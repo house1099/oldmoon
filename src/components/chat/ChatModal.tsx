@@ -94,8 +94,9 @@ export default function ChatModal({
 
   if (!open) return null;
 
+  /** 須高於 `UserDetailModal`（z-300/310）、信件 Dialog（z-200/210）等，否則從詳情按「聊聊」時聊天層會被擋住 */
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-zinc-950">
+    <div className="fixed inset-0 z-[400] flex flex-col bg-zinc-950">
       <div
         className="flex items-center gap-3 border-b border-white/10 bg-zinc-950/90 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-xl"
       >
@@ -160,9 +161,15 @@ export default function ChatModal({
       <div
         className="border-t border-white/10 bg-zinc-950/90 px-4 py-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-xl"
       >
-        <div className="flex items-end gap-2">
-          <input
-            type="text"
+        <form
+          className="flex items-end gap-2"
+          autoComplete="off"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleSend();
+          }}
+        >
+          <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
@@ -173,11 +180,18 @@ export default function ChatModal({
             }}
             placeholder="輸入訊息..."
             maxLength={500}
-            className="flex-1 rounded-full border border-white/10 bg-zinc-800/60 px-4 py-3 text-base text-white placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
+            rows={1}
+            enterKeyHint="send"
+            inputMode="text"
+            autoComplete="off"
+            autoCorrect="on"
+            autoCapitalize="sentences"
+            spellCheck={false}
+            name="chat-message"
+            className="max-h-32 min-h-[2.75rem] flex-1 resize-none rounded-full border border-white/10 bg-zinc-800/60 px-4 py-3 text-base leading-snug text-white placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
           />
           <button
-            type="button"
-            onClick={() => void handleSend()}
+            type="submit"
             disabled={sending || !input.trim()}
             className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-violet-600 transition-all hover:bg-violet-500 active:scale-95 disabled:opacity-40"
             aria-label="送出"
@@ -188,11 +202,11 @@ export default function ChatModal({
               <span className="text-sm text-white">→</span>
             )}
           </button>
-        </div>
+        </form>
       </div>
 
       {showReport ? (
-        <div className="fixed inset-0 z-[110] flex items-end">
+        <div className="fixed inset-0 z-[420] flex items-end">
           <div
             role="presentation"
             className="absolute inset-0 bg-black/60"
