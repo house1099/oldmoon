@@ -15,6 +15,7 @@ export type NotificationListItem = NotificationRow & {
     id: string;
     nickname: string;
     avatar_url: string | null;
+    role: string | null;
   } | null;
 };
 
@@ -45,23 +46,30 @@ async function loadNotificationsForUser(
 
   const fromMap: Record<
     string,
-    { id: string; nickname: string; avatar_url: string | null }
+    {
+      id: string;
+      nickname: string;
+      avatar_url: string | null;
+      role: string | null;
+    }
   > = {};
 
   if (fromIds.length > 0) {
     const { data: users, error: usersErr } = await admin
       .from("users")
-      .select("id, nickname, avatar_url")
+      .select("id, nickname, avatar_url, role")
       .in("id", fromIds);
     if (usersErr) {
       console.error("loadNotificationsForUser users:", usersErr);
     } else {
       for (const u of users ?? []) {
-        fromMap[u.id] = u as {
+        const row = u as {
           id: string;
           nickname: string;
           avatar_url: string | null;
+          role: string | null;
         };
+        fromMap[row.id] = row;
       }
     }
   }

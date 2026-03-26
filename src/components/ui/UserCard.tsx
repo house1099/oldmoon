@@ -12,7 +12,7 @@ import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { cn } from "@/lib/utils";
 import { getRoleDisplay } from "@/lib/utils/role-display";
 import { UserDetailModal } from "@/components/modals/UserDetailModal";
-import Avatar from "@/components/ui/Avatar";
+import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
 import { LevelBadge } from "@/components/ui/LevelBadge";
 
 function tagLabel(slug: string): string {
@@ -69,7 +69,7 @@ export function UserCard({
           }
         }}
         className={cn(
-          "relative cursor-pointer overflow-hidden rounded-2xl border border-zinc-800/60 bg-zinc-900/60 p-4 transition-all duration-200 hover:border-zinc-700/80 hover:bg-zinc-900/80 active:scale-[0.99]",
+          "relative cursor-pointer overflow-visible rounded-2xl border border-zinc-800/60 bg-zinc-900/60 p-4 transition-all duration-200 hover:border-zinc-700/80 hover:bg-zinc-900/80 active:scale-[0.99]",
           className,
         )}
       >
@@ -81,19 +81,23 @@ export function UserCard({
         ) : null}
 
         <div className="flex items-start gap-3">
-          <div className="relative shrink-0">
-            <Avatar
+          <div className="relative shrink-0 overflow-visible">
+            <MasterAvatarShell
+              role={user.role}
               size={56}
               src={user.avatar_url}
               nickname={user.nickname}
-            />
-            <span
-              className={cn(
-                "absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-zinc-900",
-                user.activity_status === "active" ? "bg-emerald-500" : "bg-zinc-600",
-              )}
-              aria-hidden
-            />
+            >
+              <span
+                className={cn(
+                  "absolute bottom-0.5 right-0.5 z-[15] h-3 w-3 rounded-full border-2 border-zinc-900",
+                  user.activity_status === "active"
+                    ? "bg-emerald-500"
+                    : "bg-zinc-600",
+                )}
+                aria-hidden
+              />
+            </MasterAvatarShell>
           </div>
 
           <div className="min-w-0 flex-1">

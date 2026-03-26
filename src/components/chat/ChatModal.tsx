@@ -14,7 +14,7 @@ import { useMessages } from "@/hooks/useChat";
 import { useMyProfile } from "@/hooks/useMyProfile";
 import { sendMessageAction, submitReportAction } from "@/services/chat.action";
 import { getMemberProfileByIdAction } from "@/services/profile.action";
-import Avatar from "@/components/ui/Avatar";
+import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
 import { createClient } from "@/lib/supabase/client";
 import { SWR_KEYS } from "@/lib/swr/keys";
 import { cn } from "@/lib/utils";
@@ -34,6 +34,7 @@ export interface ChatModalProps {
     id: string;
     nickname: string;
     avatar_url?: string | null;
+    role?: string | null;
   };
   currentUserId: string;
 }
@@ -162,7 +163,7 @@ export default function ChatModal({
       data-chat-portal="1"
     >
       <div
-        className="flex items-center gap-3 border-b border-white/10 bg-zinc-950/90 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-xl"
+        className="flex items-center gap-3 overflow-visible border-b border-white/10 bg-zinc-950/90 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-xl"
       >
         <button
           type="button"
@@ -172,7 +173,8 @@ export default function ChatModal({
         >
           ←
         </button>
-        <Avatar
+        <MasterAvatarShell
+          role={targetUser.role}
           src={targetUser.avatar_url}
           nickname={targetUser.nickname}
           size={36}
@@ -221,8 +223,9 @@ export default function ChatModal({
                 className="flex items-end justify-end gap-2"
               >
                 {bubble}
-                <div className="shrink-0" aria-hidden>
-                  <Avatar
+                <div className="shrink-0 overflow-visible" aria-hidden>
+                  <MasterAvatarShell
+                    role={myProfile?.role}
                     src={myProfile?.avatar_url}
                     nickname={myProfile?.nickname ?? "我"}
                     size={36}
@@ -241,13 +244,14 @@ export default function ChatModal({
                 type="button"
                 onClick={() => void handlePeerAvatarClick(msg.sender_id)}
                 className={cn(
-                  "shrink-0 cursor-pointer rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
+                  "shrink-0 cursor-pointer overflow-visible rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
                   avatarLoadingId !== null && "pointer-events-none",
                   avatarLoadingId === msg.sender_id && "opacity-60",
                 )}
                 aria-label={`查看 ${targetUser.nickname} 的資料`}
               >
-                <Avatar
+                <MasterAvatarShell
+                  role={targetUser.role}
                   src={targetUser.avatar_url}
                   nickname={targetUser.nickname}
                   size={36}

@@ -21,7 +21,7 @@ import {
 } from "@/services/notification.action";
 import type { NotificationListItem } from "@/services/notification.action";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
-import Avatar from "@/components/ui/Avatar";
+import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
 import ChatModal from "@/components/chat/ChatModal";
 import { UserDetailModal } from "@/components/modals/UserDetailModal";
 import { SWR_KEYS } from "@/lib/swr/keys";
@@ -221,10 +221,11 @@ function AllianceList() {
           {pending.map((r) => (
             <div
               key={r.id}
-              className="flex items-center justify-between gap-2"
+              className="flex items-center justify-between gap-2 overflow-visible"
             >
-              <div className="flex min-w-0 flex-1 items-center gap-3">
-                <Avatar
+              <div className="flex min-w-0 flex-1 items-center gap-3 overflow-visible">
+                <MasterAvatarShell
+                  role={r.requester.role}
                   src={r.requester.avatar_url}
                   nickname={r.requester.nickname}
                   size={40}
@@ -301,10 +302,11 @@ function AllianceList() {
                   setProfileLoadingId(null);
                 }
               }}
-              className="flex w-full items-center justify-between rounded-2xl border-b border-white/5 p-2 text-left transition-all last:border-0 hover:bg-white/5 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60"
+              className="flex w-full items-center justify-between overflow-visible rounded-2xl border-b border-white/5 p-2 text-left transition-all last:border-0 hover:bg-white/5 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60"
             >
               <div className="flex min-w-0 flex-1 items-center gap-3">
-                <Avatar
+                <MasterAvatarShell
+                  role={a.partner.role}
                   src={a.partner.avatar_url}
                   nickname={a.partner.nickname}
                   size={40}
@@ -397,13 +399,14 @@ function ChatList() {
             key={conv.id}
             type="button"
             onClick={() => setActiveConv(conv)}
-            className={`glass-panel flex w-full items-center gap-3 p-4 text-left transition-all hover:bg-white/5 active:scale-[0.99] ${
+            className={`glass-panel flex w-full items-center gap-3 overflow-visible p-4 text-left transition-all hover:bg-white/5 active:scale-[0.99] ${
               conv.hasUnreadFromPartner
                 ? "border-rose-500/25 bg-rose-950/15 ring-1 ring-rose-500/20"
                 : ""
             }`}
           >
-            <Avatar
+            <MasterAvatarShell
+              role={conv.partner?.role}
               src={conv.partner?.avatar_url}
               nickname={conv.partner?.nickname}
               size={44}
@@ -462,6 +465,7 @@ function ChatList() {
                 : activeConv.user_a),
             nickname: activeConv.partner?.nickname ?? "未知用戶",
             avatar_url: activeConv.partner?.avatar_url ?? null,
+            role: activeConv.partner?.role ?? null,
           }}
           currentUserId={currentUserId}
         />
@@ -626,11 +630,12 @@ function MailBox() {
                 key={notif.id}
                 type="button"
                 onClick={() => setDetailNotif(notif)}
-                className={`glass-panel flex w-full cursor-pointer items-center gap-3 p-4 text-left transition-all ${
+                className={`glass-panel flex w-full cursor-pointer items-center gap-3 overflow-visible p-4 text-left transition-all ${
                   isUnread ? "border-violet-500/30 bg-violet-950/20" : ""
                 }`}
               >
-                <Avatar
+                <MasterAvatarShell
+                  role={notif.fromUser?.role ?? null}
                   src={notif.fromUser?.avatar_url}
                   nickname={notif.fromUser?.nickname}
                   size={40}
@@ -677,7 +682,8 @@ function MailBox() {
             </DialogHeader>
             <div className="space-y-4 px-4 py-4">
               <div className="flex items-center gap-3">
-                <Avatar
+                <MasterAvatarShell
+                  role={detailNotif.fromUser?.role ?? null}
                   src={detailNotif.fromUser?.avatar_url}
                   nickname={detailNotif.fromUser?.nickname}
                   size={48}

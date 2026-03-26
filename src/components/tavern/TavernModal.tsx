@@ -10,7 +10,7 @@ import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { Send } from "lucide-react";
 import useSWR from "swr";
-import Avatar from "@/components/ui/Avatar";
+import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
 import { useMyProfile } from "@/hooks/useMyProfile";
 import { useTavern } from "@/hooks/useTavern";
 import {
@@ -202,7 +202,8 @@ export function TavernModal({
               const mine = m.user_id === myId;
               const msgRole = getRoleDisplay(m.user.role);
               const avatarEl = (
-                <Avatar
+                <MasterAvatarShell
+                  role={m.user.role}
                   src={m.user.avatar_url}
                   nickname={m.user.nickname}
                   size={32}
@@ -213,7 +214,7 @@ export function TavernModal({
                 return (
                   <div
                     key={m.id}
-                    className="flex items-end gap-2 justify-end"
+                    className="flex items-end justify-end gap-2 overflow-visible"
                   >
                     <div className="flex flex-col items-end">
                       <div
@@ -243,7 +244,7 @@ export function TavernModal({
                         {formatMsgTime(m.created_at)}
                       </p>
                     </div>
-                    <div className="shrink-0">{avatarEl}</div>
+                    <div className="shrink-0 overflow-visible">{avatarEl}</div>
                   </div>
                 );
               }
@@ -251,11 +252,11 @@ export function TavernModal({
               return (
                 <div
                   key={m.id}
-                  className="flex items-end gap-2 justify-start"
+                  className="flex items-end justify-start gap-2 overflow-visible"
                 >
                   <button
                     type="button"
-                    className="shrink-0 cursor-pointer rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50"
+                    className="shrink-0 cursor-pointer overflow-visible rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50"
                     onClick={(e) => {
                       e.stopPropagation();
                       void openUserProfile(m.user_id);

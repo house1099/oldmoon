@@ -26,8 +26,7 @@ import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import { Button } from "@/components/ui/button";
 import LoadingButton, { PendingLabel } from "@/components/ui/LoadingButton";
-import Avatar from "@/components/ui/Avatar";
-import { LeaderAvatarOverlays } from "@/components/profile/LeaderAvatarOverlays";
+import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
 import {
   CalendarCheck,
   ChevronRight,
@@ -837,7 +836,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                 ? "cursor-not-allowed opacity-80"
                 : "cursor-pointer",
             )}
-            style={{ width: 96, height: 96 }}
+            style={{ width: 120, height: 120 }}
             role="button"
             tabIndex={uploading || cropOpen ? -1 : 0}
             aria-label="更換大頭貼"
@@ -854,16 +853,12 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               }
             }}
           >
-            <div className="absolute inset-0 overflow-hidden rounded-full">
-              <Avatar
-                src={avatarUrl}
-                nickname={profile?.nickname}
-                size={96}
-                className="border-0 bg-transparent"
-              />
-            </div>
-
-            {profile.role === "master" ? <LeaderAvatarOverlays /> : null}
+            <MasterAvatarShell
+              role={profile.role}
+              size={120}
+              src={avatarUrl}
+              nickname={profile?.nickname}
+            />
 
             {uploading && (
               <div className="absolute inset-0 z-20 flex items-center justify-center rounded-full bg-black/60">

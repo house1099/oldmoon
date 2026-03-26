@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { X, Loader2, ExternalLink } from "lucide-react";
-import Avatar from "@/components/ui/Avatar";
+import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
 import { getMemberProfileByIdAction } from "@/services/profile.action";
 import {
   adjustExpAction,
@@ -163,7 +163,8 @@ export default function LeaderToolsSheet({
 
         {/* Target user */}
         <div className="flex items-center gap-3 border-b border-zinc-800/50 px-4 py-3">
-          <Avatar
+          <MasterAvatarShell
+            role={profile?.role}
             src={profile?.avatar_url ?? null}
             nickname={targetNickname}
             size={36}

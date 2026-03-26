@@ -37,7 +37,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
-import Avatar from "@/components/ui/Avatar";
+import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
 import { LevelBadge } from "@/components/ui/LevelBadge";
 import { cn } from "@/lib/utils";
 import { getRoleDisplay } from "@/lib/utils/role-display";
@@ -313,12 +313,12 @@ export function UserDetailModal({
           showCloseButton={false}
           overlayClassName="z-[800]"
           className={cn(
-            "z-[810] flex max-h-[88vh] w-full max-w-sm flex-col gap-0 overflow-hidden rounded-3xl border border-zinc-800/60 bg-zinc-950 p-0",
+            "z-[810] flex max-h-[88vh] min-h-0 w-full max-w-sm flex-col gap-0 overflow-visible rounded-3xl border border-zinc-800/60 bg-zinc-950 p-0",
           )}
         >
           <DialogTitle className="sr-only">{user.nickname} 的冒險者資料</DialogTitle>
 
-          <div className="relative flex-shrink-0 bg-gradient-to-b from-zinc-900/80 to-zinc-950 px-5 pb-4 pt-6">
+          <div className="relative flex-shrink-0 overflow-visible bg-gradient-to-b from-zinc-900/80 to-zinc-950 px-5 pb-4 pt-8">
             <button
               type="button"
               onClick={() => onOpenChange(false)}
@@ -329,22 +329,24 @@ export function UserDetailModal({
             </button>
 
             <div className="flex items-start gap-4 pr-2">
-              <div className="relative shrink-0">
-                <Avatar
-                  size={80}
+              <div className="relative shrink-0 overflow-visible">
+                <MasterAvatarShell
+                  role={user.role}
+                  size={88}
                   src={user.avatar_url}
                   nickname={user.nickname}
-                  className="ring-2 ring-zinc-700/50"
-                />
-                <span
-                  className={cn(
-                    "absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full border-2 border-zinc-950",
-                    user.activity_status === "active"
-                      ? "bg-emerald-500"
-                      : "bg-zinc-600",
-                  )}
-                  aria-hidden
-                />
+                  avatarClassName="ring-2 ring-zinc-700/50"
+                >
+                  <span
+                    className={cn(
+                      "absolute bottom-1 right-1 z-[15] h-3.5 w-3.5 rounded-full border-2 border-zinc-950",
+                      user.activity_status === "active"
+                        ? "bg-emerald-500"
+                        : "bg-zinc-600",
+                    )}
+                    aria-hidden
+                  />
+                </MasterAvatarShell>
               </div>
 
               <div className="min-w-0 flex-1 pt-1">
@@ -662,6 +664,7 @@ export function UserDetailModal({
             id: user.id,
             nickname: user.nickname,
             avatar_url: user.avatar_url,
+            role: user.role,
           }}
           currentUserId={socialStatus.currentUserId ?? ""}
         />
