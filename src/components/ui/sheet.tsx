@@ -49,6 +49,7 @@ export function SheetContent({
     <div
       className={cn(
         "fixed inset-y-0 z-50 flex flex-col bg-white shadow-xl",
+        "pt-[max(0.75rem,env(safe-area-inset-top,0px))]",
         "w-full sm:max-w-lg",
         "animate-in slide-in-from-right duration-300",
         side === "right" ? "right-0" : "left-0",

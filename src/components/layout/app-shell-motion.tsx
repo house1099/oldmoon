@@ -73,10 +73,10 @@ export function AppShellMotion({ children }: { children: React.ReactNode }) {
   return (
     <GuildTabProvider>
       <div
-        className="dark min-h-screen bg-[radial-gradient(ellipse_100%_55%_at_50%_0%,rgba(88,28,135,0.38),#020617_52%)] text-foreground"
+        className="dark min-h-[100dvh] bg-[radial-gradient(ellipse_100%_55%_at_50%_0%,rgba(88,28,135,0.38),#020617_52%)] text-foreground"
         style={{ "--nav-reserve": NAV_BOTTOM_RESERVE } as CSSProperties}
       >
-        <div className="relative min-h-screen overflow-hidden pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]">
+        <div className="relative min-h-[100dvh] overflow-hidden pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]">
           {/* pb 預留區若不填色會透出外層 radial，切頁時與內頁 zinc-950 閃一條藍帶 */}
           <div
             className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] bg-zinc-950"
