@@ -16,6 +16,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import Avatar from "@/components/ui/Avatar";
 import type { UserRow } from "@/types/database.types";
 import {
   getUsersAction,
@@ -68,7 +69,7 @@ export default function UsersClient({ initialData }: Props) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<
@@ -334,17 +335,12 @@ export default function UsersClient({ initialData }: Props) {
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      {u.avatar_url ? (
-                        <img
-                          src={u.avatar_url}
-                          alt=""
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-xs font-bold">
-                          {u.nickname?.[0] ?? "?"}
-                        </div>
-                      )}
+                      <Avatar
+                        src={u.avatar_url}
+                        nickname={u.nickname}
+                        size={32}
+                        className="bg-violet-100 [&_span]:text-violet-600"
+                      />
                       <span className="font-medium text-gray-900">
                         {u.nickname}
                       </span>
@@ -387,17 +383,12 @@ export default function UsersClient({ initialData }: Props) {
               className="p-4 flex items-center gap-3 active:bg-gray-50 cursor-pointer"
               onClick={() => openUserDetail(u.id)}
             >
-              {u.avatar_url ? (
-                <img
-                  src={u.avatar_url}
-                  alt=""
-                  className="w-10 h-10 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-sm font-bold">
-                  {u.nickname?.[0] ?? "?"}
-                </div>
-              )}
+              <Avatar
+                src={u.avatar_url}
+                nickname={u.nickname}
+                size={40}
+                className="bg-violet-100 [&_span]:text-violet-600"
+              />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-gray-900 truncate">
@@ -482,17 +473,12 @@ export default function UsersClient({ initialData }: Props) {
               <>
                 {/* Profile header */}
                 <div className="flex items-center gap-4">
-                  {selectedUser.avatar_url ? (
-                    <img
-                      src={selectedUser.avatar_url}
-                      alt=""
-                      className="w-16 h-16 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-xl font-bold">
-                      {selectedUser.nickname?.[0] ?? "?"}
-                    </div>
-                  )}
+                  <Avatar
+                    src={selectedUser.avatar_url}
+                    nickname={selectedUser.nickname}
+                    size={64}
+                    className="bg-violet-100 [&_span]:text-violet-600 [&_span]:text-xl"
+                  />
                   <div>
                     <h3 className="text-lg font-bold text-gray-900">
                       {selectedUser.nickname}

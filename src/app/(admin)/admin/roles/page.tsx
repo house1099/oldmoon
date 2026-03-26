@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import {
   ChevronDown,
@@ -10,10 +10,7 @@ import {
   ShieldMinus,
 } from "lucide-react";
 import type { UserRow, ModeratorPermissionRow } from "@/types/database.types";
-import {
-  PERMISSION_LABELS,
-  DEFAULT_MODERATOR_PERMISSIONS,
-} from "@/lib/constants/admin-permissions";
+import { PERMISSION_LABELS } from "@/lib/constants/admin-permissions";
 import {
   getStaffUsersAction,
   updateUserRoleAction,
@@ -21,6 +18,7 @@ import {
   updateModeratorPermissionsAction,
   getUsersAction,
 } from "@/services/admin.action";
+import Avatar from "@/components/ui/Avatar";
 
 const ROLE_BADGE: Record<string, string> = {
   master: "bg-violet-100 text-violet-700",
@@ -38,7 +36,6 @@ export default function AdminRolesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<UserRow[]>([]);
   const [searching, setSearching] = useState(false);
-  const [isPending, startTransition] = useTransition();
 
   const fetchStaff = useCallback(async () => {
     setLoading(true);
@@ -161,17 +158,12 @@ export default function AdminRolesPage() {
                       u.role === "moderator" ? toggleExpand(u.id) : undefined
                     }
                   >
-                    {u.avatar_url ? (
-                      <img
-                        src={u.avatar_url}
-                        alt=""
-                        className="w-10 h-10 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-sm font-bold">
-                        {u.nickname?.[0] ?? "?"}
-                      </div>
-                    )}
+                    <Avatar
+                      src={u.avatar_url}
+                      nickname={u.nickname}
+                      size={40}
+                      className="bg-violet-100 [&_span]:text-violet-600"
+                    />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-gray-900 truncate">
@@ -298,17 +290,12 @@ export default function AdminRolesPage() {
                   key={u.id}
                   className="flex items-center gap-3 p-3 hover:bg-gray-50"
                 >
-                  {u.avatar_url ? (
-                    <img
-                      src={u.avatar_url}
-                      alt=""
-                      className="w-8 h-8 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-xs font-bold">
-                      {u.nickname?.[0] ?? "?"}
-                    </div>
-                  )}
+                  <Avatar
+                    src={u.avatar_url}
+                    nickname={u.nickname}
+                    size={32}
+                    className="bg-violet-100 [&_span]:text-violet-600"
+                  />
                   <div className="flex-1 min-w-0">
                     <span className="text-sm font-medium text-gray-900 truncate block">
                       {u.nickname}

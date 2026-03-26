@@ -4,6 +4,7 @@ import React, { useState, useCallback, useTransition, useEffect } from "react";
 import { toast } from "sonner";
 import { X, CheckCircle, XCircle, PartyPopper } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import Avatar from "@/components/ui/Avatar";
 import {
   getReportsAction,
   resolveReportAction,
@@ -27,8 +28,7 @@ const STATUS_BADGE: Record<string, string> = {
 export default function AdminReportsPage() {
   const [tab, setTab] = useState("all");
   const [reports, setReports] = useState<ReportWithUsers[]>([]);
-  const [total, setTotal] = useState(0);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<ReportWithUsers | null>(
@@ -51,7 +51,6 @@ export default function AdminReportsPage() {
         });
         if (result.ok) {
           setReports(result.data.reports);
-          setTotal(result.data.total);
         }
       });
     },
@@ -130,17 +129,12 @@ export default function AdminReportsPage() {
                 className="p-4 flex items-center gap-3 hover:bg-gray-50 cursor-pointer transition-colors"
                 onClick={() => openDetail(r)}
               >
-                {r.reported_avatar ? (
-                  <img
-                    src={r.reported_avatar}
-                    alt=""
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-sm font-bold">
-                    {r.reported_nickname?.[0] ?? "?"}
-                  </div>
-                )}
+                <Avatar
+                  src={r.reported_avatar}
+                  nickname={r.reported_nickname}
+                  size={40}
+                  className="bg-red-100 [&_span]:text-red-600"
+                />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-gray-900 truncate">
