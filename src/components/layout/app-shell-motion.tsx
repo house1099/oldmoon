@@ -13,9 +13,9 @@ type SplitStage = "idle" | "closing" | "opening";
 const NAV_BOTTOM_RESERVE =
   "calc(5.25rem + env(safe-area-inset-bottom, 0px))" as const;
 
-/** 首頁 `/` 無過場；其餘路由：關 → 開 各 1.5s，合計 3s。 */
+/** 首頁 `/` 無過場；其餘路由：關 1.5s → 暫停 0.5s（古代開門感）→ 開 1.5s。 */
 const CLOSE_MS = 1500;
-const HOLD_MS = 0;
+const HOLD_MS = 500;
 const OPEN_MS = 1500;
 const OPEN_AT_MS = CLOSE_MS + HOLD_MS;
 const IDLE_AT_MS = OPEN_AT_MS + OPEN_MS;
