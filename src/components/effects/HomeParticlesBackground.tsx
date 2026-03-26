@@ -20,12 +20,29 @@ function normalizeParticleOptions(raw: unknown): ISourceOptions {
     typeof base.fullScreen === "object" && base.fullScreen !== null
       ? (base.fullScreen as Record<string, unknown>)
       : {};
+  const prevBg =
+    typeof base.background === "object" && base.background !== null
+      ? (base.background as Record<string, unknown>)
+      : {};
+  const prevBgColor =
+    typeof prevBg.color === "object" && prevBg.color !== null
+      ? (prevBg.color as Record<string, unknown>)
+      : {};
+
   return {
     ...base,
     fullScreen: {
       ...prevFull,
       enable: false,
       zIndex: 0,
+    },
+    /** 讓 AppShell 紫黑漸層透出；粒子與圖片仍照常繪製 */
+    background: {
+      ...prevBg,
+      color: {
+        ...prevBgColor,
+        value: "transparent",
+      },
     },
   } as ISourceOptions;
 }
@@ -38,6 +55,11 @@ export function HomeParticlesBackground() {
     void initParticlesEngine(async (engine) => {
       await loadSlim(engine);
       await loadEmittersPlugin(engine);
+      /**
+       * v3.0.3 無 `loadExternalImageShape`／`loadShapes` 此名稱；
+       * `loadImageShape` 會註冊 `image`／`images`、掛載 `engine.loadImage`，
+       * 可載入配方內遠端圖（如 particles.js.org）。
+       */
       await loadImageShape(engine);
     }).then(() => setEngineReady(true));
   }, []);
@@ -76,7 +98,8 @@ export function HomeParticlesBackground() {
   return (
     <Particles
       id="tsparticles-home"
-      className="pointer-events-none fixed inset-0 z-0 h-[100dvh] w-full min-h-[100dvh]"
+      className="pointer-events-none fixed inset-0 z-[1] h-full min-h-[100dvh] w-full max-w-none"
+      style={{ width: "100%", height: "100%" }}
       options={options}
     />
   );
