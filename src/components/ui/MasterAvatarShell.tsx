@@ -1,12 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Lottie from "lottie-react";
-import lightningAnimation from "@/assets/animations/yellow-circle.json";
 import Avatar, {
+  MASTER_AVATAR_FRAME_BRUTE_TEST_IMG_CLASSNAME,
   MASTER_AVATAR_FRAME_OVERLAY_PERCENT,
   MASTER_AVATAR_HOLE_TO_FRAME_ASSET_RATIO,
-  MASTER_AVATAR_LIGHTNING_OVERLAY_PERCENT,
 } from "@/components/ui/Avatar";
 import { cn } from "@/lib/utils";
 
@@ -23,8 +21,8 @@ export type MasterAvatarShellProps = {
 };
 
 /**
- * `role === "master"`：最外層一律 **overflow-visible**，框可大於 100% 向外長出；僅圓形照片層 **rounded-full + overflow-hidden**。
- * 圓形照片 **z-10**；Lottie **z-15**；PNG **z-20**（`pointer-events-none` 可穿透點擊臉部）。
+ * `role === "master"`：外層 **overflow-visible**；Lottie 暫時移除。
+ * 圓形照片 **z-10**；PNG **z-20**（`pointer-events-none`）。
  */
 export function MasterAvatarShell({
   role,
@@ -37,7 +35,6 @@ export function MasterAvatarShell({
 }: MasterAvatarShellProps) {
   const isMaster = role === "master";
   const framePct = MASTER_AVATAR_FRAME_OVERLAY_PERCENT;
-  const lightningPct = MASTER_AVATAR_LIGHTNING_OVERLAY_PERCENT;
   const frameDisplayPx = size * (framePct / 100);
   const photoDiameter = Math.max(
     1,
@@ -59,15 +56,13 @@ export function MasterAvatarShell({
   }
 
   return (
-    <div
-      className={cn("relative shrink-0", className, "!overflow-visible")}
-    >
+    <div className={cn("relative shrink-0", className, "!overflow-visible")}>
       <div
         className="relative isolate !overflow-visible"
         style={{ width: size, height: size }}
       >
         <div
-          className="absolute top-1/2 left-1/2 z-10 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full"
+          className="absolute top-1/2 left-1/2 z-10 -translate-x-1/2 -translate-y-1/2 overflow-visible rounded-full"
           style={{ width: photoDiameter, height: photoDiameter }}
         >
           <Avatar
@@ -77,30 +72,15 @@ export function MasterAvatarShell({
             className={cn("border-0 bg-transparent", avatarClassName)}
           />
         </div>
-        <div
-          className="pointer-events-none absolute top-1/2 left-1/2 z-[15] -translate-x-1/2 -translate-y-1/2"
-          style={{ width: `${lightningPct}%`, height: `${lightningPct}%` }}
-          aria-hidden
-        >
-          <Lottie
-            animationData={lightningAnimation}
-            loop
-            className="h-full w-full"
-          />
-        </div>
         {/* eslint-disable-next-line @next/next/no-img-element -- 本地裝飾框 */}
         <img
           src={MASTER_FRAME_SRC}
           alt=""
           aria-hidden
-          className="pointer-events-none absolute z-20 object-contain select-none"
-          style={{
-            width: `${framePct}%`,
-            height: `${framePct}%`,
-            left: "50%",
-            top: "50%",
-            transform: "translate(-50%, -50%)",
-          }}
+          className={cn(
+            MASTER_AVATAR_FRAME_BRUTE_TEST_IMG_CLASSNAME,
+            "pointer-events-none object-contain select-none",
+          )}
         />
         {children}
       </div>
