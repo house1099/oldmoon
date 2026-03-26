@@ -115,6 +115,7 @@ export default function AdminLayout({
       <aside
         className={`
           fixed inset-y-0 left-0 z-50 flex flex-col bg-white border-r border-gray-200 shadow-sm
+          pt-[env(safe-area-inset-top,0px)]
           transition-all duration-200 ease-in-out
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
           lg:translate-x-0
@@ -210,7 +211,7 @@ export default function AdminLayout({
         className={`transition-all duration-200 ${collapsed ? "lg:pl-16" : "lg:pl-56"}`}
       >
         {/* Top header */}
-        <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 sm:px-6 bg-white border-b border-gray-200">
+        <header className="sticky top-0 z-30 flex min-h-14 items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top,0px))] sm:px-6">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
