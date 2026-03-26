@@ -1,10 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Avatar, {
-  MASTER_AVATAR_FRAME_OVERLAY_PERCENT,
-  MASTER_AVATAR_HOLE_TO_FRAME_ASSET_RATIO,
-} from "@/components/ui/Avatar";
+import Avatar, { MASTER_AVATAR_FRAME_OVERLAY_PERCENT } from "@/components/ui/Avatar";
 import { cn } from "@/lib/utils";
 
 const MASTER_FRAME_SRC = "/frames/master-avatar-frame.png";
@@ -20,9 +17,8 @@ export type MasterAvatarShellProps = {
 };
 
 /**
- * `role === "master"`：最外層 **relative** + **overflow-visible**；內層 **size×size** 為框百分比參考。
- * 照片直徑 = `size * (MASTER_AVATAR_FRAME_OVERLAY_PERCENT / 100) * MASTER_AVATAR_HOLE_TO_FRAME_ASSET_RATIO`（與框連動）。
- * 圓形照片 **z-10**；PNG 金框 **z-20**、`pointer-events-none`；兩者皆 **absolute** 居中。
+ * `role === "master"`：外層固定 **size×size**；內層 **100%** + **flex** 置中、**overflow-visible**；
+ * 圓形頭貼 **z-10**；金框 **z-20**、**max-w-none** + 百分比寬高，以中心向外擴展。
  */
 export function MasterAvatarShell({
   role,
@@ -35,14 +31,6 @@ export function MasterAvatarShell({
 }: MasterAvatarShellProps) {
   const isMaster = role === "master";
   const framePct = MASTER_AVATAR_FRAME_OVERLAY_PERCENT;
-  const photoDiameter = Math.max(
-    1,
-    Math.round(
-      size *
-        (MASTER_AVATAR_FRAME_OVERLAY_PERCENT / 100) *
-        MASTER_AVATAR_HOLE_TO_FRAME_ASSET_RATIO,
-    ),
-  );
 
   if (!isMaster) {
     return (
@@ -59,28 +47,31 @@ export function MasterAvatarShell({
   }
 
   return (
-    <div className={cn("relative shrink-0", className, "!overflow-visible")}>
+    <div
+      className={cn("relative shrink-0", className, "!overflow-visible")}
+      style={{ width: size, height: size }}
+    >
+      {/* 1. 最外層定位容器 (必須 overflow-visible) */}
       <div
-        className="relative isolate !overflow-visible"
-        style={{ width: size, height: size }}
+        className="relative flex h-full w-full items-center justify-center overflow-visible"
+        style={{ width: "100%", height: "100%" }}
       >
-        <div
-          className="absolute top-1/2 left-1/2 z-10 -translate-x-1/2 -translate-y-1/2 overflow-visible rounded-full"
-          style={{ width: photoDiameter, height: photoDiameter }}
-        >
+        {/* 2. 底層：圓形大頭貼照 (z-10) */}
+        <div className="relative z-10 h-full w-full overflow-hidden rounded-full">
           <Avatar
-            size={photoDiameter}
+            size={size}
             src={src}
             nickname={nickname}
-            className={cn("border-0 bg-transparent", avatarClassName)}
+            className={cn("h-full w-full border-0 bg-transparent", avatarClassName)}
           />
         </div>
+
+        {/* 3. 頂層：金屬裝飾框 (z-20) */}
         {/* eslint-disable-next-line @next/next/no-img-element -- 本地裝飾框 */}
         <img
           src={MASTER_FRAME_SRC}
-          alt=""
-          aria-hidden
-          className="pointer-events-none absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2 object-contain select-none"
+          alt="Master Frame"
+          className="pointer-events-none absolute top-1/2 left-1/2 z-20 max-w-none -translate-x-1/2 -translate-y-1/2 object-contain select-none"
           style={{
             width: `${framePct}%`,
             height: `${framePct}%`,
