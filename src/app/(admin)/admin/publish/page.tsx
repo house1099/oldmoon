@@ -393,10 +393,16 @@ function AnnouncementDialog({
 
 // ━━━ Advertisement Tab ━━━
 
-const POS_BADGE: Record<string, { label: string; cls: string }> = {
-  banner: { label: "Banner", cls: "bg-violet-100 text-violet-700" },
-  card: { label: "Card", cls: "bg-blue-100 text-blue-700" },
-  announcement: { label: "Announce", cls: "bg-amber-100 text-amber-700" },
+const AD_POSITION_LABELS: Record<string, string> = {
+  banner: "橫幅廣告",
+  card: "卡片廣告",
+  announcement: "公告置頂廣告",
+};
+
+const POS_BADGE: Record<string, { cls: string }> = {
+  banner: { cls: "bg-violet-100 text-violet-700" },
+  card: { cls: "bg-blue-100 text-blue-700" },
+  announcement: { cls: "bg-amber-100 text-amber-700" },
 };
 
 function AdvertisementTab() {
@@ -477,9 +483,10 @@ function AdvertisementTab() {
               <tbody className="divide-y divide-gray-50">
                 {items.map((ad) => {
                   const pos = POS_BADGE[ad.position] ?? {
-                    label: ad.position,
                     cls: "bg-gray-100 text-gray-600",
                   };
+                  const posLabel =
+                    AD_POSITION_LABELS[ad.position] ?? ad.position;
                   return (
                     <tr key={ad.id} className={ad.is_active ? "" : "opacity-50"}>
                       <td className="px-4 py-3 font-medium text-gray-800">
@@ -489,7 +496,7 @@ function AdvertisementTab() {
                         <span
                           className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${pos.cls}`}
                         >
-                          {pos.label}
+                          {posLabel}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-600">{ad.weight}</td>
@@ -556,9 +563,10 @@ function AdvertisementTab() {
           <div className="space-y-3 md:hidden">
             {items.map((ad) => {
               const pos = POS_BADGE[ad.position] ?? {
-                label: ad.position,
                 cls: "bg-gray-100 text-gray-600",
               };
+              const posLabel =
+                AD_POSITION_LABELS[ad.position] ?? ad.position;
               return (
                 <div
                   key={ad.id}
@@ -577,7 +585,7 @@ function AdvertisementTab() {
                         <span
                           className={`rounded-full px-2 py-0.5 font-medium ${pos.cls}`}
                         >
-                          {pos.label}
+                          {posLabel}
                         </span>
                         <span className="text-gray-400">權重 {ad.weight}</span>
                         <span className="text-gray-400">
@@ -662,13 +670,18 @@ function AdvertisementDialog({
   const [position, setPosition] = useState<"banner" | "card" | "announcement">(
     editing?.position ?? "card",
   );
-  const [weight, setWeight] = useState(editing?.weight ?? 1);
+  const [weightStr, setWeightStr] = useState(String(editing?.weight ?? 1));
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [startsAt, setStartsAt] = useState(editing?.starts_at ?? "");
   const [endsAt, setEndsAt] = useState(editing?.ends_at ?? "");
   const [saving, setSaving] = useState(false);
 
   async function handleSave() {
+    const weight = parseInt(weightStr, 10);
+    if (!Number.isFinite(weight) || weight < 1 || weight > 10) {
+      toast.error("權重須為 1–10");
+      return;
+    }
     setSaving(true);
     if (editing) {
       const res = await updateAdvertisementAction(editing.id, {
@@ -787,25 +800,25 @@ function AdvertisementDialog({
                 }
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none"
               >
-                <option value="banner">Banner</option>
-                <option value="card">Card</option>
-                <option value="announcement">Announcement</option>
+                <option value="banner">{AD_POSITION_LABELS.banner}</option>
+                <option value="card">{AD_POSITION_LABELS.card}</option>
+                <option value="announcement">
+                  {AD_POSITION_LABELS.announcement}
+                </option>
               </select>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
-                權重 (1-10)
+                權重（1–10，送出時驗證）
               </label>
               <input
-                type="number"
-                value={weight}
+                type="text"
+                inputMode="numeric"
+                value={weightStr}
                 onChange={(e) =>
-                  setWeight(
-                    Math.min(10, Math.max(1, Number(e.target.value) || 1)),
-                  )
+                  setWeightStr(e.target.value.replace(/[^0-9]/g, ""))
                 }
-                min={1}
-                max={10}
+                placeholder="1–10"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none"
               />
             </div>

@@ -148,6 +148,84 @@ function AccordionSection({
   );
 }
 
+function HomeBannerCarousel({ ads }: { ads: AdvertisementRow[] }) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (ads.length <= 1) return;
+    const id = window.setInterval(() => {
+      setIndex((i) => (i + 1) % ads.length);
+    }, 4000);
+    return () => window.clearInterval(id);
+  }, [ads.length]);
+
+  useEffect(() => {
+    if (ads.length === 0) return;
+    setIndex((i) => Math.min(i, ads.length - 1));
+  }, [ads.length]);
+
+  function handleClick(ad: AdvertisementRow) {
+    if (ad.link_url) window.open(ad.link_url, "_blank");
+    void recordAdClickAction(ad.id);
+  }
+
+  return (
+    <div className="relative w-full">
+      <div className="relative h-40 w-full overflow-hidden rounded-2xl">
+        {ads.map((ad, i) => (
+          <button
+            key={ad.id}
+            type="button"
+            onClick={() => handleClick(ad)}
+            className={cn(
+              "absolute inset-0 transition-opacity duration-500",
+              i === index
+                ? "z-10 opacity-100"
+                : "pointer-events-none z-0 opacity-0",
+            )}
+          >
+            {ad.image_url ? (
+              <img
+                src={ad.image_url}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 bg-violet-900/40" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            {ad.image_url ? (
+              <span className="absolute bottom-3 left-3 z-10 max-w-[calc(100%-1.5rem)] truncate text-left font-semibold text-white">
+                {ad.title}
+              </span>
+            ) : (
+              <span className="absolute inset-0 z-10 flex items-center justify-center px-4 text-center font-semibold text-white">
+                {ad.title}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+      {ads.length > 1 ? (
+        <div
+          className="pointer-events-none absolute bottom-2 left-0 right-0 z-20 flex justify-center gap-1.5"
+          aria-hidden
+        >
+          {ads.map((ad, i) => (
+            <span
+              key={ad.id}
+              className={cn(
+                "h-1.5 w-1.5 rounded-full",
+                i === index ? "bg-white" : "bg-white/40",
+              )}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function GuildProfileHome({ profile }: { profile: UserRow }) {
   const router = useRouter();
   const totalExpSafe = normalizeTotalExp(profile.total_exp);
@@ -573,9 +651,17 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
 
   const pinnedAnnouncements = announcements.filter((a) => a.is_pinned);
   const normalAnnouncements = announcements.filter((a) => !a.is_pinned);
+  const bannerAds = homeAds.filter((ad) => ad.position === "banner");
+  const cardAds = homeAds.filter((ad) => ad.position === "card");
 
   return (
     <main className="flex w-full flex-col gap-6">
+      {bannerAds.length > 0 ? (
+        <section aria-label="贊助橫幅">
+          <HomeBannerCarousel ads={bannerAds} />
+        </section>
+      ) : null}
+
       {announcements.length > 0 && (
         <div className="space-y-3">
           {pinnedAnnouncements.map((a) => (
@@ -841,11 +927,11 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         </div>
       </section>
 
-      {homeAds.length > 0 && (
+      {cardAds.length > 0 && (
         <div className="space-y-1">
           <p className="text-[10px] text-zinc-500">贊助</p>
           <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
-            {homeAds.map((ad) => (
+            {cardAds.map((ad) => (
               <button
                 key={ad.id}
                 type="button"
@@ -853,23 +939,35 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
                   if (ad.link_url) window.open(ad.link_url, "_blank");
                   void recordAdClickAction(ad.id);
                 }}
-                className="min-w-[240px] shrink-0 overflow-hidden rounded-2xl border border-zinc-700/20 bg-zinc-900/40 text-left"
+                className="flex h-[236px] w-[240px] min-w-[240px] max-w-[240px] shrink-0 flex-col overflow-hidden rounded-2xl border border-zinc-700/20 bg-zinc-900/40 text-left"
               >
-                {ad.image_url && (
-                  <img
-                    src={ad.image_url}
-                    alt=""
-                    className="h-32 w-full object-cover"
-                  />
+                {ad.image_url ? (
+                  <div className="relative h-32 w-full shrink-0 overflow-hidden">
+                    <img
+                      src={ad.image_url}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex h-16 w-full shrink-0 items-center justify-center bg-zinc-800/60 px-2">
+                    <span className="line-clamp-1 text-center text-sm font-medium text-zinc-200">
+                      {ad.title}
+                    </span>
+                  </div>
                 )}
-                <div className="p-3">
-                  <h4 className="text-sm font-medium text-zinc-200">
-                    {ad.title}
-                  </h4>
-                  {ad.description && (
-                    <p className="mt-0.5 text-xs text-zinc-400 line-clamp-2">
+                <div className="flex min-h-0 flex-1 flex-col gap-1 p-3">
+                  {ad.image_url ? (
+                    <h4 className="line-clamp-1 text-sm font-medium text-zinc-200">
+                      {ad.title}
+                    </h4>
+                  ) : null}
+                  {ad.description ? (
+                    <p className="line-clamp-2 text-xs text-zinc-400">
                       {ad.description}
                     </p>
+                  ) : (
+                    <div className="min-h-0 flex-1" />
                   )}
                 </div>
               </button>

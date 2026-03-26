@@ -97,7 +97,7 @@ type GrantTarget = "select" | "all" | "level";
 
 function BatchGrantTab({ userRole }: { userRole: string | null }) {
   const [source, setSource] = useState("");
-  const [delta, setDelta] = useState(10);
+  const [deltaStr, setDeltaStr] = useState("10");
   const [target, setTarget] = useState<GrantTarget>("select");
 
   const [search, setSearch] = useState("");
@@ -141,29 +141,39 @@ function BatchGrantTab({ userRole }: { userRole: string | null }) {
     });
   }
 
+  const deltaNum = parseInt(deltaStr, 10);
+  const deltaValid =
+    Number.isFinite(deltaNum) && deltaNum >= 1 && deltaNum <= 1000;
+
   function getSummary() {
-    if (target === "select") return `${selectedIds.size} 人 × ${delta} EXP = ${selectedIds.size * delta} EXP`;
-    if (target === "all") return `所有 active 用戶 × ${delta} EXP`;
-    return `Lv.${minLevel}–${maxLevel} 用戶 × ${delta} EXP`;
+    if (!deltaValid) return "—";
+    if (target === "select")
+      return `${selectedIds.size} 人 × ${deltaNum} EXP = ${selectedIds.size * deltaNum} EXP`;
+    if (target === "all") return `所有 active 用戶 × ${deltaNum} EXP`;
+    return `Lv.${minLevel}–${maxLevel} 用戶 × ${deltaNum} EXP`;
   }
 
   async function handleExecute() {
+    if (!deltaValid) {
+      toast.error("EXP 數量須為 1–1000");
+      return;
+    }
     setExecuting(true);
     setResult(null);
     let res;
     if (target === "select") {
       res = await batchGrantExpAction({
         userIds: Array.from(selectedIds),
-        delta,
+        delta: deltaNum,
         source: source.trim(),
       });
     } else if (target === "all") {
-      res = await grantExpToAllAction({ delta, source: source.trim() });
+      res = await grantExpToAllAction({ delta: deltaNum, source: source.trim() });
     } else {
       res = await grantExpByLevelAction({
         minLevel,
         maxLevel,
-        delta,
+        delta: deltaNum,
         source: source.trim(),
       });
     }
@@ -179,8 +189,7 @@ function BatchGrantTab({ userRole }: { userRole: string | null }) {
 
   const canSubmit =
     source.trim().length > 0 &&
-    delta >= 1 &&
-    delta <= 1000 &&
+    deltaValid &&
     (target !== "select" || selectedIds.size > 0);
 
   return (
@@ -203,11 +212,13 @@ function BatchGrantTab({ userRole }: { userRole: string | null }) {
             EXP 數量（1–1000）
           </label>
           <input
-            type="number"
-            min={1}
-            max={1000}
-            value={delta}
-            onChange={(e) => setDelta(Math.max(1, Math.min(1000, Number(e.target.value))))}
+            type="text"
+            inputMode="numeric"
+            value={deltaStr}
+            onChange={(e) =>
+              setDeltaStr(e.target.value.replace(/[^0-9]/g, ""))
+            }
+            placeholder="1–1000"
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
           />
         </div>

@@ -32,6 +32,12 @@
 2. **`/guild` 信件（`MailBox`）**：通知卡片可點；**`Dialog`** 顯示詳情（發送者頭像＋暱稱、依 **`type`** 的完整文案或 **`message`**、台北時間 **`Intl` `Asia/Taipei`**）、**「查看對方資料」**（**`getMemberProfileByIdAction`** → **`UserDetailModal`**，無 **`from_user_id`** 則無按鈕）；關閉 Modal 時若未讀則 **`markNotificationReadAction(id)`** 單筆已讀並 **`mutate` SWR**。層級：**通知 Modal** **`z-[200]`／`z-[210]`**；**`UserDetailModal`** **`z-[300]`／`z-[310]`**（**`DialogContent` `overlayClassName`**）；取消緣分底欄 **`z-[320]`**。**`DialogContent`** 支援可選 **`overlayClassName`**。
 3. **首頁今日心情**：**`guild-profile-home.tsx`** 僅保留**一處**獨立區塊（**`placeholder="今天的心情是..."`**）；移除覆蓋式「趕快填寫…」占位層與 **`text-transparent`** 雙層視覺，避免像兩個心情區塊；樣式維持 **`rounded-3xl`**、**`border-violet-500/30`**、**`bg-violet-950/40`**、**`backdrop-blur-xl`**、紫微 **`box-shadow`**。
 
+### 廣告顯示與後台（2026-03-26 起）
+
+- **Layer 2 `findActiveHomeAds`**：併查 **`position = banner`**（最多 **15** 則）與 **`card`**（最多 **3** 則），權重降序、**`is_active`** 與上下架時間窗與先前一致；**`getHomeAdsAction`** 仍回傳單一陣列，**UI 依 `position` 分流**（橫幅輪播／卡片橫滑互不混用）。
+- **首頁 `guild-profile-home`**：**公告區塊上方**為 **Banner 輪播**（僅有 banner 時渲染；**`h-40` `rounded-2xl`**、底層漸層＋標題；**4 秒**自動切換、**`duration-500` opacity**；**多則**底部白點指示；**單則**不輪播、不顯示點；點擊有 **`link_url`** 則 **`window.open(..., '_blank')`** 並 **`recordAdClickAction`**）。**今日心情下方「贊助」橫滑**僅 **`card`**：固定 **`min/max-w-[240px]`**、整卡 **`h-[236px]`**；有圖 **`h-32` `object-cover`**；無圖 **`h-16` `bg-zinc-800/60`** 置中標題；標題／說明 **truncate／line-clamp-2** 規格見程式。
+- **後台 `/admin/publish`（廣告）**：位置 **badge／select** 使用中文對照 **`AD_POSITION_LABELS`**（橫幅／卡片／公告置頂），**DB 與 API 仍存英文 `banner`／`card`／`announcement`**。**權重**改純數字文字輸入，**送出時**驗證 **1–10**。**`/admin/exp`**（EXP **1–1000**）、**`/admin/invitations`**（批量 **1–50**、有效天數 **≥0**）同樣改 **`type="text"`** 過濾數字、**送出時 toast 驗證**。
+
 ## Phase 2.1 首頁個人卡重構（完成）
 
 - **iOS／PWA**：首頁三處 **textarea**（今日心情、興趣自白、技能自白）使用 **`text-base`（16px）** 避免 Safari 聚焦自動縮放；**`onFocus` → `scrollIntoView({ block: 'center' })`**（延遲 300ms）減輕鍵盤頂動；根 **`layout.tsx`** **`viewport.maximumScale: 1`** + **`viewport-fit=cover`**（**不**使用 **`user-scalable=no`**）
@@ -101,7 +107,7 @@
 || 管理員後台 Layer 3 | **src/services/admin.action.ts** |
 || 管理員常數 | **src/lib/constants/admin-permissions.ts** |
 | 個人頁 EXP 紀錄 | `src/services/exp-logs.action.ts`（**`getMyRecentExpLogsAction`**）→ **`exp.repository`** **`findRecentExpLogsForUser`** |
-| 首頁個人頁 UI | `src/app/(app)/page.tsx`（**`'use client'`**、**`useMyProfile`** SWR + **`HomePageSkeleton`**） → `src/components/profile/guild-profile-home.tsx`（含**公告區塊**（置頂＋一般橫向滑動＋展開 Dialog）＋**贊助廣告卡片**（今日心情下方，card 類型最多 3 則，點擊開連結並記錄 `recordAdClickAction`）） |
+| 首頁個人頁 UI | `src/app/(app)/page.tsx`（**`'use client'`**、**`useMyProfile`** SWR + **`HomePageSkeleton`**） → `src/components/profile/guild-profile-home.tsx`（**公告上方**：**banner 輪播**；**公告區塊**（置頂＋一般橫向滑動＋展開 Dialog）；**今日心情下方**：**card 贊助橫滑**（最多 3 則、固定卡尺寸；點擊開連結並 **`recordAdClickAction`**）） |
 | SWR：聊天／未讀通知 | **`src/hooks/useChat.ts`** — **`useConversations`**、**`useMessages`**、**`useUnreadNotificationCount`**、**`useUnreadChatConversationsCount`**／**`useUnreadChatCount`**（別名；**`SWR_KEYS.unreadChatConversations`**；Layer 3 **`getUnreadChatConversationsCountAction`**） |
 | 頭像裁切＋Cloudinary | **`react-easy-crop`** 全螢幕裁切；**`src/lib/utils/cropImage.ts`**（**`getCroppedImg`**）；**`src/lib/utils/cloudinary.ts`**（**`uploadAvatarToCloudinary`**）→ **`updateMyProfile({ avatar_url })`**（**禁止** **`supabase.storage`** 上傳頭像）；**顯示** **`src/components/ui/Avatar.tsx`**（**`next/image`** + Cloudinary **`/upload/w_{2×size},h_{2×size},c_fill,q_auto,f_auto/`**；**`next.config.mjs`** **`images.remotePatterns`**：**`res.cloudinary.com`**） |
 | 底部導航 | **`src/components/layout/Navbar.tsx`**（**五項 lucide**；**冒險團**圖示：**有未讀信件或私訊時** **紅點**＋**玫瑰發光**；在 **`/guild` 且子 tab 為「聊天」** 時不計入私訊未讀以免重複提示，**信件未讀仍顯示**） |

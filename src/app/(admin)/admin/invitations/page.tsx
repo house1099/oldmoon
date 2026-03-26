@@ -340,12 +340,17 @@ function GenerateDialog({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const [days, setDays] = useState(30);
+  const [daysStr, setDaysStr] = useState("30");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<InvitationCodeRow | null>(null);
 
   async function handleGenerate() {
+    const days = parseInt(daysStr, 10);
+    if (!Number.isFinite(days) || days < 0) {
+      toast.error("有效天數須為 0 以上的整數（0 = 永不過期）");
+      return;
+    }
     setLoading(true);
     const res = await generateInvitationCodeAction({
       expiresInDays: days,
@@ -372,10 +377,13 @@ function GenerateDialog({
                 有效天數（0 = 永不過期）
               </label>
               <input
-                type="number"
-                min={0}
-                value={days}
-                onChange={(e) => setDays(Number(e.target.value))}
+                type="text"
+                inputMode="numeric"
+                value={daysStr}
+                onChange={(e) =>
+                  setDaysStr(e.target.value.replace(/[^0-9]/g, ""))
+                }
+                placeholder="0 = 永不過期"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
               />
             </div>
@@ -445,13 +453,23 @@ function BatchDialog({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const [count, setCount] = useState(10);
-  const [days, setDays] = useState(30);
+  const [countStr, setCountStr] = useState("10");
+  const [daysStr, setDaysStr] = useState("30");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<InvitationCodeRow[]>([]);
 
   async function handleBatch() {
+    const count = parseInt(countStr, 10);
+    if (!Number.isFinite(count) || count < 1 || count > 50) {
+      toast.error("數量須為 1–50");
+      return;
+    }
+    const days = parseInt(daysStr, 10);
+    if (!Number.isFinite(days) || days < 0) {
+      toast.error("有效天數須為 0 以上的整數（0 = 永不過期）");
+      return;
+    }
     setLoading(true);
     const res = await generateBatchInvitationCodesAction({
       count,
@@ -484,13 +502,13 @@ function BatchDialog({
                 數量（1–50）
               </label>
               <input
-                type="number"
-                min={1}
-                max={50}
-                value={count}
+                type="text"
+                inputMode="numeric"
+                value={countStr}
                 onChange={(e) =>
-                  setCount(Math.min(50, Math.max(1, Number(e.target.value))))
+                  setCountStr(e.target.value.replace(/[^0-9]/g, ""))
                 }
+                placeholder="1–50"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
               />
             </div>
@@ -499,10 +517,13 @@ function BatchDialog({
                 有效天數（0 = 永不過期）
               </label>
               <input
-                type="number"
-                min={0}
-                value={days}
-                onChange={(e) => setDays(Number(e.target.value))}
+                type="text"
+                inputMode="numeric"
+                value={daysStr}
+                onChange={(e) =>
+                  setDaysStr(e.target.value.replace(/[^0-9]/g, ""))
+                }
+                placeholder="0 = 永不過期"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
               />
             </div>
@@ -530,7 +551,7 @@ function BatchDialog({
                 disabled={loading}
                 className="px-5 py-2 rounded-full bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 disabled:opacity-50"
               >
-                {loading ? "產生中…" : `產生 ${count} 張`}
+                {loading ? "產生中…" : `產生 ${countStr || "0"} 張`}
               </button>
             </div>
           </>

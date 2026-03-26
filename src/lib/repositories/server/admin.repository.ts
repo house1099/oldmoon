@@ -527,17 +527,29 @@ export async function findAllAdvertisements(): Promise<AdvertisementRow[]> {
 export async function findActiveHomeAds(): Promise<AdvertisementRow[]> {
   const admin = createAdminClient();
   const now = new Date().toISOString();
-  const { data, error } = await admin
-    .from("advertisements")
-    .select("*")
-    .eq("is_active", true)
-    .eq("position", "card")
-    .or(`starts_at.is.null,starts_at.lte.${now}`)
-    .or(`ends_at.is.null,ends_at.gte.${now}`)
-    .order("weight", { ascending: false })
-    .limit(3);
-  if (error) throw error;
-  return (data ?? []) as AdvertisementRow[];
+
+  const fetchByPosition = async (
+    position: "banner" | "card",
+    limit: number,
+  ): Promise<AdvertisementRow[]> => {
+    const { data, error } = await admin
+      .from("advertisements")
+      .select("*")
+      .eq("is_active", true)
+      .eq("position", position)
+      .or(`starts_at.is.null,starts_at.lte.${now}`)
+      .or(`ends_at.is.null,ends_at.gte.${now}`)
+      .order("weight", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return (data ?? []) as AdvertisementRow[];
+  };
+
+  const [banners, cards] = await Promise.all([
+    fetchByPosition("banner", 15),
+    fetchByPosition("card", 3),
+  ]);
+  return [...banners, ...cards];
 }
 
 export async function insertAdvertisement(payload: {
