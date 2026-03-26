@@ -39,6 +39,8 @@ import { getMoodCountdown, isMoodActive } from "@/lib/utils/mood";
 import { instagramProfileUrlFromHandle } from "@/lib/utils/instagram";
 import { useSWRConfig } from "swr";
 import { SWR_KEYS } from "@/lib/swr/keys";
+import { useMyProfile } from "@/hooks/useMyProfile";
+import LeaderToolsSheet from "@/components/modals/LeaderToolsSheet";
 
 function tagLabel(slug: string): string {
   return INTEREST_TAG_OPTIONS.find((o) => o.value === slug)?.label ?? slug;
@@ -63,6 +65,8 @@ export function UserDetailModal({
   onOpenChange,
 }: UserDetailModalProps) {
   const { mutate: globalMutate } = useSWRConfig();
+  const { profile: myProfile } = useMyProfile();
+  const [showLeaderTools, setShowLeaderTools] = useState(false);
   const [socialStatus, setSocialStatus] = useState<ModalSocialStatus>({
     isLiked: false,
     isLikedByThem: false,
@@ -519,6 +523,19 @@ export function UserDetailModal({
                   );
                 })()
               : null}
+
+            {myProfile?.role === "master" && (
+              <>
+                <Separator className="bg-amber-900/35" />
+                <button
+                  type="button"
+                  onClick={() => setShowLeaderTools(true)}
+                  className="w-full max-w-[min(100%,22rem)] rounded-full border border-amber-500/30 bg-amber-600/10 py-2.5 text-center text-sm font-medium text-amber-300 transition-colors hover:bg-amber-600/20 sm:max-w-full"
+                >
+                  ⚡ 領袖工具
+                </button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -583,6 +600,17 @@ export function UserDetailModal({
           currentUserId={socialStatus.currentUserId ?? ""}
         />
       ) : null}
+
+      {showLeaderTools && (
+        <LeaderToolsSheet
+          open={showLeaderTools}
+          onClose={() => setShowLeaderTools(false)}
+          targetUserId={user.id}
+          targetNickname={user.nickname}
+          currentUserId={socialStatus.currentUserId ?? ""}
+          onBanSuccess={() => onOpenChange(false)}
+        />
+      )}
     </>
   );
 }

@@ -15,6 +15,7 @@ import {
   LogOut,
   ChevronLeft,
   MailPlus,
+  Gift,
 } from "lucide-react";
 
 type NavItem = {
@@ -42,6 +43,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "邀請碼管理",
     href: "/admin/invitations",
     icon: MailPlus,
+    roles: ["master", "moderator"],
+  },
+  {
+    label: "EXP 管理",
+    href: "/admin/exp",
+    icon: Gift,
     roles: ["master", "moderator"],
   },
   {

@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   UserRow,
+  ExpLogRow,
   ModeratorPermissionRow,
   SystemSettingRow,
 } from "@/types/database.types";
@@ -342,4 +343,168 @@ export async function updateSystemSetting(
     })
     .eq("key", key);
   if (error) throw error;
+}
+
+// ─── EXP Batch Grant ───
+
+async function grantExpToSingleUser(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  delta: number,
+  source: string,
+): Promise<void> {
+  const { error: logErr } = await admin.from("exp_logs").insert({
+    user_id: userId,
+    source,
+    unique_key: `admin_grant:${source}:${userId}`,
+    delta,
+    delta_exp: delta,
+  });
+  if (logErr) throw logErr;
+
+  const { data: u, error: readErr } = await admin
+    .from("users")
+    .select("total_exp")
+    .eq("id", userId)
+    .single();
+  if (readErr) throw readErr;
+
+  const newExp = Math.max(0, (u?.total_exp ?? 0) + delta);
+  const { error: updateErr } = await admin
+    .from("users")
+    .update({ total_exp: newExp })
+    .eq("id", userId);
+  if (updateErr) throw updateErr;
+}
+
+export async function batchGrantExp(params: {
+  userIds: string[];
+  delta: number;
+  source: string;
+  adminId: string;
+}): Promise<{ success: number; failed: number }> {
+  const admin = createAdminClient();
+  const results = await Promise.allSettled(
+    params.userIds.map((uid) =>
+      grantExpToSingleUser(admin, uid, params.delta, params.source),
+    ),
+  );
+  let success = 0;
+  let failed = 0;
+  for (const r of results) {
+    if (r.status === "fulfilled") success++;
+    else {
+      failed++;
+      console.error("batchGrantExp single failed:", r.reason);
+    }
+  }
+  return { success, failed };
+}
+
+export async function grantExpToAll(params: {
+  delta: number;
+  source: string;
+  adminId: string;
+}): Promise<{ success: number; failed: number }> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("users")
+    .select("id")
+    .eq("status", "active");
+  if (error) throw error;
+
+  const userIds = (data ?? []).map((u: { id: string }) => u.id);
+  return batchGrantExp({ ...params, userIds });
+}
+
+export async function grantExpByLevel(params: {
+  minLevel: number;
+  maxLevel: number;
+  delta: number;
+  source: string;
+  adminId: string;
+}): Promise<{ success: number; failed: number }> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("users")
+    .select("id")
+    .eq("status", "active")
+    .gte("level", params.minLevel)
+    .lte("level", params.maxLevel);
+  if (error) throw error;
+
+  const userIds = (data ?? []).map((u: { id: string }) => u.id);
+  return batchGrantExp({ ...params, userIds });
+}
+
+export async function findExpLogsByUser(
+  userId: string,
+  page: number,
+): Promise<{ logs: ExpLogRow[]; total: number }> {
+  const admin = createAdminClient();
+  const pageSize = 20;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  const { data, error, count } = await admin
+    .from("exp_logs")
+    .select("*", { count: "exact" })
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .range(from, to);
+  if (error) throw error;
+  return { logs: (data ?? []) as ExpLogRow[], total: count ?? 0 };
+}
+
+export type AdminExpGrantSummary = {
+  source: string;
+  total_users: number;
+  total_exp: number;
+  created_at: string;
+};
+
+export async function findAdminExpGrantHistory(): Promise<
+  AdminExpGrantSummary[]
+> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("exp_logs")
+    .select("source, delta_exp, created_at")
+    .like("unique_key", "admin_grant:%")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  const rows = (data ?? []) as Array<{
+    source: string;
+    delta_exp: number;
+    created_at: string;
+  }>;
+
+  const map = new Map<
+    string,
+    { total_users: number; total_exp: number; created_at: string }
+  >();
+  for (const r of rows) {
+    const existing = map.get(r.source);
+    if (existing) {
+      existing.total_users++;
+      existing.total_exp += r.delta_exp;
+      if (r.created_at < existing.created_at) {
+        existing.created_at = r.created_at;
+      }
+    } else {
+      map.set(r.source, {
+        total_users: 1,
+        total_exp: r.delta_exp,
+        created_at: r.created_at,
+      });
+    }
+  }
+
+  return Array.from(map.entries())
+    .map(([source, v]) => ({ source, ...v }))
+    .sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
 }

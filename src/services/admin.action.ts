@@ -18,7 +18,13 @@ import {
   upsertModeratorPermissions as repoUpsertModeratorPermissions,
   findAllSystemSettings as repoFindAllSystemSettings,
   updateSystemSetting as repoUpdateSystemSetting,
+  batchGrantExp as repoBatchGrantExp,
+  grantExpToAll as repoGrantExpToAll,
+  grantExpByLevel as repoGrantExpByLevel,
+  findExpLogsByUser as repoFindExpLogsByUser,
+  findAdminExpGrantHistory as repoFindAdminExpGrantHistory,
 } from "@/lib/repositories/server/admin.repository";
+import type { AdminExpGrantSummary } from "@/lib/repositories/server/admin.repository";
 import {
   findAllInvitationCodes,
   findInvitationByCode,
@@ -31,6 +37,7 @@ import {
 import { DEFAULT_MODERATOR_PERMISSIONS } from "@/lib/constants/admin-permissions";
 import type {
   UserRow,
+  ExpLogRow,
   ModeratorPermissionRow,
   SystemSettingRow,
   InvitationCodeRow,
@@ -487,6 +494,144 @@ export async function reviewIgRequestFromAdminAction(
     });
 
     return { ok: true, data: undefined };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+// ─── EXP Batch Management ───
+
+export async function batchGrantExpAction(params: {
+  userIds: string[];
+  delta: number;
+  source: string;
+}): Promise<ActionResult<{ success: number; failed: number }>> {
+  try {
+    const { user } = await requireRole(["master", "moderator"]);
+    if (params.userIds.length > 200) {
+      return { ok: false, error: "單次最多 200 人" };
+    }
+    if (params.delta < 1 || params.delta > 1000) {
+      return { ok: false, error: "EXP 範圍為 1–1000" };
+    }
+    if (!params.source.trim()) {
+      return { ok: false, error: "發放名稱不可空白" };
+    }
+    const result = await repoBatchGrantExp({
+      userIds: params.userIds,
+      delta: params.delta,
+      source: params.source.trim(),
+      adminId: user.id,
+    });
+    await insertAdminAction({
+      admin_id: user.id,
+      action_type: "exp_batch_grant",
+      metadata: {
+        count: params.userIds.length,
+        delta: params.delta,
+        source: params.source.trim(),
+        success: result.success,
+        failed: result.failed,
+      },
+    });
+    return { ok: true, data: result };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function grantExpToAllAction(params: {
+  delta: number;
+  source: string;
+}): Promise<ActionResult<{ success: number; failed: number }>> {
+  try {
+    const { user } = await requireRole(["master"]);
+    if (params.delta < 1 || params.delta > 1000) {
+      return { ok: false, error: "EXP 範圍為 1–1000" };
+    }
+    if (!params.source.trim()) {
+      return { ok: false, error: "發放名稱不可空白" };
+    }
+    const result = await repoGrantExpToAll({
+      delta: params.delta,
+      source: params.source.trim(),
+      adminId: user.id,
+    });
+    await insertAdminAction({
+      admin_id: user.id,
+      action_type: "exp_grant_all",
+      metadata: {
+        delta: params.delta,
+        source: params.source.trim(),
+        success: result.success,
+        failed: result.failed,
+      },
+    });
+    return { ok: true, data: result };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function grantExpByLevelAction(params: {
+  minLevel: number;
+  maxLevel: number;
+  delta: number;
+  source: string;
+}): Promise<ActionResult<{ success: number; failed: number }>> {
+  try {
+    const { user } = await requireRole(["master", "moderator"]);
+    if (params.delta < 1 || params.delta > 1000) {
+      return { ok: false, error: "EXP 範圍為 1–1000" };
+    }
+    if (!params.source.trim()) {
+      return { ok: false, error: "發放名稱不可空白" };
+    }
+    const result = await repoGrantExpByLevel({
+      minLevel: params.minLevel,
+      maxLevel: params.maxLevel,
+      delta: params.delta,
+      source: params.source.trim(),
+      adminId: user.id,
+    });
+    await insertAdminAction({
+      admin_id: user.id,
+      action_type: "exp_grant_by_level",
+      metadata: {
+        min_level: params.minLevel,
+        max_level: params.maxLevel,
+        delta: params.delta,
+        source: params.source.trim(),
+        success: result.success,
+        failed: result.failed,
+      },
+    });
+    return { ok: true, data: result };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function getExpLogsByUserAction(
+  userId: string,
+  page: number,
+): Promise<ActionResult<{ logs: ExpLogRow[]; total: number }>> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const result = await repoFindExpLogsByUser(userId, page);
+    return { ok: true, data: result };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function getAdminExpGrantHistoryAction(): Promise<
+  ActionResult<AdminExpGrantSummary[]>
+> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const history = await repoFindAdminExpGrantHistory();
+    return { ok: true, data: history };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
   }

@@ -90,7 +90,7 @@
 | 每日簽到 +1 EXP | `src/services/daily-checkin.action.ts`（**`claimDailyCheckin`**；冷卻 **`users.last_checkin_at`**）；**`updateLastCheckinAt`** 見 `user.repository.ts`；**`insertExpLog`（`delta`+`delta_exp`）** 見 `exp.repository.ts`；機讀錯誤 **`DAILY_CHECKIN_ALREADY_CLAIMED`**（**`already_claimed`**）見 `daily-checkin.ts`；**`taipeiCalendarDateKey()`** 仍供其他日曆日用途，**簽到判斷已不採用** |
 | 編輯自介／分域自白／**`instagram_handle`**／IG 公開／心情 | `src/services/profile-update.action.ts`（**支援部分欄位 patch**；**`mood`** 時更新 **`mood_at`**；**`bio_village`**／**`bio_market`**；**`instagram_handle`** 經 **`instagramHandleSchema`**；空字串寫入 **null**） |
 | IG 變更申請／審核 | `src/services/ig-request.action.ts`（**`requestIgChangeAction`**、**`reviewIgRequestAction`**、**`getPendingIgRequestsAction`**）→ **`src/lib/repositories/server/ig-request.repository.ts`**（**admin client** 寫入 **`ig_change_requests`**、核准時更新 **`users.instagram_handle`**） |
-|| 管理員後台 | **src/app/(admin)/layout.tsx**（獨立 layout，sidebar）；**/admin**（儀表板）、**/admin/users**（用戶管理）、**/admin/invitations**（邀請碼管理：列表＋產生＋批量＋撤銷＋邀請樹＋統計）、**/admin/reports**（檢舉管理）、**/admin/roles**（授權管理，master only）、**/admin/settings**（Wave 2） |
+|| 管理員後台 | **src/app/(admin)/layout.tsx**（獨立 layout，sidebar）；**/admin**（儀表板）、**/admin/users**（用戶管理）、**/admin/invitations**（邀請碼管理）、**/admin/exp**（EXP 管理：批量發放＋發放紀錄＋用戶查詢）、**/admin/reports**（檢舉管理）、**/admin/roles**（授權管理，master only）、**/admin/settings**（Wave 2） |
 || 邀請碼管理（Layer 2） | **src/lib/repositories/server/invitation.repository.ts**（**`findAllInvitationCodes`**、**`findInvitationByCode`**、**`insertInvitationCode`**/**`insertInvitationCodes`**、**`revokeInvitationCode`**／**`revokeUnusedInvitationCodes`**、**`claimInvitationCode`**、**`findInvitationTree`**、**`findSystemSettingByKey`**） |
 || 管理員後台 Layer 2 | **src/lib/repositories/server/admin.repository.ts** |
 || 管理員後台 Layer 3 | **src/services/admin.action.ts** |
@@ -110,7 +110,8 @@
 | 通知（Layer 3） | **`src/services/notification.action.ts`** — **`getMyNotificationsAction`**（分開查 **`users`**）、**`markAllNotificationsReadAction`**（**`is_read: true`**）、**`clearAllNotificationsAction`**、**`getUnreadNotificationCountAction`**（欄位 **`type`／`is_read`**） |
 | 月老／商店預留 | `src/app/(app)/matchmaking/page.tsx`、`src/app/(app)/shop/page.tsx`（**即將開放**） |
 | 舊路由轉址 | **`/village`**、**`/market`** → **`/explore`**；**`/alliances`**、**`/inbox`** → **`/guild`** |
-| 使用者詳情 Modal | **`UserDetailModal.tsx`**：**IG** 僅在 **`instagram_handle` 有值** 且（**`ig_public === true`** 或 **血盟 `accepted`**）時顯示；**「在 Instagram 開啟」**（**`https://www.instagram.com/{handle}/`**，**`instagram.ts`** strip **`@`**）；關閉 **`ChatModal`** 時 **`mutate`** **`conversations`／`unreadChatConversations`** |
+| 使用者詳情 Modal | **`UserDetailModal.tsx`**：**IG** 僅在 **`instagram_handle` 有值** 且（**`ig_public === true`** 或 **血盟 `accepted`**）時顯示；**「在 Instagram 開啟」**（**`https://www.instagram.com/{handle}/`**，**`instagram.ts`** strip **`@`**）；關閉 **`ChatModal`** 時 **`mutate`** **`conversations`／`unreadChatConversations`**；**master** 可開啟 **`LeaderToolsSheet`**（IG 強制顯示、EXP 發放、邀請碼私訊、放逐） |
+|| 領袖快捷面板 | **`src/components/modals/LeaderToolsSheet.tsx`**（僅 **master** 可見；從 **`UserDetailModal`** 觸發；右側滑出 **`w-80` `z-[410]`**） |
 | 私訊全螢幕 UI | **`ChatModal.tsx`**：送出／開啟讀取後／**Realtime INSERT** 皆 **`mutate(SWR_KEYS.conversations)`**＋**`unreadChatConversations`**（列表預覽與未讀點同步） |
 | 有緣分＋互讚／Modal 合併載入 | **`src/services/social.action.ts`**（**`getModalSocialStatusAction`**：一次 **`auth.getUser()`** + **`Promise.all`**：**`findLike`** 雙向 + **`findAllianceBetween`**；仍含 **`getLikeStatusForTargetAction`**／**`checkMutualLikeWithTargetAction`**／**`toggleLikeAction`**） |
 | 技能市集（邏輯） | `src/services/market.service.ts`（**`getMarketUsersAction`**、**`getCachedMySkills`** **`unstable_cache` 60s** **`tags: profileCacheTag`**、**`unstable_cache` 60s** 快取 **`findMarketUsers`**、**搜尋篩選在列表快取回傳後**、檔內 **Perfect Match**）；UI 見 **`MarketContent`** |
@@ -822,4 +823,17 @@ Phase 4 — 市集搜尋快取
 - **Sidebar**：**`(admin)/layout.tsx`** 新增 **📨 邀請碼管理** 於「用戶管理」與「檢舉管理」之間（master + moderator）。
 - **註冊整合**：**`register-form.tsx`** 於 `signUp` 前呼叫 **`validateInviteCodeAction`** 驗證（code 在 `invitation_codes` 表且有效時放行；不在表中也放行保持相容舊碼）；`signUp` 成功後呼叫 **`claimInviteCodeAfterRegisterAction`** 標記使用（靜默失敗不影響註冊）。
 
-*最後更新：2026-03-26 — **邀請碼管理模組** `/admin/invitations`（列表、產生／批量產生、撤銷、邀請樹、使用統計、註冊驗證整合）。*
+### 2026-03-26 — 後台 EXP 管理（`/admin/exp`）與領袖前台快捷面板
+
+- **Layer 2 — `admin.repository.ts`**：新增 **`batchGrantExp`**（對指定 userId 陣列 **`Promise.allSettled`** 並行發放，逐人寫 **`exp_logs`** + 更新 **`users.total_exp`**，unique_key **`admin_grant:{source}:{userId}`**）、**`grantExpToAll`**（查全 active 用戶 → `batchGrantExp`）、**`grantExpByLevel`**（查 level 範圍 active → `batchGrantExp`）、**`findExpLogsByUser`**（分頁）、**`findAdminExpGrantHistory`**（查 `exp_logs` unique_key LIKE `admin_grant:%` 依 source 分組摘要）。
+- **Layer 3 — `admin.action.ts`**：**`batchGrantExpAction`**（master+moderator；上限 200 人、delta 1–1000、source 必填）、**`grantExpToAllAction`**（**master only**）、**`grantExpByLevelAction`**（master+moderator）、**`getExpLogsByUserAction`**、**`getAdminExpGrantHistoryAction`**。
+- **Layer 5 — `/admin/exp`**（`'use client'`）三 Tab：① **批量發放**（名稱＋EXP 數量＋發放對象三選：勾選用戶搜尋列表 / 全體 active（master only 黃色警告） / 指定等級範圍；AlertDialog 確認摘要；執行結果成功 N / 失敗 N）② **發放紀錄**（依 source 分組展開）③ **用戶查詢**（搜尋暱稱 → 完整 exp_logs 分頁表：時間、來源、EXP 變動、unique_key）。
+- **Sidebar**：新增 **🎁 EXP 管理** 於邀請碼管理之後（master + moderator）。
+- **Middleware**：`moderatorAllowed` 新增 **`/admin/exp`**。
+- **前台領袖快捷面板**：**`UserDetailModal.tsx`** 當 **`myProfile.role === 'master'`** 時 DialogFooter 底部顯示 **「⚡ 領袖工具」** 按鈕；點擊開啟 **`LeaderToolsSheet.tsx`**（固定右側滑出 **`w-80`**，**`z-[410]`**）；載入時 **`getMemberProfileByIdAction`** 取完整資料（含 IG）。
+  - **📸 Instagram**：強制顯示 **`instagram_handle`**（不受 `ig_public` 限制）＋外連按鈕。
+  - **⭐ 快速發放 EXP**：數量 1–1000 ＋理由（必填）→ **`adjustExpAction`** → toast。
+  - **📨 發送邀請碼**：**`generateInvitationCodeAction`** → **`getOrCreateConversationAction`** → **`sendMessageAction`** 自動私訊邀請碼。
+  - **🚫 黑名單**：active → **`banUserAction`**（AlertDialog＋理由必填）；banned → **`unbanUserAction`**；master 不能對自己操作。
+
+*最後更新：2026-03-26 — **後台 EXP 管理**（`/admin/exp`：批量發放＋紀錄＋用戶查詢）＋**領袖前台快捷面板**（IG 強制顯示、快速 EXP、發送邀請碼、放逐）。*
