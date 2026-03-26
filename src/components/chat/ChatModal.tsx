@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
 import { useMessages } from "@/hooks/useChat";
@@ -37,6 +43,29 @@ export default function ChatModal({
   const [showReport, setShowReport] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * iOS Safari 會掃描整份文件中所有 input／textarea，在鍵盤上方顯示「上一個／下一個／完成」列。
+   * 聊天開啟時將 body 下其餘子樹標為 inert，使背景欄位不參與該導覽（須搭配 portal 掛在 body）。
+   */
+  useLayoutEffect(() => {
+    if (!open) return;
+    const body = document.body;
+    const marked: { el: Element; hadInert: boolean }[] = [];
+    for (let i = 0; i < body.children.length; i++) {
+      const el = body.children[i];
+      if (!(el instanceof HTMLElement)) continue;
+      if (el.dataset.chatPortal === "1") continue;
+      marked.push({ el, hadInert: el.hasAttribute("inert") });
+      el.setAttribute("inert", "");
+    }
+    return () => {
+      for (const { el, hadInert } of marked) {
+        if (hadInert) continue;
+        el.removeAttribute("inert");
+      }
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open || !conversationId) return;
@@ -92,11 +121,14 @@ export default function ChatModal({
     setSending(false);
   }
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  /** 須高於 `UserDetailModal`（z-300/310）、信件 Dialog（z-200/210）等，否則從詳情按「聊聊」時聊天層會被擋住 */
-  return (
-    <div className="fixed inset-0 z-[400] flex flex-col bg-zinc-950">
+  /** 須高於 `UserDetailModal`（z-300/310）、信件 Dialog（z-200/210）等；portal 至 body 以便與 inert 搭配隔離背景表單欄位（iOS 鍵盤導覽列） */
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[400] flex flex-col bg-zinc-950"
+      data-chat-portal="1"
+    >
       <div
         className="flex items-center gap-3 border-b border-white/10 bg-zinc-950/90 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-xl"
       >
@@ -187,7 +219,6 @@ export default function ChatModal({
             autoCorrect="on"
             autoCapitalize="sentences"
             spellCheck={false}
-            name="chat-message"
             className="max-h-32 min-h-[2.75rem] flex-1 resize-none rounded-full border border-white/10 bg-zinc-800/60 px-4 py-3 text-base leading-snug text-white placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
           />
           <button
@@ -260,6 +291,7 @@ export default function ChatModal({
           </div>
         </div>
       ) : null}
-    </div>
+    </div>,
+    document.body,
   );
 }
