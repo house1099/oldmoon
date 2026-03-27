@@ -40,6 +40,17 @@ const BADGE_STYLE: Record<string, string> = {
   ig_review: "bg-violet-100 text-violet-700",
 };
 
+const ACTION_LABEL: Record<string, string> = {
+  exp_grant: "EXP 發放",
+  ban: "放逐",
+  suspend: "停權",
+  unban: "解除停權",
+  role_change: "角色變更",
+  coin_adjust: "金幣調整",
+  tavern_ban: "酒館禁言",
+  ig_review: "IG 審核",
+};
+
 function formatTaipeiTime(iso: string): string {
   return new Intl.DateTimeFormat("sv-SE", {
     timeZone: "Asia/Taipei",
@@ -52,6 +63,23 @@ function formatTaipeiTime(iso: string): string {
   })
     .format(new Date(iso))
     .replaceAll("-", "/");
+}
+
+function getResultText(action: AuditAction): string {
+  const md = action.metadata ?? {};
+  if (action.action_type === "exp_grant") {
+    const delta = Number(md.delta ?? 0);
+    return `${delta >= 0 ? "+" : ""}${delta} EXP`;
+  }
+  if (action.action_type === "coin_adjust") {
+    const amount = Number(md.amount ?? 0);
+    const coinType = md.coin_type === "premium" ? "純金" : "探險幣";
+    return `${amount >= 0 ? "+" : ""}${amount} ${coinType}`;
+  }
+  if (action.action_type === "ig_review") {
+    return md.verdict === "approved" ? "核准" : "拒絕";
+  }
+  return action.reason?.trim() || "已完成";
 }
 
 export default function AdminAuditPage() {
@@ -133,56 +161,93 @@ export default function AdminAuditPage() {
         </button>
       </div>
 
-      <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
-        <div className="grid grid-cols-12 gap-2 border-b border-gray-100 bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-500">
-          <div className="col-span-3">時間</div>
-          <div className="col-span-3">操作者</div>
-          <div className="col-span-4">操作內容</div>
-          <div className="col-span-2">目標用戶</div>
-        </div>
-
+      <div className="space-y-3">
         {loading ? (
-          <div className="px-4 py-10 text-sm text-gray-500">載入中...</div>
+          <div className="rounded-2xl border border-gray-200 bg-white px-4 py-10 text-sm text-gray-500">
+            載入中...
+          </div>
         ) : error ? (
-          <div className="px-4 py-10 text-sm text-red-600">{error}</div>
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-10 text-sm text-red-600">
+            {error}
+          </div>
         ) : actions.length === 0 ? (
-          <div className="px-4 py-10 text-sm text-gray-500">查無操作記錄</div>
+          <div className="rounded-2xl border border-gray-200 bg-white px-4 py-10 text-sm text-gray-500">
+            查無操作記錄
+          </div>
         ) : (
-          actions.map((action) => (
-            <div
-              key={action.id}
-              className="grid grid-cols-12 gap-2 border-b border-gray-100 px-4 py-3 text-sm"
-            >
-              <div className="col-span-3 text-gray-600">
-                {formatTaipeiTime(action.created_at)}
-              </div>
-              <div className="col-span-3">
-                <div className="flex items-center gap-2">
-                  <Avatar
-                    src={action.admin.avatar_url}
-                    nickname={action.admin.nickname}
-                    size={26}
-                  />
-                  <span className="text-gray-800">{action.admin.nickname}</span>
-                </div>
-              </div>
-              <div className="col-span-4">
-                <div className="flex items-start gap-2">
+          actions.map((action) => {
+            const targetName = action.target?.nickname ?? "（無目標）";
+            const resultText = getResultText(action);
+            const typeLabel = ACTION_LABEL[action.action_type] ?? action.action_type;
+            return (
+              <article
+                key={action.id}
+                className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs text-gray-500">{formatTaipeiTime(action.created_at)}</p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <Avatar
+                        src={action.admin.avatar_url}
+                        nickname={action.admin.nickname}
+                        size={24}
+                      />
+                      <span className="text-sm font-medium text-gray-900">
+                        {action.admin.nickname}
+                      </span>
+                    </div>
+                  </div>
                   <span
-                    className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${BADGE_STYLE[action.action_type] ?? "bg-gray-100 text-gray-600"}`}
+                    className={`shrink-0 inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${BADGE_STYLE[action.action_type] ?? "bg-gray-100 text-gray-600"}`}
                   >
-                    {action.action_type}
-                  </span>
-                  <span className="text-gray-700">
-                    {action.action_label ?? action.reason ?? "（無描述）"}
+                    {typeLabel}
                   </span>
                 </div>
-              </div>
-              <div className="col-span-2 text-gray-700">
-                {action.target?.nickname ?? "—"}
-              </div>
-            </div>
-          ))
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div className="rounded-lg bg-gray-50 px-2.5 py-2">
+                    <p className="text-[11px] text-gray-400">目標用戶</p>
+                    <p className="text-sm text-gray-800">{targetName}</p>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 px-2.5 py-2">
+                    <p className="text-[11px] text-gray-400">操作結果</p>
+                    <p className="text-sm text-gray-800">{resultText}</p>
+                  </div>
+                </div>
+
+                <p className="mt-2 text-sm text-gray-700 leading-6">
+                  {action.action_label ?? action.reason ?? "（無描述）"}
+                </p>
+
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs text-violet-700 hover:text-violet-800">
+                    查看詳情
+                  </summary>
+                  <div className="mt-2 rounded-lg border border-gray-100 bg-gray-50 p-2 text-xs text-gray-600 space-y-1">
+                    <p>
+                      <span className="text-gray-400">action_type：</span>
+                      {action.action_type}
+                    </p>
+                    <p>
+                      <span className="text-gray-400">admin_id：</span>
+                      {action.admin_id}
+                    </p>
+                    <p>
+                      <span className="text-gray-400">target_user_id：</span>
+                      {action.target_user_id ?? "null"}
+                    </p>
+                    <p>
+                      <span className="text-gray-400">metadata：</span>
+                    </p>
+                    <pre className="overflow-x-auto whitespace-pre-wrap break-all text-[11px] text-gray-700">
+                      {JSON.stringify(action.metadata ?? {}, null, 2)}
+                    </pre>
+                  </div>
+                </details>
+              </article>
+            );
+          })
         )}
       </div>
 
