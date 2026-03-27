@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { DAILY_CHECKIN_ALREADY_CLAIMED } from "@/lib/constants/daily-checkin";
 import {
@@ -1522,60 +1523,88 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         </DialogContent>
       </Dialog>
 
-      {cropSrc && (
-        <>
-          <style>{`body { overflow: hidden; }`}</style>
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="調整頭像"
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 99999,
-              backgroundColor: "black",
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
+      {/* Portal 到 body + absolute 上中下：避免 react-easy-crop 的 9999em box-shadow 在 iOS/WebKit 蓋過 flex 底部按鈕 */}
+      {cropSrc &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <>
+            <style>{`body { overflow: hidden; }`}</style>
             <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="調整頭像"
               style={{
-                flexShrink: 0,
-                textAlign: "center",
-                padding: "12px",
-                color: "#a1a1aa",
-                fontSize: "14px",
+                position: "fixed",
+                inset: 0,
+                zIndex: 999999,
+                boxSizing: "border-box",
+                width: "100%",
+                height: "100dvh",
+                maxHeight: "100dvh",
+                backgroundColor: "black",
+                overflow: "hidden",
+                isolation: "isolate",
               }}
             >
-              拖曳與縮放，圓形區域即為裁切範圍
-            </div>
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  zIndex: 100002,
+                  flexShrink: 0,
+                  textAlign: "center",
+                  padding: "12px",
+                  paddingTop: "max(12px, env(safe-area-inset-top, 0px))",
+                  color: "#a1a1aa",
+                  fontSize: "14px",
+                  backgroundColor: "rgba(0, 0, 0, 0.55)",
+                }}
+              >
+                拖曳與縮放，圓形區域即為裁切範圍
+              </div>
 
-            <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
-              <Cropper
-                image={cropSrc}
-                crop={crop}
-                zoom={zoom}
-                aspect={1}
-                cropShape="round"
-                showGrid={false}
-                onCropChange={setCrop}
-                onZoomChange={setZoom}
-                onCropComplete={onCropComplete}
-              />
-            </div>
+              <div
+                style={{
+                  position: "absolute",
+                  top: "max(52px, calc(36px + env(safe-area-inset-top, 0px)))",
+                  left: 0,
+                  right: 0,
+                  bottom:
+                    "calc(72px + 16px + max(16px, env(safe-area-inset-bottom, 0px)))",
+                  zIndex: 100001,
+                  overflow: "hidden",
+                }}
+              >
+                <Cropper
+                  image={cropSrc}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={1}
+                  cropShape="round"
+                  showGrid={false}
+                  onCropChange={setCrop}
+                  onZoomChange={setZoom}
+                  onCropComplete={onCropComplete}
+                />
+              </div>
 
-            <div
-              style={{
-                flexShrink: 0,
-                position: "relative",
-                zIndex: 10,
-                display: "flex",
-                gap: "12px",
-                padding: "16px 24px",
-                paddingBottom: "max(16px, env(safe-area-inset-bottom))",
-                backgroundColor: "rgba(9, 9, 11, 0.95)",
-              }}
-            >
+              <div
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  zIndex: 100003,
+                  display: "flex",
+                  gap: "12px",
+                  padding: "16px 24px",
+                  paddingBottom: "max(16px, env(safe-area-inset-bottom))",
+                  backgroundColor: "rgba(9, 9, 11, 0.98)",
+                  boxShadow: "0 -8px 24px rgba(0,0,0,0.45)",
+                }}
+              >
               <button
                 type="button"
                 onClick={closeCropModal}
@@ -1618,8 +1647,9 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               </button>
             </div>
           </div>
-        </>
-      )}
+          </>,
+          document.body,
+        )}
     </main>
   );
 }
