@@ -24,7 +24,6 @@ import type { ModeratorPermissionRow } from "@/types/database.types";
 interface AdminShellProps {
   role: string;
   nickname: string;
-  avatarUrl: string | null;
   permissions: ModeratorPermissionRow | null;
   children: React.ReactNode;
 }
@@ -32,7 +31,6 @@ interface AdminShellProps {
 export function AdminShell({
   role,
   nickname,
-  avatarUrl: _avatarUrl,
   permissions,
   children,
 }: AdminShellProps) {

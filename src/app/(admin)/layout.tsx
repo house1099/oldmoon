@@ -30,7 +30,6 @@ export default async function AdminLayout({
     <AdminShell
       role={profile.role ?? "moderator"}
       nickname={profile.nickname ?? ""}
-      avatarUrl={profile.avatar_url ?? null}
       permissions={permissions}
     >
       {children}
