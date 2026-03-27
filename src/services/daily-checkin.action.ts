@@ -65,7 +65,7 @@ function remainFromLastCheckin(lastCheckinMs: number): {
 }
 
 export type ClaimDailyCheckinResult =
-  | { ok: true; freeCoinsEarned?: number }
+  | { ok: true; freeCoinsEarned: number }
   | {
       ok: false;
       error: string;

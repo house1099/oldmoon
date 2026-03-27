@@ -97,46 +97,87 @@ function normalizeLevel(v: UserRow["level"]): number {
 
 const CHECKIN_MESSAGES: Record<
   number,
-  { emoji: string; title: string; message: string }
+  {
+    emoji: string;
+    title: string;
+    message: string;
+    bgFrom: string;
+    bgTo: string;
+  }
 > = {
   1: {
     emoji: "🎲",
     title: "普通的一天",
-    message: "獲得 1 探險幣，繼續加油！明天會更好喵～",
+    message: "小小收穫也是收穫，明天繼續加油喵～",
+    bgFrom: "from-zinc-800",
+    bgTo: "to-zinc-900",
   },
   2: {
     emoji: "🌱",
-    title: "小小收穫",
-    message: "獲得 2 探險幣，積少成多，堅持下去！",
+    title: "小苗發芽",
+    message: "2 枚探險幣入袋！積少成多，堅持就是力量！",
+    bgFrom: "from-green-900",
+    bgTo: "to-zinc-900",
   },
-  3: { emoji: "⭐", title: "不錯喔！", message: "獲得 3 探險幣，今天運氣還可以！" },
+  3: {
+    emoji: "⭐",
+    title: "不錯喔！",
+    message: "3 枚到手，今天運氣還可以嘛！",
+    bgFrom: "from-blue-900",
+    bgTo: "to-zinc-900",
+  },
   4: {
     emoji: "✨",
     title: "閃閃發光",
-    message: "獲得 4 探險幣，你的運氣在上升！",
+    message: "4 枚！你的運氣正在上升中～",
+    bgFrom: "from-indigo-900",
+    bgTo: "to-zinc-900",
   },
   5: {
     emoji: "🎯",
     title: "剛剛好！",
-    message: "獲得 5 探險幣，中規中矩的好運！",
+    message: "5 枚，中規中矩的幸運，繼續保持！",
+    bgFrom: "from-violet-900",
+    bgTo: "to-zinc-900",
   },
-  6: { emoji: "🍀", title: "幸運草！", message: "獲得 6 探險幣，今天有點幸運喔！" },
+  6: {
+    emoji: "🍀",
+    title: "幸運草出現！",
+    message: "6 枚！幸運女神在眷顧你喔！",
+    bgFrom: "from-emerald-900",
+    bgTo: "to-zinc-900",
+  },
   7: {
     emoji: "🌟",
     title: "超級幸運！",
-    message: "獲得 7 探險幣，幸運女神在眷顧你！",
+    message: "7 枚！今天是你的幸運日！",
+    bgFrom: "from-amber-900",
+    bgTo: "to-zinc-900",
   },
   8: {
     emoji: "🎊",
-    title: "大豐收！",
-    message: "獲得 8 探險幣，今天運氣超棒的！！",
+    title: "大豐收！！",
+    message: "8 枚！運氣爆棚，快去買彩券！",
+    bgFrom: "from-orange-900",
+    bgTo: "to-zinc-900",
   },
   9: {
     emoji: "🔥",
-    title: "傳奇運氣！！",
-    message: "獲得 9 探險幣！！你今天是天選之人！🎉",
+    title: "傳奇運氣！！！",
+    message: "9 枚！！你是天選之人！今天什麼都擋不住你！🎉",
+    bgFrom: "from-red-900",
+    bgTo: "to-amber-900",
   },
 };
+
+const getCheckinMessage = (coins: number) =>
+  CHECKIN_MESSAGES[coins] ?? {
+    emoji: "🌈",
+    title: "史詩級幸運！",
+    message: `${coins} 枚！！這是傳說中的大獎！！`,
+    bgFrom: "from-purple-900",
+    bgTo: "to-pink-900",
+  };
 
 /** 必須為模組層元件：若在父元件內宣告，每次 render 型別參考變更會整段 remount，textarea 失焦、行動鍵盤會收起。 */
 function AccordionSection({
@@ -361,9 +402,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   const [homeAds, setHomeAds] = useState<AdvertisementRow[]>([]);
   const [expandedAnnouncement, setExpandedAnnouncement] = useState<AnnouncementRow | null>(null);
   const [showCheckinModal, setShowCheckinModal] = useState(false);
-  const [checkinResult, setCheckinResult] = useState<{
-    freeCoinsEarned: number;
-  } | null>(null);
+  const [checkinCoins, setCheckinCoins] = useState(1);
 
   useEffect(() => {
     setBioVillage(profile.bio_village ?? "");
@@ -695,7 +734,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         toast.error("❌ 操作失敗，請稍後再試");
         return;
       }
-      setCheckinResult({ freeCoinsEarned: result.freeCoinsEarned ?? 1 });
+      setCheckinCoins(result.freeCoinsEarned ?? 1);
       setShowCheckinModal(true);
       setCheckinDone(true);
       setCooldown({ hours: 23, mins: 59 });
@@ -1569,48 +1608,54 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         </DialogContent>
       </Dialog>
 
-      {showCheckinModal && checkinResult ? (
-        <Dialog open={showCheckinModal} onOpenChange={setShowCheckinModal}>
-          <DialogContent className="mx-auto max-w-xs overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950 p-0 text-center">
-            <div className="bg-gradient-to-b from-violet-900/40 to-transparent px-6 pb-4 pt-8">
-              <div className="mb-3 text-6xl">
-                {CHECKIN_MESSAGES[checkinResult.freeCoinsEarned]?.emoji ?? "🎲"}
-              </div>
-              <h2 className="text-lg font-bold text-zinc-100">
-                {CHECKIN_MESSAGES[checkinResult.freeCoinsEarned]?.title}
-              </h2>
-            </div>
-
-            <div className="space-y-3 px-6 py-4">
-              <div className="flex items-center justify-center gap-2 rounded-2xl bg-zinc-800/60 px-4 py-2.5">
-                <span className="text-lg text-amber-400">⚔️</span>
-                <span className="text-sm text-zinc-300">經驗值</span>
-                <span className="ml-auto font-bold text-amber-300">+1 EXP</span>
-              </div>
-              <div className="flex items-center justify-center gap-2 rounded-2xl bg-zinc-800/60 px-4 py-2.5">
-                <span className="text-lg text-violet-400">🧭</span>
-                <span className="text-sm text-zinc-300">探險幣</span>
-                <span className="ml-auto font-bold text-violet-300">
-                  +{checkinResult.freeCoinsEarned}
-                </span>
-              </div>
-              <p className="px-2 text-center text-xs text-zinc-500">
-                {CHECKIN_MESSAGES[checkinResult.freeCoinsEarned]?.message}
-              </p>
-            </div>
-
-            <div className="px-6 pb-6">
-              <button
-                type="button"
-                onClick={() => setShowCheckinModal(false)}
-                className="w-full rounded-full bg-gradient-to-r from-violet-600 to-purple-600 py-3 text-sm font-medium text-white transition-transform active:scale-95"
+      {showCheckinModal &&
+        (() => {
+          const msg = getCheckinMessage(checkinCoins);
+          return (
+            <Dialog open={showCheckinModal} onOpenChange={setShowCheckinModal}>
+              <DialogContent
+                className={`bg-gradient-to-b ${msg.bgFrom} ${msg.bgTo} border border-zinc-700/50 rounded-3xl max-w-xs w-full p-0 overflow-hidden text-center`}
               >
-                太棒了！繼續冒險 ⚔️
-              </button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      ) : null}
+                <div className="px-6 pb-4 pt-8">
+                  <div className="mb-3 animate-bounce text-7xl">{msg.emoji}</div>
+                  <h2 className="text-xl font-bold text-white">{msg.title}</h2>
+                  <p className="mt-1 text-sm text-zinc-400">{msg.message}</p>
+                </div>
+
+                <div className="mx-5 mb-4 space-y-2">
+                  <div className="flex items-center justify-between rounded-2xl bg-black/30 px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">⚔️</span>
+                      <span className="text-sm text-zinc-300">經驗值</span>
+                    </div>
+                    <span className="text-lg font-bold text-amber-300">
+                      +1 EXP
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-2xl bg-black/30 px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🧭</span>
+                      <span className="text-sm text-zinc-300">探險幣</span>
+                    </div>
+                    <span className="text-lg font-bold text-violet-300">
+                      +{checkinCoins}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="px-5 pb-8">
+                  <button
+                    type="button"
+                    onClick={() => setShowCheckinModal(false)}
+                    className="w-full rounded-full bg-gradient-to-r from-violet-600 to-purple-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-violet-900/50 transition-transform active:scale-95"
+                  >
+                    太棒了！繼續冒險 ⚔️
+                  </button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          );
+        })()}
 
       {/* Portal 到 body + absolute 上中下：避免 react-easy-crop 的 9999em box-shadow 在 iOS/WebKit 蓋過 flex 底部按鈕 */}
       {cropSrc &&
