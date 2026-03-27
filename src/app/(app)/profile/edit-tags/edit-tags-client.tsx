@@ -13,12 +13,16 @@ type Props = {
   initialInterests: string[];
   initialSkillsOffer: string[];
   initialSkillsWant: string[];
+  interestsMax: number;
+  skillsMax: number;
 };
 
 export function EditTagsClient({
   initialInterests,
   initialSkillsOffer,
   initialSkillsWant,
+  interestsMax,
+  skillsMax,
 }: Props) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("interests");
@@ -76,7 +80,10 @@ export function EditTagsClient({
     <div className="w-full space-y-6">
       <div className="space-y-1">
         <h1 className="text-xl font-bold text-white">編輯標籤</h1>
-        <p className="text-sm text-zinc-400">興趣、能教、想學分開儲存</p>
+        <p className="text-sm text-zinc-400">
+          興趣、能教、想學分開儲存（興趣最多 {interestsMax}；技能各最多{" "}
+          {skillsMax}）
+        </p>
       </div>
 
       <div className="flex gap-2 rounded-full bg-zinc-900/60 p-1">
@@ -108,6 +115,7 @@ export function EditTagsClient({
             onChange={setInterests}
             customAllowed
             maxCustom={3}
+            maxSelect={interestsMax}
             defaultOpenCategory={null}
           />
           <button
@@ -129,6 +137,7 @@ export function EditTagsClient({
             onChange={setSkillsOffer}
             customAllowed
             maxCustom={3}
+            maxSelect={skillsMax}
             defaultOpenCategory={null}
           />
           <button
@@ -150,6 +159,7 @@ export function EditTagsClient({
             onChange={setSkillsWant}
             customAllowed
             maxCustom={3}
+            maxSelect={skillsMax}
             defaultOpenCategory={null}
           />
           <button

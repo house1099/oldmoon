@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getAuthStatus } from "@/services/auth.service";
+import { getTagLimitsAction } from "@/services/system-settings.action";
 import { EditTagsClient } from "./edit-tags-client";
 
 export default async function EditTagsPage() {
@@ -16,6 +17,7 @@ export default async function EditTagsPage() {
   }
 
   const p = auth.profile;
+  const { interestsMax, skillsMax } = await getTagLimitsAction();
 
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col gap-6 bg-zinc-950 p-4 pb-[max(8rem,calc(8rem+env(safe-area-inset-bottom,0px)))] pt-[max(3rem,env(safe-area-inset-top,0px))]">
@@ -24,6 +26,8 @@ export default async function EditTagsPage() {
         initialInterests={p.interests ?? []}
         initialSkillsOffer={p.skills_offer ?? []}
         initialSkillsWant={p.skills_want ?? []}
+        interestsMax={interestsMax}
+        skillsMax={skillsMax}
       />
     </div>
   );

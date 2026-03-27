@@ -44,6 +44,7 @@ export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<SettingsMap>({});
   const [weightValues, setWeightValues] = useState<Record<number, string>>({});
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [savingWeights, setSavingWeights] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -132,6 +133,55 @@ export default function AdminSettingsPage() {
     }
     toast.success("設定已更新");
   };
+
+  async function saveAllWeights() {
+    const invalidCoins: number[] = [];
+    for (const coin of coinRange) {
+      const raw = (weightValues[coin] ?? "").trim();
+      if (!/^\d+$/.test(raw)) {
+        invalidCoins.push(coin);
+        continue;
+      }
+      const n = parseInt(raw, 10);
+      if (n < 1) invalidCoins.push(coin);
+    }
+    if (invalidCoins.length > 0) {
+      toast.error(
+        `以下探險幣權重須為 ≥1 的正整數：${invalidCoins.join("、")} 幣`,
+      );
+      return;
+    }
+
+    setSavingWeights(true);
+    const results = await Promise.allSettled(
+      coinRange.map((coin) => {
+        const v = String(parseInt((weightValues[coin] ?? "").trim(), 10));
+        return updateSystemSettingAction(`checkin_weight_${coin}`, v);
+      }),
+    );
+    setSavingWeights(false);
+
+    let fail = 0;
+    for (const r of results) {
+      if (r.status === "rejected") fail++;
+      else if (!r.value.ok) fail++;
+    }
+
+    if (fail === 0) {
+      toast.success("機率權重已儲存");
+      setSettings((prev) => {
+        const next = { ...prev };
+        for (const coin of coinRange) {
+          next[`checkin_weight_${coin}`] = String(
+            parseInt((weightValues[coin] ?? "").trim(), 10),
+          );
+        }
+        return next;
+      });
+    } else {
+      toast.error("部分儲存失敗，請重試");
+    }
+  }
 
   if (loading) {
     return (
@@ -245,7 +295,7 @@ export default function AdminSettingsPage() {
                 className="rounded-xl border border-gray-100 bg-gray-50/60 p-3"
               >
                 <p className="text-xs text-gray-500">🧭 {item.coin} 幣權重</p>
-                <div className="mt-2 flex items-center gap-2">
+                <div className="mt-2 flex items-center justify-between gap-2">
                   <input
                     type="text"
                     inputMode="numeric"
@@ -254,32 +304,30 @@ export default function AdminSettingsPage() {
                       const val = e.target.value.replace(/[^0-9]/g, "");
                       setWeightValues((prev) => ({ ...prev, [item.coin]: val }));
                     }}
-                    className="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 text-center"
+                    className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-center text-sm text-gray-900"
                   />
-                  <button
-                    type="button"
-                    disabled={savingKey === `checkin_weight_${item.coin}`}
-                    onClick={() =>
-                      void saveSetting(
-                        `checkin_weight_${item.coin}`,
-                        weightValues[item.coin] ?? DEFAULT_COIN_WEIGHT,
-                      )
-                    }
-                    className="rounded-lg bg-violet-600 px-2 py-1.5 text-[11px] font-medium text-white hover:bg-violet-700 disabled:opacity-60"
-                  >
-                    存
-                  </button>
+                  <span className="shrink-0 text-sm tabular-nums text-gray-600">
+                    {item.percent}%
+                  </span>
                 </div>
-                <div className="mt-3 bg-gray-200 rounded-full h-2 overflow-hidden">
-                  <div
-                    className="bg-violet-500 h-2 rounded-full transition-all"
-                    style={{ width: `${item.percent}%` }}
-                  />
-                </div>
-                <p className="mt-1 text-right text-xs text-gray-500">{item.percent}%</p>
               </div>
             ))}
           </div>
+          <button
+            type="button"
+            disabled={savingWeights || coinRange.length === 0}
+            onClick={() => void saveAllWeights()}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 py-3 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-60"
+          >
+            {savingWeights ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                儲存中...
+              </>
+            ) : (
+              "儲存所有權重"
+            )}
+          </button>
         </div>
 
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">

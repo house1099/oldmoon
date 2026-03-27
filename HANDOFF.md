@@ -44,9 +44,10 @@
 - **後台 Sidebar 權限隱藏**：**`src/app/(admin)/layout.tsx`** 改為伺服器端先取 **`auth.getUser()` → `findProfileById()`**，若為 moderator 再讀 **`findModeratorPermissions()`**；導航模組依權限 `show` 後再渲染（master 全顯示，coins/roles/settings 仍 master only）。
 - **標籤顯示規則更新**：**`UserCard`** 改為興趣村莊 **最多 4 +N**；技能市集 **能教最多 3 +N**、**想學最多 3 +N**。**`UserDetailModal`** 仍顯示全部標籤不截斷。
 - **心情顯示規則更新**：**`UserCard`** 與 **`UserDetailModal`** 的心情文案超過 **15 字** 改為截斷顯示（`前 15 字 + ...`）並提供「展開」；點擊後以 Dialog 顯示完整內容與時間。
-- **系統設定頁正式上線**：**`/admin/settings`** 由占位頁改為可編輯面板（三區塊：平台規則、簽到探險幣、Lv1-10 門檻），每項旁有單獨儲存按鈕，透過 **`updateSystemSettingAction(key, value)`** 寫入並 toast 成功提示。
-- **系統設定持久化修復**：更新 `updateSystemSettingAction` 成功後呼叫 `revalidatePath('/admin/settings')`，避免離開/返回後顯示舊預設值。
-- **探險幣權重動態範圍**：權重格子依 `checkin_free_coins_min/max` 動態產生並存取 `checkin_weight_{coin}`；缺值預設顯示 `10`。
+- **系統設定頁正式上線**：**`/admin/settings`** 由占位頁改為可編輯面板（三區塊：平台規則、簽到探險幣、Lv1-10 門檻），平台規則／幣範圍／等級門檻等仍為**單項儲存**；透過 **`updateSystemSettingAction(key, value)`** 寫入並 toast 成功提示。
+- **系統設定持久化修復**：更新 `updateSystemSettingAction` 成功後呼叫 **`revalidatePath('/admin/settings')`** 與 **`revalidateTag('system_settings')`**（供 **`getTagLimitsAction`** 等快取失效），避免離開/返回後顯示舊預設值。
+- **探險幣權重（統一儲存）**：權重格子依 **`checkin_free_coins_min`／`max`** 動態產生；每格僅**數字輸入 + 即時百分比**（一位小數、客端依總權重重算）；**底部單一「儲存所有權重」** 以 **`Promise.allSettled`** 並行 **`updateSystemSettingAction`** 寫入 **`checkin_weight_{1..N}`**；每格須為 **≥1** 正整數，否則 **toast.error** 列出幣值；**Loader2** 顯示儲存中。
+- **標籤上限動態讀取**：**`src/services/system-settings.action.ts`** 之 **`getTagLimitsAction()`** 讀 **`interests_max_select`／`skills_max_select`**（缺值預設 **12／8**），**`unstable_cache`** **`revalidate: 60`**、**`tags: ['system_settings']`**。**`/register/interests`**、**`/register/skills`** 之 **`page.tsx`** 為 **async RSC**，分別將 **`interestsMax`／`skillsMax`** 傳入 **`InterestsClient`／`SkillsClient`**；**`TagSelector`** 使用 **`maxSelect`**（與既有 prop 一致）。**`/profile/edit-tags`** 同樣 **`await getTagLimitsAction()`** 傳入 **`EditTagsClient`**（興趣 **`maxSelect={interestsMax}`**；能教／想學各 **`maxSelect={skillsMax}`**）。
 - **系統設定讀寫再修正**：`getSystemSettingsAction` 加 `noStore()` 確保每次讀 DB 最新值；`updateSystemSetting` 改為 `upsert(onConflict: key)`，若 key 尚不存在會自動補入。
 - **新增/納管 system_settings keys**：
   **`interests_max_select`**、**`skills_max_select`**、**`mood_max_length`**、**`tavern_message_max_length`**、**`registration_open`**、**`maintenance_mode`**、**`like_require_mutual`**、**`checkin_free_coins_min`**、**`checkin_free_coins_max`**、**`checkin_weight_1` ~ `checkin_weight_9`**、**`level_threshold_1` ~ `level_threshold_10`**。

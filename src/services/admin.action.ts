@@ -2,7 +2,11 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { revalidatePath, unstable_noStore as noStore } from "next/cache";
+import {
+  revalidatePath,
+  revalidateTag,
+  unstable_noStore as noStore,
+} from "next/cache";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
 import {
   getDashboardStats as repoGetDashboardStats,
@@ -587,6 +591,7 @@ export async function updateSystemSettingAction(
     const { user } = await requireRole(["master"]);
     await repoUpdateSystemSetting(key, value, user.id);
     revalidatePath("/admin/settings");
+    revalidateTag("system_settings");
     return { ok: true, data: { success: true } };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
