@@ -30,6 +30,10 @@ const CHECKIN_RANGE_FIELDS = [
   { key: "checkin_free_coins_max", label: "最多探險幣", fallback: "9" },
 ] as const;
 
+const CHECKIN_MIN_FALLBACK = CHECKIN_RANGE_FIELDS[0].fallback;
+const CHECKIN_MAX_FALLBACK = CHECKIN_RANGE_FIELDS[1].fallback;
+const DEFAULT_COIN_WEIGHT = "10";
+
 function normalizeBoolean(value: string | undefined, fallback: string) {
   const raw = (value ?? fallback).toLowerCase();
   return raw === "true";
@@ -64,19 +68,50 @@ export default function AdminSettingsPage() {
     };
   }, []);
 
-  const weightKeys = useMemo(
-    () => Array.from({ length: 9 }, (_, i) => `checkin_weight_${i + 1}`),
-    [],
-  );
+  const minCoins = useMemo(() => {
+    const raw = settings["checkin_free_coins_min"];
+    const parsed = parseInt(raw ?? CHECKIN_MIN_FALLBACK, 10);
+    return Number.isNaN(parsed) ? parseInt(CHECKIN_MIN_FALLBACK, 10) : parsed;
+  }, [settings]);
+
+  const maxCoins = useMemo(() => {
+    const raw = settings["checkin_free_coins_max"];
+    const parsed = parseInt(raw ?? CHECKIN_MAX_FALLBACK, 10);
+    return Number.isNaN(parsed) ? parseInt(CHECKIN_MAX_FALLBACK, 10) : parsed;
+  }, [settings]);
+
+  const coinRange = useMemo(() => {
+    const low = Math.min(minCoins, maxCoins);
+    const high = Math.max(minCoins, maxCoins);
+
+    // UI 安全上限，避免 range 太大導致畫面爆炸
+    const start = Math.max(1, low);
+    const end = Math.max(start, high);
+    const maxUiCoins = 50;
+    const cappedEnd = Math.min(end, start + maxUiCoins - 1);
+
+    return Array.from({ length: cappedEnd - start + 1 }, (_, i) => start + i);
+  }, [minCoins, maxCoins]);
+
+  const coinWeights = useMemo(() => {
+    const defaultWeightNum = parseInt(DEFAULT_COIN_WEIGHT, 10);
+    return coinRange.map((coin) => {
+      const key = `checkin_weight_${coin}`;
+      const raw = settings[key];
+      const parsed = raw === undefined ? defaultWeightNum : parseInt(raw, 10);
+      const weight = Number.isNaN(parsed) ? defaultWeightNum : Math.max(0, parsed);
+      return { coin, key, weight };
+    });
+  }, [coinRange, settings]);
 
   const weightStats = useMemo(() => {
-    const weights = weightKeys.map((key) => Math.max(0, Number(settings[key] ?? "11") || 0));
-    const total = weights.reduce((sum, v) => sum + v, 0);
-    const percent = weights.map((v) =>
-      total <= 0 ? 0 : Number(((v / total) * 100).toFixed(2)),
-    );
-    return { weights, total, percent };
-  }, [settings, weightKeys]);
+    const totalWeight = coinWeights.reduce((sum, w) => sum + w.weight, 0);
+    const items = coinWeights.map((w) => ({
+      ...w,
+      percent: totalWeight > 0 ? Number(((w.weight / totalWeight) * 100).toFixed(1)) : 0,
+    }));
+    return { totalWeight, items };
+  }, [coinWeights]);
 
   const saveSetting = async (key: string, value: string) => {
     setSavingKey(key);
@@ -191,32 +226,48 @@ export default function AdminSettingsPage() {
         </div>
 
         <div className="space-y-3">
-          <p className="text-sm font-medium text-gray-800">機率權重（1-9 探險幣）</p>
+          <p className="text-sm font-medium text-gray-800">
+            機率權重（{coinRange[0]}–{coinRange[coinRange.length - 1]} 探險幣）
+          </p>
           <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            {weightKeys.map((key, idx) => (
-              <div key={key} className="rounded-xl border border-gray-100 bg-gray-50/60 p-3">
-                <p className="text-xs text-gray-500">{idx + 1} 幣權重</p>
+            {weightStats.items.map((item) => (
+              <div
+                key={item.key}
+                className="rounded-xl border border-gray-100 bg-gray-50/60 p-3"
+              >
+                <p className="text-xs text-gray-500">🧭 {item.coin} 幣權重</p>
                 <div className="mt-2 flex items-center gap-2">
                   <input
                     type="number"
-                    value={settings[key] ?? "11"}
+                    value={
+                      settings[item.key] && settings[item.key].trim() !== ""
+                        ? settings[item.key]
+                        : DEFAULT_COIN_WEIGHT
+                    }
                     onChange={(e) =>
                       setSettings((prev) => ({
                         ...prev,
-                        [key]: e.target.value,
+                        [item.key]: e.target.value,
                       }))
                     }
                     className="w-full rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm"
                   />
                   <button
                     type="button"
-                    disabled={savingKey === key}
-                    onClick={() => void saveSetting(key, String(settings[key] ?? "11"))}
+                    disabled={savingKey === item.key}
+                    onClick={() => void saveSetting(item.key, String(item.weight))}
                     className="rounded-lg bg-violet-600 px-2 py-1.5 text-[11px] font-medium text-white hover:bg-violet-700 disabled:opacity-60"
                   >
                     存
                   </button>
                 </div>
+                <div className="mt-3 bg-gray-200 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-violet-500 h-2 rounded-full transition-all"
+                    style={{ width: `${item.percent}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-right text-xs text-gray-500">{item.percent}%</p>
               </div>
             ))}
           </div>
@@ -224,15 +275,18 @@ export default function AdminSettingsPage() {
 
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
           <p className="text-sm font-medium text-amber-900">
-            即時機率預覽（總權重：{weightStats.total}）
+            即時機率預覽（總權重：{weightStats.totalWeight}）
           </p>
           <div className="mt-2 grid gap-1 sm:grid-cols-3 lg:grid-cols-5">
-            {weightStats.percent.map((value, idx) => (
-              <p key={idx} className="text-xs text-amber-800">
-                {idx + 1} 幣機率：{value}%
+            {weightStats.items.map((item) => (
+              <p key={item.key} className="text-xs text-amber-800">
+                {item.coin} 幣機率：{item.percent}%
               </p>
             ))}
           </div>
+          <p className="text-xs text-gray-400 mt-2">
+            總權重：{weightStats.totalWeight}（各權重數字比例即為機率，數字越大機率越高）
+          </p>
         </div>
       </section>
 

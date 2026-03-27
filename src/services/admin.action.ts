@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { revalidatePath } from "next/cache";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
 import {
   getDashboardStats as repoGetDashboardStats,
@@ -534,11 +535,12 @@ export async function getSystemSettingsAction(): Promise<
 export async function updateSystemSettingAction(
   key: string,
   value: string,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ success: true }>> {
   try {
     const { user } = await requireRole(["master"]);
     await repoUpdateSystemSetting(key, value, user.id);
-    return { ok: true, data: undefined };
+    revalidatePath("/admin/settings");
+    return { ok: true, data: { success: true } };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
   }

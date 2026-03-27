@@ -45,6 +45,8 @@
 - **標籤顯示規則更新**：**`UserCard`** 改為興趣村莊 **最多 4 +N**；技能市集 **能教最多 3 +N**、**想學最多 3 +N**。**`UserDetailModal`** 仍顯示全部標籤不截斷。
 - **心情顯示規則更新**：**`UserCard`** 與 **`UserDetailModal`** 的心情文案超過 **15 字** 改為截斷顯示（`前 15 字 + ...`）並提供「展開」；點擊後以 Dialog 顯示完整內容與時間。
 - **系統設定頁正式上線**：**`/admin/settings`** 由占位頁改為可編輯面板（三區塊：平台規則、簽到探險幣、Lv1-10 門檻），每項旁有單獨儲存按鈕，透過 **`updateSystemSettingAction(key, value)`** 寫入並 toast 成功提示。
+- **系統設定持久化修復**：更新 `updateSystemSettingAction` 成功後呼叫 `revalidatePath('/admin/settings')`，避免離開/返回後顯示舊預設值。
+- **探險幣權重動態範圍**：權重格子依 `checkin_free_coins_min/max` 動態產生並存取 `checkin_weight_{coin}`；缺值預設顯示 `10`。
 - **新增/納管 system_settings keys**：
   **`interests_max_select`**、**`skills_max_select`**、**`mood_max_length`**、**`tavern_message_max_length`**、**`registration_open`**、**`maintenance_mode`**、**`like_require_mutual`**、**`checkin_free_coins_min`**、**`checkin_free_coins_max`**、**`checkin_weight_1` ~ `checkin_weight_9`**、**`level_threshold_1` ~ `level_threshold_10`**。
 
