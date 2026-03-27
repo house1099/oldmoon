@@ -66,6 +66,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    /** `pendingUsers` = **`COUNT(*) WHERE users.status = 'pending'`**（`getDashboardStats`） */
     getDashboardStatsAction().then((result) => {
       if (result.ok) setStats(result.data as DashboardStats);
       setLoading(false);

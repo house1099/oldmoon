@@ -170,6 +170,7 @@ export async function updateMyProfile(input: {
 
   revalidatePath("/");
   revalidatePath("/profile/edit-tags");
+  revalidatePath("/register/pending");
   revalidateTag(profileCacheTag(user.id));
   return { ok: true };
 }

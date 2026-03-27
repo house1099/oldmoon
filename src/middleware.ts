@@ -210,9 +210,18 @@ async function signOutAndRedirectBanned(
   return redirectResponse;
 }
 
+/**
+ * 與註冊／補資料路徑並列，確保 middleware 會處理（含 **`/register/pending`** 供待審核用戶）。
+ */
 export const config = {
   matcher: [
-    // 含 /register/pending：待審核用戶僅能停留該頁，其餘路徑會被導向該頁
+    "/register/pending",
+    "/register/profile/:path*",
+    "/register/interests",
+    "/register/skills",
+    "/register/skills-offer",
+    "/register/skills-want",
+    "/register/matchmaking",
     "/((?!_next/static|_next/image|favicon.ico|manifest.json|icons|api|.*\\..*).*)",
   ],
 };

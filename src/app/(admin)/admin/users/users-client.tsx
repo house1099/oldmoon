@@ -33,17 +33,17 @@ import {
   getUsersAction,
   getUserDetailAction,
   getUserActionHistoryAction,
+  getPendingUsersCountAction,
   banUserAction,
   suspendUserAction,
   unbanUserAction,
   approveUserAction,
-  rejectUserAction,
+  rejectUserIgAction,
   adjustExpAction,
   adjustReputationAction,
   getPendingIgRequestsForUserAction,
   reviewIgRequestFromAdminAction,
 } from "@/services/admin.action";
-import { instagramProfileUrlFromHandle } from "@/lib/utils/instagram";
 import {
   banTavernUserAction,
   unbanTavernUserAction,
@@ -149,6 +149,21 @@ export default function UsersClient({
   const [tavernBanReason, setTavernBanReason] = useState("");
   const [registrationReviewPending, setRegistrationReviewPending] =
     useState(false);
+  const [pendingBadgeCount, setPendingBadgeCount] = useState<number | null>(
+    null,
+  );
+  const [igApproveDialogOpen, setIgApproveDialogOpen] = useState(false);
+  const [igRejectDialogOpen, setIgRejectDialogOpen] = useState(false);
+
+  const refreshPendingBadge = useCallback(() => {
+    void getPendingUsersCountAction().then((r) => {
+      if (r.ok) setPendingBadgeCount(r.data.count);
+    });
+  }, []);
+
+  useEffect(() => {
+    refreshPendingBadge();
+  }, [refreshPendingBadge]);
 
   useEffect(() => {
     if (didMount.current) return;
@@ -244,6 +259,7 @@ export default function UsersClient({
 
   const refreshList = () => {
     fetchUsers(page, search, statusFilter, roleFilter);
+    refreshPendingBadge();
   };
 
   const refreshDetail = async (userId: string) => {
@@ -388,14 +404,15 @@ export default function UsersClient({
     }
   };
 
-  const handleApproveRegistration = async () => {
+  const confirmIgApprove = async () => {
     if (!selectedUser || registrationReviewPending) return;
     setRegistrationReviewPending(true);
     try {
       const result = await approveUserAction(selectedUser.id);
       if (result.ok) {
         toast.success("已核准，用戶可登入公會");
-        await refreshDetail(selectedUser.id);
+        setIgApproveDialogOpen(false);
+        setSheetOpen(false);
         refreshList();
       } else {
         toast.error(result.error);
@@ -405,21 +422,15 @@ export default function UsersClient({
     }
   };
 
-  const handleRejectRegistration = async () => {
+  const confirmIgReject = async () => {
     if (!selectedUser || registrationReviewPending) return;
-    if (
-      !window.confirm(
-        "確定拒絕此帳號的 Instagram 審核？用戶將收到信件通知，狀態維持待審核。",
-      )
-    ) {
-      return;
-    }
     setRegistrationReviewPending(true);
     try {
-      const result = await rejectUserAction(selectedUser.id);
+      const result = await rejectUserIgAction(selectedUser.id);
       if (result.ok) {
         toast.success("已拒絕並通知用戶");
-        await refreshDetail(selectedUser.id);
+        setIgRejectDialogOpen(false);
+        setSheetOpen(false);
         refreshList();
       } else {
         toast.error(result.error);
@@ -435,10 +446,9 @@ export default function UsersClient({
     fetchUsers(1, search, next, roleFilter);
   }
 
-  const pendingSheetIgHref =
-    selectedUser?.status === "pending"
-      ? instagramProfileUrlFromHandle(selectedUser.instagram_handle ?? "")
-      : null;
+  const pendingIgDisplay =
+    selectedUser?.instagram_handle?.trim().replace(/^@+/, "") ?? "";
+  const showPendingListColumns = statusFilter === "pending";
 
   return (
     <div>
@@ -463,23 +473,31 @@ export default function UsersClient({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2 mb-3">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
         {[
           { value: "", label: "全部" },
-          { value: "pending", label: "待審核" },
+          { value: "pending", label: "待審核", showBadge: true as const },
           { value: "active", label: "活躍" },
         ].map((chip) => (
           <button
             key={chip.value || "all"}
             type="button"
             onClick={() => applyStatusQuickFilter(chip.value)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
               statusFilter === chip.value
                 ? "bg-violet-600 text-white shadow-sm"
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
             {chip.label}
+            {"showBadge" in chip &&
+            chip.showBadge &&
+            pendingBadgeCount !== null &&
+            pendingBadgeCount > 0 ? (
+              <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-amber-950">
+                {pendingBadgeCount > 99 ? "99+" : pendingBadgeCount}
+              </span>
+            ) : null}
           </button>
         ))}
       </div>
@@ -543,20 +561,33 @@ export default function UsersClient({
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">
-                  用戶
+                  暱稱
                 </th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">
-                  等級
-                </th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">
-                  地區
-                </th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">
-                  狀態
-                </th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">
-                  角色
-                </th>
+                {showPendingListColumns ? (
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">
+                    IG 帳號
+                  </th>
+                ) : null}
+                {!showPendingListColumns ? (
+                  <>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500">
+                      等級
+                    </th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500">
+                      地區
+                    </th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500">
+                      狀態
+                    </th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-500">
+                      角色
+                    </th>
+                  </>
+                ) : (
+                  <th className="text-left px-4 py-3 font-medium text-gray-500">
+                    狀態
+                  </th>
+                )}
                 <th className="text-left px-4 py-3 font-medium text-gray-500">
                   註冊時間
                 </th>
@@ -582,28 +613,47 @@ export default function UsersClient({
                       </span>
                     </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 font-medium">
-                      Lv.{u.level}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{u.region}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_BADGE[u.status] ?? "bg-gray-100 text-gray-600"}`}
-                    >
-                      {u.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE[u.role] ?? "bg-gray-100 text-gray-600"}`}
-                    >
-                      {u.role}
-                    </span>
-                  </td>
+                  {showPendingListColumns ? (
+                    <td className="px-4 py-3 text-gray-700 text-sm font-mono">
+                      {u.instagram_handle?.trim()
+                        ? `@${u.instagram_handle.trim().replace(/^@+/, "")}`
+                        : "—"}
+                    </td>
+                  ) : null}
+                  {!showPendingListColumns ? (
+                    <>
+                      <td className="px-4 py-3">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 font-medium">
+                          Lv.{u.level}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">{u.region}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_BADGE[u.status] ?? "bg-gray-100 text-gray-600"}`}
+                        >
+                          {u.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE[u.role] ?? "bg-gray-100 text-gray-600"}`}
+                        >
+                          {u.role}
+                        </span>
+                      </td>
+                    </>
+                  ) : (
+                    <td className="px-4 py-3">
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_BADGE[u.status] ?? "bg-gray-100 text-gray-600"}`}
+                      >
+                        {u.status}
+                      </span>
+                    </td>
+                  )}
                   <td className="px-4 py-3 text-gray-500 text-xs">
-                    {new Date(u.created_at).toLocaleDateString("zh-TW")}
+                    {new Date(u.created_at).toLocaleString("zh-TW")}
                   </td>
                 </tr>
               ))}
@@ -634,19 +684,36 @@ export default function UsersClient({
                     Lv.{u.level}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${STATUS_BADGE[u.status] ?? ""}`}
-                  >
-                    {u.status}
-                  </span>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${ROLE_BADGE[u.role] ?? ""}`}
-                  >
-                    {u.role}
-                  </span>
+                <div className="flex flex-col gap-0.5 mt-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${STATUS_BADGE[u.status] ?? ""}`}
+                    >
+                      {u.status}
+                    </span>
+                    {!showPendingListColumns ? (
+                      <>
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${ROLE_BADGE[u.role] ?? ""}`}
+                        >
+                          {u.role}
+                        </span>
+                        <span className="text-[10px] text-gray-400">
+                          {u.region}
+                        </span>
+                      </>
+                    ) : null}
+                  </div>
+                  {showPendingListColumns ? (
+                    <span className="text-[11px] text-gray-600 font-mono">
+                      IG:{" "}
+                      {u.instagram_handle?.trim()
+                        ? `@${u.instagram_handle.trim().replace(/^@+/, "")}`
+                        : "—"}
+                    </span>
+                  ) : null}
                   <span className="text-[10px] text-gray-400">
-                    {u.region}
+                    註冊 {new Date(u.created_at).toLocaleString("zh-TW")}
                   </span>
                 </div>
               </div>
@@ -826,49 +893,52 @@ export default function UsersClient({
                 </div>
 
                 {selectedUser.status === "pending" && canOperateSelectedUser ? (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
-                    <p className="text-sm font-semibold text-amber-900">
-                      註冊／Instagram 初審
-                    </p>
-                    <p className="text-xs text-amber-800/90">
-                      請至 Instagram 核對用戶填寫的帳號是否屬實。
+                  <div className="rounded-xl border-2 border-amber-300/60 bg-gradient-to-b from-amber-50 to-amber-100/80 p-4 space-y-3 shadow-sm">
+                    <p className="text-sm font-bold text-amber-950">
+                      📸 IG 審核
                     </p>
                     <div>
-                      <span className="text-xs text-gray-500">填寫的 IG</span>
-                      <p className="font-mono text-sm font-medium text-gray-900">
-                        @
-                        {selectedUser.instagram_handle
-                          ?.trim()
-                          .replace(/^@+/, "") ?? "（未填）"}
+                      <span className="text-xs font-medium text-amber-900/80">
+                        IG 帳號
+                      </span>
+                      <p className="font-mono text-sm font-semibold text-gray-900 mt-0.5">
+                        {pendingIgDisplay
+                          ? `@${pendingIgDisplay}`
+                          : "尚未填寫"}
                       </p>
                     </div>
-                    {pendingSheetIgHref ? (
-                      <a
-                        href={pendingSheetIgHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-white px-3 py-2.5 text-sm font-medium text-violet-700 transition-colors hover:bg-violet-50"
+                    {pendingIgDisplay ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          window.open(
+                            `https://instagram.com/${encodeURIComponent(pendingIgDisplay)}`,
+                            "_blank",
+                            "noopener,noreferrer",
+                          )
+                        }
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-400/50 bg-white px-3 py-2.5 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-50"
                       >
                         <ExternalLink className="h-4 w-4 shrink-0" />
-                        在 Instagram 開啟
-                      </a>
+                        前往 IG 確認
+                      </button>
                     ) : null}
                     <div className="flex flex-col gap-2 pt-1">
                       <button
                         type="button"
                         disabled={registrationReviewPending}
-                        onClick={() => void handleApproveRegistration()}
+                        onClick={() => setIgApproveDialogOpen(true)}
                         className="w-full rounded-xl bg-emerald-600 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
                       >
-                        {registrationReviewPending
-                          ? "處理中…"
-                          : "✅ 審核通過"}
+                        ✅ 審核通過
                       </button>
                       <button
                         type="button"
-                        disabled={registrationReviewPending}
-                        onClick={() => void handleRejectRegistration()}
-                        className="w-full rounded-xl border border-rose-300 bg-rose-50 py-2.5 text-sm font-medium text-rose-800 transition-colors hover:bg-rose-100 disabled:opacity-50"
+                        disabled={
+                          registrationReviewPending || !pendingIgDisplay
+                        }
+                        onClick={() => setIgRejectDialogOpen(true)}
+                        className="w-full rounded-xl border border-rose-400 bg-rose-50 py-2.5 text-sm font-medium text-rose-900 transition-colors hover:bg-rose-100 disabled:opacity-50"
                       >
                         ❌ 拒絕並通知
                       </button>
@@ -1150,6 +1220,57 @@ export default function UsersClient({
           />
         </ActionDialog>
       )}
+
+      <AlertDialog
+        open={igApproveDialogOpen}
+        onOpenChange={setIgApproveDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              確定審核通過 @
+              {pendingIgDisplay || "（無 IG）"}？
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              通過後用戶狀態將改為活躍，可進入公會。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void confirmIgApprove()}
+              disabled={registrationReviewPending}
+              className="bg-emerald-600 hover:bg-emerald-500"
+            >
+              {registrationReviewPending ? "處理中…" : "確定通過"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={igRejectDialogOpen}
+        onOpenChange={setIgRejectDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定拒絕？</AlertDialogTitle>
+            <AlertDialogDescription>
+              系統將清空 IG 欄位並通知用戶重新填寫。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void confirmIgReject()}
+              disabled={registrationReviewPending}
+              className="bg-rose-600 hover:bg-rose-500"
+            >
+              {registrationReviewPending ? "處理中…" : "確定拒絕"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={tavernBanDialogOpen}

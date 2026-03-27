@@ -41,11 +41,21 @@
 
 - **從 `UserDetailModal` 開 `ChatModal` 被遮擋**：**`ChatModal`** 新增可選 **`zIndex`**（預設 **700**）；**`UserDetailModal`** 內傳 **`zIndex={900}`**，底層全螢幕遮罩 **zIndex−10（890）**、主面板 **900**；檢舉浮層 **zIndex+20**。**`/guild`** 等維持預設 **700**。
 - **自抬高層級 `ChatModal` 再開 `UserDetailModal`（點對方頭像）**：**`UserDetailModal`** 支援 **`stackAboveChatZ`**；**`DialogContent`** 支援 **`overlayStyle`／`contentStyle`**（inline **z-index**：overlay **stack+10**、content **stack+20**），避免被 **z-900** 聊天蓋住。
-- **`LeaderToolsSheet`**：**`createPortal` → `document.body`**（外層 **`data-no-chat-inert`**，避免 **ChatModal** 對 body 設 **inert** 時無法操作）；backdrop／sheet **`z-[940]`／`z-[950]`**（須蓋過 **UserDetailModal** Dialog 與抬高後 **ChatModal**）；放逐／解除確認 **`z-[960]`**。
-- **`AuthStatus`** 新增 **`kind: 'pending'`**（**`users.status === 'pending'`**）。**`middleware.ts`**：待審核用戶僅能停留 **`/register/pending`**，其餘路徑導向該頁；已 **active** 者造訪 **`/register/pending`** 導回 **`/`**。**`matcher`** 註解標示含該路徑。
-- **`/register/pending`**：**`glass-panel`** 說明文案＋**`PendingLogoutButton`**（**`supabase.auth.signOut()`** → **`/login`**）；屬 **`(auth)/layout`**，無 **`(app)`** 底欄。
-- **建檔**：**`completeAdventurerProfile`** 寫入 **`status: 'pending'`**；成功後 **`router.push('/register/pending')`**（不再直跳興趣 onboarding，待審核通過後由 middleware 放行 **`/`** 再補標籤流程）。
-- **後台**：**`approveUserAction`／`rejectUserAction`**（**`src/services/admin.action.ts`**，`master`／`moderator`）；**`/admin/users`** 篩選列 **待審核** chip、詳情 Sheet 對 **`pending`** 顯示 IG 外連與通過／拒絕（拒絕維持 **pending**＋**`notifications`** **system** 信）。儀表板「待審核」人數＝**`getDashboardStats.pendingUsers`**（**`users.status = pending`**）。
+- **`LeaderToolsSheet`**：**`createPortal` → `document.body`**（外層 **`data-no-chat-inert`**，避免 **ChatModal** 對 body 設 **inert** 時無法操作）；backdrop／sheet **`z-[940]`／`z-[950]`**；放逐／解除確認 **`z-[960]`**。
+
+#### IG 人工審核（DB／Middleware／前台／後台）
+
+- **Step 0（Supabase MCP，專案「冒險者公會」）**  
+  - **`information_schema.columns`**：**`users.status`** 原 **`column_default`** 為 **`'active'::user_status`**，已執行 **`ALTER TABLE public.users ALTER COLUMN status SET DEFAULT 'pending'::user_status`**，複查為 **`'pending'::user_status`**。  
+  - 遷移檔：**`supabase/migrations/20260328120500_users_status_default_pending.sql`**。  
+  - **`auth.users`／`public.users`**：查無 **非內建 trigger** 自動 insert **`public.users`**。  
+  - **`information_schema.routines`** 含 **`status`** 字樣之 **`public` FUNCTION**：僅 **`get_coin_stats`**（與 **`WHERE status != 'banned'`** 等相關），無寫死 **`users.status = 'active'`** 之註冊 trigger function。
+- **`AuthStatus`**：**`kind: 'pending'`**。**`middleware.ts`**：**`profile.status === 'pending'`** 僅允許 **`/register/pending`**，其餘導向該頁；**`active`** 造訪 **`/register/pending`** → **`/`**。**`config.matcher`** 明列 **`/register/pending`**、**`/register/profile/:path*`**、興趣／技能等路徑＋既有廣域規則。
+- **`/register/pending`**（**`'use client'`**）：**`getMyProfileAction`** 載入；有 **`instagram_handle`** → 審核中文案＋顯示 **@handle**；無 handle → 重填表單＋**`updateMyProfile({ instagram_handle })`**＋ toast「已重新提交，請等待審核」；底部 **登出**（text 樣式）。**`updateMyProfile`** 成功會 **`revalidatePath('/register/pending')`**。
+- **建檔**：**`completeAdventurerProfile`** 明確 **`status: 'pending'`**（註解雙重保險）；成功後 **`router.push('/register/pending')`**。
+- **Layer 3**：**`approveUserAction`**（**`metadata`: `{ target_nickname }`**、信箱歡迎文案）；**`rejectUserIgAction`**（admin 清空 **`instagram_handle`**、**`status` 仍 `pending`**、**`reject_ig`** 稽核、**`metadata.rejected_handle`**、通知「請重新填寫後等待審核」）；**`getPendingUsersCountAction`**（badge 用）；**`getUsersAction`** 的 **`status: 'pending'`** 篩選仍走 **`findUsersForAdmin`**。
+- **後台 `/admin/users`**：**待審核** tab **琥珀 badge**（pending 人數）；篩選 **`pending`** 時列表欄位：**暱稱／IG／註冊時間**（＋狀態）；詳情 Sheet **📸 IG 審核**區塊、**前往 IG 確認**（**`instagram.com/{handle}`**）、**AlertDialog** 後 **通過／拒絕**（拒絕呼叫 **`rejectUserIgAction`**），成功關 Sheet 並 **mutate** 列表。  
+- **儀表板**：**`pendingUsers`**＝**`COUNT(status = 'pending')`**（**`getDashboardStats`**）；統計卡點擊 **`/admin/users?filter=pending`**（既有）。
 
 ### Wave 1 — 七日報到簿＋通用抽獎引擎＋公會盲盒（2026-03-28）
 

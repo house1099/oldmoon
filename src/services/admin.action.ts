@@ -83,6 +83,7 @@ import type {
   PrizeItemRow,
 } from "@/types/database.types";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
+import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
 import { isTavernBanned } from "@/lib/repositories/server/tavern.repository";
 
 type ActionResult<T = void> =
@@ -145,8 +146,10 @@ export async function getDashboardStatsAction() {
 
 // ─── Users ───
 
+/** `status` 可傳 **`pending`**／**`active`** 等，對應 **`users.status`**。 */
 export async function getUsersAction(params: {
   search?: string;
+  /** 例如 **`pending`**、`active`、`banned` */
   status?: string;
   role?: string;
   page?: number;
@@ -289,27 +292,39 @@ export async function unbanUserAction(userId: string): Promise<ActionResult> {
   }
 }
 
+export async function getPendingUsersCountAction(): Promise<
+  ActionResult<{ count: number }>
+> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const admin = createAdminClient();
+    const { count, error } = await admin
+      .from("users")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending");
+    if (error) throw error;
+    return { ok: true, data: { count: count ?? 0 } };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 /** 註冊／IG 初審：將 `pending` 轉為 `active` 並通知用戶。 */
 export async function approveUserAction(userId: string): Promise<ActionResult> {
   try {
-    const { user, profile: operator } = await requireRole([
-      "master",
-      "moderator",
-    ]);
+    const { user } = await requireRole(["master", "moderator"]);
     const { target } = await checkOperationPermission(user.id, userId);
     if (target.status !== "pending") {
       return { ok: false, error: "此用戶並非待審核狀態" };
     }
+    const nickname = target.nickname;
     await updateUserStatus(userId, "active");
     await insertAdminAction({
       admin_id: user.id,
       target_user_id: userId,
       action_type: "approve_user",
-      action_label: `審核通過：${target.nickname}`,
-      metadata: {
-        target_nickname: target.nickname,
-        admin_nickname: operator.nickname,
-      },
+      action_label: `審核通過：${nickname}`,
+      metadata: { target_nickname: nickname },
     });
     await notifyUserMailboxSilent({
       user_id: userId,
@@ -319,47 +334,56 @@ export async function approveUserAction(userId: string): Promise<ActionResult> {
     });
     revalidatePath("/admin");
     revalidatePath("/admin/users");
+    revalidateTag(profileCacheTag(userId));
     return { ok: true, data: undefined };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
   }
 }
 
-/** 註冊／IG 初審拒絕：維持 `pending`，寫入信件與操作紀錄。 */
-export async function rejectUserAction(userId: string): Promise<ActionResult> {
+/** 註冊／IG 初審拒絕：清空 **`instagram_handle`**，維持 **`pending`**，並通知用戶。 */
+export async function rejectUserIgAction(userId: string): Promise<ActionResult> {
   try {
-    const { user, profile: operator } = await requireRole([
-      "master",
-      "moderator",
-    ]);
+    const { user } = await requireRole(["master", "moderator"]);
     const { target } = await checkOperationPermission(user.id, userId);
     if (target.status !== "pending") {
       return { ok: false, error: "此用戶並非待審核狀態" };
     }
-    const handle =
+    const nickname = target.nickname;
+    const instagram_handle =
       target.instagram_handle?.trim().replace(/^@+/, "") ?? "";
+    if (!instagram_handle) {
+      return {
+        ok: false,
+        error: "此用戶尚未填寫 Instagram，無法執行拒絕審核。",
+      };
+    }
+    const admin = createAdminClient();
+    const { error: upErr } = await admin
+      .from("users")
+      .update({ instagram_handle: null })
+      .eq("id", userId);
+    if (upErr) throw upErr;
     await insertAdminAction({
       admin_id: user.id,
       target_user_id: userId,
       action_type: "reject_ig",
-      action_label: `IG 審核拒絕：${target.nickname}`,
+      action_label: `IG 審核拒絕：${nickname}`,
       metadata: {
-        target_nickname: target.nickname,
-        instagram_handle: handle,
-        admin_nickname: operator.nickname,
+        target_nickname: nickname,
+        rejected_handle: instagram_handle,
       },
     });
     await notifyUserMailboxSilent({
       user_id: userId,
       type: "system",
-      message:
-        handle.length > 0
-          ? `您的 Instagram 帳號（@${handle}）審核未通過，請至首頁帳號設定重新填寫後等待審核。`
-          : "您的 Instagram 帳號審核未通過，請至首頁帳號設定重新填寫後等待審核。",
+      message: `您的 Instagram 帳號（@${instagram_handle}）審核未通過，請重新填寫後等待審核。`,
       is_read: false,
     });
     revalidatePath("/admin");
     revalidatePath("/admin/users");
+    revalidatePath("/register/pending");
+    revalidateTag(profileCacheTag(userId));
     return { ok: true, data: undefined };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
