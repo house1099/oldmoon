@@ -111,7 +111,7 @@ export default function ShopPage() {
 
   async function onConfirmConvert() {
     if (!Number.isInteger(freeAmt) || freeAmt < 10) {
-      toast.error("最少兌換 10 免費幣");
+      toast.error("最少兌換 10 探險幣");
       return;
     }
     setConvertBusy(true);
@@ -152,13 +152,13 @@ export default function ShopPage() {
               <p className="text-2xl font-bold tabular-nums text-amber-300">
                 {premium}
               </p>
-              <p className="mt-0.5 text-xs text-zinc-500">💎 付費幣</p>
+              <p className="mt-0.5 text-xs text-zinc-500">💎 純金</p>
             </div>
             <div className="flex-1 rounded-xl bg-zinc-800/60 p-3 text-center">
               <p className="text-2xl font-bold tabular-nums text-violet-300">
                 {free}
               </p>
-              <p className="mt-0.5 text-xs text-zinc-500">🪙 免費幣</p>
+              <p className="mt-0.5 text-xs text-zinc-500">🪙 探險幣</p>
             </div>
           </div>
         </div>
@@ -170,7 +170,7 @@ export default function ShopPage() {
         >
           <div className="flex items-center gap-2">
             <span aria-hidden>🔄</span>
-            <span className="text-sm text-zinc-300">免費幣兌換付費幣</span>
+            <span className="text-sm text-zinc-300">探險幣兌換純金</span>
           </div>
           <span className="text-xs text-zinc-500">
             {rate * 100}% 轉換率
@@ -200,13 +200,13 @@ export default function ShopPage() {
       <Dialog open={convertOpen} onOpenChange={setConvertOpen}>
         <DialogContent className="border-zinc-800 bg-zinc-950 text-zinc-100">
           <DialogHeader>
-            <DialogTitle>免費幣兌換付費幣</DialogTitle>
+            <DialogTitle>探險幣兌換純金</DialogTitle>
           </DialogHeader>
           <p className="text-xs text-zinc-500">
-            最少 10 免費幣；轉換率 {rate * 100}%（無條件捨去小數）
+            最少 10 探險幣；轉換率 {rate * 100}%（無條件捨去小數）
           </p>
           <label className="block text-sm text-zinc-400 mt-2">
-            免費幣數量
+            探險幣數量
             <input
               type="number"
               min={10}
@@ -216,7 +216,7 @@ export default function ShopPage() {
             />
           </label>
           <p className="text-sm text-amber-200/90">
-            預計獲得付費幣：<span className="font-semibold">{expectedPremium}</span>
+            預計獲得純金：<span className="font-semibold">{expectedPremium}</span>
           </p>
           <Button
             type="button"
@@ -279,7 +279,7 @@ export default function ShopPage() {
                             : "text-violet-400"
                         }
                       >
-                        {t.coin_type === "premium" ? "付費幣" : "免費幣"}
+                        {t.coin_type === "premium" ? "純金" : "探險幣"}
                       </span>
                       <span className="text-zinc-600">·</span>
                       <span className="text-zinc-400">

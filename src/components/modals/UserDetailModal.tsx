@@ -80,6 +80,7 @@ export function UserDetailModal({
   const [showChat, setShowChat] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [chatOpening, setChatOpening] = useState(false);
+  const [moodOpen, setMoodOpen] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -125,6 +126,18 @@ export function UserDetailModal({
     LEVEL_TIERS.length,
   );
   const levelTitle = LEVEL_TIERS[levelIdx - 1]?.title ?? "見習冒險者";
+  const moodText = user.mood?.trim() ?? "";
+  const moodTooLong = moodText.length > 15;
+  const moodPreview = moodTooLong ? `${moodText.slice(0, 15)}...` : moodText;
+  const moodTime = user.mood_at
+    ? new Intl.DateTimeFormat("zh-TW", {
+        timeZone: "Asia/Taipei",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(user.mood_at))
+    : "";
 
   const isCurrentUserMaster = myProfile?.role === "master";
 
@@ -394,9 +407,18 @@ export function UserDetailModal({
                   <p className="mb-0.5 text-[10px] font-medium text-violet-400">
                     今日心情
                   </p>
-                  <p className="text-sm leading-snug text-zinc-200">
-                    {user.mood}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm leading-snug text-zinc-200">{moodPreview}</p>
+                    {moodTooLong ? (
+                      <button
+                        type="button"
+                        onClick={() => setMoodOpen(true)}
+                        className="text-[10px] text-violet-300 hover:text-violet-100"
+                      >
+                        展開
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             ) : null}
@@ -653,6 +675,17 @@ export function UserDetailModal({
           </div>
         </div>
       )}
+
+      <Dialog open={moodOpen} onOpenChange={setMoodOpen}>
+        <DialogContent className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-sm z-[900]">
+          <DialogTitle className="sr-only">今日心情</DialogTitle>
+          <div className="p-5">
+            <p className="text-xs text-violet-400 mb-2">✨ 今日心情</p>
+            <p className="text-sm text-zinc-200 leading-relaxed">{moodText}</p>
+            <p className="text-xs text-zinc-600 mt-3">{moodTime}</p>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {showChat && conversationId ? (
         <ChatModal

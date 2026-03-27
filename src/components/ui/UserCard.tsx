@@ -15,6 +15,11 @@ import { UserDetailModal } from "@/components/modals/UserDetailModal";
 import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
 import { LevelBadge } from "@/components/ui/LevelBadge";
 import { LevelCardEffect } from "@/components/ui/LevelCardEffect";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 function tagLabel(slug: string): string {
   return INTEREST_TAG_OPTIONS.find((o) => o.value === slug)?.label ?? slug;
@@ -38,6 +43,7 @@ export function UserCard({
   onClick,
 }: UserCardProps) {
   const [detailOpen, setDetailOpen] = useState(false);
+  const [moodOpen, setMoodOpen] = useState(false);
   const isPerfectMatch = perfectMatch;
   const isMoodActive = user.mood_at
     ? Date.now() - new Date(user.mood_at).getTime() < 24 * 60 * 60 * 1000
@@ -56,6 +62,19 @@ export function UserCard({
       setDetailOpen(true);
     }
   };
+
+  const moodText = user.mood?.trim() ?? "";
+  const shouldTruncateMood = moodText.length > 15;
+  const moodPreview = shouldTruncateMood ? `${moodText.slice(0, 15)}...` : moodText;
+  const moodTime = user.mood_at
+    ? new Intl.DateTimeFormat("zh-TW", {
+        timeZone: "Asia/Taipei",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(user.mood_at))
+    : "";
 
   return (
     <>
@@ -154,16 +173,40 @@ export function UserCard({
                   </span>
                   <div className="flex min-w-0 flex-1 items-center gap-1 rounded-full border border-violet-500/20 bg-violet-950/50 px-2.5 py-0.5">
                     <span className="truncate text-[11px] text-violet-200">
-                      {user.mood}
+                      {moodPreview}
                     </span>
+                    {shouldTruncateMood ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMoodOpen(true);
+                        }}
+                        className="shrink-0 text-[10px] text-violet-300 hover:text-violet-100"
+                      >
+                        展開
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               ) : (
                 <div className="mt-1.5 inline-flex max-w-[90%] items-center gap-1 rounded-full border border-violet-500/20 bg-violet-950/50 px-2.5 py-0.5">
                   <span className="shrink-0 text-[10px] text-violet-400">✨</span>
                   <span className="truncate text-[11px] text-violet-200">
-                    {user.mood}
+                    {moodPreview}
                   </span>
+                  {shouldTruncateMood ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMoodOpen(true);
+                      }}
+                      className="shrink-0 text-[10px] text-violet-300 hover:text-violet-100"
+                    >
+                      展開
+                    </button>
+                  ) : null}
                 </div>
               )
             ) : null}
@@ -183,7 +226,7 @@ export function UserCard({
         <div className="mt-2.5 space-y-1.5">
           {variant === "village" ? (
             <div className="flex flex-wrap gap-1.5">
-              {(user.interests ?? []).slice(0, 3).map((tag) => (
+              {(user.interests ?? []).slice(0, 4).map((tag) => (
                 <span
                   key={tag}
                   className="rounded-full border border-violet-700/30 bg-violet-950/60 px-2.5 py-0.5 text-[11px] text-violet-300"
@@ -191,9 +234,9 @@ export function UserCard({
                   {tagLabel(tag)}
                 </span>
               ))}
-              {(user.interests ?? []).length > 3 ? (
+              {(user.interests ?? []).length > 4 ? (
                 <span className="rounded-full bg-zinc-800 px-2.5 py-0.5 text-[11px] text-zinc-500">
-                  +{(user.interests ?? []).length - 3}
+                  +{(user.interests ?? []).length - 4}
                 </span>
               ) : null}
               {(user.interests ?? []).length === 0 ? (
@@ -211,7 +254,7 @@ export function UserCard({
                   <span className="shrink-0 text-[10px] text-amber-500">
                     能教
                   </span>
-                  {(user.skills_offer ?? []).slice(0, 2).map((tag) => (
+                  {(user.skills_offer ?? []).slice(0, 3).map((tag) => (
                     <span
                       key={tag}
                       className="rounded-full border border-amber-700/30 bg-amber-950/50 px-2.5 py-0.5 text-[11px] text-amber-300"
@@ -219,9 +262,9 @@ export function UserCard({
                       {tag}
                     </span>
                   ))}
-                  {(user.skills_offer ?? []).length > 2 ? (
+                  {(user.skills_offer ?? []).length > 3 ? (
                     <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-500">
-                      +{(user.skills_offer ?? []).length - 2}
+                      +{(user.skills_offer ?? []).length - 3}
                     </span>
                   ) : null}
                 </div>
@@ -231,7 +274,7 @@ export function UserCard({
                   <span className="shrink-0 text-[10px] text-sky-500">
                     想學
                   </span>
-                  {(user.skills_want ?? []).slice(0, 2).map((tag) => (
+                  {(user.skills_want ?? []).slice(0, 3).map((tag) => (
                     <span
                       key={tag}
                       className="rounded-full border border-sky-700/30 bg-sky-950/50 px-2.5 py-0.5 text-[11px] text-sky-300"
@@ -239,9 +282,9 @@ export function UserCard({
                       {tag}
                     </span>
                   ))}
-                  {(user.skills_want ?? []).length > 2 ? (
+                  {(user.skills_want ?? []).length > 3 ? (
                     <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-500">
-                      +{(user.skills_want ?? []).length - 2}
+                      +{(user.skills_want ?? []).length - 3}
                     </span>
                   ) : null}
                 </div>
@@ -263,6 +306,17 @@ export function UserCard({
         open={detailOpen}
         onOpenChange={setDetailOpen}
       />
+
+      <Dialog open={moodOpen} onOpenChange={setMoodOpen}>
+        <DialogContent className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-sm">
+          <DialogTitle className="sr-only">今日心情</DialogTitle>
+          <div className="p-5">
+            <p className="text-xs text-violet-400 mb-2">✨ 今日心情</p>
+            <p className="text-sm text-zinc-200 leading-relaxed">{moodText}</p>
+            <p className="text-xs text-zinc-600 mt-3">{moodTime}</p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -37,6 +37,17 @@
    - **`UserDetailModal`**：**永遠顯示完整資訊**（雙自白 **`bio_village`／`bio_market`**、興趣村莊**全部**標籤、技能市集分 **我能教／我想學**、IG 區塊條件不變、**master** 信譽條＋領袖工具）；版面為 **頂部英雄區（固定）**＋**可捲動內容**＋**底部固定操作**（聊聊／緣分／血盟四態／領袖工具）；頭像角標依 **`activity_status`**；等級旁 **`LEVEL_TIERS`** 稱號。
    - **Layer 2 `select` SSOT**：**`findVillageUsers`** 與 **`findMarketUsers`** 之 **`select`** 須涵蓋列表與 Modal 資料鍊所需：**`id, nickname, avatar_url, level, region, role, mood, mood_at, activity_status, interests, skills_offer, skills_want, bio_village, bio_market`**（另含 **`gender`／`orientation`／`last_seen_at`／`instagram_handle`／`ig_public`** 等既有欄位，依函式現況為準）。
 
+### Wave A 基礎修復（2026-03-27）
+
+- **幣種文案全站更新**：UI 顯示統一改為 **探險幣**（原「免費幣」）與 **純金**（原「付費幣」）；僅改顯示文字，**DB 欄位仍維持 `free_coins`／`premium_coins`**。
+- **首頁後台入口**：**`guild-profile-home.tsx`** 的「管理後台」按鈕由 **master only** 改為 **master + moderator** 可見。
+- **後台 Sidebar 權限隱藏**：**`src/app/(admin)/layout.tsx`** 改為伺服器端先取 **`auth.getUser()` → `findProfileById()`**，若為 moderator 再讀 **`findModeratorPermissions()`**；導航模組依權限 `show` 後再渲染（master 全顯示，coins/roles/settings 仍 master only）。
+- **標籤顯示規則更新**：**`UserCard`** 改為興趣村莊 **最多 4 +N**；技能市集 **能教最多 3 +N**、**想學最多 3 +N**。**`UserDetailModal`** 仍顯示全部標籤不截斷。
+- **心情顯示規則更新**：**`UserCard`** 與 **`UserDetailModal`** 的心情文案超過 **15 字** 改為截斷顯示（`前 15 字 + ...`）並提供「展開」；點擊後以 Dialog 顯示完整內容與時間。
+- **系統設定頁正式上線**：**`/admin/settings`** 由占位頁改為可編輯面板（三區塊：平台規則、簽到探險幣、Lv1-10 門檻），每項旁有單獨儲存按鈕，透過 **`updateSystemSettingAction(key, value)`** 寫入並 toast 成功提示。
+- **新增/納管 system_settings keys**：
+  **`interests_max_select`**、**`skills_max_select`**、**`mood_max_length`**、**`tavern_message_max_length`**、**`registration_open`**、**`maintenance_mode`**、**`like_require_mutual`**、**`checkin_free_coins_min`**、**`checkin_free_coins_max`**、**`checkin_weight_1` ~ `checkin_weight_9`**、**`level_threshold_1` ~ `level_threshold_10`**。
+
 ### 角色識別、探索排序與命定師徒（2026-03-26）
 
 - **`src/lib/utils/role-display.ts`**：**`getRoleDisplay(role)`** 回傳 **`crown`** + **`nameClass`** — **`master`** → **👑**、`text-amber-300 font-semibold`；**`moderator`** → **🛡️**、`text-blue-300 font-semibold`；其餘 **`crown: null`**、`text-zinc-100`。套用：**`UserCard`**（**`src/components/ui/UserCard.tsx`**，**`cards/UserCard.tsx`** re-export）、**`UserDetailModal`**、**`TavernModal`** 訊息列、**`/guild`** 血盟（待確認／夥伴）與聊天列表暱稱。

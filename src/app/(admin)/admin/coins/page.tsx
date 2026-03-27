@@ -9,9 +9,10 @@ import {
   Loader2,
   AlertTriangle,
   Search,
+  X,
 } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import {
   getAdminCoinStatsAction,
@@ -127,7 +128,7 @@ function StatsTab() {
             <p className="font-semibold">餘額異常警告</p>
             <p className="mt-1">
               目前有 {stats.negativeBalanceUserCount}{" "}
-              位用戶的付費幣或免費幣為負數，請盡快檢查資料與流水。
+              位用戶的純金或探險幣為負數，請盡快檢查資料與流水。
             </p>
           </div>
         </div>
@@ -135,12 +136,12 @@ function StatsTab() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="全站付費幣總量"
+          title="全站純金總量"
           value={stats.totalPremiumCoins.toLocaleString()}
           accent="text-amber-600"
         />
         <StatCard
-          title="全站免費幣總量"
+          title="全站探險幣總量"
           value={stats.totalFreeCoins.toLocaleString()}
           accent="text-violet-600"
         />
@@ -282,8 +283,8 @@ function UsersTab() {
             <thead className="bg-gray-50 text-left text-gray-600">
               <tr>
                 <th className="px-3 py-2">用戶</th>
-                <th className="px-3 py-2 text-right">付費幣</th>
-                <th className="px-3 py-2 text-right">免費幣</th>
+                <th className="px-3 py-2 text-right">純金</th>
+                <th className="px-3 py-2 text-right">探險幣</th>
                 <th className="px-3 py-2 w-28">操作</th>
               </tr>
             </thead>
@@ -309,14 +310,13 @@ function UsersTab() {
                     {u.free_coins ?? 0}
                   </td>
                   <td className="px-3 py-2">
-                    <Button
+                    <button
                       type="button"
-                      variant="outline"
-                      size="sm"
                       onClick={() => openAdjust(u)}
+                      className="rounded-lg bg-violet-600 px-3 py-1.5 text-sm text-white hover:bg-violet-700"
                     >
                       調整金幣
-                    </Button>
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -353,49 +353,57 @@ function UsersTab() {
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent>
-          <SheetHeader>
-            <SheetTitle>調整金幣</SheetTitle>
-          </SheetHeader>
           {selected && (
-            <div className="mt-4 space-y-4 text-sm">
-              <p className="text-gray-600">
-                對象：<span className="font-medium">{selected.nickname}</span>
+            <div className="mt-2 space-y-4 text-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">調整金幣</h2>
+                <button
+                  type="button"
+                  onClick={() => setSheetOpen(false)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <p className="text-gray-700">
+                對象：<span className="font-medium text-gray-900">{selected.nickname}</span>
               </p>
               <div>
-                <label className="block text-gray-600 mb-1">幣種</label>
+                <label className="mb-1 block text-gray-700">幣種</label>
                 <select
                   value={coinType}
                   onChange={(e) =>
                     setCoinType(e.target.value as "premium" | "free")
                   }
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
                 >
-                  <option value="premium">付費幣</option>
-                  <option value="free">免費幣</option>
+                  <option value="premium">純金</option>
+                  <option value="free">探險幣</option>
                 </select>
               </div>
               <div>
-                <label className="block text-gray-600 mb-1">
+                <label className="mb-1 block text-gray-700">
                   數量（正＝贈與，負＝扣除）
                 </label>
                 <input
                   type="number"
                   value={amountStr}
                   onChange={(e) => setAmountStr(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
                 />
               </div>
               <div>
-                <label className="block text-gray-600 mb-1">原因（必填）</label>
+                <label className="mb-1 block text-gray-700">原因（必填）</label>
                 <textarea
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   rows={3}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
                 />
               </div>
               <div>
-                <label className="block text-gray-600 mb-1">四位數密碼</label>
+                <label className="mb-1 block text-gray-700">四位數密碼</label>
                 <input
                   type="password"
                   inputMode="numeric"
@@ -403,21 +411,24 @@ function UsersTab() {
                   maxLength={4}
                   value={pin}
                   onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900"
                 />
               </div>
-              <Button
+              <button
                 type="button"
-                className="w-full"
+                className="w-full rounded-lg bg-violet-600 py-3 font-medium text-white hover:bg-violet-700 disabled:opacity-60"
                 disabled={submitting}
                 onClick={() => void submitAdjust()}
               >
                 {submitting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    處理中...
+                  </span>
                 ) : (
                   "確認"
                 )}
-              </Button>
+              </button>
             </div>
           )}
         </SheetContent>
@@ -552,7 +563,7 @@ function LedgerTab() {
                             : "bg-violet-100 text-violet-800"
                         }`}
                       >
-                        {t.coin_type === "premium" ? "付費" : "免費"}
+                        {t.coin_type === "premium" ? "純金" : "探險幣"}
                       </span>
                     </td>
                     <td className="px-3 py-2">

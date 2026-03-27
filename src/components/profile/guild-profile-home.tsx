@@ -649,7 +649,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         return;
       }
       toast.success(
-        `簽到成功！獲得 +1 EXP${result.freeCoinsEarned ? ` 和 +${result.freeCoinsEarned} 免費幣 🪙` : ""}`,
+        `簽到成功！獲得 +1 EXP${result.freeCoinsEarned ? ` 和 +${result.freeCoinsEarned} 探險幣 🪙` : ""}`,
       );
       setCheckinDone(true);
       setCooldown({ hours: 23, mins: 59 });
@@ -1281,7 +1281,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           <ChevronRight className="size-5 shrink-0 text-zinc-500" aria-hidden />
         </button>
 
-        {profile.role === "master" ? (
+        {profile.role === "master" || profile.role === "moderator" ? (
           <button
             type="button"
             onClick={() => router.push("/admin")}

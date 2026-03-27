@@ -1305,7 +1305,7 @@ export async function adminAdjustCoinsAction(params: {
       },
     });
 
-    const coinLabel = params.coinType === "premium" ? "付費幣" : "免費幣";
+    const coinLabel = params.coinType === "premium" ? "純金" : "探險幣";
     const msg =
       params.amount > 0
         ? `🪙 管理員贈與了 +${params.amount} ${coinLabel}，備註：${note}`
