@@ -105,7 +105,7 @@ export async function completeAdventurerProfile(input: {
       region: regionTrimmed,
       orientation: q.orientation,
       offline_ok: offlineIntentToOfflineOk(q.offlineIntent),
-      status: "active",
+      status: "pending",
       total_exp: 0, // users 表欄位名為 total_exp，非 exp
       level: 1,
       interests: input.interests,

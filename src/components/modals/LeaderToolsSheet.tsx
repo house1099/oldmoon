@@ -295,7 +295,7 @@ export default function LeaderToolsSheet({
       {/* Ban Confirm Dialog */}
       {showBanConfirm && (
         <div
-          className="fixed inset-0 z-[850] flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-[860] flex items-center justify-center bg-black/60 p-4"
           onClick={() => setShowBanConfirm(false)}
         >
           <div
@@ -337,7 +337,7 @@ export default function LeaderToolsSheet({
       {/* Unban Confirm Dialog */}
       {showUnbanConfirm && (
         <div
-          className="fixed inset-0 z-[850] flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-[860] flex items-center justify-center bg-black/60 p-4"
           onClick={() => setShowUnbanConfirm(false)}
         >
           <div

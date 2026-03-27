@@ -37,6 +37,10 @@ export interface ChatModalProps {
     role?: string | null;
   };
   currentUserId: string;
+  /**
+   * 主聊天層 z-index，預設 700。從 UserDetailModal（z-800+）內開啟時請傳 900，底層遮罩為 zIndex−10。
+   */
+  zIndex?: number;
 }
 
 export default function ChatModal({
@@ -45,6 +49,7 @@ export default function ChatModal({
   conversationId,
   targetUser,
   currentUserId,
+  zIndex: zIndexProp = 700,
 }: ChatModalProps) {
   const { mutate: globalMutate } = useSWRConfig();
   const { messages, mutate, isLoading } = useMessages(
@@ -155,12 +160,20 @@ export default function ChatModal({
 
   if (!open || typeof document === "undefined") return null;
 
-  /** 須低於從聊天內開啟的 `UserDetailModal`（z-800/810）；高於信件 Dialog（z-200/210）等。Portal 至 body 以便與 inert 搭配隔離背景表單欄位（iOS 鍵盤導覽列） */
-  return createPortal(
-    <>
+  const rootZ = zIndexProp;
+  const useUnderlay = rootZ > 700;
+  const reportZ = rootZ + 20;
+
+  /** 預設 z-700；自訂時 overlay zIndex−10、面板 zIndex，須蓋過 UserDetailModal（z-800+）。Portal 至 body 配合 inert 隔離背景表單（iOS 鍵盤導覽列） */
+  const mainChat = (
     <div
-      className="fixed inset-0 z-[700] flex flex-col bg-zinc-950"
+      className={
+        useUnderlay
+          ? "fixed inset-0 flex flex-col bg-zinc-950"
+          : "fixed inset-0 z-[700] flex flex-col bg-zinc-950"
+      }
       data-chat-portal="1"
+      style={useUnderlay ? { zIndex: rootZ } : undefined}
     >
       <div
         className="flex items-center gap-3 overflow-visible border-b border-white/10 bg-zinc-950/90 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-xl"
@@ -311,7 +324,10 @@ export default function ChatModal({
       </div>
 
       {showReport ? (
-        <div className="fixed inset-0 z-[720] flex items-end">
+        <div
+          className="fixed inset-0 flex items-end"
+          style={{ zIndex: reportZ }}
+        >
           <div
             role="presentation"
             className="absolute inset-0 bg-black/60"
@@ -366,16 +382,30 @@ export default function ChatModal({
         </div>
       ) : null}
     </div>
+  );
 
-    {peekUser ? (
-      <UserDetailModal
-        user={peekUser}
-        open
-        onOpenChange={(o) => {
-          if (!o) setPeekUser(null);
-        }}
-      />
-    ) : null}
+  return createPortal(
+    <>
+      {useUnderlay ? (
+        <div
+          className="fixed inset-0 bg-zinc-950"
+          data-chat-portal="1"
+          style={{ zIndex: rootZ - 10 }}
+          aria-hidden
+        />
+      ) : null}
+      {mainChat}
+
+      {peekUser ? (
+        <UserDetailModal
+          user={peekUser}
+          open
+          onOpenChange={(o) => {
+            if (!o) setPeekUser(null);
+          }}
+          stackAboveChatZ={useUnderlay ? rootZ : undefined}
+        />
+      ) : null}
     </>,
     document.body,
   );

@@ -279,6 +279,83 @@ export async function unbanUserAction(userId: string): Promise<ActionResult> {
   }
 }
 
+/** 註冊／IG 初審：將 `pending` 轉為 `active` 並通知用戶。 */
+export async function approveUserAction(userId: string): Promise<ActionResult> {
+  try {
+    const { user, profile: operator } = await requireRole([
+      "master",
+      "moderator",
+    ]);
+    const { target } = await checkOperationPermission(user.id, userId);
+    if (target.status !== "pending") {
+      return { ok: false, error: "此用戶並非待審核狀態" };
+    }
+    await updateUserStatus(userId, "active");
+    await insertAdminAction({
+      admin_id: user.id,
+      target_user_id: userId,
+      action_type: "approve_user",
+      action_label: `審核通過：${target.nickname}`,
+      metadata: {
+        target_nickname: target.nickname,
+        admin_nickname: operator.nickname,
+      },
+    });
+    await notifyUserMailboxSilent({
+      user_id: userId,
+      type: "system",
+      message: "🎉 您的帳號已通過審核，歡迎加入傳奇公會！",
+      is_read: false,
+    });
+    revalidatePath("/admin");
+    revalidatePath("/admin/users");
+    return { ok: true, data: undefined };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/** 註冊／IG 初審拒絕：維持 `pending`，寫入信件與操作紀錄。 */
+export async function rejectUserAction(userId: string): Promise<ActionResult> {
+  try {
+    const { user, profile: operator } = await requireRole([
+      "master",
+      "moderator",
+    ]);
+    const { target } = await checkOperationPermission(user.id, userId);
+    if (target.status !== "pending") {
+      return { ok: false, error: "此用戶並非待審核狀態" };
+    }
+    const handle =
+      target.instagram_handle?.trim().replace(/^@+/, "") ?? "";
+    await insertAdminAction({
+      admin_id: user.id,
+      target_user_id: userId,
+      action_type: "reject_ig",
+      action_label: `IG 審核拒絕：${target.nickname}`,
+      metadata: {
+        target_nickname: target.nickname,
+        instagram_handle: handle,
+        admin_nickname: operator.nickname,
+      },
+    });
+    await notifyUserMailboxSilent({
+      user_id: userId,
+      type: "system",
+      message:
+        handle.length > 0
+          ? `您的 Instagram 帳號（@${handle}）審核未通過，請至首頁帳號設定重新填寫後等待審核。`
+          : "您的 Instagram 帳號審核未通過，請至首頁帳號設定重新填寫後等待審核。",
+      is_read: false,
+    });
+    revalidatePath("/admin");
+    revalidatePath("/admin/users");
+    return { ok: true, data: undefined };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 export async function adjustExpAction(
   userId: string,
   delta: number,

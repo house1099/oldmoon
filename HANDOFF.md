@@ -37,6 +37,16 @@
    - **`UserDetailModal`**：**永遠顯示完整資訊**（雙自白 **`bio_village`／`bio_market`**、興趣村莊**全部**標籤、技能市集分 **我能教／我想學**、IG 區塊條件不變、**master** 信譽條＋領袖工具）；版面為 **頂部英雄區（固定）**＋**可捲動內容**＋**底部固定操作**（聊聊／緣分／血盟四態／領袖工具）；頭像角標依 **`activity_status`**；等級旁 **`LEVEL_TIERS`** 稱號。
    - **Layer 2 `select` SSOT**：**`findVillageUsers`** 與 **`findMarketUsers`** 之 **`select`** 須涵蓋列表與 Modal 資料鍊所需：**`id, nickname, avatar_url, level, region, role, mood, mood_at, activity_status, interests, skills_offer, skills_want, bio_village, bio_market`**（另含 **`gender`／`orientation`／`last_seen_at`／`instagram_handle`／`ig_public`** 等既有欄位，依函式現況為準）。
 
+### z-index 與 IG 註冊審核（2026-03-28）
+
+- **從 `UserDetailModal` 開 `ChatModal` 被遮擋**：**`ChatModal`** 新增可選 **`zIndex`**（預設 **700**）；**`UserDetailModal`** 內傳 **`zIndex={900}`**，底層全螢幕遮罩 **zIndex−10（890）**、主面板 **900**；檢舉浮層 **zIndex+20**。**`/guild`** 等維持預設 **700**。
+- **自抬高層級 `ChatModal` 再開 `UserDetailModal`（點對方頭像）**：**`UserDetailModal`** 支援 **`stackAboveChatZ`**；**`DialogContent`** 支援 **`overlayStyle`／`contentStyle`**（inline **z-index**：overlay **stack+10**、content **stack+20**），避免被 **z-900** 聊天蓋住。
+- **`LeaderToolsSheet`**：backdrop／sheet 維持 **`z-[830]`／`z-[840]`**；放逐／解除確認對話框改 **`z-[860]`**（高於 sheet **840**）。
+- **`AuthStatus`** 新增 **`kind: 'pending'`**（**`users.status === 'pending'`**）。**`middleware.ts`**：待審核用戶僅能停留 **`/register/pending`**，其餘路徑導向該頁；已 **active** 者造訪 **`/register/pending`** 導回 **`/`**。**`matcher`** 註解標示含該路徑。
+- **`/register/pending`**：**`glass-panel`** 說明文案＋**`PendingLogoutButton`**（**`supabase.auth.signOut()`** → **`/login`**）；屬 **`(auth)/layout`**，無 **`(app)`** 底欄。
+- **建檔**：**`completeAdventurerProfile`** 寫入 **`status: 'pending'`**；成功後 **`router.push('/register/pending')`**（不再直跳興趣 onboarding，待審核通過後由 middleware 放行 **`/`** 再補標籤流程）。
+- **後台**：**`approveUserAction`／`rejectUserAction`**（**`src/services/admin.action.ts`**，`master`／`moderator`）；**`/admin/users`** 篩選列 **待審核** chip、詳情 Sheet 對 **`pending`** 顯示 IG 外連與通過／拒絕（拒絕維持 **pending**＋**`notifications`** **system** 信）。儀表板「待審核」人數＝**`getDashboardStats.pendingUsers`**（**`users.status = pending`**）。
+
 ### Wave A 基礎修復（2026-03-27）
 
 - **幣種文案全站更新**：UI 顯示統一改為 **探險幣**（原「免費幣」）與 **純金**（原「付費幣」）；僅改顯示文字，**DB 欄位仍維持 `free_coins`／`premium_coins`**。

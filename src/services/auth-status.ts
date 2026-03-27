@@ -11,6 +11,7 @@ import {
 export type AuthStatus =
   | { kind: "unauthenticated" }
   | { kind: "needs_profile"; userId: string }
+  | { kind: "pending"; userId: string }
   | { kind: "banned"; userId: string }
   | { kind: "authenticated"; userId: string; profile: UserRow };
 
@@ -24,6 +25,9 @@ export function buildAuthStatus(
   }
   if (profile.status === "banned" || profile.status === "suspended") {
     return { kind: "banned", userId };
+  }
+  if (profile.status === "pending") {
+    return { kind: "pending", userId };
   }
   return { kind: "authenticated", userId, profile };
 }

@@ -74,10 +74,24 @@ export async function middleware(request: NextRequest) {
   const loginUrl = new URL("/login", request.url);
   const profileUrl = new URL("/register/profile", request.url);
   const homeUrl = new URL("/", request.url);
+  const pendingReviewUrl = new URL("/register/pending", request.url);
 
   // --- 放逐：一律登出並導向 /login?error=banned（清除 session 後下一輪即可正常進入 /login） ---
   if (auth.kind === "banned") {
     return signOutAndRedirectBanned(request, loginUrl);
+  }
+
+  // --- IG／註冊審核中：僅允許 /register/pending（其餘含 /login、首頁皆導向待審核頁） ---
+  if (auth.kind === "pending") {
+    if (pathname === "/register/pending") {
+      return response;
+    }
+    return NextResponse.redirect(pendingReviewUrl);
+  }
+
+  // --- 已審核通過者勿留在待審核頁 ---
+  if (auth.kind === "authenticated" && pathname === "/register/pending") {
+    return NextResponse.redirect(homeUrl);
   }
 
   // --- 已登入且資料齊全：離開登入／註冊入口 ---
@@ -198,6 +212,7 @@ async function signOutAndRedirectBanned(
 
 export const config = {
   matcher: [
+    // 含 /register/pending：待審核用戶僅能停留該頁，其餘路徑會被導向該頁
     "/((?!_next/static|_next/image|favicon.ico|manifest.json|icons|api|.*\\..*).*)",
   ],
 };

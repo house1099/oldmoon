@@ -14,6 +14,7 @@ import {
   Clock,
   CheckCircle,
   XCircle,
+  ExternalLink,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import Avatar from "@/components/ui/Avatar";
@@ -35,11 +36,14 @@ import {
   banUserAction,
   suspendUserAction,
   unbanUserAction,
+  approveUserAction,
+  rejectUserAction,
   adjustExpAction,
   adjustReputationAction,
   getPendingIgRequestsForUserAction,
   reviewIgRequestFromAdminAction,
 } from "@/services/admin.action";
+import { instagramProfileUrlFromHandle } from "@/lib/utils/instagram";
 import {
   banTavernUserAction,
   unbanTavernUserAction,
@@ -64,7 +68,7 @@ const STATUS_BADGE: Record<string, string> = {
   active: "bg-emerald-100 text-emerald-700",
   suspended: "bg-amber-100 text-amber-700",
   banned: "bg-red-100 text-red-700",
-  pending: "bg-gray-100 text-gray-700",
+  pending: "bg-amber-100 text-amber-900",
 };
 
 const ROLE_BADGE: Record<string, string> = {
@@ -143,6 +147,8 @@ export default function UsersClient({
   const [tavernBanDialogOpen, setTavernBanDialogOpen] = useState(false);
   const [tavernUnbanDialogOpen, setTavernUnbanDialogOpen] = useState(false);
   const [tavernBanReason, setTavernBanReason] = useState("");
+  const [registrationReviewPending, setRegistrationReviewPending] =
+    useState(false);
 
   useEffect(() => {
     if (didMount.current) return;
@@ -382,6 +388,58 @@ export default function UsersClient({
     }
   };
 
+  const handleApproveRegistration = async () => {
+    if (!selectedUser || registrationReviewPending) return;
+    setRegistrationReviewPending(true);
+    try {
+      const result = await approveUserAction(selectedUser.id);
+      if (result.ok) {
+        toast.success("已核准，用戶可登入公會");
+        await refreshDetail(selectedUser.id);
+        refreshList();
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setRegistrationReviewPending(false);
+    }
+  };
+
+  const handleRejectRegistration = async () => {
+    if (!selectedUser || registrationReviewPending) return;
+    if (
+      !window.confirm(
+        "確定拒絕此帳號的 Instagram 審核？用戶將收到信件通知，狀態維持待審核。",
+      )
+    ) {
+      return;
+    }
+    setRegistrationReviewPending(true);
+    try {
+      const result = await rejectUserAction(selectedUser.id);
+      if (result.ok) {
+        toast.success("已拒絕並通知用戶");
+        await refreshDetail(selectedUser.id);
+        refreshList();
+      } else {
+        toast.error(result.error);
+      }
+    } finally {
+      setRegistrationReviewPending(false);
+    }
+  };
+
+  function applyStatusQuickFilter(next: string) {
+    setStatusFilter(next);
+    setPage(1);
+    fetchUsers(1, search, next, roleFilter);
+  }
+
+  const pendingSheetIgHref =
+    selectedUser?.status === "pending"
+      ? instagramProfileUrlFromHandle(selectedUser.instagram_handle ?? "")
+      : null;
+
   return (
     <div>
       <h2 className="text-xl font-bold text-gray-900 mb-4">用戶管理</h2>
@@ -404,6 +462,27 @@ export default function UsersClient({
           </button>
         </div>
       )}
+
+      <div className="flex flex-wrap gap-2 mb-3">
+        {[
+          { value: "", label: "全部" },
+          { value: "pending", label: "待審核" },
+          { value: "active", label: "活躍" },
+        ].map((chip) => (
+          <button
+            key={chip.value || "all"}
+            type="button"
+            onClick={() => applyStatusQuickFilter(chip.value)}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              statusFilter === chip.value
+                ? "bg-violet-600 text-white shadow-sm"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            {chip.label}
+          </button>
+        ))}
+      </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">
@@ -746,6 +825,57 @@ export default function UsersClient({
                   </div>
                 </div>
 
+                {selectedUser.status === "pending" && canOperateSelectedUser ? (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+                    <p className="text-sm font-semibold text-amber-900">
+                      註冊／Instagram 初審
+                    </p>
+                    <p className="text-xs text-amber-800/90">
+                      請至 Instagram 核對用戶填寫的帳號是否屬實。
+                    </p>
+                    <div>
+                      <span className="text-xs text-gray-500">填寫的 IG</span>
+                      <p className="font-mono text-sm font-medium text-gray-900">
+                        @
+                        {selectedUser.instagram_handle
+                          ?.trim()
+                          .replace(/^@+/, "") ?? "（未填）"}
+                      </p>
+                    </div>
+                    {pendingSheetIgHref ? (
+                      <a
+                        href={pendingSheetIgHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-white px-3 py-2.5 text-sm font-medium text-violet-700 transition-colors hover:bg-violet-50"
+                      >
+                        <ExternalLink className="h-4 w-4 shrink-0" />
+                        在 Instagram 開啟
+                      </a>
+                    ) : null}
+                    <div className="flex flex-col gap-2 pt-1">
+                      <button
+                        type="button"
+                        disabled={registrationReviewPending}
+                        onClick={() => void handleApproveRegistration()}
+                        className="w-full rounded-xl bg-emerald-600 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
+                      >
+                        {registrationReviewPending
+                          ? "處理中…"
+                          : "✅ 審核通過"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={registrationReviewPending}
+                        onClick={() => void handleRejectRegistration()}
+                        className="w-full rounded-xl border border-rose-300 bg-rose-50 py-2.5 text-sm font-medium text-rose-800 transition-colors hover:bg-rose-100 disabled:opacity-50"
+                      >
+                        ❌ 拒絕並通知
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
                 {/* Pending IG requests */}
                 {igRequests.length > 0 && (
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
@@ -812,7 +942,8 @@ export default function UsersClient({
 
                   {canOperateSelectedUser ? (
                     <>
-                      {selectedUser.status !== "active" && (
+                      {(selectedUser.status === "suspended" ||
+                        selectedUser.status === "banned") && (
                         <button
                           onClick={handleUnban}
                           className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"

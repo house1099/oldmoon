@@ -55,12 +55,17 @@ export type UserDetailModalProps = {
   user: UserRow;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * 自抬高 z-index 的 ChatModal（面板 z ≈ 此值）內開啟時傳入，使本 Modal 疊在聊天層之上（overlay +10、content +20）。
+   */
+  stackAboveChatZ?: number;
 };
 
 export function UserDetailModal({
   user,
   open,
   onOpenChange,
+  stackAboveChatZ,
 }: UserDetailModalProps) {
   const { mutate: globalMutate } = useSWRConfig();
   const { profile: myProfile } = useMyProfile();
@@ -324,9 +329,22 @@ export function UserDetailModal({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
           showCloseButton={false}
-          overlayClassName="z-[800]"
+          overlayClassName={
+            stackAboveChatZ != null ? undefined : "z-[800]"
+          }
+          overlayStyle={
+            stackAboveChatZ != null
+              ? { zIndex: stackAboveChatZ + 10 }
+              : undefined
+          }
+          contentStyle={
+            stackAboveChatZ != null
+              ? { zIndex: stackAboveChatZ + 20 }
+              : undefined
+          }
           className={cn(
-            "z-[810] flex max-h-[88vh] min-h-0 w-full max-w-sm flex-col gap-0 overflow-visible rounded-3xl border border-zinc-800/60 bg-zinc-950 p-0",
+            "flex max-h-[88vh] min-h-0 w-full max-w-sm flex-col gap-0 overflow-visible rounded-3xl border border-zinc-800/60 bg-zinc-950 p-0",
+            stackAboveChatZ == null && "z-[810]",
           )}
         >
           <DialogTitle className="sr-only">{user.nickname} 的冒險者資料</DialogTitle>
@@ -703,6 +721,7 @@ export function UserDetailModal({
             role: user.role,
           }}
           currentUserId={socialStatus.currentUserId ?? ""}
+          zIndex={900}
         />
       ) : null}
 

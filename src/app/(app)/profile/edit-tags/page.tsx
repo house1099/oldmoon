@@ -15,6 +15,9 @@ export default async function EditTagsPage() {
   if (auth.kind === "banned") {
     redirect("/login?error=banned");
   }
+  if (auth.kind === "pending") {
+    redirect("/register/pending");
+  }
 
   const p = auth.profile;
   const { interestsMax, skillsMax } = await getTagLimitsAction();
