@@ -14,9 +14,16 @@ import Avatar from "@/components/ui/Avatar";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   getAdminCoinStatsAction,
   getAdminUsersWithCoinsAction,
   getAdminCoinTransactionsAction,
+  getRecentCoinTransactionsAction,
   adminAdjustCoinsAction,
 } from "@/services/admin.action";
 import type { UserRow, CoinTransactionRow } from "@/types/database.types";
@@ -32,6 +39,20 @@ function fmtDate(iso: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(iso));
+}
+
+function formatTaipeiTime(iso: string) {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Taipei",
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+    .format(new Date(iso))
+    .replaceAll("-", "/");
 }
 
 const SOURCE_LABEL: Record<CoinTransactionRow["source"], string> = {
@@ -438,6 +459,11 @@ function LedgerTab() {
   >(null);
   const [transactions, setTransactions] = useState<CoinTransactionRow[]>([]);
   const [txTotal, setTxTotal] = useState(0);
+  const [recentTransactions, setRecentTransactions] = useState<
+    (CoinTransactionRow & {
+      user: { nickname: string; avatar_url: string | null };
+    })[]
+  >([]);
 
   const searchUsers = useCallback(async () => {
     setPickLoading(true);
@@ -468,11 +494,66 @@ function LedgerTab() {
     if (targetUser) void loadTx(targetUser.id, page);
   }, [targetUser, page, loadTx]);
 
+  useEffect(() => {
+    void (async () => {
+      const res = await getRecentCoinTransactionsAction();
+      if (res.ok) setRecentTransactions(res.data);
+      else toast.error(res.error);
+    })();
+  }, []);
+
   const pageSize = 20;
   const txPages = Math.max(1, Math.ceil(txTotal / pageSize));
 
   return (
     <div className="space-y-4">
+      <Accordion className="mb-4">
+        <AccordionItem value="recent">
+          <AccordionTrigger className="text-sm font-medium text-gray-700">
+            📊 近三天全站明細
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-1 max-h-64 overflow-y-auto">
+              {recentTransactions.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between py-1.5 border-b border-gray-100 text-xs"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400">
+                      {formatTaipeiTime(tx.created_at)}
+                    </span>
+                    <span className="text-gray-700">{tx.user.nickname}</span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                        tx.coin_type === "premium"
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-violet-100 text-violet-700"
+                      }`}
+                    >
+                      {tx.coin_type === "premium" ? "純金" : "探險幣"}
+                    </span>
+                  </div>
+                  <span
+                    className={`font-medium ${
+                      tx.amount > 0 ? "text-emerald-600" : "text-red-500"
+                    }`}
+                  >
+                    {tx.amount > 0 ? "+" : ""}
+                    {tx.amount}
+                  </span>
+                </div>
+              ))}
+              {recentTransactions.length === 0 && (
+                <p className="text-xs text-gray-400 py-4 text-center">
+                  近三天無交易記錄
+                </p>
+              )}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />

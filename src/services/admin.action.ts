@@ -1509,3 +1509,52 @@ export async function getAdminCoinTransactionsAction(
     return { ok: false, error: (e as Error).message };
   }
 }
+
+export async function getRecentCoinTransactionsAction(): Promise<
+  ActionResult<(CoinTransactionRow & {
+    user: { nickname: string; avatar_url: string | null };
+  })[]>
+> {
+  try {
+    await requireRole(["master"]);
+    const admin = createAdminClient();
+    const since = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await admin
+      .from("coin_transactions")
+      .select("*")
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) throw error;
+
+    const rows = (data ?? []) as CoinTransactionRow[];
+    if (rows.length === 0) return { ok: true, data: [] };
+
+    const userIds = Array.from(new Set(rows.map((r) => r.user_id)));
+    const { data: users, error: usersError } = await admin
+      .from("users")
+      .select("id, nickname, avatar_url")
+      .in("id", userIds);
+    if (usersError) throw usersError;
+
+    const userMap = new Map(
+      (users ?? []).map((u) => [
+        u.id as string,
+        {
+          nickname: (u.nickname as string) ?? "（未知）",
+          avatar_url: (u.avatar_url as string | null) ?? null,
+        },
+      ]),
+    );
+
+    return {
+      ok: true,
+      data: rows.map((row) => ({
+        ...row,
+        user: userMap.get(row.user_id) ?? { nickname: "（未知）", avatar_url: null },
+      })),
+    };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}

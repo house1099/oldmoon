@@ -42,6 +42,7 @@ function normalizeBoolean(value: string | undefined, fallback: string) {
 export default function AdminSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<SettingsMap>({});
+  const [weightValues, setWeightValues] = useState<Record<number, string>>({});
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
   useEffect(() => {
@@ -60,6 +61,15 @@ export default function AdminSettingsPage() {
           map[row.key] = row.value;
         }
         setSettings(map);
+        const initialWeights: Record<number, string> = {};
+        for (const [key, value] of Object.entries(map)) {
+          if (!key.startsWith("checkin_weight_")) continue;
+          const coin = parseInt(key.replace("checkin_weight_", ""), 10);
+          if (!Number.isNaN(coin)) {
+            initialWeights[coin] = (value ?? "").replace(/[^0-9]/g, "");
+          }
+        }
+        setWeightValues(initialWeights);
         setLoading(false);
       }
     })();
@@ -96,13 +106,12 @@ export default function AdminSettingsPage() {
   const coinWeights = useMemo(() => {
     const defaultWeightNum = parseInt(DEFAULT_COIN_WEIGHT, 10);
     return coinRange.map((coin) => {
-      const key = `checkin_weight_${coin}`;
-      const raw = settings[key];
-      const parsed = raw === undefined ? defaultWeightNum : parseInt(raw, 10);
+      const raw = weightValues[coin] ?? DEFAULT_COIN_WEIGHT;
+      const parsed = parseInt(raw, 10);
       const weight = Number.isNaN(parsed) ? defaultWeightNum : Math.max(0, parsed);
-      return { coin, key, weight };
+      return { coin, weight };
     });
-  }, [coinRange, settings]);
+  }, [coinRange, weightValues]);
 
   const weightStats = useMemo(() => {
     const totalWeight = coinWeights.reduce((sum, w) => sum + w.weight, 0);
@@ -232,30 +241,30 @@ export default function AdminSettingsPage() {
           <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
             {weightStats.items.map((item) => (
               <div
-                key={item.key}
+                key={`checkin_weight_${item.coin}`}
                 className="rounded-xl border border-gray-100 bg-gray-50/60 p-3"
               >
                 <p className="text-xs text-gray-500">🧭 {item.coin} 幣權重</p>
                 <div className="mt-2 flex items-center gap-2">
                   <input
                     type="text"
-                    value={
-                      settings[item.key] && settings[item.key].trim() !== ""
-                        ? settings[item.key]
-                        : DEFAULT_COIN_WEIGHT
-                    }
-                    onChange={(e) =>
-                      setSettings((prev) => ({
-                        ...prev,
-                        [item.key]: e.target.value.replace(/[^0-9]/g, ""),
-                      }))
-                    }
-                    className="w-full rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm"
+                    inputMode="numeric"
+                    value={weightValues[item.coin] ?? "10"}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9]/g, "");
+                      setWeightValues((prev) => ({ ...prev, [item.coin]: val }));
+                    }}
+                    className="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 text-center"
                   />
                   <button
                     type="button"
-                    disabled={savingKey === item.key}
-                    onClick={() => void saveSetting(item.key, String(item.weight))}
+                    disabled={savingKey === `checkin_weight_${item.coin}`}
+                    onClick={() =>
+                      void saveSetting(
+                        `checkin_weight_${item.coin}`,
+                        weightValues[item.coin] ?? DEFAULT_COIN_WEIGHT,
+                      )
+                    }
                     className="rounded-lg bg-violet-600 px-2 py-1.5 text-[11px] font-medium text-white hover:bg-violet-700 disabled:opacity-60"
                   >
                     存
@@ -279,7 +288,7 @@ export default function AdminSettingsPage() {
           </p>
           <div className="mt-2 grid gap-1 sm:grid-cols-3 lg:grid-cols-5">
             {weightStats.items.map((item) => (
-              <p key={item.key} className="text-xs text-amber-800">
+              <p key={`weight-preview-${item.coin}`} className="text-xs text-amber-800">
                 {item.coin} 幣機率：{item.percent}%
               </p>
             ))}
