@@ -42,7 +42,7 @@ function getCodeStatus(row: InvitationCodeDto): CodeStatus {
   return "available";
 }
 
-function useProgressRatio(row: InvitationCodeDto): number {
+function invitationCodeProgressPercent(row: InvitationCodeDto): number {
   const maxUses = Math.max(1, row.max_uses ?? 1);
   const useCount = row.use_count ?? 0;
   return Math.min(100, (useCount / maxUses) * 100);
@@ -345,7 +345,7 @@ function InvitationList() {
                               <div
                                 className="h-full rounded-full bg-emerald-500 transition-[width]"
                                 style={{
-                                  width: `${useProgressRatio(c)}%`,
+                                  width: `${invitationCodeProgressPercent(c)}%`,
                                 }}
                               />
                             </div>
@@ -460,7 +460,7 @@ function InvitationList() {
                       <div className="w-16 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
                         <div
                           className="h-full rounded-full bg-emerald-500"
-                          style={{ width: `${useProgressRatio(c)}%` }}
+                          style={{ width: `${invitationCodeProgressPercent(c)}%` }}
                         />
                       </div>
                     </div>
