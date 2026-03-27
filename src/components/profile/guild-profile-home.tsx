@@ -433,13 +433,13 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   }, [checkinDone, profile.last_checkin_at]);
 
   useEffect(() => {
-    if (!cropOpen) return;
+    if (!cropSrc) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [cropOpen]);
+  }, [cropSrc]);
 
   const onCropComplete = useCallback((_area: Area, pixels: Area) => {
     setCroppedAreaPixels(pixels);
@@ -653,7 +653,9 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         toast.error("❌ 操作失敗，請稍後再試");
         return;
       }
-      toast.success("+1 EXP！繼續加油 ⚔️");
+      toast.success(
+        `簽到成功！獲得 +1 EXP 和 +${result.freeCoinsEarned}免費幣 🪙`,
+      );
       setCheckinDone(true);
       setCooldown({ hours: 23, mins: 59 });
       router.refresh();
@@ -1526,32 +1528,24 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         </DialogContent>
       </Dialog>
 
-      {cropOpen && cropSrc ? (
+      {/* 頭像裁切 Modal — 全螢幕；flex 分配高度，底部按鈕 flex-shrink-0 不會被擠出視窗 */}
+      {cropSrc ? (
         <div
-          className="fixed inset-0 z-[200] flex h-dvh flex-col bg-black"
+          className="fixed inset-0 z-[9999] flex h-dvh flex-col bg-black"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="avatar-crop-title"
+          aria-labelledby="avatar-crop-hint"
         >
-          <div className="glass-panel z-10 shrink-0 border-b border-white/10 px-4 py-3 text-center shadow-2xl backdrop-blur-xl">
+          <div className="flex-shrink-0 py-3 text-center">
             <p
-              id="avatar-crop-title"
-              className="text-sm font-medium tracking-wide text-zinc-100"
+              id="avatar-crop-hint"
+              className="text-sm text-zinc-400"
             >
-              調整頭像
-            </p>
-            <p className="mt-0.5 text-xs text-zinc-500">
               拖曳與縮放，圓形區域即為裁切範圍
             </p>
           </div>
 
-          <div
-            className="relative min-h-0 w-full shrink-0 overflow-hidden bg-black"
-            style={{
-              height:
-                "calc(100dvh - 5.75rem - (1rem + 3rem + max(1rem, env(safe-area-inset-bottom, 0px))))",
-            }}
-          >
+          <div className="relative min-h-0 flex-1">
             <Cropper
               image={cropSrc}
               crop={crop}
@@ -1565,15 +1559,14 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             />
           </div>
 
-          {/* 底部按鈕區：fixed 避免被 flex / safe-area 推出視窗外（桌機網頁） */}
           <div
-            className="fixed bottom-0 left-0 right-0 z-[9999] flex gap-3 bg-black/80 px-4 py-4 backdrop-blur-sm pb-[max(1rem,env(safe-area-inset-bottom))]"
+            className="flex flex-shrink-0 gap-3 bg-black px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
           >
             <button
               type="button"
               onClick={closeCropModal}
               disabled={uploading}
-              className="flex-1 rounded-full bg-zinc-800 py-3 text-sm font-medium text-zinc-200 transition-transform active:scale-95 disabled:opacity-50"
+              className="flex-1 rounded-full bg-zinc-800 py-3.5 text-sm font-medium text-zinc-200"
             >
               取消
             </button>
@@ -1581,7 +1574,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
               type="button"
               onClick={() => void handleCropConfirm()}
               disabled={uploading || !croppedAreaPixels}
-              className="flex-1 rounded-full bg-violet-600 py-3 text-sm font-medium text-white transition-transform active:scale-95 disabled:opacity-60"
+              className="flex-1 rounded-full bg-violet-600 py-3.5 text-sm font-medium text-white disabled:opacity-60"
             >
               {uploading ? "上傳中..." : "確認裁切"}
             </button>
