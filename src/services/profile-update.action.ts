@@ -9,12 +9,22 @@ import {
 } from "@/lib/repositories/server/user.repository";
 import { instagramHandleSchema } from "@/lib/validation/instagram-handle";
 import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
+import { findSystemSettingByKey } from "@/lib/repositories/server/invitation.repository";
 
 /**
  * Layer 3：編輯公會名片（通用 bio、分域自白、**`instagram_handle`**、IG 公開、每日心情、頭像 URL、**`interests`／`skills_offer`／`skills_want`** 標籤陣列）。
  * 可傳入部分欄位；**`mood` 出現在 input** 時一併寫入 **`mood_at`**（可傳 `mood_at` ISO 字串，否則伺服端用當下時間）。
  */
 const AVATAR_URL_MAX = 2048;
+const MOOD_HARD_CAP = 500;
+const MOOD_DEFAULT_MAX = 50;
+
+async function effectiveMoodMaxFromDb(): Promise<number> {
+  const raw = await findSystemSettingByKey("mood_max_length");
+  const n = parseInt((raw ?? "").trim(), 10);
+  if (!Number.isFinite(n) || n < 1) return MOOD_DEFAULT_MAX;
+  return Math.min(n, MOOD_HARD_CAP);
+}
 
 function coerceMoodAtIso(raw: string | undefined): string {
   if (raw === undefined || raw.trim() === "") {
@@ -105,6 +115,10 @@ export async function updateMyProfile(input: {
   }
   if (input.mood !== undefined) {
     const moodTrimmed = input.mood.trim();
+    const moodMax = await effectiveMoodMaxFromDb();
+    if (moodTrimmed.length > moodMax) {
+      return { ok: false, error: `心情最多 ${moodMax} 字` };
+    }
     patch.mood = moodTrimmed.length > 0 ? moodTrimmed : null;
     patch.mood_at =
       moodTrimmed.length > 0

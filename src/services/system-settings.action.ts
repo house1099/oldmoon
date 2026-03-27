@@ -38,3 +38,33 @@ export async function getTagLimitsAction(): Promise<{
 }> {
   return getCachedTagLimits();
 }
+
+const DEFAULT_MESSAGE_MAX = 50;
+
+async function loadMessageLimits(): Promise<{
+  tavernMax: number;
+  moodMax: number;
+}> {
+  const [tavernRaw, moodRaw] = await Promise.all([
+    findSystemSettingByKey("tavern_message_max_length"),
+    findSystemSettingByKey("mood_max_length"),
+  ]);
+  return {
+    tavernMax: parseLimit(tavernRaw, DEFAULT_MESSAGE_MAX),
+    moodMax: parseLimit(moodRaw, DEFAULT_MESSAGE_MAX),
+  };
+}
+
+const getCachedMessageLimits = unstable_cache(
+  loadMessageLimits,
+  ["system-settings-message-limits"],
+  { revalidate: 60, tags: ["system_settings"] },
+);
+
+/** 酒館訊息／今日心情字數上限；快取 60s，tag **`system_settings`**。 */
+export async function getMessageLimitsAction(): Promise<{
+  tavernMax: number;
+  moodMax: number;
+}> {
+  return getCachedMessageLimits();
+}

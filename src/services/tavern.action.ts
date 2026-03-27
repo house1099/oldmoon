@@ -12,6 +12,17 @@ import {
   insertTavernMessage,
   isTavernBanned,
 } from "@/lib/repositories/server/tavern.repository";
+import { findSystemSettingByKey } from "@/lib/repositories/server/invitation.repository";
+
+const TAVERN_MESSAGE_HARD_CAP = 500;
+const TAVERN_MESSAGE_DEFAULT_MAX = 50;
+
+async function effectiveTavernMessageMax(): Promise<number> {
+  const raw = await findSystemSettingByKey("tavern_message_max_length");
+  const n = parseInt((raw ?? "").trim(), 10);
+  if (!Number.isFinite(n) || n < 1) return TAVERN_MESSAGE_DEFAULT_MAX;
+  return Math.min(n, TAVERN_MESSAGE_HARD_CAP);
+}
 import { notifyUserMailboxSilent } from "@/services/notification.action";
 import type { TavernBanRow, TavernMessageDto } from "@/types/database.types";
 
@@ -83,8 +94,9 @@ export async function sendTavernMessageAction(
   if (!trimmed) {
     return { success: false, error: "訊息不可為空" };
   }
-  if (trimmed.length > 50) {
-    return { success: false, error: "訊息最多 50 字" };
+  const maxLen = await effectiveTavernMessageMax();
+  if (trimmed.length > maxLen) {
+    return { success: false, error: `訊息最多 ${maxLen} 字` };
   }
 
   const banned = await isTavernBanned(user.id);

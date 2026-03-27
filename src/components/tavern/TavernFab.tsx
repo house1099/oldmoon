@@ -4,7 +4,11 @@ import { useMemo, useState } from "react";
 import { useTavern } from "@/hooks/useTavern";
 import { TavernModal } from "@/components/tavern/TavernModal";
 
-export function TavernFab() {
+export function TavernFab({
+  messageMaxLength = 50,
+}: {
+  messageMaxLength?: number;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [lastClosedAt, setLastClosedAt] = useState(() => Date.now());
   const { messages } = useTavern();
@@ -41,7 +45,11 @@ export function TavernFab() {
           ) : null}
         </span>
       </button>
-      <TavernModal open={isOpen} onClose={() => handleOpenChange(false)} />
+      <TavernModal
+        open={isOpen}
+        onClose={() => handleOpenChange(false)}
+        maxLength={messageMaxLength}
+      />
     </>
   );
 }

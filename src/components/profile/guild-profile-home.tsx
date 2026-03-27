@@ -353,7 +353,13 @@ function HomeBannerCarousel({ ads }: { ads: AdvertisementRow[] }) {
   );
 }
 
-export function GuildProfileHome({ profile }: { profile: UserRow }) {
+export function GuildProfileHome({
+  profile,
+  moodMax,
+}: {
+  profile: UserRow;
+  moodMax: number;
+}) {
   const router = useRouter();
   const totalExpSafe = normalizeTotalExp(profile.total_exp);
   const levelSafe = normalizeLevel(profile.level);
@@ -369,9 +375,12 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   const [showIgChangeInput, setShowIgChangeInput] = useState(false);
   const [savingInstagram, setSavingInstagram] = useState(false);
   const [igRequestSubmitting, setIgRequestSubmitting] = useState(false);
-  const [moodInput, setMoodInput] = useState(() =>
-    isMoodActive(profile.mood_at ?? null) ? (profile.mood ?? "") : "",
-  );
+  const [moodInput, setMoodInput] = useState(() => {
+    const base = isMoodActive(profile.mood_at ?? null)
+      ? (profile.mood ?? "")
+      : "";
+    return base.slice(0, moodMax);
+  });
   const [moodAt, setMoodAt] = useState<string | null>(profile.mood_at ?? null);
   const [savingMood, setSavingMood] = useState(false);
   const [countdown, setCountdown] = useState<string | null>(null);
@@ -410,9 +419,10 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     setIgPublic(profile.ig_public);
     const at = profile.mood_at ?? null;
     setMoodAt(at);
-    setMoodInput(isMoodActive(at) ? (profile.mood ?? "") : "");
+    const m = isMoodActive(at) ? (profile.mood ?? "") : "";
+    setMoodInput(m.slice(0, moodMax));
     setAvatarUrl(profile.avatar_url?.trim() || null);
-  }, [profile]);
+  }, [profile, moodMax]);
 
   useEffect(() => {
     getActiveAnnouncementsAction().then(setAnnouncements).catch(() => {});
@@ -547,7 +557,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         mood_at: now,
       });
       if (result.ok === false) {
-        toast.error("❌ 操作失敗，請稍後再試");
+        toast.error(result.error ?? "❌ 操作失敗，請稍後再試");
         return;
       }
       setMoodAt(now);
@@ -1051,7 +1061,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           onChange={(e) => setMoodInput(e.target.value)}
           onFocus={handleIosTextareaFocus}
           placeholder="今天的心情是..."
-          maxLength={50}
+          maxLength={moodMax}
           rows={2}
           className={cn(
             IOS_TEXTAREA_CLASS,
@@ -1060,7 +1070,9 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         />
 
         <div className="flex items-center justify-between">
-          <span className="text-xs text-zinc-600">{moodInput.length}/50</span>
+          <span className="text-xs text-zinc-600">
+            {moodInput.length}/{moodMax}
+          </span>
           <LoadingButton
             className="px-5 py-1.5 rounded-full text-xs font-medium transition-all active:scale-95 disabled:opacity-40 bg-violet-600/80 text-white hover:bg-violet-500/80 border border-violet-400/30"
             loading={savingMood}

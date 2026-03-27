@@ -65,9 +65,11 @@ function formatMsgTime(iso: string) {
 export function TavernModal({
   open,
   onClose,
+  maxLength = 50,
 }: {
   open: boolean;
   onClose: () => void;
+  maxLength?: number;
 }) {
   const { profile } = useMyProfile();
   const { messages, mutate } = useTavern();
@@ -354,7 +356,7 @@ export function TavernModal({
             </div>
           )}
           <p className="text-[10px] text-zinc-600 text-right mb-1">
-            {input.length}/50
+            {input.length}/{maxLength}
           </p>
           <div className="flex items-center gap-2">
             <button
@@ -369,7 +371,7 @@ export function TavernModal({
             <input
               type="text"
               value={input}
-              onChange={(e) => setInput(e.target.value.slice(0, 50))}
+              onChange={(e) => setInput(e.target.value.slice(0, maxLength))}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -381,7 +383,7 @@ export function TavernModal({
                   ? "你已被禁止在酒館發言"
                   : "在酒館說點什麼..."
               }
-              maxLength={50}
+              maxLength={maxLength}
               disabled={isBanned}
               className="flex-1 bg-zinc-800/60 border border-zinc-700/40 rounded-full px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-violet-500/50 transition-colors disabled:opacity-50"
             />
