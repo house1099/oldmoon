@@ -15,12 +15,6 @@ import { findProfileById } from "@/lib/repositories/server/user.repository";
 import { findModeratorPermissions } from "@/lib/repositories/server/admin.repository";
 import AdminShellClient from "@/components/admin/AdminShellClient";
 
-type NavItem = {
-  label: string;
-  href: string;
-  icon: React.ElementType;
-};
-
 export default async function AdminLayout({
   children,
 }: {
