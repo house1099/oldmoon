@@ -75,7 +75,6 @@ const ROLE_BADGE: Record<string, string> = {
 type Props = {
   initialData: { users: UserRow[]; total: number };
   initialFilter?: string;
-  viewerIsMaster: boolean;
   viewerRole: "master" | "moderator" | "member";
 };
 
@@ -90,7 +89,6 @@ function canOperate(operatorRole: string, targetRole: string): boolean {
 export default function UsersClient({
   initialData,
   initialFilter = "",
-  viewerIsMaster,
   viewerRole,
 }: Props) {
   const [users, setUsers] = useState(initialData.users);
@@ -825,7 +823,7 @@ export default function UsersClient({
                         <Star className="w-4 h-4" />
                         調整信譽分
                       </button>
-                      {viewerIsMaster && (
+                      {viewerRole !== "member" && (
                         <>
                           {!selectedUser.tavern_banned ? (
                             <button

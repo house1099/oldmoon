@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -28,9 +27,9 @@ export function EquipmentFab() {
         <SheetContent side="right" className="w-80">
           <SheetHeader>
             <SheetTitle className="text-zinc-100">⚔️ 裝備欄</SheetTitle>
-            <SheetDescription className="text-xs text-zinc-500">
+            <p className="text-xs text-zinc-500">
               收集道具，強化你的冒險之旅
-            </SheetDescription>
+            </p>
           </SheetHeader>
 
           <div className="grid grid-cols-4 gap-2 p-4">
