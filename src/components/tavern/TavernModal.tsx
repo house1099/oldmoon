@@ -206,7 +206,7 @@ export function TavernModal({
                   role={m.user.role}
                   src={m.user.avatar_url}
                   nickname={m.user.nickname}
-                  size={32}
+                  size={36}
                 />
               );
 
@@ -214,13 +214,13 @@ export function TavernModal({
                 return (
                   <div
                     key={m.id}
-                    className="flex items-end justify-end gap-2 overflow-visible"
+                    className="flex items-start justify-end gap-2 overflow-visible"
                   >
-                    <div className="flex flex-col items-end">
+                    <div className="flex min-w-0 flex-col items-end">
                       <div
                         role={isMaster ? "button" : undefined}
                         tabIndex={isMaster ? 0 : undefined}
-                        className="touch-manipulation bg-violet-700/80 text-white rounded-2xl rounded-tr-sm px-3 py-2 max-w-[70vw] text-sm"
+                        className="touch-manipulation max-w-[70vw] rounded-2xl rounded-tr-sm bg-violet-700/80 px-3 py-2 text-sm text-white"
                         onPointerDown={() => startLongPress(m)}
                         onPointerUp={clearLongPress}
                         onPointerLeave={clearLongPress}
@@ -240,9 +240,9 @@ export function TavernModal({
                       >
                         {m.content}
                       </div>
-                      <p className="text-[10px] text-zinc-600 mt-0.5 text-right">
+                      <span className="mt-0.5 text-right text-[10px] text-zinc-600">
                         {formatMsgTime(m.created_at)}
-                      </p>
+                      </span>
                     </div>
                     <div className="shrink-0 overflow-visible">{avatarEl}</div>
                   </div>
@@ -252,7 +252,7 @@ export function TavernModal({
               return (
                 <div
                   key={m.id}
-                  className="flex items-end justify-start gap-2 overflow-visible"
+                  className="flex items-start justify-start gap-2 overflow-visible"
                 >
                   <button
                     type="button"
@@ -265,8 +265,8 @@ export function TavernModal({
                   >
                     {avatarEl}
                   </button>
-                  <div>
-                    <p className="text-xs text-zinc-400 mb-0.5 flex min-w-0 flex-wrap items-baseline gap-x-1">
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="mb-0.5 flex min-w-0 items-center gap-1 text-xs text-zinc-400">
                       {msgRole.crown ? (
                         <span className="shrink-0" aria-hidden>
                           {msgRole.crown}
@@ -278,11 +278,11 @@ export function TavernModal({
                         {m.user.nickname}
                       </span>
                       <span className="shrink-0">· Lv.{m.user.level}</span>
-                    </p>
+                    </span>
                     <div
                       role={isMaster ? "button" : undefined}
                       tabIndex={isMaster ? 0 : undefined}
-                      className="touch-manipulation bg-zinc-800/80 text-zinc-100 rounded-2xl rounded-tl-sm px-3 py-2 max-w-[70vw] text-sm"
+                      className="touch-manipulation max-w-[70vw] rounded-2xl rounded-tl-sm bg-zinc-800/80 px-3 py-2 text-sm text-zinc-100"
                       onPointerDown={() => startLongPress(m)}
                       onPointerUp={clearLongPress}
                       onPointerLeave={clearLongPress}
@@ -302,9 +302,9 @@ export function TavernModal({
                     >
                       {m.content}
                     </div>
-                    <p className="text-[10px] text-zinc-600 mt-0.5">
+                    <span className="mt-0.5 text-[10px] text-zinc-600">
                       {formatMsgTime(m.created_at)}
-                    </p>
+                    </span>
                   </div>
                 </div>
               );
