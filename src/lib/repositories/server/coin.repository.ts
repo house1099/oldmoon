@@ -39,7 +39,6 @@ export async function creditCoins(params: {
   operatorId?: string;
 }): Promise<{ success: boolean; balanceAfter: number; error?: string }> {
   const admin = createAdminClient();
-  const col = params.coinType === "premium" ? "premium_coins" : "free_coins";
 
   const { data: userRow, error: readErr } = await admin
     .from("users")

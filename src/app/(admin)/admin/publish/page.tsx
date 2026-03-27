@@ -348,12 +348,15 @@ function AnnouncementDialog({
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none"
             />
             {imageUrl && (
-              <img
+              <Image
                 src={imageUrl}
-                alt="preview"
+                alt="預覽圖片"
+                width={400}
+                height={200}
                 className="mt-2 h-24 rounded-lg object-cover"
+                unoptimized
                 onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
                 }}
               />
             )}
@@ -763,12 +766,15 @@ function AdvertisementDialog({
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none"
             />
             {imageUrl && (
-              <img
+              <Image
                 src={imageUrl}
-                alt="preview"
+                alt="預覽圖片"
+                width={400}
+                height={200}
                 className="mt-2 h-24 rounded-lg object-cover"
+                unoptimized
                 onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
                 }}
               />
             )}
