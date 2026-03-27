@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import {
@@ -25,15 +26,6 @@ const PLATFORM_SETTING_FIELDS = [
   { key: "like_require_mutual", label: "需互讚才能申請血盟", type: "boolean", fallback: "true" },
 ] as const;
 
-const CHECKIN_RANGE_FIELDS = [
-  { key: "checkin_free_coins_min", label: "最少探險幣", fallback: "1" },
-  { key: "checkin_free_coins_max", label: "最多探險幣", fallback: "9" },
-] as const;
-
-const CHECKIN_MIN_FALLBACK = CHECKIN_RANGE_FIELDS[0].fallback;
-const CHECKIN_MAX_FALLBACK = CHECKIN_RANGE_FIELDS[1].fallback;
-const DEFAULT_COIN_WEIGHT = "10";
-
 function normalizeBoolean(value: string | undefined, fallback: string) {
   const raw = (value ?? fallback).toLowerCase();
   return raw === "true";
@@ -42,9 +34,7 @@ function normalizeBoolean(value: string | undefined, fallback: string) {
 export default function AdminSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<SettingsMap>({});
-  const [weightValues, setWeightValues] = useState<Record<number, string>>({});
   const [savingKey, setSavingKey] = useState<string | null>(null);
-  const [savingWeights, setSavingWeights] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,15 +52,6 @@ export default function AdminSettingsPage() {
           map[row.key] = row.value;
         }
         setSettings(map);
-        const initialWeights: Record<number, string> = {};
-        for (const [key, value] of Object.entries(map)) {
-          if (!key.startsWith("checkin_weight_")) continue;
-          const coin = parseInt(key.replace("checkin_weight_", ""), 10);
-          if (!Number.isNaN(coin)) {
-            initialWeights[coin] = (value ?? "").replace(/[^0-9]/g, "");
-          }
-        }
-        setWeightValues(initialWeights);
         setLoading(false);
       }
     })();
@@ -78,50 +59,6 @@ export default function AdminSettingsPage() {
       cancelled = true;
     };
   }, []);
-
-  const minCoins = useMemo(() => {
-    const raw = settings["checkin_free_coins_min"];
-    const parsed = parseInt(raw ?? CHECKIN_MIN_FALLBACK, 10);
-    return Number.isNaN(parsed) ? parseInt(CHECKIN_MIN_FALLBACK, 10) : parsed;
-  }, [settings]);
-
-  const maxCoins = useMemo(() => {
-    const raw = settings["checkin_free_coins_max"];
-    const parsed = parseInt(raw ?? CHECKIN_MAX_FALLBACK, 10);
-    return Number.isNaN(parsed) ? parseInt(CHECKIN_MAX_FALLBACK, 10) : parsed;
-  }, [settings]);
-
-  const coinRange = useMemo(() => {
-    const low = Math.min(minCoins, maxCoins);
-    const high = Math.max(minCoins, maxCoins);
-
-    // UI 安全上限，避免 range 太大導致畫面爆炸
-    const start = Math.max(1, low);
-    const end = Math.max(start, high);
-    const maxUiCoins = 50;
-    const cappedEnd = Math.min(end, start + maxUiCoins - 1);
-
-    return Array.from({ length: cappedEnd - start + 1 }, (_, i) => start + i);
-  }, [minCoins, maxCoins]);
-
-  const coinWeights = useMemo(() => {
-    const defaultWeightNum = parseInt(DEFAULT_COIN_WEIGHT, 10);
-    return coinRange.map((coin) => {
-      const raw = weightValues[coin] ?? DEFAULT_COIN_WEIGHT;
-      const parsed = parseInt(raw, 10);
-      const weight = Number.isNaN(parsed) ? defaultWeightNum : Math.max(0, parsed);
-      return { coin, weight };
-    });
-  }, [coinRange, weightValues]);
-
-  const weightStats = useMemo(() => {
-    const totalWeight = coinWeights.reduce((sum, w) => sum + w.weight, 0);
-    const items = coinWeights.map((w) => ({
-      ...w,
-      percent: totalWeight > 0 ? Number(((w.weight / totalWeight) * 100).toFixed(1)) : 0,
-    }));
-    return { totalWeight, items };
-  }, [coinWeights]);
 
   const saveSetting = async (key: string, value: string) => {
     setSavingKey(key);
@@ -133,55 +70,6 @@ export default function AdminSettingsPage() {
     }
     toast.success("設定已更新");
   };
-
-  async function saveAllWeights() {
-    const invalidCoins: number[] = [];
-    for (const coin of coinRange) {
-      const raw = (weightValues[coin] ?? "").trim();
-      if (!/^\d+$/.test(raw)) {
-        invalidCoins.push(coin);
-        continue;
-      }
-      const n = parseInt(raw, 10);
-      if (n < 1) invalidCoins.push(coin);
-    }
-    if (invalidCoins.length > 0) {
-      toast.error(
-        `以下探險幣權重須為 ≥1 的正整數：${invalidCoins.join("、")} 幣`,
-      );
-      return;
-    }
-
-    setSavingWeights(true);
-    const results = await Promise.allSettled(
-      coinRange.map((coin) => {
-        const v = String(parseInt((weightValues[coin] ?? "").trim(), 10));
-        return updateSystemSettingAction(`checkin_weight_${coin}`, v);
-      }),
-    );
-    setSavingWeights(false);
-
-    let fail = 0;
-    for (const r of results) {
-      if (r.status === "rejected") fail++;
-      else if (!r.value.ok) fail++;
-    }
-
-    if (fail === 0) {
-      toast.success("機率權重已儲存");
-      setSettings((prev) => {
-        const next = { ...prev };
-        for (const coin of coinRange) {
-          next[`checkin_weight_${coin}`] = String(
-            parseInt((weightValues[coin] ?? "").trim(), 10),
-          );
-        }
-        return next;
-      });
-    } else {
-      toast.error("部分儲存失敗，請重試");
-    }
-  }
 
   if (loading) {
     return (
@@ -250,101 +138,17 @@ export default function AdminSettingsPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
-        <h2 className="text-base font-semibold text-gray-900">簽到探險幣設定</h2>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          {CHECKIN_RANGE_FIELDS.map((field) => (
-            <div key={field.key} className="rounded-xl border border-gray-100 bg-gray-50/60 p-3">
-              <p className="text-sm text-gray-700">{field.label}</p>
-              <div className="mt-2 flex items-center gap-2">
-                <input
-                  type="number"
-                  value={settings[field.key] ?? field.fallback}
-                  onChange={(e) =>
-                    setSettings((prev) => ({
-                      ...prev,
-                      [field.key]: e.target.value,
-                    }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                />
-                <button
-                  type="button"
-                  disabled={savingKey === field.key}
-                  onClick={() =>
-                    void saveSetting(field.key, String(settings[field.key] ?? field.fallback))
-                  }
-                  className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-60"
-                >
-                  {savingKey === field.key ? "儲存中..." : "儲存"}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="space-y-3">
-          <p className="text-sm font-medium text-gray-800">
-            機率權重（{coinRange[0]}–{coinRange[coinRange.length - 1]} 探險幣）
-          </p>
-          <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            {weightStats.items.map((item) => (
-              <div
-                key={`checkin_weight_${item.coin}`}
-                className="rounded-xl border border-gray-100 bg-gray-50/60 p-3"
-              >
-                <p className="text-xs text-gray-500">🧭 {item.coin} 幣權重</p>
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={weightValues[item.coin] ?? "10"}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/[^0-9]/g, "");
-                      setWeightValues((prev) => ({ ...prev, [item.coin]: val }));
-                    }}
-                    className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-center text-sm text-gray-900"
-                  />
-                  <span className="shrink-0 text-sm tabular-nums text-gray-600">
-                    {item.percent}%
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            disabled={savingWeights || coinRange.length === 0}
-            onClick={() => void saveAllWeights()}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 py-3 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-60"
-          >
-            {savingWeights ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                儲存中...
-              </>
-            ) : (
-              "儲存所有權重"
-            )}
-          </button>
-        </div>
-
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <p className="text-sm font-medium text-amber-900">
-            即時機率預覽（總權重：{weightStats.totalWeight}）
-          </p>
-          <div className="mt-2 grid gap-1 sm:grid-cols-3 lg:grid-cols-5">
-            {weightStats.items.map((item) => (
-              <p key={`weight-preview-${item.coin}`} className="text-xs text-amber-800">
-                {item.coin} 幣機率：{item.percent}%
-              </p>
-            ))}
-          </div>
-          <p className="text-xs text-gray-400 mt-2">
-            總權重：{weightStats.totalWeight}（各權重數字比例即為機率，數字越大機率越高）
-          </p>
-        </div>
+      <section className="rounded-2xl border border-gray-200 bg-white p-5 space-y-3">
+        <h2 className="text-base font-semibold text-gray-900">簽到探險幣</h2>
+        <p className="text-sm text-gray-500">
+          簽到探險幣已改為連續報到固定獎勵制，請至「獎池管理」調整盲盒獎勵內容。
+        </p>
+        <Link
+          href="/admin/prizes"
+          className="inline-flex rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+        >
+          前往獎池管理
+        </Link>
       </section>
 
       <section className="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">

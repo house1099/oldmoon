@@ -63,7 +63,7 @@
 - **`src/services/prize-engine.ts`**：**`drawFromPool(poolType, userId)`** — Layer 3 純 helper（非 action），加權抽選後依 **`reward_type`** 寫入 **`creditCoins`（`source: loot_box`）**／**`insertExpLog`（觸發器累加 `total_exp`）**／**`user_rewards`**，並 **`insertPrizeLog`**。
 - **簽到**：**`claimDailyCheckin`** 依 **`login_streaks`** 判斷 **48h 斷簽**／連續；**固定 EXP／探險幣**（**不再**讀 **`checkin_weight_*`**）；**第 7 天**（**`new_streak % 7 === 0`**）觸發 **`drawFromPool('loot_box')`**，並 **`notifyUserMailboxSilent`**。**`getMyStreakAction`** 供首頁讀 streak。
 - **首頁**：**`guild-profile-home.tsx`** — 七格進度、紫系報到鈕、斷簽前 **4h** 橘色警示、成功 Dialog（**Day X／7**、EXP／幣、盲盒 **rotateY** 翻面）。
-- **後台**：**`/admin/prizes`**（**`master`+`moderator`**），Sidebar **🎰 獎池管理**；**`middleware`** **`moderatorAllowed`** 含 **`/admin/prizes`**。**`coin_transactions.source`** 型別含 **`loot_box`**（**`/admin/coins`**、**`/shop`** 來源標籤已補）。
+- **後台**：**`/admin/prizes`**（**`master`+`moderator`**），Sidebar **🎰 獎池管理**；**`middleware`** **`moderatorAllowed`** 含 **`/admin/prizes`**。**`coin_transactions.source`** 型別含 **`loot_box`**（**`/admin/coins`**、**`/shop`** 來源標籤已補）。**`/admin/settings`** 不再顯示簽到幣 min/max 與權重格子，改連結至獎池管理。
 
 ### Wave A 基礎修復（2026-03-27）
 
@@ -72,14 +72,14 @@
 - **後台 Sidebar 權限隱藏**：**`src/app/(admin)/layout.tsx`** 改為伺服器端先取 **`auth.getUser()` → `findProfileById()`**，若為 moderator 再讀 **`findModeratorPermissions()`**；導航模組依權限 `show` 後再渲染（master 全顯示，coins/roles/settings 仍 master only）。
 - **標籤顯示規則更新**：**`UserCard`** 改為興趣村莊 **最多 4 +N**；技能市集 **能教最多 3 +N**、**想學最多 3 +N**。**`UserDetailModal`** 仍顯示全部標籤不截斷。
 - **心情顯示規則更新**：**`UserCard`** 與 **`UserDetailModal`** 的心情文案超過 **15 字** 改為截斷顯示（`前 15 字 + ...`）並提供「展開」；點擊後以 Dialog 顯示完整內容與時間。
-- **系統設定頁正式上線**：**`/admin/settings`** 由占位頁改為可編輯面板（三區塊：平台規則、簽到探險幣、Lv1-10 門檻），平台規則／幣範圍／等級門檻等仍為**單項儲存**；透過 **`updateSystemSettingAction(key, value)`** 寫入並 toast 成功提示。
+- **系統設定頁正式上線**：**`/admin/settings`** 由占位頁改為可編輯面板（平台規則、簽到說明＋導向獎池、Lv1-10 門檻）；平台規則／等級門檻等仍為**單項儲存**；透過 **`updateSystemSettingAction(key, value)`** 寫入並 toast 成功提示。
 - **系統設定持久化修復**：更新 `updateSystemSettingAction` 成功後呼叫 **`revalidatePath('/admin/settings')`** 與 **`revalidateTag('system_settings')`**（供 **`getTagLimitsAction`／`getMessageLimitsAction`** 等快取失效），避免離開/返回後顯示舊預設值。
-- **探險幣權重（統一儲存）**：權重格子依 **`checkin_free_coins_min`／`max`** 動態產生；每格僅**數字輸入 + 即時百分比**（一位小數、客端依總權重重算）；**底部單一「儲存所有權重」** 以 **`Promise.allSettled`** 並行 **`updateSystemSettingAction`** 寫入 **`checkin_weight_{1..N}`**；每格須為 **≥1** 正整數，否則 **toast.error** 列出幣值；**Loader2** 顯示儲存中。
+- **（歷史）探險幣權重 UI**：已於 **2026-03-28** 自 **`/admin/settings`** 移除；**`checkin_free_coins_*`／`checkin_weight_*`** 若仍存在於 **`system_settings`** 僅為遺留資料，**應用層不讀**。盲盒機率請改至 **`/admin/prizes`**。
 - **標籤上限動態讀取**：**`src/services/system-settings.action.ts`** 之 **`getTagLimitsAction()`** 讀 **`interests_max_select`／`skills_max_select`**（缺值預設 **12／8**），**`unstable_cache`** **`revalidate: 60`**、**`tags: ['system_settings']`**。**`/register/interests`**、**`/register/skills`** 之 **`page.tsx`** 為 **async RSC**，分別將 **`interestsMax`／`skillsMax`** 傳入 **`InterestsClient`／`SkillsClient`**；**`TagSelector`** 使用 **`maxSelect`**（與既有 prop 一致）。**`/profile/edit-tags`** 同樣 **`await getTagLimitsAction()`** 傳入 **`EditTagsClient`**（興趣 **`maxSelect={interestsMax}`**；能教／想學各 **`maxSelect={skillsMax}`**）。
 - **酒館／心情字數上限動態讀取**：同檔 **`getMessageLimitsAction()`** 並行讀 **`tavern_message_max_length`／`mood_max_length`**（缺值或非法預設 **50／50**），**`unstable_cache`** **`revalidate: 60`**、**`tags: ['system_settings']`**。**`(app)/layout.tsx`**（async）**`await getMessageLimitsAction()`** 將 **`tavernMax`** 以 **`messageMaxLength`** 傳 **`TavernFab` → `TavernModal`**（**`maxLength`**、輸入 **`slice`**、字數顯示）。首頁 **`page.tsx`** 為 **async RSC**，**`moodMax`** 傳 **`home-page-client.tsx` → `GuildProfileHome`**（今日心情 **textarea**、計數、同步 **`profile.mood`** 時 **`slice(0, moodMax)`**）。**Layer 3**：**`sendTavernMessageAction`** 依 **`findSystemSettingByKey('tavern_message_max_length')`** 驗證長度，**硬上限 500**（設定超過仍只允許 500）；**`updateMyProfile`** 寫入 **`mood`** 時同樣讀 **`mood_max_length`**，**硬上限 500**。
 - **系統設定讀寫再修正**：`getSystemSettingsAction` 加 `noStore()` 確保每次讀 DB 最新值；`updateSystemSetting` 改為 `upsert(onConflict: key)`，若 key 尚不存在會自動補入。
 - **新增/納管 system_settings keys**：
-  **`interests_max_select`**、**`skills_max_select`**、**`mood_max_length`**、**`tavern_message_max_length`**、**`registration_open`**、**`maintenance_mode`**、**`like_require_mutual`**、**`checkin_free_coins_min`**、**`checkin_free_coins_max`**、**`checkin_weight_1` ~ `checkin_weight_9`**、**`level_threshold_1` ~ `level_threshold_10`**。
+  **`interests_max_select`**、**`skills_max_select`**、**`mood_max_length`**、**`tavern_message_max_length`**、**`registration_open`**、**`maintenance_mode`**、**`like_require_mutual`**、**`checkin_free_coins_min`**、**`checkin_free_coins_max`**、**`checkin_weight_1` ~ `checkin_weight_9`**（後三者可為雲端遺留列，**後台已不再編輯**）、**`level_threshold_1` ~ `level_threshold_10`**。
 
 ### Wave B 功能與權限補強（2026-03-27）
 
@@ -94,7 +94,7 @@
 - **酒館禁言時效**：`banTavernUserAction` 改為 `durationHours: 1 | 3 | 24`；`TavernModal` 長按他人訊息可選 `1/3/24` 小時禁言；成功 toast 顯示「已禁言 {nickname} {hours} 小時」；並寫入系統信件「🔇 你已被禁止在酒館發言 {hours} 小時，原因：{reason}」。
 - **`tavern_bans.expires_at`**：Layer 2 `isTavernBanned` 改為「`expires_at IS NULL`（永久）或 `expires_at > now`（時效內）」判斷；`insertTavernBan` 寫入對應到期時間；遷移 `supabase/migrations/20260327143000_tavern_bans_expires_at.sql` 會補 `expires_at timestamptz`（若尚未存在）。
 - **酒館禁言流程補強**：`TavernModal` 長按管理選單改為「先選禁言時數，再輸入必填原因後確認」；`banTavernUserAction` admin log metadata 同步為 `durationHours`，Repository 持續寫入 `expires_at` 並以未過期條件判定禁言。
-- **簽到成功 UI（已由 Wave 1 取代）**：現行見上方 **「Wave 1 — 七日報到簿…」**；舊版隨機幣＋**`CHECKIN_MESSAGES`** 已移除。**`/admin/settings`** 的簽到幣權重格子仍可能寫入 DB，但 **簽到邏輯不再讀取**。
+- **簽到成功 UI（已由 Wave 1 取代）**：現行見上方 **「Wave 1 — 七日報到簿…」**；舊版隨機幣＋**`CHECKIN_MESSAGES`** 已移除。**後台 `/admin/settings`** 已移除簽到幣權重設定區塊，改為說明文字導向 **`/admin/prizes`**；**`checkin_free_coins_*`／`checkin_weight_*`** 可保留在 DB，**簽到邏輯不讀取**。
 
 ### Wave C 金幣統計與操作稽核（2026-03-27）
 
