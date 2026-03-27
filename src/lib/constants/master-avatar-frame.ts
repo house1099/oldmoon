@@ -5,7 +5,7 @@
 export const MASTER_AVATAR_FRAME_OVERLAY_PERCENT = 180;
 
 /** 素材「透明圓洞直徑／整張 PNG 邊長」（此圖透明洞約占整張 65%） */
-export const MASTER_AVATAR_HOLE_TO_FRAME_ASSET_RATIO = 0.65;
+export const MASTER_AVATAR_HOLE_TO_FRAME_ASSET_RATIO = 0.57;
 
 /** 除錯用別名（等同框比例） */
 export const FRAME_SIZE_PERCENT = MASTER_AVATAR_FRAME_OVERLAY_PERCENT;
