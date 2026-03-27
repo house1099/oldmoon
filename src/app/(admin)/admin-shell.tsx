@@ -1,35 +1,89 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronLeft, LogOut, Menu, X } from "lucide-react";
+import {
+  LayoutDashboard,
+  Users,
+  Shield,
+  Mail,
+  Gift,
+  Megaphone,
+  Coins,
+  Lock,
+  Settings,
+  Menu,
+  X,
+  LogOut,
+  ChevronLeft,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import type { ModeratorPermissionRow } from "@/types/database.types";
 
-type NavItem = {
-  label: string;
-  href: string;
-  icon: React.ElementType;
-};
-
-type AdminShellClientProps = {
+interface AdminShellProps {
+  role: string;
+  nickname: string;
+  avatarUrl: string | null;
+  permissions: ModeratorPermissionRow | null;
   children: React.ReactNode;
-  navItems: NavItem[];
-  userInfo: {
-    nickname: string;
-    role: string;
-  };
-};
+}
 
-export default function AdminShellClient({
+export function AdminShell({
+  role,
+  nickname,
+  avatarUrl: _avatarUrl,
+  permissions,
   children,
-  navItems,
-  userInfo,
-}: AdminShellClientProps) {
+}: AdminShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const isMaster = role === "master";
+
+  const navItems = [
+    { href: "/admin", label: "儀表板", Icon: LayoutDashboard, show: true },
+    {
+      href: "/admin/users",
+      label: "用戶管理",
+      Icon: Users,
+      show: isMaster || Boolean(permissions?.can_review_users),
+    },
+    {
+      href: "/admin/reports",
+      label: "檢舉管理",
+      Icon: Shield,
+      show: isMaster || Boolean(permissions?.can_handle_reports),
+    },
+    {
+      href: "/admin/invitations",
+      label: "邀請碼管理",
+      Icon: Mail,
+      show: isMaster || Boolean(permissions?.can_manage_invitations),
+    },
+    {
+      href: "/admin/exp",
+      label: "EXP 管理",
+      Icon: Gift,
+      show:
+        isMaster ||
+        Boolean(permissions?.can_grant_exp) ||
+        Boolean(permissions?.can_deduct_exp),
+    },
+    {
+      href: "/admin/publish",
+      label: "發布中心",
+      Icon: Megaphone,
+      show:
+        isMaster ||
+        Boolean(permissions?.can_manage_announcements) ||
+        Boolean(permissions?.can_manage_ads),
+    },
+    { href: "/admin/coins", label: "金幣管理", Icon: Coins, show: isMaster },
+    { href: "/admin/roles", label: "授權管理", Icon: Lock, show: isMaster },
+    { href: "/admin/settings", label: "系統設定", Icon: Settings, show: isMaster },
+  ].filter((item) => item.show);
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -88,7 +142,6 @@ export default function AdminShellClient({
               item.href === "/admin"
                 ? pathname === "/admin"
                 : pathname.startsWith(item.href);
-            const Icon = item.icon;
             return (
               <Link
                 key={item.href}
@@ -105,7 +158,7 @@ export default function AdminShellClient({
                 `}
                 title={collapsed ? item.label : undefined}
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
+                <item.Icon className="w-5 h-5 flex-shrink-0" />
                 {!collapsed && <span className="truncate">{item.label}</span>}
               </Link>
             );
@@ -116,12 +169,10 @@ export default function AdminShellClient({
           <div className="border-t border-gray-200 p-3">
             <div className="flex items-center gap-2 px-2 py-1">
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {userInfo.nickname}
-                </p>
+                <p className="text-sm font-medium text-gray-900 truncate">{nickname}</p>
               </div>
               <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 font-medium">
-                {userInfo.role}
+                {role}
               </span>
             </div>
           </div>
@@ -144,11 +195,9 @@ export default function AdminShellClient({
             </h1>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-600 hidden sm:inline">
-              {userInfo.nickname}
-            </span>
+            <span className="text-sm text-gray-600 hidden sm:inline">{nickname}</span>
             <span className="text-xs px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 font-medium">
-              {userInfo.role}
+              {role}
             </span>
             <button
               onClick={handleLogout}
