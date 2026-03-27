@@ -364,13 +364,25 @@
   }
 }
 
+/* Lv.5-6 流光 — 加強版 */
 .effect-flow-cyan {
-  border: 1.5px solid transparent;
+  border: 2px solid transparent;
   background:
     linear-gradient(#18181b, #18181b) padding-box,
-    linear-gradient(90deg, #06b6d4, #6366f1, #06b6d4) border-box;
-  background-size: 200% 200%;
+    linear-gradient(
+        90deg,
+        #06b6d4,
+        #6366f1,
+        #22d3ee,
+        #6366f1,
+        #06b6d4
+      )
+      border-box;
+  background-size: 300% 300%;
   animation: flow-cyan 4s linear infinite;
+  box-shadow:
+    0 0 12px rgba(6, 182, 212, 0.3),
+    0 0 24px rgba(99, 102, 241, 0.2);
 }
 
 /* Lv.7-8 流光+閃爍 */
@@ -395,13 +407,25 @@
   }
 }
 
+/* Lv.7-8 流光+閃爍 — 加強版 */
 .effect-flow-purple {
-  border: 1.5px solid transparent;
+  border: 2px solid transparent;
   background:
     linear-gradient(#18181b, #18181b) padding-box,
-    linear-gradient(90deg, #a855f7, #ec4899, #a855f7) border-box;
-  background-size: 200% 200%;
+    linear-gradient(
+        90deg,
+        #a855f7,
+        #ec4899,
+        #c084fc,
+        #ec4899,
+        #a855f7
+      )
+      border-box;
+  background-size: 300% 300%;
   animation: flow-purple 3s linear infinite;
+  box-shadow:
+    0 0 14px rgba(168, 85, 247, 0.4),
+    0 0 28px rgba(236, 72, 153, 0.2);
 }
 
 /* Lv.9 烈焰呼吸 */
@@ -419,9 +443,13 @@
   }
 }
 
+/* Lv.9 烈焰 — 加強版 */
 .effect-fire {
-  border: 1.5px solid rgba(249, 115, 22, 0.6);
+  border: 2px solid rgba(249, 115, 22, 0.7);
   animation: breathe-fire 2s ease-in-out infinite;
+  box-shadow:
+    0 0 16px rgba(249, 115, 22, 0.5),
+    0 0 32px rgba(234, 179, 8, 0.3);
 }
 
 /* Lv.10 彩虹流光 */
@@ -437,8 +465,9 @@
   }
 }
 
+/* Lv.10 彩虹 — 加強版 */
 .effect-rainbow {
-  border: 2px solid transparent;
+  border: 2.5px solid transparent;
   background:
     linear-gradient(#18181b, #18181b) padding-box,
     linear-gradient(
@@ -450,8 +479,11 @@
         #f59e0b
       )
       border-box;
-  background-size: 300% 300%;
+  background-size: 400% 400%;
   animation: rainbow-flow 3s linear infinite;
+  box-shadow:
+    0 0 18px rgba(245, 158, 11, 0.4),
+    0 0 36px rgba(99, 102, 241, 0.3);
 }
 
 /* master 紫金傳奇 */
@@ -470,13 +502,25 @@
   }
 }
 
+/* master 紫金 — 加強版 */
 .effect-master {
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   background:
     linear-gradient(#18181b, #18181b) padding-box,
-    linear-gradient(90deg, #a855f7, #f59e0b, #a855f7, #f59e0b) border-box;
-  background-size: 300% 300%;
+    linear-gradient(
+        90deg,
+        #a855f7,
+        #f59e0b,
+        #c084fc,
+        #fbbf24,
+        #a855f7
+      )
+      border-box;
+  background-size: 400% 400%;
   animation: master-flow 2s linear infinite;
+  box-shadow:
+    0 0 20px rgba(168, 85, 247, 0.6),
+    0 0 40px rgba(234, 179, 8, 0.4);
 }
 
 @layer base {
