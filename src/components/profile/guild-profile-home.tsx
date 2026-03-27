@@ -12,7 +12,10 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { DAILY_CHECKIN_ALREADY_CLAIMED } from "@/lib/constants/daily-checkin";
-import { claimDailyCheckin } from "@/services/daily-checkin.action";
+import {
+  claimDailyCheckin,
+  type ClaimDailyCheckinResult,
+} from "@/services/daily-checkin.action";
 import {
   getMyRecentExpLogsAction,
   type ExpLogProfileEntry,
@@ -636,7 +639,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   async function onCheckin() {
     setCheckinLoading(true);
     try {
-      const result = await claimDailyCheckin();
+      const result: ClaimDailyCheckinResult = await claimDailyCheckin();
       if (result.ok === false) {
         if (
           result.error === DAILY_CHECKIN_ALREADY_CLAIMED ||
@@ -654,7 +657,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         return;
       }
       toast.success(
-        `簽到成功！獲得 +1 EXP 和 +${result.freeCoinsEarned}免費幣 🪙`,
+        `簽到成功！獲得 +1 EXP${result.freeCoinsEarned ? ` 和 +${result.freeCoinsEarned} 免費幣 🪙` : ""}`,
       );
       setCheckinDone(true);
       setCooldown({ hours: 23, mins: 59 });

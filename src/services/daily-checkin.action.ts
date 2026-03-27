@@ -12,6 +12,8 @@ import {
   restoreActivityOnCheckin,
   updateLastCheckinAt,
 } from "@/lib/repositories/server/user.repository";
+import { creditCoins } from "@/lib/repositories/server/coin.repository";
+import { findSystemSettingByKey } from "@/lib/repositories/server/invitation.repository";
 
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
@@ -63,7 +65,7 @@ function remainFromLastCheckin(lastCheckinMs: number): {
 }
 
 export type ClaimDailyCheckinResult =
-  | { ok: true }
+  | { ok: true; freeCoinsEarned?: number }
   | {
       ok: false;
       error: string;
@@ -154,6 +156,30 @@ export async function claimDailyCheckin(): Promise<ClaimDailyCheckinResult> {
     console.error("restoreActivityOnCheckin:", e);
   }
 
+  let freeCoinsEarned = 0;
+  try {
+    const minStr = await findSystemSettingByKey("checkin_free_coins_min");
+    const maxStr = await findSystemSettingByKey("checkin_free_coins_max");
+    const min = Math.max(0, parseInt(minStr ?? "1", 10) || 1);
+    const max = Math.max(min, parseInt(maxStr ?? "9", 10) || 9);
+    freeCoinsEarned =
+      Math.floor(Math.random() * (max - min + 1)) + min;
+    const coinResult = await creditCoins({
+      userId: user.id,
+      coinType: "free",
+      amount: freeCoinsEarned,
+      source: "checkin",
+      note: "每日簽到獎勵",
+    });
+    if (!coinResult.success) {
+      console.error("checkin creditCoins:", coinResult.error);
+      freeCoinsEarned = 0;
+    }
+  } catch (e) {
+    console.error("checkin free coins:", e);
+    freeCoinsEarned = 0;
+  }
+
   revalidatePath("/");
-  return { ok: true };
+  return { ok: true, freeCoinsEarned };
 }
