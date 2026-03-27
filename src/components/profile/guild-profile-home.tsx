@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -15,7 +16,9 @@ import { toast } from "sonner";
 import { DAILY_CHECKIN_ALREADY_CLAIMED } from "@/lib/constants/daily-checkin";
 import {
   claimDailyCheckin,
+  getMyStreakAction,
   type ClaimDailyCheckinResult,
+  type DrawResult,
 } from "@/services/daily-checkin.action";
 import {
   getMyRecentExpLogsAction,
@@ -95,89 +98,15 @@ function normalizeLevel(v: UserRow["level"]): number {
   return Math.min(10, Math.floor(n));
 }
 
-const CHECKIN_MESSAGES: Record<
-  number,
-  {
-    emoji: string;
-    title: string;
-    message: string;
-    bgFrom: string;
-    bgTo: string;
-  }
-> = {
-  1: {
-    emoji: "🎲",
-    title: "普通的一天",
-    message: "小小收穫也是收穫，明天繼續加油喵～",
-    bgFrom: "from-zinc-800",
-    bgTo: "to-zinc-900",
-  },
-  2: {
-    emoji: "🌱",
-    title: "小苗發芽",
-    message: "2 枚探險幣入袋！積少成多，堅持就是力量！",
-    bgFrom: "from-green-900",
-    bgTo: "to-zinc-900",
-  },
-  3: {
-    emoji: "⭐",
-    title: "不錯喔！",
-    message: "3 枚到手，今天運氣還可以嘛！",
-    bgFrom: "from-blue-900",
-    bgTo: "to-zinc-900",
-  },
-  4: {
-    emoji: "✨",
-    title: "閃閃發光",
-    message: "4 枚！你的運氣正在上升中～",
-    bgFrom: "from-indigo-900",
-    bgTo: "to-zinc-900",
-  },
-  5: {
-    emoji: "🎯",
-    title: "剛剛好！",
-    message: "5 枚，中規中矩的幸運，繼續保持！",
-    bgFrom: "from-violet-900",
-    bgTo: "to-zinc-900",
-  },
-  6: {
-    emoji: "🍀",
-    title: "幸運草出現！",
-    message: "6 枚！幸運女神在眷顧你喔！",
-    bgFrom: "from-emerald-900",
-    bgTo: "to-zinc-900",
-  },
-  7: {
-    emoji: "🌟",
-    title: "超級幸運！",
-    message: "7 枚！今天是你的幸運日！",
-    bgFrom: "from-amber-900",
-    bgTo: "to-zinc-900",
-  },
-  8: {
-    emoji: "🎊",
-    title: "大豐收！！",
-    message: "8 枚！運氣爆棚，快去買彩券！",
-    bgFrom: "from-orange-900",
-    bgTo: "to-zinc-900",
-  },
-  9: {
-    emoji: "🔥",
-    title: "傳奇運氣！！！",
-    message: "9 枚！！你是天選之人！今天什麼都擋不住你！🎉",
-    bgFrom: "from-red-900",
-    bgTo: "to-amber-900",
-  },
-};
+const STREAK_BREAK_MS = 48 * 60 * 60 * 1000;
 
-const getCheckinMessage = (coins: number) =>
-  CHECKIN_MESSAGES[coins] ?? {
-    emoji: "🌈",
-    title: "史詩級幸運！",
-    message: `${coins} 枚！！這是傳說中的大獎！！`,
-    bgFrom: "from-purple-900",
-    bgTo: "to-pink-900",
-  };
+function dayRewardHint(cellIndex: number): string {
+  const d = cellIndex + 1;
+  if (d <= 2) return "+1 EXP · +1 幣";
+  if (d <= 4) return "+2 EXP · +2〜3 幣";
+  if (d <= 6) return "+3 EXP · +5 幣";
+  return "+5 EXP · +10 幣 · 盲盒";
+}
 
 /** 必須為模組層元件：若在父元件內宣告，每次 render 型別參考變更會整段 remount，textarea 失焦、行動鍵盤會收起。 */
 function AccordionSection({
@@ -411,7 +340,38 @@ export function GuildProfileHome({
   const [homeAds, setHomeAds] = useState<AdvertisementRow[]>([]);
   const [expandedAnnouncement, setExpandedAnnouncement] = useState<AnnouncementRow | null>(null);
   const [showCheckinModal, setShowCheckinModal] = useState(false);
-  const [checkinCoins, setCheckinCoins] = useState(1);
+  const [checkinModalExp, setCheckinModalExp] = useState(1);
+  const [checkinModalCoins, setCheckinModalCoins] = useState(1);
+  const [checkinModalStreakDay, setCheckinModalStreakDay] = useState(1);
+  const [checkinModalLoot, setCheckinModalLoot] = useState<DrawResult | null>(
+    null,
+  );
+  const [lootBoxRevealed, setLootBoxRevealed] = useState(false);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [lastClaimAt, setLastClaimAt] = useState<string | null>(null);
+  const [streakBreakHours, setStreakBreakHours] = useState<number | null>(null);
+
+  const streakUi = useMemo(() => {
+    const s = currentStreak;
+    const m = s % 7;
+    const allMuted = s === 0;
+    const completedInCycle =
+      s === 0 ? 0 : m === 0 ? 7 : m;
+    const todayIdx =
+      checkinDone ? -1 : s === 0 ? 0 : m === 0 ? 0 : m;
+    let nextDay = 1;
+    if (!checkinDone) {
+      if (s === 0) nextDay = 1;
+      else if (m === 0) nextDay = 1;
+      else nextDay = m + 1;
+    }
+    return {
+      allMuted,
+      completedInCycle,
+      todayIdx,
+      nextDay,
+    };
+  }, [currentStreak, checkinDone]);
 
   useEffect(() => {
     setBioVillage(profile.bio_village ?? "");
@@ -428,6 +388,18 @@ export function GuildProfileHome({
     getActiveAnnouncementsAction().then(setAnnouncements).catch(() => {});
     getHomeAdsAction().then(setHomeAds).catch(() => {});
   }, []);
+
+  const refreshStreak = useCallback(() => {
+    void getMyStreakAction().then((r) => {
+      if (!r.ok) return;
+      setCurrentStreak(r.currentStreak);
+      setLastClaimAt(r.lastClaimAt);
+    });
+  }, []);
+
+  useEffect(() => {
+    refreshStreak();
+  }, [refreshStreak, profile.last_checkin_at, profile.updated_at]);
 
   useEffect(() => {
     if (!editOpen) return;
@@ -531,6 +503,25 @@ export function GuildProfileHome({
     }, 60000);
     return () => clearInterval(timer);
   }, [checkinDone, profile.last_checkin_at]);
+
+  useEffect(() => {
+    if (!lastClaimAt) {
+      setStreakBreakHours(null);
+      return;
+    }
+    const tick = () => {
+      const deadline = new Date(lastClaimAt).getTime() + STREAK_BREAK_MS;
+      const ms = deadline - Date.now();
+      if (ms <= 0) {
+        setStreakBreakHours(0);
+        return;
+      }
+      setStreakBreakHours(ms / (1000 * 60 * 60));
+    };
+    tick();
+    const t = setInterval(tick, 60_000);
+    return () => clearInterval(t);
+  }, [lastClaimAt]);
 
   const onCropComplete = useCallback((_area: Area, pixels: Area) => {
     setCroppedAreaPixels(pixels);
@@ -744,11 +735,17 @@ export function GuildProfileHome({
         toast.error("❌ 操作失敗，請稍後再試");
         return;
       }
-      setCheckinCoins(result.freeCoinsEarned ?? 1);
+      setCheckinModalExp(result.expEarned);
+      setCheckinModalCoins(result.coinsEarned);
+      setCheckinModalStreakDay(result.streakDay);
+      setCheckinModalLoot(result.lootBox ?? null);
+      setLootBoxRevealed(false);
       setShowCheckinModal(true);
       setCheckinDone(true);
+      setCurrentStreak(result.currentStreak);
       setCooldown({ hours: 23, mins: 59 });
       router.refresh();
+      refreshStreak();
     } finally {
       setCheckinLoading(false);
     }
@@ -1398,24 +1395,92 @@ export function GuildProfileHome({
           </button>
         ) : null}
 
+        {streakBreakHours != null &&
+        streakBreakHours > 0 &&
+        streakBreakHours < 4 &&
+        currentStreak > 0 ? (
+          <div className="mb-3 rounded-2xl border border-orange-500/40 bg-orange-950/35 px-4 py-2.5 text-center text-sm text-orange-100 backdrop-blur-md">
+            ⚠️ 還有 {streakBreakHours < 1 ? "不到 1" : Math.ceil(streakBreakHours)}{" "}
+            小時，連續簽到就要斷了！
+          </div>
+        ) : null}
+
+        <div className="glass-panel mb-3 rounded-3xl border border-violet-500/25 bg-zinc-950/50 p-4 shadow-[0_0_20px_rgba(139,92,246,0.12)] backdrop-blur-xl">
+          <p className="mb-3 text-center text-xs font-medium text-violet-200/90">
+            七日報到進度
+            {currentStreak > 0 ? (
+              <span className="ml-2 text-violet-300/70">
+                連續 {currentStreak} 天
+              </span>
+            ) : null}
+          </p>
+          <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+            {Array.from({ length: 7 }, (_, index) => {
+              const done =
+                !streakUi.allMuted && index < streakUi.completedInCycle;
+              const isToday =
+                !streakUi.allMuted &&
+                streakUi.todayIdx >= 0 &&
+                index === streakUi.todayIdx;
+              const isDay7 = index === 6;
+              return (
+                <div
+                  key={index}
+                  className={cn(
+                    "flex min-h-[4.5rem] flex-col items-center justify-center gap-0.5 rounded-2xl border px-0.5 py-2 text-center transition-colors sm:min-h-[5rem]",
+                    streakUi.allMuted && "bg-zinc-800/40 border-zinc-700/30",
+                    !streakUi.allMuted && done && "bg-violet-600/80 border-violet-400/40",
+                    !streakUi.allMuted &&
+                      !done &&
+                      !isToday &&
+                      "bg-zinc-800/40 border-zinc-700/30",
+                    isToday &&
+                      "ring-2 ring-violet-400 animate-pulse border-violet-400/50 bg-violet-950/50",
+                  )}
+                >
+                  <span className="text-[10px] font-semibold text-zinc-400">
+                    D{index + 1}
+                  </span>
+                  <span className="text-lg leading-none">
+                    {isDay7
+                      ? done
+                        ? "🎁"
+                        : "👑"
+                      : done
+                        ? "✓"
+                        : isToday
+                          ? "·"
+                          : ""}
+                  </span>
+                  {isToday && !checkinDone ? (
+                    <span className="hidden px-0.5 text-[9px] leading-tight text-violet-200/80 sm:block">
+                      {dayRewardHint(index)}
+                    </span>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         <button
           type="button"
           disabled={checkinLoading || checkinDone}
           onClick={onCheckin}
           className={cn(
-            "mb-3 flex w-full items-center justify-between rounded-2xl border p-4 text-left transition disabled:pointer-events-none",
+            "mb-3 flex w-full items-center justify-between rounded-full border p-4 text-left transition disabled:pointer-events-none",
             checkinDone
               ? "cursor-not-allowed border-zinc-700/50 bg-zinc-900/40 text-zinc-500 opacity-85 backdrop-blur-sm"
-              : "border-white/10 bg-gradient-to-r from-amber-950/55 via-zinc-900/55 to-violet-950/45 text-zinc-100 shadow-md shadow-black/25 hover:border-amber-400/30 hover:from-amber-900/50 hover:via-zinc-900/50 hover:to-violet-900/40 active:scale-[0.99]",
+              : "border-violet-500/30 bg-gradient-to-r from-violet-700/90 via-purple-800/85 to-violet-900/90 text-white shadow-lg shadow-violet-950/40 hover:border-violet-400/40 active:scale-[0.99]",
           )}
         >
           <span className="flex min-w-0 flex-1 items-center gap-3">
             <span
               className={cn(
-                "flex size-10 shrink-0 items-center justify-center rounded-xl",
+                "flex size-10 shrink-0 items-center justify-center rounded-full",
                 checkinDone
                   ? "bg-zinc-800/80 text-zinc-500"
-                  : "bg-amber-950/50 text-amber-200 ring-1 ring-amber-500/25",
+                  : "bg-white/15 text-violet-100 ring-1 ring-white/20",
               )}
             >
               {checkinDone ? (
@@ -1432,17 +1497,24 @@ export function GuildProfileHome({
                     className="justify-start text-sm font-medium"
                   />
                 ) : checkinDone && cooldown ? (
-                  `⏳ 還有 ${cooldown.hours} 小時 ${cooldown.mins} 分`
+                  <>
+                    <span className="block text-zinc-400">
+                      🔒 今日已報到
+                    </span>
+                    <span className="text-xs text-zinc-500">
+                      {cooldown.hours}h {cooldown.mins}m 後可報到
+                    </span>
+                  </>
                 ) : checkinDone ? (
-                  "⏳ 簽到冷卻中"
+                  "⏳ 報到冷卻中"
                 ) : (
-                  "📅 每日簽到（+1 EXP）"
+                  `⚔️ 今日報到 Day ${streakUi.nextDay}`
                 )}
               </span>
             </span>
           </span>
           {!checkinDone ? (
-            <ChevronRight className="size-5 shrink-0 text-zinc-500" aria-hidden />
+            <ChevronRight className="size-5 shrink-0 text-violet-200/80" aria-hidden />
           ) : null}
         </button>
 
@@ -1620,54 +1692,110 @@ export function GuildProfileHome({
         </DialogContent>
       </Dialog>
 
-      {showCheckinModal &&
-        (() => {
-          const msg = getCheckinMessage(checkinCoins);
-          return (
-            <Dialog open={showCheckinModal} onOpenChange={setShowCheckinModal}>
-              <DialogContent
-                className={`bg-gradient-to-b ${msg.bgFrom} ${msg.bgTo} border border-zinc-700/50 rounded-3xl max-w-xs w-full p-0 overflow-hidden text-center`}
-              >
-                <div className="px-6 pb-4 pt-8">
-                  <div className="mb-3 animate-bounce text-7xl">{msg.emoji}</div>
-                  <h2 className="text-xl font-bold text-white">{msg.title}</h2>
-                  <p className="mt-1 text-sm text-zinc-400">{msg.message}</p>
-                </div>
+      <Dialog
+        open={showCheckinModal}
+        onOpenChange={(open) => {
+          setShowCheckinModal(open);
+          if (!open) setLootBoxRevealed(false);
+        }}
+      >
+        <DialogContent className="glass-panel max-w-xs w-[calc(100%-2rem)] overflow-hidden rounded-3xl border border-violet-500/30 bg-zinc-950/90 p-0 text-center shadow-[0_0_28px_rgba(139,92,246,0.2)] backdrop-blur-xl">
+          <div className="px-5 pb-2 pt-6">
+            <span className="inline-flex rounded-full border border-violet-400/40 bg-violet-950/60 px-4 py-1 text-xs font-semibold text-violet-200">
+              Day {checkinModalStreakDay} ／ 7
+            </span>
+            <h2 className="mt-4 text-lg font-bold text-white">報到成功！</h2>
+          </div>
 
-                <div className="mx-5 mb-4 space-y-2">
-                  <div className="flex items-center justify-between rounded-2xl bg-black/30 px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">⚔️</span>
-                      <span className="text-sm text-zinc-300">經驗值</span>
-                    </div>
-                    <span className="text-lg font-bold text-amber-300">
-                      +1 EXP
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between rounded-2xl bg-black/30 px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">🧭</span>
-                      <span className="text-sm text-zinc-300">探險幣</span>
-                    </div>
-                    <span className="text-lg font-bold text-violet-300">
-                      +{checkinCoins}
-                    </span>
-                  </div>
-                </div>
+          <div className="mx-4 mb-4 space-y-3">
+            <div className="flex items-center justify-between rounded-full border border-amber-500/25 bg-black/35 px-5 py-3.5">
+              <span className="text-sm text-zinc-300">經驗值</span>
+              <span className="animate-pulse text-2xl font-bold tabular-nums text-amber-300">
+                +{checkinModalExp} EXP
+              </span>
+            </div>
+            <div className="flex items-center justify-between rounded-full border border-violet-500/25 bg-black/35 px-5 py-3.5">
+              <span className="text-sm text-zinc-300">探險幣</span>
+              <span className="animate-pulse text-2xl font-bold tabular-nums text-violet-300">
+                +{checkinModalCoins}
+              </span>
+            </div>
+          </div>
 
-                <div className="px-5 pb-8">
-                  <button
-                    type="button"
-                    onClick={() => setShowCheckinModal(false)}
-                    className="w-full rounded-full bg-gradient-to-r from-violet-600 to-purple-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-violet-900/50 transition-transform active:scale-95"
+          {checkinModalLoot ? (
+            <div className="mx-4 mb-4 rounded-2xl border border-violet-500/30 bg-violet-950/30 p-4">
+              <p className="mb-3 text-sm font-medium text-violet-100">
+                🎁 公會盲盒開封！
+              </p>
+              <div className="mx-auto" style={{ perspective: "1000px" }}>
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className="relative mx-auto h-28 max-w-[200px] cursor-pointer outline-none"
+                  style={{
+                    transformStyle: "preserve-3d",
+                    transform: lootBoxRevealed
+                      ? "rotateY(180deg)"
+                      : "rotateY(0deg)",
+                    transition: "transform 0.7s ease-in-out",
+                  }}
+                  onClick={() => setLootBoxRevealed(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ")
+                      setLootBoxRevealed(true);
+                  }}
+                >
+                  <div
+                    className="absolute inset-0 flex items-center justify-center rounded-2xl border border-violet-400/50 bg-gradient-to-br from-violet-800/80 to-zinc-900 text-5xl"
+                    style={{
+                      backfaceVisibility: "hidden",
+                      WebkitBackfaceVisibility: "hidden",
+                    }}
                   >
-                    太棒了！繼續冒險 ⚔️
-                  </button>
+                    🎁
+                  </div>
+                  <div
+                    className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-2xl border border-amber-400/40 bg-zinc-900/95 px-2 py-3"
+                    style={{
+                      backfaceVisibility: "hidden",
+                      WebkitBackfaceVisibility: "hidden",
+                      transform: "rotateY(180deg)",
+                    }}
+                  >
+                    <span className="text-lg font-bold text-white">
+                      {checkinModalLoot.label}
+                    </span>
+                    <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-medium uppercase text-violet-300">
+                      {checkinModalLoot.rewardType}
+                    </span>
+                    {checkinModalLoot.value != null ? (
+                      <span className="text-sm text-amber-200">
+                        +{checkinModalLoot.value}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
-              </DialogContent>
-            </Dialog>
-          );
-        })()}
+              </div>
+              {!lootBoxRevealed ? (
+                <p className="mt-2 text-xs text-zinc-500">點擊箱子揭曉</p>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="border-t border-white/10 bg-black/20 px-5 py-5">
+            <button
+              type="button"
+              onClick={() => {
+                setShowCheckinModal(false);
+                setLootBoxRevealed(false);
+              }}
+              className="w-full rounded-full bg-gradient-to-r from-violet-600 to-purple-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-violet-900/40 transition-transform active:scale-95"
+            >
+              太棒了！繼續冒險 ⚔️
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Portal 到 body + absolute 上中下：避免 react-easy-crop 的 9999em box-shadow 在 iOS/WebKit 蓋過 flex 底部按鈕 */}
       {cropSrc &&

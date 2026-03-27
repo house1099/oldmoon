@@ -11,11 +11,17 @@ import { DAILY_CHECKIN_ALREADY_CLAIMED } from "@/lib/constants/daily-checkin";
 import {
   restoreActivityOnCheckin,
   updateLastCheckinAt,
+  findProfileById,
 } from "@/lib/repositories/server/user.repository";
 import { creditCoins } from "@/lib/repositories/server/coin.repository";
-import { findSystemSettingByKey } from "@/lib/repositories/server/invitation.repository";
+import { findStreakByUserId, upsertStreak } from "@/lib/repositories/server/streak.repository";
+import { drawFromPool, type DrawResult } from "@/services/prize-engine";
+import { notifyUserMailboxSilent } from "@/services/notification.action";
+
+export type { DrawResult };
 
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const STREAK_BREAK_MS = 48 * 60 * 60 * 1000;
 
 function logCheckinRawError(error: unknown) {
   try {
@@ -65,7 +71,14 @@ function remainFromLastCheckin(lastCheckinMs: number): {
 }
 
 export type ClaimDailyCheckinResult =
-  | { ok: true; freeCoinsEarned: number }
+  | {
+      ok: true;
+      streakDay: number;
+      currentStreak: number;
+      expEarned: number;
+      coinsEarned: number;
+      lootBox?: DrawResult;
+    }
   | {
       ok: false;
       error: string;
@@ -73,9 +86,30 @@ export type ClaimDailyCheckinResult =
       remainMins?: number;
     };
 
+function resolveCheckinRewards(streakDay: number): {
+  exp: number;
+  coins: number;
+  triggerLootBox: boolean;
+} {
+  if (streakDay === 0) {
+    return { exp: 5, coins: 10, triggerLootBox: true };
+  }
+  if (streakDay === 1 || streakDay === 2) {
+    return { exp: 1, coins: 1, triggerLootBox: false };
+  }
+  if (streakDay === 3 || streakDay === 4) {
+    const coins = Math.random() < 0.5 ? 2 : 3;
+    return { exp: 2, coins, triggerLootBox: false };
+  }
+  if (streakDay === 5 || streakDay === 6) {
+    return { exp: 3, coins: 5, triggerLootBox: false };
+  }
+  return { exp: 1, coins: 1, triggerLootBox: false };
+}
+
 /**
- * Layer 3：每日簽到 +1 EXP。冷卻以 **`users.last_checkin_at`** 為 SSOT（滾動 24h）。
- * **`exp_logs.unique_key`** 格式 **`daily_checkin:{userId}:{timestamp}`** 避免與舊日曆鍵衝突。
+ * Layer 3：每日簽到。冷卻以 **`users.last_checkin_at`** 為 SSOT（滾動 24h）。
+ * 連續天數見 **`login_streaks`**；第 7 天觸發公會盲盒（**`drawFromPool('loot_box')`**）。
  */
 export async function claimDailyCheckin(): Promise<ClaimDailyCheckinResult> {
   const supabase = createClient();
@@ -87,13 +121,12 @@ export async function claimDailyCheckin(): Promise<ClaimDailyCheckinResult> {
     return { ok: false, error: "請先登入。" };
   }
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("last_checkin_at")
-    .eq("id", user.id)
-    .single();
+  const profile = await findProfileById(user.id);
+  if (!profile) {
+    return { ok: false, error: "找不到冒險者資料。" };
+  }
 
-  const lastCheckin = profile?.last_checkin_at
+  const lastCheckin = profile.last_checkin_at
     ? new Date(profile.last_checkin_at).getTime()
     : 0;
   const now = Date.now();
@@ -108,6 +141,27 @@ export async function claimDailyCheckin(): Promise<ClaimDailyCheckinResult> {
     };
   }
 
+  const streakRow = await findStreakByUserId(user.id);
+  const prevStreak = streakRow?.current_streak ?? 0;
+  const longestBefore = streakRow?.longest_streak ?? 0;
+  const lastClaimMs = streakRow?.last_claim_at
+    ? new Date(streakRow.last_claim_at).getTime()
+    : null;
+
+  const elapsed =
+    lastClaimMs === null ? Number.POSITIVE_INFINITY : now - lastClaimMs;
+
+  let newStreak: number;
+  if (lastClaimMs === null || elapsed > STREAK_BREAK_MS) {
+    newStreak = 1;
+  } else {
+    newStreak = prevStreak + 1;
+  }
+
+  const streakDay = newStreak % 7;
+  const { exp: expEarned, coins: coinsEarned, triggerLootBox } =
+    resolveCheckinRewards(streakDay);
+
   const unique_key = `daily_checkin:${user.id}:${now}`;
 
   try {
@@ -115,19 +169,15 @@ export async function claimDailyCheckin(): Promise<ClaimDailyCheckinResult> {
       user_id: user.id,
       source: "daily_checkin",
       unique_key,
-      delta: 1,
-      delta_exp: 1,
+      delta: expEarned,
+      delta_exp: expEarned,
     });
   } catch (error) {
     if (
       error instanceof DuplicateExpRewardError ||
       isUniqueConstraintError(error)
     ) {
-      const { data: again } = await supabase
-        .from("users")
-        .select("last_checkin_at")
-        .eq("id", user.id)
-        .single();
+      const again = await findProfileById(user.id);
       const lm = again?.last_checkin_at
         ? new Date(again.last_checkin_at).getTime()
         : lastCheckin;
@@ -144,6 +194,23 @@ export async function claimDailyCheckin(): Promise<ClaimDailyCheckinResult> {
   }
 
   try {
+    if (coinsEarned > 0) {
+      const coinResult = await creditCoins({
+        userId: user.id,
+        coinType: "free",
+        amount: coinsEarned,
+        source: "checkin",
+        note: "每日簽到獎勵",
+      });
+      if (!coinResult.success) {
+        console.error("checkin creditCoins:", coinResult.error);
+      }
+    }
+  } catch (e) {
+    console.error("checkin coins:", e);
+  }
+
+  try {
     await updateLastCheckinAt(user.id);
   } catch (error) {
     logCheckinRawError(error);
@@ -156,30 +223,71 @@ export async function claimDailyCheckin(): Promise<ClaimDailyCheckinResult> {
     console.error("restoreActivityOnCheckin:", e);
   }
 
-  let freeCoinsEarned = 0;
+  const longestStreak = Math.max(newStreak, longestBefore);
+  const lastClaimIso = new Date(now).toISOString();
   try {
-    const minStr = await findSystemSettingByKey("checkin_free_coins_min");
-    const maxStr = await findSystemSettingByKey("checkin_free_coins_max");
-    const min = Math.max(0, parseInt(minStr ?? "1", 10) || 1);
-    const max = Math.max(min, parseInt(maxStr ?? "9", 10) || 9);
-    freeCoinsEarned =
-      Math.floor(Math.random() * (max - min + 1)) + min;
-    const coinResult = await creditCoins({
-      userId: user.id,
-      coinType: "free",
-      amount: freeCoinsEarned,
-      source: "checkin",
-      note: "每日簽到獎勵",
+    await upsertStreak(user.id, {
+      current_streak: newStreak,
+      longest_streak: longestStreak,
+      last_claim_at: lastClaimIso,
     });
-    if (!coinResult.success) {
-      console.error("checkin creditCoins:", coinResult.error);
-      freeCoinsEarned = 0;
-    }
   } catch (e) {
-    console.error("checkin free coins:", e);
-    freeCoinsEarned = 0;
+    logCheckinRawError(e);
+    return { ok: false, error: formatCheckinErrorForClient(e) };
+  }
+
+  let lootBox: DrawResult | undefined;
+  if (triggerLootBox) {
+    try {
+      lootBox = await drawFromPool("loot_box", user.id);
+      const extra =
+        lootBox.value != null
+          ? `（${lootBox.rewardType} +${lootBox.value}）`
+          : `（${lootBox.rewardType}）`;
+      await notifyUserMailboxSilent({
+        user_id: user.id,
+        type: "system",
+        from_user_id: null,
+        message: `🎁 公會盲盒開出：${lootBox.label}${extra}`,
+        is_read: false,
+      });
+    } catch (e) {
+      console.error("loot_box draw:", e);
+    }
   }
 
   revalidatePath("/");
-  return { ok: true, freeCoinsEarned };
+  return {
+    ok: true,
+    streakDay: streakDay === 0 ? 7 : streakDay,
+    currentStreak: newStreak,
+    expEarned,
+    coinsEarned,
+    lootBox,
+  };
+}
+
+export async function getMyStreakAction(): Promise<
+  | {
+      ok: true;
+      currentStreak: number;
+      longestStreak: number;
+      lastClaimAt: string | null;
+    }
+  | { ok: false; error: string }
+> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, error: "請先登入。" };
+  }
+  const row = await findStreakByUserId(user.id);
+  return {
+    ok: true,
+    currentStreak: row?.current_streak ?? 0,
+    longestStreak: row?.longest_streak ?? 0,
+    lastClaimAt: row?.last_claim_at ?? null,
+  };
 }

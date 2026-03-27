@@ -15,8 +15,8 @@
 ### 🏛️ 五層架構狀態（速覽）
 
 - **Layer 1（連線）**：Supabase Client／Server／Admin 已完備。
-- **Layer 2（資料）**：`user.repository.ts`（含 **`updateLastCheckinAt`**）、`exp.repository.ts` 支援 **`total_exp`**（SSOT）；**`chat.repository.ts`**（**`conversations`**／**`chat_messages`**／**`blocks`**／**`reports`**，admin，供私訊／封鎖／檢舉接線）。
-- **Layer 3（業務）**：`daily-checkin.action.ts` 之 **`claimDailyCheckin`** 以 **`users.last_checkin_at`** 為簽到 **24h 滾動冷卻** SSOT；**`exp_logs.unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**；**`chat.action.ts`**（開啟對話／訊息／列表／封鎖／檢舉）、**`notification.action.ts`**（**`getMyNotificationsAction`**（**直接** **`loadNotificationsForUser`**，**不**包 **`unstable_cache`**；批量載入發送者）／**`insertMailboxNotificationAction`／`notifyUserMailboxSilent`**／**`markNotificationReadAction`**／**`markAllNotificationsReadAction`**／清除／未讀數）。
+- **Layer 2（資料）**：`user.repository.ts`（含 **`updateLastCheckinAt`**）、`exp.repository.ts` 支援 **`total_exp`**（SSOT）；**`streak.repository.ts`**（**`login_streaks`**）、**`prize.repository.ts`**（**`prize_pools`／`prize_items`／`prize_logs`／`user_rewards`**）；**`chat.repository.ts`**（**`conversations`**／**`chat_messages`**／**`blocks`**／**`reports`**，admin，供私訊／封鎖／檢舉接線）。
+- **Layer 3（業務）**：`daily-checkin.action.ts` 之 **`claimDailyCheckin`**（**`login_streaks`** 連簽、第 7 天 **`prize-engine.drawFromPool('loot_box')`**）以 **`users.last_checkin_at`** 為簽到 **24h 滾動冷卻** SSOT；**`exp_logs.unique_key`** 為 **`daily_checkin:{userId}:{timestamp}`**；**`prize-engine.ts`** 通用抽獎 helper；**`chat.action.ts`**（開啟對話／訊息／列表／封鎖／檢舉）、**`notification.action.ts`**（**`getMyNotificationsAction`**（**直接** **`loadNotificationsForUser`**，**不**包 **`unstable_cache`**；批量載入發送者）／**`insertMailboxNotificationAction`／`notifyUserMailboxSilent`**／**`markNotificationReadAction`**／**`markAllNotificationsReadAction`**／清除／未讀數）。
 - **Layer 4（狀態／常數）**：`levels.ts`（門檻 0〜1350）、Zod 驗證已就緒；**`date.ts`** 之 **`taipeiCalendarDateKey()`** 仍為全系統**日曆日** SSOT（簽到冷卻**不再**依此判斷）；**`useChat.ts`** — **`useConversations`**／**`useMessages`**、**`useUnreadNotificationCount`**、**`useUnreadChatConversationsCount`**／**`useUnreadChatCount`**（別名，**`SWR_KEYS.unreadChatConversations`**；**`SWR_KEYS.conversations`**／**`messages(id)`**／**`unreadNotifications`**）；**`useTavern.ts`**（**`SWR_KEYS.tavernMessages`**、**Realtime `tavern_messages` INSERT**）。
 - **Layer 5（UI）**：**`Navbar.tsx`**（五項 **lucide** 圖示底欄：**Home／Compass／Swords／Heart／ShoppingBag**）、**`LevelFrame.tsx`**（等級框元件；探索列表卡改用 **`LevelBadge`**）、**`UserCard`**（**`ui/UserCard.tsx`**）、**`UserCardSkeleton`**（市集列表首次載入）、**`/explore`**（**Server Component** 預載村莊；**`ExploreClient`** 頂部 **safe-area**、村莊＋市集 **tab**、**市集 `useSWR`（query key + `keepPreviousData`）**＋**`hidden`／`block` 切 tab 不 unmount**）、**`/guild`**（**`hidden` 切 tab**；**血盟** **`AllianceList`**＋**pending 角標**；**聊天** **`useConversations`**＋**`ChatModal`**；**信件** **`SWR_KEYS.notifications`**＋**`useUnreadNotificationCount`** 紅點；血盟列點擊 **`getOrCreateConversationAction`** 開聊）、**`UserDetailModal`** 內 **`ChatModal`**（私訊＋Realtime＋檢舉）、**`/matchmaking`**／**`/shop`**（預留）。
 
@@ -47,6 +47,14 @@
 - **建檔**：**`completeAdventurerProfile`** 寫入 **`status: 'pending'`**；成功後 **`router.push('/register/pending')`**（不再直跳興趣 onboarding，待審核通過後由 middleware 放行 **`/`** 再補標籤流程）。
 - **後台**：**`approveUserAction`／`rejectUserAction`**（**`src/services/admin.action.ts`**，`master`／`moderator`）；**`/admin/users`** 篩選列 **待審核** chip、詳情 Sheet 對 **`pending`** 顯示 IG 外連與通過／拒絕（拒絕維持 **pending**＋**`notifications`** **system** 信）。儀表板「待審核」人數＝**`getDashboardStats.pendingUsers`**（**`users.status = pending`**）。
 
+### Wave 1 — 七日報到簿＋通用抽獎引擎＋公會盲盒（2026-03-28）
+
+- **🗄️ 四張通用表**：**`prize_pools`**（**`pool_type` UNIQUE**，活動／獎池）、**`prize_items`**（加權獎項）、**`prize_logs`**（抽獎紀錄）、**`user_rewards`**（稱號／框／廣播道具列）。**`login_streaks`**（**`user_id` UNIQUE**）存連簽與 **`last_claim_at`**（與 **`users.last_checkin_at`** 簽到冷卻分離：冷卻仍只認 **`last_checkin_at`**）。遷移檔 **`supabase/migrations/20260328120000_prize_engine_login_streaks.sql`**；雲端已用 MCP 建表者可略過重跑。
+- **`src/services/prize-engine.ts`**：**`drawFromPool(poolType, userId)`** — Layer 3 純 helper（非 action），加權抽選後依 **`reward_type`** 寫入 **`creditCoins`（`source: loot_box`）**／**`insertExpLog`（觸發器累加 `total_exp`）**／**`user_rewards`**，並 **`insertPrizeLog`**。
+- **簽到**：**`claimDailyCheckin`** 依 **`login_streaks`** 判斷 **48h 斷簽**／連續；**固定 EXP／探險幣**（**不再**讀 **`checkin_weight_*`**）；**第 7 天**（**`new_streak % 7 === 0`**）觸發 **`drawFromPool('loot_box')`**，並 **`notifyUserMailboxSilent`**。**`getMyStreakAction`** 供首頁讀 streak。
+- **首頁**：**`guild-profile-home.tsx`** — 七格進度、紫系報到鈕、斷簽前 **4h** 橘色警示、成功 Dialog（**Day X／7**、EXP／幣、盲盒 **rotateY** 翻面）。
+- **後台**：**`/admin/prizes`**（**`master`+`moderator`**），Sidebar **🎰 獎池管理**；**`middleware`** **`moderatorAllowed`** 含 **`/admin/prizes`**。**`coin_transactions.source`** 型別含 **`loot_box`**（**`/admin/coins`**、**`/shop`** 來源標籤已補）。
+
 ### Wave A 基礎修復（2026-03-27）
 
 - **幣種文案全站更新**：UI 顯示統一改為 **探險幣**（原「免費幣」）與 **純金**（原「付費幣」）；僅改顯示文字，**DB 欄位仍維持 `free_coins`／`premium_coins`**。
@@ -76,16 +84,7 @@
 - **酒館禁言時效**：`banTavernUserAction` 改為 `durationHours: 1 | 3 | 24`；`TavernModal` 長按他人訊息可選 `1/3/24` 小時禁言；成功 toast 顯示「已禁言 {nickname} {hours} 小時」；並寫入系統信件「🔇 你已被禁止在酒館發言 {hours} 小時，原因：{reason}」。
 - **`tavern_bans.expires_at`**：Layer 2 `isTavernBanned` 改為「`expires_at IS NULL`（永久）或 `expires_at > now`（時效內）」判斷；`insertTavernBan` 寫入對應到期時間；遷移 `supabase/migrations/20260327143000_tavern_bans_expires_at.sql` 會補 `expires_at timestamptz`（若尚未存在）。
 - **酒館禁言流程補強**：`TavernModal` 長按管理選單改為「先選禁言時數，再輸入必填原因後確認」；`banTavernUserAction` admin log metadata 同步為 `durationHours`，Repository 持續寫入 `expires_at` 並以未過期條件判定禁言。
-- **簽到成功遊戲感彈窗**：`src/services/daily-checkin.action.ts` 之 **`ClaimDailyCheckinResult`** 成功分支為 **`{ ok: true; freeCoinsEarned: number }`**（探險幣隨機區間見系統設定 **`checkin_free_coins_min`／`max`**，**`creditCoins`** 失敗時可為 **0**）。`src/components/profile/guild-profile-home.tsx`：狀態 **`showCheckinModal`**、**`checkinCoins`**；**`CHECKIN_MESSAGES`** 含 **`bgFrom`／`bgTo`**（Tailwind 漸層）與 **`getCheckinMessage(coins)`**（**`>9`** 預設 🌈 史詩文案）；成功後 **`setCheckinCoins(result.freeCoinsEarned ?? 1)`**、開 **Dialog**（emoji **`animate-bounce`**、**+1 EXP**／探險幣列、膠囊確認鈕），**無**簽到成功 **toast**。
-  - `1` 🎲 普通的一天
-  - `2` 🌱 小苗發芽
-  - `3` ⭐ 不錯喔！
-  - `4` ✨ 閃閃發光
-  - `5` 🎯 剛剛好！
-  - `6` 🍀 幸運草出現！
-  - `7` 🌟 超級幸運！
-  - `8` 🎊 大豐收！！
-  - `9` 🔥 傳奇運氣！！！
+- **簽到成功 UI（已由 Wave 1 取代）**：現行見上方 **「Wave 1 — 七日報到簿…」**；舊版隨機幣＋**`CHECKIN_MESSAGES`** 已移除。**`/admin/settings`** 的簽到幣權重格子仍可能寫入 DB，但 **簽到邏輯不再讀取**。
 
 ### Wave C 金幣統計與操作稽核（2026-03-27）
 
@@ -197,10 +196,10 @@
 | Keep-alive（監控／喚醒） | **`GET /api/ping`** — `src/app/api/ping/route.ts` 回傳 **`{ ok: true, time }`**（**`time`** 為伺服器 **`toISOString()`**）；供 Uptime、cron 或緩解無伺服器冷啟動 |
 | 補名冊（含 IG） | `src/services/adventurer-profile.action.ts`（註冊 insert **不帶 `bio`**） |
 | 讀取他人 profile（Modal） | **`src/services/profile.action.ts`** — **`getMyProfileAction`**、**`getMemberProfileByIdAction`**（冒險團血盟詳情等） |
-| 每日簽到 +1 EXP | `src/services/daily-checkin.action.ts`（**`claimDailyCheckin`**；冷卻 **`users.last_checkin_at`**）；成功回傳 **`freeCoinsEarned`**（探險幣 **`creditCoins`** **`source: checkin`**）；成功後靜默 **`restoreActivityOnCheckin`**（**`active`** + 信譽 **+1** 上限 **100**）；**`updateLastCheckinAt`** 見 `user.repository.ts`；**`insertExpLog`（`delta`+`delta_exp`）** 見 `exp.repository.ts`；機讀錯誤 **`DAILY_CHECKIN_ALREADY_CLAIMED`**（**`already_claimed`**）見 `daily-checkin.ts`；**`taipeiCalendarDateKey()`** 仍供其他日曆日用途，**簽到判斷已不採用**；首頁成功 UI 見 **`guild-profile-home`** **簽到遊戲感 Dialog**（見上方「簽到成功遊戲感彈窗」） |
+| 每日簽到／連簽／盲盒 | **`claimDailyCheckin`**、**`getMyStreakAction`**（`daily-checkin.action.ts`）；冷卻 **`users.last_checkin_at`**；連簽與 **48h 斷簽** 見 **`login_streaks`**（**`streak.repository`**）；固定 EXP／幣表＋第 7 天 **`drawFromPool('loot_box')`**（**`prize-engine.ts`**）；**`restoreActivityOnCheckin`**／**`updateLastCheckinAt`**；**`insertExpLog`** 觸發器累加 **`total_exp`**；成功回傳 **`streakDay`／`expEarned`／`coinsEarned`／`lootBox`**；首頁 UI 見 **`guild-profile-home`**（七格、盲盒翻面 Dialog） |
 | 編輯自介／分域自白／**`instagram_handle`**／IG 公開／心情 | `src/services/profile-update.action.ts`（**支援部分欄位 patch**；**`mood`** 時更新 **`mood_at`**；**`bio_village`**／**`bio_market`**；**`instagram_handle`** 經 **`instagramHandleSchema`**；空字串寫入 **null**） |
 | IG 變更申請／審核 | `src/services/ig-request.action.ts`（**`requestIgChangeAction`**、**`reviewIgRequestAction`**、**`getPendingIgRequestsAction`**）→ **`src/lib/repositories/server/ig-request.repository.ts`**（**admin client** 寫入 **`ig_change_requests`**、核准時更新 **`users.instagram_handle`**） |
-| 管理員後台 | **src/app/(admin)/layout.tsx**（獨立 layout、sidebar；根層 **`text-gray-900`** + **`[color-scheme:light]`**）；**/admin**（儀表板 **`page.tsx`** 為 client：統計卡 **`router.push`** 至 **`/admin/users?filter=…`**／**`/admin/reports?filter=pending`** 等）、**/admin/users**（**`searchParams.filter`**：`today`／`pending`／`active`／`ig_pending`；見檔末變更紀錄）、**/admin/invitations**、**/admin/exp**、**/admin/publish**、**/admin/reports**、**/admin/roles**（master only）、**/admin/settings**（Wave 2） |
+| 管理員後台 | **src/app/(admin)/layout.tsx**（獨立 layout、sidebar；根層 **`text-gray-900`** + **`[color-scheme:light]`**）；**/admin**（儀表板 **`page.tsx`** 為 client：統計卡 **`router.push`** 至 **`/admin/users?filter=…`**／**`/admin/reports?filter=pending`** 等）、**/admin/users**（**`searchParams.filter`**：`today`／`pending`／`active`／`ig_pending`；見檔末變更紀錄）、**/admin/invitations**、**/admin/exp**、**/admin/prizes**（獎池／抽獎紀錄）、**/admin/publish**、**/admin/reports**、**/admin/roles**（master only）、**/admin/settings**（Wave 2） |
 | 邀請碼管理（Layer 2） | **src/lib/repositories/server/invitation.repository.ts**（**`findAllInvitationCodes`**、**`findInvitationRowByCode`**、**`findInvitationByCode`**、**`findInvitationUsesByCodeId`**、**`insertInvitationCode`**/**`insertInvitationCodes`**（**`max_uses`**）、**`revokeInvitationCode`**／**`revokeUnusedInvitationCodes`**（**`use_count = 0`**）、**`claimInvitationCode`**（RPC）、**`findInvitationTree`**、**`findSystemSettingByKey`**） |
 | 邀請碼（前台 Layer 3） | **src/services/invitation.action.ts**（**`validateInvitationCodeAction`**、**`claimInvitationCodeAction`**） |
 | 公告管理（Layer 2） | **src/lib/repositories/server/announcement.repository.ts**（**`findAllAnnouncements`**、**`findActiveAnnouncements`**、**`insertAnnouncement`**、**`updateAnnouncement`**、**`deleteAnnouncement`**） |

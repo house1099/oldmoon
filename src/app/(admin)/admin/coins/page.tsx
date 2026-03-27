@@ -57,6 +57,7 @@ function formatTaipeiTime(iso: string) {
 
 const SOURCE_LABEL: Record<CoinTransactionRow["source"], string> = {
   checkin: "簽到",
+  loot_box: "公會盲盒",
   admin_grant: "管理贈與",
   admin_deduct: "管理扣除",
   shop_purchase: "商城消費",

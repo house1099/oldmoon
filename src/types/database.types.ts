@@ -2,7 +2,7 @@
  * 與 Supabase `public` schema 對齊的型別（手動維護，請在雲端 Schema 變更後同步更新）。
  * 表：users, exp_logs, likes, alliances（雙人血盟）, conversations, chat_messages, blocks, reports, messages, notifications, ig_change_requests,
  *     admin_actions, moderator_permissions, system_settings, advertisements, ad_clicks, invitation_codes, invitation_code_uses, announcements,
- *     tavern_messages, tavern_bans
+ *     tavern_messages, tavern_bans, login_streaks, prize_pools, prize_items, prize_logs, user_rewards
  */
 
 export type Json =
@@ -997,6 +997,7 @@ export interface Database {
           balance_after: number;
           source:
             | "checkin"
+            | "loot_box"
             | "admin_grant"
             | "admin_deduct"
             | "shop_purchase"
@@ -1017,6 +1018,7 @@ export interface Database {
           balance_after: number;
           source:
             | "checkin"
+            | "loot_box"
             | "admin_grant"
             | "admin_deduct"
             | "shop_purchase"
@@ -1036,6 +1038,7 @@ export interface Database {
           balance_after?: number;
           source?:
             | "checkin"
+            | "loot_box"
             | "admin_grant"
             | "admin_deduct"
             | "shop_purchase"
@@ -1053,6 +1056,193 @@ export interface Database {
             foreignKeyName: "coin_transactions_user_id_fkey";
             columns: ["user_id"];
             referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      login_streaks: {
+        Row: {
+          id: string;
+          user_id: string;
+          current_streak: number;
+          longest_streak: number;
+          last_claim_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          current_streak?: number;
+          longest_streak?: number;
+          last_claim_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          current_streak?: number;
+          longest_streak?: number;
+          last_claim_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "login_streaks_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      prize_pools: {
+        Row: {
+          id: string;
+          pool_type: string;
+          label: string;
+          description: string | null;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          pool_type: string;
+          label: string;
+          description?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          pool_type?: string;
+          label?: string;
+          description?: string | null;
+          is_active?: boolean;
+        };
+        Relationships: [];
+      };
+      prize_items: {
+        Row: {
+          id: string;
+          pool_id: string;
+          reward_type: string;
+          label: string;
+          min_value: number | null;
+          max_value: number | null;
+          weight: number;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          pool_id: string;
+          reward_type: string;
+          label: string;
+          min_value?: number | null;
+          max_value?: number | null;
+          weight?: number;
+          is_active?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          reward_type?: string;
+          label?: string;
+          min_value?: number | null;
+          max_value?: number | null;
+          weight?: number;
+          is_active?: boolean;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "prize_items_pool_id_fkey";
+            columns: ["pool_id"];
+            referencedRelation: "prize_pools";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      prize_logs: {
+        Row: {
+          id: string;
+          user_id: string;
+          pool_id: string;
+          item_id: string;
+          pool_type: string;
+          reward_type: string;
+          reward_value: number | null;
+          label: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          pool_id: string;
+          item_id: string;
+          pool_type: string;
+          reward_type: string;
+          reward_value?: number | null;
+          label: string;
+          created_at?: string;
+        };
+        Update: {
+          reward_value?: number | null;
+          label?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "prize_logs_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "prize_logs_pool_id_fkey";
+            columns: ["pool_id"];
+            referencedRelation: "prize_pools";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "prize_logs_item_id_fkey";
+            columns: ["item_id"];
+            referencedRelation: "prize_items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      user_rewards: {
+        Row: {
+          id: string;
+          user_id: string;
+          reward_type: string;
+          item_ref_id: string | null;
+          label: string;
+          is_equipped: boolean;
+          used_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          reward_type: string;
+          item_ref_id?: string | null;
+          label: string;
+          is_equipped?: boolean;
+          used_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          reward_type?: string;
+          item_ref_id?: string | null;
+          label?: string;
+          is_equipped?: boolean;
+          used_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_rewards_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_rewards_item_ref_id_fkey";
+            columns: ["item_ref_id"];
+            referencedRelation: "prize_items";
             referencedColumns: ["id"];
           },
         ];
@@ -1142,6 +1332,11 @@ export type InvitationCodeUseRow = PublicTables["invitation_code_uses"]["Row"];
 export type AnnouncementRow = PublicTables["announcements"]["Row"];
 export type CoinTransactionRow = PublicTables["coin_transactions"]["Row"];
 export type TopupOrderRow = PublicTables["topup_orders"]["Row"];
+export type LoginStreakRow = PublicTables["login_streaks"]["Row"];
+export type PrizePoolRow = PublicTables["prize_pools"]["Row"];
+export type PrizeItemRow = PublicTables["prize_items"]["Row"];
+export type PrizeLogRow = PublicTables["prize_logs"]["Row"];
+export type UserRewardRow = PublicTables["user_rewards"]["Row"];
 
 export type TavernMessageRow = PublicTables["tavern_messages"]["Row"];
 export type TavernBanRow = PublicTables["tavern_bans"]["Row"];

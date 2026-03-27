@@ -18,6 +18,7 @@ import {
   X,
   LogOut,
   ChevronLeft,
+  Sparkles,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { ModeratorPermissionRow } from "@/types/database.types";
@@ -69,6 +70,12 @@ export function AdminShell({
         isMaster ||
         Boolean(permissions?.can_grant_exp) ||
         Boolean(permissions?.can_deduct_exp),
+    },
+    {
+      href: "/admin/prizes",
+      label: "🎰 獎池管理",
+      Icon: Sparkles,
+      show: isMaster || role === "moderator",
     },
     {
       href: "/admin/publish",

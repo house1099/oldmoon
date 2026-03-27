@@ -156,7 +156,7 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith("/admin/audit") && role !== "master") {
       return NextResponse.redirect(new URL("/admin", request.url));
     }
-    const moderatorAllowed = ["/admin", "/admin/users", "/admin/invitations", "/admin/exp", "/admin/publish", "/admin/reports"];
+    const moderatorAllowed = ["/admin", "/admin/users", "/admin/invitations", "/admin/exp", "/admin/prizes", "/admin/publish", "/admin/reports"];
     if (
       role === "moderator" &&
       !moderatorAllowed.includes(pathname)

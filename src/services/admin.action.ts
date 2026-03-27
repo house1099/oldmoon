@@ -57,6 +57,14 @@ import {
   findUsersWithCoins,
   findCoinTransactions,
 } from "@/lib/repositories/server/coin.repository";
+import {
+  findAllPools,
+  findAllItemsByPoolId,
+  updatePrizeItem,
+  togglePrizeItem,
+  findPrizeLogs,
+  updatePool,
+} from "@/lib/repositories/server/prize.repository";
 import { DEFAULT_MODERATOR_PERMISSIONS } from "@/lib/constants/admin-permissions";
 import type {
   UserRow,
@@ -71,6 +79,8 @@ import type {
   AdvertisementRow,
   CoinTransactionRow,
   AdminActionRow,
+  PrizePoolRow,
+  PrizeItemRow,
 } from "@/types/database.types";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
 import { isTavernBanned } from "@/lib/repositories/server/tavern.repository";
@@ -1636,6 +1646,124 @@ export async function getRecentCoinTransactionsAction(): Promise<
         user: userMap.get(row.user_id) ?? { nickname: "（未知）", avatar_url: null },
       })),
     };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function getPrizePoolsAction(): Promise<
+  ActionResult<PrizePoolRow[]>
+> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const rows = await findAllPools();
+    return { ok: true, data: rows };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function getPrizeItemsAction(
+  poolId: string,
+): Promise<ActionResult<PrizeItemRow[]>> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const rows = await findAllItemsByPoolId(poolId);
+    return { ok: true, data: rows };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function updatePrizeItemAction(
+  id: string,
+  data: {
+    label?: string;
+    weight?: number;
+    min_value?: number | null;
+    max_value?: number | null;
+  },
+): Promise<ActionResult<void>> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const patch: {
+      label?: string;
+      weight?: number;
+      min_value?: number | null;
+      max_value?: number | null;
+    } = {};
+    if (data.weight !== undefined) {
+      const w = Math.floor(Number(data.weight));
+      if (!Number.isFinite(w) || w < 1) {
+        return { ok: false, error: "權重須為 ≥1 的整數" };
+      }
+      patch.weight = w;
+    }
+    if (data.label !== undefined) {
+      const t = data.label.trim();
+      if (!t) return { ok: false, error: "標籤不可為空" };
+      patch.label = t;
+    }
+    if (data.min_value !== undefined) patch.min_value = data.min_value;
+    if (data.max_value !== undefined) patch.max_value = data.max_value;
+    if (
+      patch.min_value != null &&
+      patch.max_value != null &&
+      patch.min_value > patch.max_value
+    ) {
+      return { ok: false, error: "min 不可大於 max" };
+    }
+    await updatePrizeItem(id, patch);
+    revalidatePath("/admin/prizes");
+    return { ok: true, data: undefined };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function togglePrizeItemAction(
+  id: string,
+  is_active: boolean,
+): Promise<ActionResult<void>> {
+  try {
+    await requireRole(["master", "moderator"]);
+    await togglePrizeItem(id, is_active);
+    revalidatePath("/admin/prizes");
+    return { ok: true, data: undefined };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function togglePrizePoolAction(
+  id: string,
+  is_active: boolean,
+): Promise<ActionResult<void>> {
+  try {
+    await requireRole(["master", "moderator"]);
+    await updatePool(id, { is_active });
+    revalidatePath("/admin/prizes");
+    return { ok: true, data: undefined };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function getPrizeLogsAction(params?: {
+  poolType?: string;
+  page?: number;
+}): Promise<ActionResult<Awaited<ReturnType<typeof findPrizeLogs>>>> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const page = Math.max(1, params?.page ?? 1);
+    const limit = 50;
+    const offset = (page - 1) * limit;
+    const rows = await findPrizeLogs({
+      poolType: params?.poolType,
+      limit,
+      offset,
+    });
+    return { ok: true, data: rows };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
   }
