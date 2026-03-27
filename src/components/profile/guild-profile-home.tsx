@@ -435,15 +435,6 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
     return () => clearInterval(timer);
   }, [checkinDone, profile.last_checkin_at]);
 
-  useEffect(() => {
-    if (!cropSrc) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [cropSrc]);
-
   const onCropComplete = useCallback((_area: Area, pixels: Area) => {
     setCroppedAreaPixels(pixels);
   }, []);
@@ -1531,59 +1522,104 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         </DialogContent>
       </Dialog>
 
-      {/* 頭像裁切 Modal — 全螢幕；flex 分配高度，底部按鈕 flex-shrink-0 不會被擠出視窗 */}
-      {cropSrc ? (
-        <div
-          className="fixed inset-0 z-[9999] flex h-dvh flex-col bg-black"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="avatar-crop-hint"
-        >
-          <div className="flex-shrink-0 py-3 text-center">
-            <p
-              id="avatar-crop-hint"
-              className="text-sm text-zinc-400"
+      {cropSrc && (
+        <>
+          <style>{`body { overflow: hidden; }`}</style>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="調整頭像"
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 99999,
+              backgroundColor: "black",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <div
+              style={{
+                flexShrink: 0,
+                textAlign: "center",
+                padding: "12px",
+                color: "#a1a1aa",
+                fontSize: "14px",
+              }}
             >
               拖曳與縮放，圓形區域即為裁切範圍
-            </p>
-          </div>
+            </div>
 
-          <div className="relative min-h-0 flex-1">
-            <Cropper
-              image={cropSrc}
-              crop={crop}
-              zoom={zoom}
-              aspect={1}
-              cropShape="round"
-              showGrid={false}
-              onCropChange={setCrop}
-              onZoomChange={setZoom}
-              onCropComplete={onCropComplete}
-            />
-          </div>
+            <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
+              <Cropper
+                image={cropSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid={false}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            </div>
 
-          <div
-            className="flex flex-shrink-0 gap-3 bg-black px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
-          >
-            <button
-              type="button"
-              onClick={closeCropModal}
-              disabled={uploading}
-              className="flex-1 rounded-full bg-zinc-800 py-3.5 text-sm font-medium text-zinc-200"
+            <div
+              style={{
+                flexShrink: 0,
+                position: "relative",
+                zIndex: 10,
+                display: "flex",
+                gap: "12px",
+                padding: "16px 24px",
+                paddingBottom: "max(16px, env(safe-area-inset-bottom))",
+                backgroundColor: "rgba(9, 9, 11, 0.95)",
+              }}
             >
-              取消
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleCropConfirm()}
-              disabled={uploading || !croppedAreaPixels}
-              className="flex-1 rounded-full bg-violet-600 py-3.5 text-sm font-medium text-white disabled:opacity-60"
-            >
-              {uploading ? "上傳中..." : "確認裁切"}
-            </button>
+              <button
+                type="button"
+                onClick={closeCropModal}
+                disabled={uploading}
+                style={{
+                  flex: 1,
+                  padding: "14px",
+                  borderRadius: "9999px",
+                  backgroundColor: "#3f3f46",
+                  color: "#e4e4e7",
+                  fontSize: "14px",
+                  fontWeight: 500,
+                  border: "none",
+                  cursor: uploading ? "not-allowed" : "pointer",
+                  opacity: uploading ? 0.6 : 1,
+                }}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCropConfirm()}
+                disabled={uploading || !croppedAreaPixels}
+                style={{
+                  flex: 1,
+                  padding: "14px",
+                  borderRadius: "9999px",
+                  backgroundColor:
+                    uploading || !croppedAreaPixels ? "#5b21b6" : "#7c3aed",
+                  color: "white",
+                  fontSize: "14px",
+                  fontWeight: 500,
+                  border: "none",
+                  cursor:
+                    uploading || !croppedAreaPixels ? "not-allowed" : "pointer",
+                  opacity: uploading || !croppedAreaPixels ? 0.6 : 1,
+                }}
+              >
+                {uploading ? "上傳中..." : "確認裁切"}
+              </button>
+            </div>
           </div>
-        </div>
-      ) : null}
+        </>
+      )}
     </main>
   );
 }
