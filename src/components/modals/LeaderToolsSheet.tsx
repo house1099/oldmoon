@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { X, Loader2, ExternalLink } from "lucide-react";
 import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
@@ -52,7 +53,7 @@ export default function LeaderToolsSheet({
     });
   }, [open, targetUserId]);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
   const isSelf = targetUserId === currentUserId;
   const igHandle = profile?.instagram_handle?.trim() || null;
@@ -139,16 +140,21 @@ export default function LeaderToolsSheet({
     }
   }
 
-  return (
-    <>
-      {/* Backdrop */}
+  /**
+   * Portal 至 body：`UserDetailModal` 的 Dialog 掛在 body 且 z≈800–920；若 Sheet 留在 Modal 的 React 樹內會困在
+   * ChatModal（z-900）等父層 stacking context，z-830/840 無法蓋過 Dialog。此處用 body portal + 更高 z-index。
+   * 外層 `data-no-chat-inert`：ChatModal 對 body 子節點設 inert 時略過，避免無法點擊。
+   */
+  return createPortal(
+    <div data-no-chat-inert="1" data-leader-tools-portal="1">
+      {/* Backdrop — 須高於 UserDetailModal content（最高約 z-920）與 ChatModal（900） */}
       <div
-        className="fixed inset-0 z-[830] bg-black/50"
+        className="fixed inset-0 z-[940] bg-black/50"
         onClick={onClose}
       />
 
       {/* Sheet */}
-      <div className="fixed inset-y-0 right-0 z-[840] w-80 max-w-[calc(100vw-2rem)] bg-zinc-950 border-l border-zinc-800 shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-200 pt-[max(1.5rem,env(safe-area-inset-top))]">
+      <div className="fixed inset-y-0 right-0 z-[950] w-80 max-w-[calc(100vw-2rem)] bg-zinc-950 border-l border-zinc-800 shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-200 pt-[max(1.5rem,env(safe-area-inset-top))]">
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-4 py-3 backdrop-blur">
           <h2 className="text-sm font-bold text-amber-100">
@@ -295,7 +301,7 @@ export default function LeaderToolsSheet({
       {/* Ban Confirm Dialog */}
       {showBanConfirm && (
         <div
-          className="fixed inset-0 z-[860] flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-[960] flex items-center justify-center bg-black/60 p-4"
           onClick={() => setShowBanConfirm(false)}
         >
           <div
@@ -337,7 +343,7 @@ export default function LeaderToolsSheet({
       {/* Unban Confirm Dialog */}
       {showUnbanConfirm && (
         <div
-          className="fixed inset-0 z-[860] flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-[960] flex items-center justify-center bg-black/60 p-4"
           onClick={() => setShowUnbanConfirm(false)}
         >
           <div
@@ -365,6 +371,7 @@ export default function LeaderToolsSheet({
           </div>
         </div>
       )}
-    </>
+    </div>,
+    document.body,
   );
 }

@@ -29,7 +29,7 @@
 ### 前台 Bug 修復紀錄（2026-03-26）
 
 1. **`UserDetailModal` IG 區塊**：顯示條件 SSOT — 僅在 **`instagram_handle` 有值** 且（**`ig_public === true`** 或 **血盟 `allianceStatus === 'accepted'`**）時渲染；**`ig_public === false` 且非血盟**時不顯示 IG。
-2. **`/guild` 信件（`MailBox`）**：通知卡片可點；**`Dialog`** 顯示詳情（發送者頭像＋暱稱、依 **`type`** 的完整文案或 **`message`**、台北時間 **`Intl` `Asia/Taipei`**）、**「查看對方資料」**（**`getMemberProfileByIdAction`** → **`UserDetailModal`**，無 **`from_user_id`** 則無按鈕）；關閉 Modal 時若未讀則 **`markNotificationReadAction(id)`** 單筆已讀並 **`mutate` SWR**。層級：**通知 Modal** **`z-[200]`／`z-[210]`**；**`UserDetailModal`** **`z-[800]`／`z-[810]`**；取消緣分底欄 **`z-[820]`**；**`LeaderToolsSheet`** **`z-[830]`／`z-[840]`**（確認對話 **`z-[850]`**）；**`ChatModal`** **`z-[700]`／`z-[720]`**（**`UserDetailModal`** 自聊天內開啟時疊於其上，**`z-[800]+`**）。**`Dialog`** 的 overlay／popup 帶 **`data-no-chat-inert`**，避免 **ChatModal** 對 **`body`** 子節點設 **`inert`** 時誤傷疊加的 Dialog。**`DialogContent`** 支援可選 **`overlayClassName`**。
+2. **`/guild` 信件（`MailBox`）**：通知卡片可點；**`Dialog`** 顯示詳情（發送者頭像＋暱稱、依 **`type`** 的完整文案或 **`message`**、台北時間 **`Intl` `Asia/Taipei`**）、**「查看對方資料」**（**`getMemberProfileByIdAction`** → **`UserDetailModal`**，無 **`from_user_id`** 則無按鈕）；關閉 Modal 時若未讀則 **`markNotificationReadAction(id)`** 單筆已讀並 **`mutate` SWR**。層級：**通知 Modal** **`z-[200]`／`z-[210]`**；**`UserDetailModal`** **`z-[800]`／`z-[810]`**；取消緣分底欄 **`z-[820]`**；**`LeaderToolsSheet`**（**portal `body`**，**`z-[940]`／`z-[950]`**；確認 **`z-[960]`**）；**`ChatModal`** **`z-[700]`／`z-[720]`**（**`UserDetailModal`** 自聊天內開啟時疊於其上，**`z-[800]+`**）。**`Dialog`** 的 overlay／popup 帶 **`data-no-chat-inert`**，避免 **ChatModal** 對 **`body`** 子節點設 **`inert`** 時誤傷疊加的 Dialog。**`DialogContent`** 支援可選 **`overlayClassName`**。
 3. **首頁今日心情**：**`guild-profile-home.tsx`** 僅保留**一處**獨立區塊（**`placeholder="今天的心情是..."`**）；移除覆蓋式「趕快填寫…」占位層與 **`text-transparent`** 雙層視覺，避免像兩個心情區塊；樣式維持 **`rounded-3xl`**、**`border-violet-500/30`**、**`bg-violet-950/40`**、**`backdrop-blur-xl`**、紫微 **`box-shadow`**。
 4. **`UserCard`／`UserDetailModal` 完全重構（深色奢華、極簡層次）**：
    - **實作位置**：**`src/components/ui/UserCard.tsx`**（**`src/components/cards/UserCard.tsx`** 僅 re-export）；**`LevelBadge`** — **`src/components/ui/LevelBadge.tsx`**。
@@ -41,7 +41,7 @@
 
 - **從 `UserDetailModal` 開 `ChatModal` 被遮擋**：**`ChatModal`** 新增可選 **`zIndex`**（預設 **700**）；**`UserDetailModal`** 內傳 **`zIndex={900}`**，底層全螢幕遮罩 **zIndex−10（890）**、主面板 **900**；檢舉浮層 **zIndex+20**。**`/guild`** 等維持預設 **700**。
 - **自抬高層級 `ChatModal` 再開 `UserDetailModal`（點對方頭像）**：**`UserDetailModal`** 支援 **`stackAboveChatZ`**；**`DialogContent`** 支援 **`overlayStyle`／`contentStyle`**（inline **z-index**：overlay **stack+10**、content **stack+20**），避免被 **z-900** 聊天蓋住。
-- **`LeaderToolsSheet`**：backdrop／sheet 維持 **`z-[830]`／`z-[840]`**；放逐／解除確認對話框改 **`z-[860]`**（高於 sheet **840**）。
+- **`LeaderToolsSheet`**：**`createPortal` → `document.body`**（外層 **`data-no-chat-inert`**，避免 **ChatModal** 對 body 設 **inert** 時無法操作）；backdrop／sheet **`z-[940]`／`z-[950]`**（須蓋過 **UserDetailModal** Dialog 與抬高後 **ChatModal**）；放逐／解除確認 **`z-[960]`**。
 - **`AuthStatus`** 新增 **`kind: 'pending'`**（**`users.status === 'pending'`**）。**`middleware.ts`**：待審核用戶僅能停留 **`/register/pending`**，其餘路徑導向該頁；已 **active** 者造訪 **`/register/pending`** 導回 **`/`**。**`matcher`** 註解標示含該路徑。
 - **`/register/pending`**：**`glass-panel`** 說明文案＋**`PendingLogoutButton`**（**`supabase.auth.signOut()`** → **`/login`**）；屬 **`(auth)/layout`**，無 **`(app)`** 底欄。
 - **建檔**：**`completeAdventurerProfile`** 寫入 **`status: 'pending'`**；成功後 **`router.push('/register/pending')`**（不再直跳興趣 onboarding，待審核通過後由 middleware 放行 **`/`** 再補標籤流程）。
@@ -229,7 +229,7 @@
 | 月老／商店預留 | `src/app/(app)/matchmaking/page.tsx`、`src/app/(app)/shop/page.tsx`（**即將開放**） |
 | 舊路由轉址 | **`/village`**、**`/market`** → **`/explore`**；**`/alliances`**、**`/inbox`** → **`/guild`** |
 | 使用者詳情 Modal | **`UserDetailModal.tsx`**：**永遠顯示完整自白／興趣／技能**（可捲動區）；**IG** 僅在 **`instagram_handle` 有值** 且（**`ig_public === true`** 或 **血盟 `accepted`**）時顯示；**「開啟」** 外連（**`instagram.ts`** strip **`@`**）；頂部 **今日心情**（**`mood` + `mood_at` 24h 內**）、**`activity_status`** 角標；關閉 **`ChatModal`** 時 **`mutate`** **`conversations`／`unreadChatConversations`**；**master** 信譽條（**<30** **⚠️**）＋**`LeaderToolsSheet`**；自訂關閉鈕（**`showCloseButton={false}`**）；層級 **`z-[800]`／`z-[810]`**；從 **`ChatModal`** 點對方訊息頭像可再開詳情（**`dynamic` 載入**避免與 **`ChatModal`** 循環依賴） |
-| 領袖快捷面板 | **`src/components/modals/LeaderToolsSheet.tsx`**（僅 **master** 可見；從 **`UserDetailModal`** 觸發；右側滑出 **`w-80` `z-[830]`／`z-[840]`**） |
+| 領袖快捷面板 | **`src/components/modals/LeaderToolsSheet.tsx`**（僅 **master** 可見；**`createPortal` → `body`**；右側滑出 **`w-80`**，**`z-[940]`／`z-[950]`**） |
 | 私訊全螢幕 UI | **`ChatModal.tsx`**（**`z-[700]`**）：對方訊息頭像 **`cursor-pointer`**，**`getMemberProfileByIdAction(sender_id)`** 載入後開 **`UserDetailModal`（`z-[800]+`）**；載入中該頭像 **`opacity-60`** 並防連點；己方頭像不點擊；送出／開啟讀取後／**Realtime INSERT** 皆 **`mutate(SWR_KEYS.conversations)`**＋**`unreadChatConversations`** |
 | 有緣分＋互讚／Modal 合併載入 | **`src/services/social.action.ts`**（**`getModalSocialStatusAction`**：一次 **`auth.getUser()`** + **`Promise.all`**：**`findLike`** 雙向 + **`findAllianceBetween`**；仍含 **`getLikeStatusForTargetAction`**／**`checkMutualLikeWithTargetAction`**／**`toggleLikeAction`**） |
 | 技能市集（邏輯） | `src/services/market.service.ts`（**`getMarketUsersAction`**：Perfect Match → 互補 → 同好 → **等級**；**`getCachedMySkills`** **`unstable_cache` 60s** **`tags: profileCacheTag`**、**`unstable_cache` 60s** 快取 **`findMarketUsers`**、**搜尋篩選在列表快取回傳後**）；UI **命定師徒** 文案見 **`MarketContent`** |
@@ -978,7 +978,7 @@ Phase 4 — 市集搜尋快取
 - **Layer 5 — `/admin/exp`**（`'use client'`）三 Tab：① **批量發放**（名稱＋EXP 數量＋發放對象三選：勾選用戶搜尋列表 / 全體 active（master only 黃色警告） / 指定等級範圍；AlertDialog 確認摘要；執行結果成功 N / 失敗 N）② **發放紀錄**（依 source 分組展開）③ **用戶查詢**（搜尋暱稱 → 完整 exp_logs 分頁表：時間、來源、EXP 變動、unique_key）。
 - **Sidebar**：新增 **🎁 EXP 管理** 於邀請碼管理之後（master + moderator）。
 - **Middleware**：`moderatorAllowed` 新增 **`/admin/exp`**。
-- **前台領袖快捷面板**：**`UserDetailModal.tsx`** 當 **`myProfile.role === 'master'`** 時 DialogFooter 底部顯示 **「⚡ 領袖工具」** 按鈕；點擊開啟 **`LeaderToolsSheet.tsx`**（固定右側滑出 **`w-80`**，**`z-[830]`／`z-[840]`**）；載入時 **`getMemberProfileByIdAction`** 取完整資料（含 IG）。
+- **前台領袖快捷面板**：**`UserDetailModal.tsx`** 當 **`myProfile.role === 'master'`** 時 DialogFooter 底部顯示 **「⚡ 領袖工具」** 按鈕；點擊開啟 **`LeaderToolsSheet.tsx`**（**portal `body`**，**`z-[940]`／`z-[950]`**）；載入時 **`getMemberProfileByIdAction`** 取完整資料（含 IG）。
   - **📸 Instagram**：強制顯示 **`instagram_handle`**（不受 `ig_public` 限制）＋外連按鈕。
   - **⭐ 快速發放 EXP**：數量 1–1000 ＋理由（必填）→ **`adjustExpAction`** → toast。
   - **📨 發送邀請碼**：**`generateInvitationCodeAction`** → **`getOrCreateConversationAction`** → **`sendMessageAction`** 自動私訊邀請碼。
