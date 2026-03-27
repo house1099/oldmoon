@@ -18,7 +18,7 @@ export function EquipmentFab() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="開啟裝備欄"
-        className="fixed bottom-36 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-zinc-600/50 bg-zinc-800 text-xl shadow-lg shadow-black/30 transition-transform active:scale-95"
+        className="fixed bottom-45 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-zinc-600/50 bg-zinc-800 text-xl shadow-lg shadow-black/30 transition-transform active:scale-95"
       >
         ⚔️
       </button>
