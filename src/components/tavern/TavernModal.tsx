@@ -14,6 +14,7 @@ import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
 import { useMyProfile } from "@/hooks/useMyProfile";
 import { useTavern } from "@/hooks/useTavern";
 import {
+  banTavernUserAction,
   deleteTavernMessageAction,
   getMyTavernBanStatusAction,
   sendTavernMessageAction,
@@ -79,7 +80,7 @@ export function TavernModal({
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [stickersOpen, setStickersOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<TavernMessageDto | null>(
+  const [actionTarget, setActionTarget] = useState<TavernMessageDto | null>(
     null,
   );
   const [tavernProfileUser, setTavernProfileUser] = useState<UserRow | null>(
@@ -89,7 +90,8 @@ export function TavernModal({
   const bottomRef = useRef<HTMLDivElement>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isMaster = profile?.role === "master";
+  const canModerate =
+    profile?.role === "master" || profile?.role === "moderator";
   const myId = profile?.id;
 
   useEffect(() => {
@@ -101,7 +103,7 @@ export function TavernModal({
     if (!open) {
       setInput("");
       setStickersOpen(false);
-      setDeleteTarget(null);
+      setActionTarget(null);
       setTavernProfileOpen(false);
       setTavernProfileUser(null);
     }
@@ -144,29 +146,45 @@ export function TavernModal({
     }
   };
 
-  const confirmDelete = async () => {
-    if (!deleteTarget) return;
+  const handleDeleteMessage = async () => {
+    if (!actionTarget) return;
     try {
-      await deleteTavernMessageAction(deleteTarget.id);
+      await deleteTavernMessageAction(actionTarget.id);
       toast.success("已刪除訊息");
       void mutate();
     } catch (e) {
       toast.error((e as Error).message ?? "刪除失敗");
     } finally {
-      setDeleteTarget(null);
+      setActionTarget(null);
+    }
+  };
+
+  const handleBanUser = async (hours: 1 | 3 | 24) => {
+    if (!actionTarget) return;
+    try {
+      await banTavernUserAction({
+        userId: actionTarget.user_id,
+        reason: "酒館管理操作",
+        durationHours: hours,
+      });
+      toast.success(`已禁言 ${actionTarget.user.nickname} ${hours} 小時`);
+      setActionTarget(null);
+      void mutate();
+    } catch (e) {
+      toast.error((e as Error).message ?? "禁言失敗");
     }
   };
 
   const startLongPress = useCallback(
-    (msg: TavernMessageDto) => {
-      if (!isMaster) return;
+    (msg: TavernMessageDto, mine: boolean) => {
+      if (!canModerate || mine) return;
       clearLongPress();
       longPressTimer.current = setTimeout(() => {
         longPressTimer.current = null;
-        setDeleteTarget(msg);
+        setActionTarget(msg);
       }, 550);
     },
-    [isMaster, clearLongPress],
+    [canModerate, clearLongPress],
   );
 
   if (typeof document === "undefined" || !open) return null;
@@ -218,23 +236,23 @@ export function TavernModal({
                   >
                     <div className="flex min-w-0 flex-col items-end">
                       <div
-                        role={isMaster ? "button" : undefined}
-                        tabIndex={isMaster ? 0 : undefined}
+                        role={canModerate ? "button" : undefined}
+                        tabIndex={canModerate ? 0 : undefined}
                         className="touch-manipulation max-w-[70vw] rounded-2xl rounded-tr-sm bg-violet-700/80 px-3 py-2 text-sm text-white"
-                        onPointerDown={() => startLongPress(m)}
+                        onPointerDown={() => startLongPress(m, mine)}
                         onPointerUp={clearLongPress}
                         onPointerLeave={clearLongPress}
                         onPointerCancel={clearLongPress}
                         onContextMenu={(e) => {
-                          if (!isMaster) return;
+                          if (!canModerate || mine) return;
                           e.preventDefault();
-                          setDeleteTarget(m);
+                          setActionTarget(m);
                         }}
                         onKeyDown={(e) => {
-                          if (!isMaster) return;
+                          if (!canModerate || mine) return;
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            setDeleteTarget(m);
+                            setActionTarget(m);
                           }
                         }}
                       >
@@ -280,23 +298,23 @@ export function TavernModal({
                       <span className="shrink-0">· Lv.{m.user.level}</span>
                     </span>
                     <div
-                      role={isMaster ? "button" : undefined}
-                      tabIndex={isMaster ? 0 : undefined}
+                      role={canModerate ? "button" : undefined}
+                      tabIndex={canModerate ? 0 : undefined}
                       className="touch-manipulation max-w-[70vw] rounded-2xl rounded-tl-sm bg-zinc-800/80 px-3 py-2 text-sm text-zinc-100"
-                      onPointerDown={() => startLongPress(m)}
+                      onPointerDown={() => startLongPress(m, mine)}
                       onPointerUp={clearLongPress}
                       onPointerLeave={clearLongPress}
                       onPointerCancel={clearLongPress}
                       onContextMenu={(e) => {
-                        if (!isMaster) return;
+                        if (!canModerate || mine) return;
                         e.preventDefault();
-                        setDeleteTarget(m);
+                        setActionTarget(m);
                       }}
                       onKeyDown={(e) => {
-                        if (!isMaster) return;
+                        if (!canModerate || mine) return;
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          setDeleteTarget(m);
+                          setActionTarget(m);
                         }
                       }}
                     >
@@ -374,39 +392,36 @@ export function TavernModal({
         </div>
       </div>
 
-      {deleteTarget ? (
+      {actionTarget ? (
         <div className="fixed inset-0 z-[520] flex items-end justify-center bg-black/60 p-4 sm:items-center">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="tavern-delete-title"
-            className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-xl"
-          >
-            <h3
-              id="tavern-delete-title"
-              className="text-base font-semibold text-zinc-100"
-            >
-              刪除此訊息？
-            </h3>
-            <p className="mt-2 text-sm text-zinc-400">
-              此操作無法復原，確定要刪除這則酒館訊息嗎？
+          <div className="flex flex-col gap-2 rounded-2xl border border-zinc-700 bg-zinc-900 p-3">
+            <p className="mb-1 text-xs text-zinc-400">
+              禁言 {actionTarget.user.nickname}
             </p>
-            <div className="mt-4 flex gap-2">
+            {[1, 3, 24].map((hours) => (
               <button
                 type="button"
-                className="flex-1 rounded-xl border border-zinc-700 bg-zinc-900 py-2 text-sm font-medium text-zinc-200"
-                onClick={() => setDeleteTarget(null)}
+                key={hours}
+                onClick={() => void handleBanUser(hours as 1 | 3 | 24)}
+                className="py-1.5 text-left text-sm text-amber-400 transition-colors hover:text-amber-300"
               >
-                取消
+                🔇 禁言 {hours} 小時
               </button>
-              <button
-                type="button"
-                className="flex-1 rounded-xl bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-500"
-                onClick={() => void confirmDelete()}
-              >
-                刪除
-              </button>
-            </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => void handleDeleteMessage()}
+              className="mt-1 border-t border-zinc-700/50 pt-2 py-1.5 text-left text-sm text-red-400 transition-colors hover:text-red-300"
+            >
+              🗑️ 刪除此訊息
+            </button>
+            <button
+              type="button"
+              onClick={() => setActionTarget(null)}
+              className="pt-1 text-center text-xs text-zinc-500 hover:text-zinc-400"
+            >
+              取消
+            </button>
           </div>
         </div>
       ) : null}

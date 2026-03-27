@@ -15,7 +15,7 @@ import {
 import { notifyUserMailboxSilent } from "@/services/notification.action";
 import type { TavernBanRow, TavernMessageDto } from "@/types/database.types";
 
-async function requireMaster() {
+async function requireRole(allowedRoles: ("master" | "moderator")[]) {
   const supabase = createClient();
   const {
     data: { user },
@@ -24,10 +24,36 @@ async function requireMaster() {
     throw new Error("未登入");
   }
   const profile = await findProfileById(user.id);
-  if (!profile || profile.role !== "master") {
+  if (
+    !profile ||
+    !allowedRoles.includes(profile.role as "master" | "moderator")
+  ) {
     throw new Error("權限不足");
   }
   return { user, profile };
+}
+
+async function checkOperationPermission(operatorId: string, targetUserId: string) {
+  const [operator, target] = await Promise.all([
+    findProfileById(operatorId),
+    findProfileById(targetUserId),
+  ]);
+
+  if (!operator || !target) {
+    throw new Error("用戶不存在");
+  }
+
+  const isSelf = operatorId === targetUserId;
+  if (target.role === "master" && !isSelf) {
+    throw new Error("無法對領袖執行此操作");
+  }
+  if (
+    operator.role === "moderator" &&
+    target.role === "moderator" &&
+    !isSelf
+  ) {
+    throw new Error("無法對同級管理員執行此操作");
+  }
 }
 
 export async function getTavernMessagesAction(): Promise<TavernMessageDto[]> {
@@ -85,33 +111,38 @@ export async function getMyTavernBanStatusAction(): Promise<boolean> {
   return isTavernBanned(user.id);
 }
 
-export async function banTavernUserAction(
-  userId: string,
-  reason: string,
-): Promise<void> {
-  const { user } = await requireMaster();
-  const r = reason.trim() || null;
+export async function banTavernUserAction(params: {
+  userId: string;
+  reason: string;
+  durationHours: 1 | 3 | 24;
+}): Promise<void> {
+  const { user } = await requireRole(["master", "moderator"]);
+  await checkOperationPermission(user.id, params.userId);
+  const r = params.reason.trim() || null;
   await insertTavernBan({
-    user_id: userId,
+    user_id: params.userId,
     banned_by: user.id,
     reason: r,
+    durationHours: params.durationHours,
   });
   await insertAdminAction({
     admin_id: user.id,
-    target_user_id: userId,
+    target_user_id: params.userId,
     action_type: "tavern_ban",
     reason: r ?? undefined,
+    metadata: { duration_hours: params.durationHours },
   });
   await notifyUserMailboxSilent({
-    user_id: userId,
+    user_id: params.userId,
     type: "system",
-    message: `🔇 你已被禁止在酒館發言，原因：${r ?? "未說明"}`,
+    message: `🔇 你已被禁止在酒館發言 ${params.durationHours} 小時，原因：${r ?? "未說明"}`,
     is_read: false,
   });
 }
 
 export async function unbanTavernUserAction(userId: string): Promise<void> {
-  const { user } = await requireMaster();
+  const { user } = await requireRole(["master", "moderator"]);
+  await checkOperationPermission(user.id, userId);
   await deleteTavernBan(userId);
   await insertAdminAction({
     admin_id: user.id,
@@ -129,7 +160,7 @@ export async function unbanTavernUserAction(userId: string): Promise<void> {
 export async function deleteTavernMessageAction(
   messageId: string,
 ): Promise<void> {
-  await requireMaster();
+  await requireRole(["master", "moderator"]);
   await deleteTavernMessage(messageId);
 }
 
@@ -138,6 +169,6 @@ export async function getTavernBansAction(): Promise<
     user: { nickname: string; avatar_url: string | null };
   })[]
 > {
-  await requireMaster();
+  await requireRole(["master", "moderator"]);
   return findAllTavernBans();
 }

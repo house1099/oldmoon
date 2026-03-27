@@ -88,6 +88,32 @@ async function requireRole(allowedRoles: ("master" | "moderator")[]) {
   return { user, profile };
 }
 
+async function checkOperationPermission(operatorId: string, targetUserId: string) {
+  const [operator, target] = await Promise.all([
+    findProfileById(operatorId),
+    findProfileById(targetUserId),
+  ]);
+
+  if (!operator || !target) {
+    throw new Error("用戶不存在");
+  }
+
+  const isSelf = operatorId === targetUserId;
+  if (target.role === "master" && !isSelf) {
+    throw new Error("無法對領袖執行此操作");
+  }
+
+  if (
+    operator.role === "moderator" &&
+    target.role === "moderator" &&
+    !isSelf
+  ) {
+    throw new Error("無法對同級管理員執行此操作");
+  }
+
+  return { operator, target };
+}
+
 // ─── Dashboard ───
 
 export async function getDashboardStatsAction() {
@@ -144,6 +170,7 @@ export async function banUserAction(
 ): Promise<ActionResult> {
   try {
     const { user } = await requireRole(["master", "moderator"]);
+    await checkOperationPermission(user.id, userId);
     await updateUserStatus(userId, "banned", reason);
     await insertAdminAction({
       admin_id: user.id,
@@ -170,6 +197,7 @@ export async function suspendUserAction(
 ): Promise<ActionResult> {
   try {
     const { user } = await requireRole(["master", "moderator"]);
+    await checkOperationPermission(user.id, userId);
     await updateUserStatus(userId, "suspended", reason);
     if (suspendedUntil) {
       await updateSuspendedUntil(userId, suspendedUntil);
@@ -196,6 +224,7 @@ export async function suspendUserAction(
 export async function unbanUserAction(userId: string): Promise<ActionResult> {
   try {
     const { user } = await requireRole(["master", "moderator"]);
+    await checkOperationPermission(user.id, userId);
     await updateUserStatus(userId, "active");
     await insertAdminAction({
       admin_id: user.id,
@@ -221,6 +250,7 @@ export async function adjustExpAction(
 ): Promise<ActionResult> {
   try {
     const { user } = await requireRole(["master", "moderator"]);
+    await checkOperationPermission(user.id, userId);
     await adminAdjustExp(userId, delta);
     await insertAdminAction({
       admin_id: user.id,
@@ -252,6 +282,7 @@ export async function adjustReputationAction(
 ): Promise<ActionResult> {
   try {
     const { user } = await requireRole(["master", "moderator"]);
+    await checkOperationPermission(user.id, userId);
     await repoAdjustReputation(userId, delta);
     await insertAdminAction({
       admin_id: user.id,
@@ -423,6 +454,7 @@ export async function updateUserRoleAction(
 ): Promise<ActionResult> {
   try {
     const { user } = await requireRole(["master"]);
+    await checkOperationPermission(user.id, userId);
     await repoUpdateUserRole(userId, role);
 
     if (role === "moderator") {
@@ -1270,6 +1302,7 @@ export async function adminAdjustCoinsAction(params: {
 }): Promise<ActionResult> {
   try {
     const { user } = await requireRole(["master"]);
+    await checkOperationPermission(user.id, params.userId);
     const note = params.note?.trim();
     if (!note) return { ok: false, error: "請填寫原因" };
     const pin = params.pin?.trim();

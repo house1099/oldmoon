@@ -76,14 +76,22 @@ type Props = {
   initialData: { users: UserRow[]; total: number };
   initialFilter?: string;
   viewerIsMaster: boolean;
+  viewerRole: "master" | "moderator" | "member";
 };
 
 type UserDetail = UserRow & { email: string; tavern_banned: boolean };
+
+function canOperate(operatorRole: string, targetRole: string): boolean {
+  if (targetRole === "master") return false;
+  if (operatorRole === "moderator" && targetRole === "moderator") return false;
+  return true;
+}
 
 export default function UsersClient({
   initialData,
   initialFilter = "",
   viewerIsMaster,
+  viewerRole,
 }: Props) {
   const [users, setUsers] = useState(initialData.users);
   const [total, setTotal] = useState(initialData.total);
@@ -291,7 +299,11 @@ export default function UsersClient({
   const handleTavernBan = async () => {
     if (!selectedUser || !tavernBanReason.trim()) return;
     try {
-      await banTavernUserAction(selectedUser.id, tavernBanReason.trim());
+      await banTavernUserAction({
+        userId: selectedUser.id,
+        reason: tavernBanReason.trim(),
+        durationHours: 24,
+      });
       toast.success("已禁止該用戶在酒館發言");
       setTavernBanDialogOpen(false);
       setTavernBanReason("");
@@ -300,6 +312,9 @@ export default function UsersClient({
       toast.error((e as Error).message ?? "操作失敗");
     }
   };
+  const canOperateSelectedUser = selectedUser
+    ? canOperate(viewerRole, selectedUser.role)
+    : false;
 
   const handleTavernUnban = async () => {
     if (!selectedUser) return;
@@ -443,7 +458,7 @@ export default function UsersClient({
                         className="bg-violet-100 [&_span]:text-violet-600"
                       />
                       <span className="font-medium text-gray-900">
-                        {u.nickname}
+                        {u.role === "master" ? `👑 ${u.nickname}` : u.nickname}
                       </span>
                     </div>
                   </td>
@@ -493,7 +508,7 @@ export default function UsersClient({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-gray-900 truncate">
-                    {u.nickname}
+                    {u.role === "master" ? `👑 ${u.nickname}` : u.nickname}
                   </span>
                   <span className="text-xs px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-700">
                     Lv.{u.level}
@@ -750,88 +765,95 @@ export default function UsersClient({
                 <div className="space-y-2 pt-2 border-t border-gray-100">
                   <p className="text-xs text-gray-400 font-medium">操作</p>
 
-                  {selectedUser.status !== "active" && (
-                    <button
-                      onClick={handleUnban}
-                      className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
-                    >
-                      <ShieldCheck className="w-4 h-4" />
-                      解除停權/放逐
-                    </button>
-                  )}
-
-                  {selectedUser.status === "active" && (
+                  {canOperateSelectedUser ? (
                     <>
-                      <button
-                        onClick={() => {
-                          setActionReason("");
-                          setShowSuspendDialog(true);
-                        }}
-                        className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
-                      >
-                        <Clock className="w-4 h-4" />
-                        停權
-                      </button>
-                      <button
-                        onClick={() => {
-                          setActionReason("");
-                          setShowBanDialog(true);
-                        }}
-                        className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
-                      >
-                        <Ban className="w-4 h-4" />
-                        放逐
-                      </button>
-                    </>
-                  )}
-
-                  <button
-                    onClick={() => {
-                      setExpDelta("");
-                      setExpReason("");
-                      setShowExpDialog(true);
-                    }}
-                    className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors"
-                  >
-                    <TrendingUp className="w-4 h-4" />
-                    調整 EXP
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setRepDelta("");
-                      setRepReason("");
-                      setShowRepDialog(true);
-                    }}
-                    className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
-                  >
-                    <Star className="w-4 h-4" />
-                    調整信譽分
-                  </button>
-
-                  {viewerIsMaster && (
-                    <>
-                      {!selectedUser.tavern_banned ? (
+                      {selectedUser.status !== "active" && (
                         <button
-                          type="button"
-                          onClick={() => {
-                            setTavernBanReason("");
-                            setTavernBanDialogOpen(true);
-                          }}
-                          className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-zinc-100 text-zinc-800 hover:bg-zinc-200 transition-colors"
+                          onClick={handleUnban}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
                         >
-                          🔇 酒館禁言
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setTavernUnbanDialogOpen(true)}
-                          className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors"
-                        >
-                          ✅ 解除酒館禁言
+                          <ShieldCheck className="w-4 h-4" />
+                          解除停權/放逐
                         </button>
                       )}
+
+                      {selectedUser.status === "active" && (
+                        <>
+                          <button
+                            onClick={() => {
+                              setActionReason("");
+                              setShowSuspendDialog(true);
+                            }}
+                            className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+                          >
+                            <Clock className="w-4 h-4" />
+                            停權
+                          </button>
+                          <button
+                            onClick={() => {
+                              setActionReason("");
+                              setShowBanDialog(true);
+                            }}
+                            className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+                          >
+                            <Ban className="w-4 h-4" />
+                            放逐
+                          </button>
+                        </>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          setExpDelta("");
+                          setExpReason("");
+                          setShowExpDialog(true);
+                        }}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors"
+                      >
+                        <TrendingUp className="w-4 h-4" />
+                        調整 EXP
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setRepDelta("");
+                          setRepReason("");
+                          setShowRepDialog(true);
+                        }}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                      >
+                        <Star className="w-4 h-4" />
+                        調整信譽分
+                      </button>
+                      {viewerIsMaster && (
+                        <>
+                          {!selectedUser.tavern_banned ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTavernBanReason("");
+                                setTavernBanDialogOpen(true);
+                              }}
+                              className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-zinc-100 text-zinc-800 hover:bg-zinc-200 transition-colors"
+                            >
+                              🔇 酒館禁言
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setTavernUnbanDialogOpen(true)}
+                              className="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors"
+                            >
+                              ✅ 解除酒館禁言
+                            </button>
+                          )}
+                        </>
+                      )}
                     </>
+                  ) : (
+                    <div className="rounded-xl border border-gray-200 bg-gray-100 px-4 py-3 text-sm text-gray-500">
+                      此用戶無法被操作
+                    </div>
                   )}
                 </div>
               </>

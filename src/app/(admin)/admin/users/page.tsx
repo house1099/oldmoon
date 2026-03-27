@@ -26,9 +26,13 @@ export default async function AdminUsersPage({
     data: { user },
   } = await supabase.auth.getUser();
   let viewerIsMaster = false;
+  let viewerRole: "master" | "moderator" | "member" = "member";
   if (user) {
     const p = await findProfileById(user.id);
     viewerIsMaster = p?.role === "master";
+    if (p?.role === "master" || p?.role === "moderator") {
+      viewerRole = p.role;
+    }
   }
 
   return (
@@ -36,6 +40,7 @@ export default async function AdminUsersPage({
       initialData={initialData}
       initialFilter={filter}
       viewerIsMaster={viewerIsMaster}
+      viewerRole={viewerRole}
     />
   );
 }

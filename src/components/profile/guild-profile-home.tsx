@@ -95,6 +95,49 @@ function normalizeLevel(v: UserRow["level"]): number {
   return Math.min(10, Math.floor(n));
 }
 
+const CHECKIN_MESSAGES: Record<
+  number,
+  { emoji: string; title: string; message: string }
+> = {
+  1: {
+    emoji: "🎲",
+    title: "普通的一天",
+    message: "獲得 1 探險幣，繼續加油！明天會更好喵～",
+  },
+  2: {
+    emoji: "🌱",
+    title: "小小收穫",
+    message: "獲得 2 探險幣，積少成多，堅持下去！",
+  },
+  3: { emoji: "⭐", title: "不錯喔！", message: "獲得 3 探險幣，今天運氣還可以！" },
+  4: {
+    emoji: "✨",
+    title: "閃閃發光",
+    message: "獲得 4 探險幣，你的運氣在上升！",
+  },
+  5: {
+    emoji: "🎯",
+    title: "剛剛好！",
+    message: "獲得 5 探險幣，中規中矩的好運！",
+  },
+  6: { emoji: "🍀", title: "幸運草！", message: "獲得 6 探險幣，今天有點幸運喔！" },
+  7: {
+    emoji: "🌟",
+    title: "超級幸運！",
+    message: "獲得 7 探險幣，幸運女神在眷顧你！",
+  },
+  8: {
+    emoji: "🎊",
+    title: "大豐收！",
+    message: "獲得 8 探險幣，今天運氣超棒的！！",
+  },
+  9: {
+    emoji: "🔥",
+    title: "傳奇運氣！！",
+    message: "獲得 9 探險幣！！你今天是天選之人！🎉",
+  },
+};
+
 /** 必須為模組層元件：若在父元件內宣告，每次 render 型別參考變更會整段 remount，textarea 失焦、行動鍵盤會收起。 */
 function AccordionSection({
   id,
@@ -317,6 +360,10 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
   const [announcements, setAnnouncements] = useState<AnnouncementRow[]>([]);
   const [homeAds, setHomeAds] = useState<AdvertisementRow[]>([]);
   const [expandedAnnouncement, setExpandedAnnouncement] = useState<AnnouncementRow | null>(null);
+  const [showCheckinModal, setShowCheckinModal] = useState(false);
+  const [checkinResult, setCheckinResult] = useState<{
+    freeCoinsEarned: number;
+  } | null>(null);
 
   useEffect(() => {
     setBioVillage(profile.bio_village ?? "");
@@ -648,9 +695,8 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         toast.error("❌ 操作失敗，請稍後再試");
         return;
       }
-      toast.success(
-        `簽到成功！獲得 +1 EXP${result.freeCoinsEarned ? ` 和 +${result.freeCoinsEarned} 探險幣 🪙` : ""}`,
-      );
+      setCheckinResult({ freeCoinsEarned: result.freeCoinsEarned ?? 1 });
+      setShowCheckinModal(true);
       setCheckinDone(true);
       setCooldown({ hours: 23, mins: 59 });
       router.refresh();
@@ -1522,6 +1568,49 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {showCheckinModal && checkinResult ? (
+        <Dialog open={showCheckinModal} onOpenChange={setShowCheckinModal}>
+          <DialogContent className="mx-auto max-w-xs overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950 p-0 text-center">
+            <div className="bg-gradient-to-b from-violet-900/40 to-transparent px-6 pb-4 pt-8">
+              <div className="mb-3 text-6xl">
+                {CHECKIN_MESSAGES[checkinResult.freeCoinsEarned]?.emoji ?? "🎲"}
+              </div>
+              <h2 className="text-lg font-bold text-zinc-100">
+                {CHECKIN_MESSAGES[checkinResult.freeCoinsEarned]?.title}
+              </h2>
+            </div>
+
+            <div className="space-y-3 px-6 py-4">
+              <div className="flex items-center justify-center gap-2 rounded-2xl bg-zinc-800/60 px-4 py-2.5">
+                <span className="text-lg text-amber-400">⚔️</span>
+                <span className="text-sm text-zinc-300">經驗值</span>
+                <span className="ml-auto font-bold text-amber-300">+1 EXP</span>
+              </div>
+              <div className="flex items-center justify-center gap-2 rounded-2xl bg-zinc-800/60 px-4 py-2.5">
+                <span className="text-lg text-violet-400">🧭</span>
+                <span className="text-sm text-zinc-300">探險幣</span>
+                <span className="ml-auto font-bold text-violet-300">
+                  +{checkinResult.freeCoinsEarned}
+                </span>
+              </div>
+              <p className="px-2 text-center text-xs text-zinc-500">
+                {CHECKIN_MESSAGES[checkinResult.freeCoinsEarned]?.message}
+              </p>
+            </div>
+
+            <div className="px-6 pb-6">
+              <button
+                type="button"
+                onClick={() => setShowCheckinModal(false)}
+                className="w-full rounded-full bg-gradient-to-r from-violet-600 to-purple-600 py-3 text-sm font-medium text-white transition-transform active:scale-95"
+              >
+                太棒了！繼續冒險 ⚔️
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
       {/* Portal 到 body + absolute 上中下：避免 react-easy-crop 的 9999em box-shadow 在 iOS/WebKit 蓋過 flex 底部按鈕 */}
       {cropSrc &&

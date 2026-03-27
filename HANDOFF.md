@@ -48,6 +48,27 @@
 - **新增/納管 system_settings keys**：
   **`interests_max_select`**、**`skills_max_select`**、**`mood_max_length`**、**`tavern_message_max_length`**、**`registration_open`**、**`maintenance_mode`**、**`like_require_mutual`**、**`checkin_free_coins_min`**、**`checkin_free_coins_max`**、**`checkin_weight_1` ~ `checkin_weight_9`**、**`level_threshold_1` ~ `level_threshold_10`**。
 
+### Wave B 功能與權限補強（2026-03-27）
+
+- **管理員操作權限保護（後端）**：`src/services/admin.action.ts`、`src/services/tavern.action.ts` 新增 `checkOperationPermission`；規則為：
+  - `target.role === 'master'` 且非本人時不可操作（master 僅可操作自己）
+  - `operator.role === 'moderator'` 不可操作其他 `moderator`
+  - `master` 可操作所有非 master 目標
+- **管理員操作權限保護（前端）**：`src/app/(admin)/admin/users/users-client.tsx` 新增 `canOperate(operatorRole, targetRole)` 控制操作區顯示；不可操作時顯示灰色提示「此用戶無法被操作」；列表中的 `master` 加上 `👑` 標示。
+- **裝備欄浮動按鈕**：新增 `src/components/ui/EquipmentFab.tsx`（右下 `bottom-36 right-4`，4x4 鎖定格裝備欄）；已在 `src/app/(app)/layout.tsx` 掛載於 `TavernFab` 上方。
+- **酒館禁言時效**：`banTavernUserAction` 改為 `durationHours: 1 | 3 | 24`；`TavernModal` 長按他人訊息可選 `1/3/24` 小時禁言；成功 toast 顯示「已禁言 {nickname} {hours} 小時」；並寫入系統信件「🔇 你已被禁止在酒館發言 {hours} 小時，原因：{reason}」。
+- **`tavern_bans.expires_at`**：Layer 2 `isTavernBanned` 改為「`expires_at IS NULL`（永久）或 `expires_at > now`（時效內）」判斷；`insertTavernBan` 寫入對應到期時間；遷移 `supabase/migrations/20260327143000_tavern_bans_expires_at.sql` 會補 `expires_at timestamptz`（若尚未存在）。
+- **簽到彈窗（9 種訊息對照）**：`src/components/profile/guild-profile-home.tsx` 新增 `CHECKIN_MESSAGES` 與簽到成功 Dialog（取代成功 toast）：
+  - `1` 🎲 普通的一天
+  - `2` 🌱 小小收穫
+  - `3` ⭐ 不錯喔！
+  - `4` ✨ 閃閃發光
+  - `5` 🎯 剛剛好！
+  - `6` 🍀 幸運草！
+  - `7` 🌟 超級幸運！
+  - `8` 🎊 大豐收！
+  - `9` 🔥 傳奇運氣！！
+
 ### 角色識別、探索排序與命定師徒（2026-03-26）
 
 - **`src/lib/utils/role-display.ts`**：**`getRoleDisplay(role)`** 回傳 **`crown`** + **`nameClass`** — **`master`** → **👑**、`text-amber-300 font-semibold`；**`moderator`** → **🛡️**、`text-blue-300 font-semibold`；其餘 **`crown: null`**、`text-zinc-100`。套用：**`UserCard`**（**`src/components/ui/UserCard.tsx`**，**`cards/UserCard.tsx`** re-export）、**`UserDetailModal`**、**`TavernModal`** 訊息列、**`/guild`** 血盟（待確認／夥伴）與聊天列表暱稱。
