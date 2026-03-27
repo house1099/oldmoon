@@ -103,7 +103,7 @@ export function UserCard({
             </MasterAvatarShell>
           </div>
 
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 pl-1">
             <div className="flex flex-wrap items-center gap-1.5">
               {crown ? (
                 <span className="text-sm leading-none" aria-hidden>
@@ -127,19 +127,45 @@ export function UserCard({
             </div>
 
             <div className="mt-1 flex items-center gap-1">
-              <MapPin className="h-3 w-3 shrink-0 text-zinc-500" />
-              <span className="truncate text-xs text-zinc-400">
+              {crown ? (
+                <span className="relative shrink-0 text-sm leading-none" aria-hidden>
+                  <span className="invisible">{crown}</span>
+                  <MapPin className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 text-zinc-500" />
+                </span>
+              ) : (
+                <MapPin className="h-3 w-3 shrink-0 text-zinc-500" />
+              )}
+              <span className="min-w-0 truncate text-xs text-zinc-400">
                 {regionLabel}
               </span>
             </div>
 
             {isMoodActive && user.mood ? (
-              <div className="mt-1.5 inline-flex max-w-[90%] items-center gap-1 rounded-full border border-violet-500/20 bg-violet-950/50 px-2.5 py-0.5">
-                <span className="shrink-0 text-[10px] text-violet-400">✨</span>
-                <span className="truncate text-[11px] text-violet-200">
-                  {user.mood}
-                </span>
-              </div>
+              crown ? (
+                <div className="mt-1.5 flex min-w-0 items-center gap-1">
+                  <span
+                    className="relative shrink-0 text-sm leading-none"
+                    aria-hidden
+                  >
+                    <span className="invisible">{crown}</span>
+                    <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] text-violet-400">
+                      ✨
+                    </span>
+                  </span>
+                  <div className="flex min-w-0 flex-1 items-center gap-1 rounded-full border border-violet-500/20 bg-violet-950/50 px-2.5 py-0.5">
+                    <span className="truncate text-[11px] text-violet-200">
+                      {user.mood}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-1.5 inline-flex max-w-[90%] items-center gap-1 rounded-full border border-violet-500/20 bg-violet-950/50 px-2.5 py-0.5">
+                  <span className="shrink-0 text-[10px] text-violet-400">✨</span>
+                  <span className="truncate text-[11px] text-violet-200">
+                    {user.mood}
+                  </span>
+                </div>
+              )
             ) : null}
           </div>
 
