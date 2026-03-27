@@ -7,7 +7,6 @@ import {
   Users,
   ScrollText,
   Loader2,
-  AlertTriangle,
   Search,
   X,
 } from "lucide-react";
@@ -87,9 +86,9 @@ export default function AdminCoinsPage() {
 type CoinStatsPayload = {
   totalPremiumCoins: number;
   totalFreeCoins: number;
+  totalUsers: number;
   totalTopupAmount: number;
-  totalSpentAmount: number;
-  negativeBalanceUserCount: number;
+  totalPaidOrders: number;
 };
 
 function StatsTab() {
@@ -118,22 +117,6 @@ function StatsTab() {
 
   return (
     <div className="space-y-6">
-      {stats.negativeBalanceUserCount > 0 && (
-        <div
-          className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
-          role="alert"
-        >
-          <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
-          <div>
-            <p className="font-semibold">餘額異常警告</p>
-            <p className="mt-1">
-              目前有 {stats.negativeBalanceUserCount}{" "}
-              位用戶的純金或探險幣為負數，請盡快檢查資料與流水。
-            </p>
-          </div>
-        </div>
-      )}
-
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="全站純金總量"
@@ -151,9 +134,14 @@ function StatsTab() {
           accent="text-emerald-600"
         />
         <StatCard
-          title="累計消費金幣"
-          value={stats.totalSpentAmount.toLocaleString()}
-          accent="text-rose-600"
+          title="付費訂單數"
+          value={stats.totalPaidOrders.toLocaleString()}
+          accent="text-blue-600"
+        />
+        <StatCard
+          title="有效用戶數"
+          value={stats.totalUsers.toLocaleString()}
+          accent="text-gray-700"
         />
       </div>
     </div>

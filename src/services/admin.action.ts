@@ -23,6 +23,8 @@ import {
   grantExpByLevel as repoGrantExpByLevel,
   findExpLogsByUser as repoFindExpLogsByUser,
   findAdminExpGrantHistory as repoFindAdminExpGrantHistory,
+  findAdminActions as repoFindAdminActions,
+  findUserActionHistory as repoFindUserActionHistory,
   findAllAdvertisements as repoFindAllAds,
   insertAdvertisement as repoInsertAd,
   updateAdvertisement as repoUpdateAd,
@@ -64,6 +66,7 @@ import type {
   AnnouncementDto,
   AdvertisementRow,
   CoinTransactionRow,
+  AdminActionRow,
 } from "@/types/database.types";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
 import { isTavernBanned } from "@/lib/repositories/server/tavern.repository";
@@ -181,14 +184,20 @@ export async function banUserAction(
   reason: string,
 ): Promise<ActionResult> {
   try {
-    const { user } = await requireRole(["master", "moderator"]);
-    await checkOperationPermission(user.id, userId);
+    const { user, profile: operator } = await requireRole(["master", "moderator"]);
+    const { target } = await checkOperationPermission(user.id, userId);
     await updateUserStatus(userId, "banned", reason);
     await insertAdminAction({
       admin_id: user.id,
       target_user_id: userId,
       action_type: "ban",
+      action_label: `放逐 ${target.nickname}，原因：${reason}`,
       reason,
+      metadata: {
+        reason,
+        target_nickname: target.nickname,
+        admin_nickname: operator.nickname,
+      },
     });
     await notifyUserMailboxSilent({
       user_id: userId,
@@ -208,8 +217,8 @@ export async function suspendUserAction(
   suspendedUntil?: string,
 ): Promise<ActionResult> {
   try {
-    const { user } = await requireRole(["master", "moderator"]);
-    await checkOperationPermission(user.id, userId);
+    const { user, profile: operator } = await requireRole(["master", "moderator"]);
+    const { target } = await checkOperationPermission(user.id, userId);
     await updateUserStatus(userId, "suspended", reason);
     if (suspendedUntil) {
       await updateSuspendedUntil(userId, suspendedUntil);
@@ -218,8 +227,14 @@ export async function suspendUserAction(
       admin_id: user.id,
       target_user_id: userId,
       action_type: "suspend",
+      action_label: `停權 ${target.nickname}，原因：${reason}`,
       reason,
-      metadata: suspendedUntil ? { suspended_until: suspendedUntil } : undefined,
+      metadata: {
+        ...(suspendedUntil ? { suspended_until: suspendedUntil } : {}),
+        reason,
+        target_nickname: target.nickname,
+        admin_nickname: operator.nickname,
+      },
     });
     await notifyUserMailboxSilent({
       user_id: userId,
@@ -235,13 +250,18 @@ export async function suspendUserAction(
 
 export async function unbanUserAction(userId: string): Promise<ActionResult> {
   try {
-    const { user } = await requireRole(["master", "moderator"]);
-    await checkOperationPermission(user.id, userId);
+    const { user, profile: operator } = await requireRole(["master", "moderator"]);
+    const { target } = await checkOperationPermission(user.id, userId);
     await updateUserStatus(userId, "active");
     await insertAdminAction({
       admin_id: user.id,
       target_user_id: userId,
       action_type: "unban",
+      action_label: `解除 ${target.nickname} 的停權/放逐`,
+      metadata: {
+        target_nickname: target.nickname,
+        admin_nickname: operator.nickname,
+      },
     });
     await notifyUserMailboxSilent({
       user_id: userId,
@@ -261,15 +281,22 @@ export async function adjustExpAction(
   reason: string,
 ): Promise<ActionResult> {
   try {
-    const { user } = await requireRole(["master", "moderator"]);
-    await checkOperationPermission(user.id, userId);
+    const { user, profile: operator } = await requireRole(["master", "moderator"]);
+    const { target } = await checkOperationPermission(user.id, userId);
+    const source = "manual_adjust";
     await adminAdjustExp(userId, delta);
     await insertAdminAction({
       admin_id: user.id,
       target_user_id: userId,
-      action_type: "exp_adjust",
+      action_type: "exp_grant",
+      action_label: `送出 +${delta} EXP 給 ${target.nickname}，原因：${reason}`,
       reason,
-      metadata: { delta },
+      metadata: {
+        delta,
+        source,
+        target_nickname: target.nickname,
+        admin_nickname: operator.nickname,
+      },
     });
     const expMsg =
       delta > 0
@@ -465,8 +492,10 @@ export async function updateUserRoleAction(
   role: string,
 ): Promise<ActionResult> {
   try {
-    const { user } = await requireRole(["master"]);
-    await checkOperationPermission(user.id, userId);
+    const { user, profile: operator } = await requireRole(["master"]);
+    const { target } = await checkOperationPermission(user.id, userId);
+    const oldRole = target.role;
+    const newRole = role;
     await repoUpdateUserRole(userId, role);
 
     if (role === "moderator") {
@@ -481,7 +510,13 @@ export async function updateUserRoleAction(
       admin_id: user.id,
       target_user_id: userId,
       action_type: "role_change",
-      metadata: { new_role: role },
+      action_label: `將 ${target.nickname} 的角色從 ${oldRole} 改為 ${newRole}`,
+      metadata: {
+        old_role: oldRole,
+        new_role: newRole,
+        target_nickname: target.nickname,
+        admin_nickname: operator.nickname,
+      },
     });
     if (role === "moderator") {
       await notifyUserMailboxSilent({
@@ -582,7 +617,7 @@ export async function reviewIgRequestFromAdminAction(
   action: "approved" | "rejected",
 ): Promise<ActionResult> {
   try {
-    const { user } = await requireRole(["master", "moderator"]);
+    const { user, profile: operator } = await requireRole(["master", "moderator"]);
     const admin = createAdminClient();
 
     const { data: reqData, error: readErr } = await admin
@@ -617,11 +652,23 @@ export async function reviewIgRequestFromAdminAction(
       .eq("id", requestId);
     if (error) throw error;
 
+    let targetNickname = "（未知）";
+    if (igReq?.user_id) {
+      const target = await findProfileById(igReq.user_id);
+      targetNickname = target?.nickname ?? "（未知）";
+    }
+
     await insertAdminAction({
       admin_id: user.id,
       target_user_id: igReq?.user_id ?? undefined,
-      action_type: `ig_request_${action}`,
-      metadata: { request_id: requestId },
+      action_type: "ig_review",
+      action_label: `${action === "approved" ? "核准" : "拒絕"} ${targetNickname} 的 IG 變更申請`,
+      metadata: {
+        verdict: action,
+        new_handle: igReq?.new_handle ?? null,
+        target_nickname: targetNickname,
+        admin_nickname: operator.nickname,
+      },
     });
 
     if (igReq?.user_id) {
@@ -650,7 +697,7 @@ export async function batchGrantExpAction(params: {
   source: string;
 }): Promise<ActionResult<{ success: number; failed: number }>> {
   try {
-    const { user } = await requireRole(["master", "moderator"]);
+    const { user, profile: operator } = await requireRole(["master", "moderator"]);
     if (params.userIds.length > 200) {
       return { ok: false, error: "單次最多 200 人" };
     }
@@ -666,17 +713,26 @@ export async function batchGrantExpAction(params: {
       source: params.source.trim(),
       adminId: user.id,
     });
-    await insertAdminAction({
-      admin_id: user.id,
-      action_type: "exp_batch_grant",
-      metadata: {
-        count: params.userIds.length,
-        delta: params.delta,
-        source: params.source.trim(),
-        success: result.success,
-        failed: result.failed,
-      },
-    });
+    const successfulProfiles = await Promise.all(
+      result.successfulUserIds.map((uid) => findProfileById(uid)),
+    );
+    await Promise.all(
+      result.successfulUserIds.map((uid, idx) =>
+        insertAdminAction({
+          admin_id: user.id,
+          target_user_id: uid,
+          action_type: "exp_grant",
+          action_label: `送出 +${params.delta} EXP 給 ${successfulProfiles[idx]?.nickname ?? "（未知）"}，原因：${params.source.trim()}`,
+          reason: params.source.trim(),
+          metadata: {
+            delta: params.delta,
+            source: params.source.trim(),
+            target_nickname: successfulProfiles[idx]?.nickname ?? "（未知）",
+            admin_nickname: operator.nickname,
+          },
+        }),
+      ),
+    );
     const src = params.source.trim();
     const msg = `🎁 你獲得了 +${params.delta} EXP！活動名稱：${src}`;
     await Promise.allSettled(
@@ -1315,8 +1371,8 @@ export async function adminAdjustCoinsAction(params: {
   pin: string;
 }): Promise<ActionResult> {
   try {
-    const { user } = await requireRole(["master"]);
-    await checkOperationPermission(user.id, params.userId);
+    const { user, profile: operator } = await requireRole(["master"]);
+    const { target } = await checkOperationPermission(user.id, params.userId);
     const note = params.note?.trim();
     if (!note) return { ok: false, error: "請填寫原因" };
     const pin = params.pin?.trim();
@@ -1345,10 +1401,14 @@ export async function adminAdjustCoinsAction(params: {
       admin_id: user.id,
       target_user_id: params.userId,
       action_type: "coin_adjust",
+      action_label: `${params.amount > 0 ? "贈與" : "扣除"} ${Math.abs(params.amount)} ${params.coinType === "premium" ? "純金" : "探險幣"} 給 ${target.nickname}，原因：${note}`,
       reason: note,
       metadata: {
-        coin_type: params.coinType,
         amount: params.amount,
+        coin_type: params.coinType,
+        note,
+        target_nickname: target.nickname,
+        admin_nickname: operator.nickname,
       },
     });
 
@@ -1379,6 +1439,42 @@ export async function getAdminCoinStatsAction(): Promise<
     await requireRole(["master", "moderator"]);
     const stats = await getCoinStats();
     return { ok: true, data: stats };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function getAdminActionsAction(params: {
+  page?: number;
+  actionType?: string;
+  adminId?: string;
+  targetUserId?: string;
+  search?: string;
+}): Promise<
+  ActionResult<{
+    actions: (AdminActionRow & {
+      admin: { nickname: string; avatar_url: string | null };
+      target: { nickname: string; avatar_url: string | null } | null;
+    })[];
+    total: number;
+  }>
+> {
+  try {
+    await requireRole(["master"]);
+    const result = await repoFindAdminActions(params);
+    return { ok: true, data: result };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function getUserActionHistoryAction(
+  userId: string,
+): Promise<ActionResult<AdminActionRow[]>> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const rows = await repoFindUserActionHistory(userId);
+    return { ok: true, data: rows };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
   }

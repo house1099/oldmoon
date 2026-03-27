@@ -5,6 +5,7 @@ import type {
   ModeratorPermissionRow,
   SystemSettingRow,
   AdvertisementRow,
+  AdminActionRow,
 } from "@/types/database.types";
 
 export type DashboardStats = {
@@ -176,6 +177,7 @@ export async function insertAdminAction(payload: {
   admin_id: string;
   target_user_id?: string;
   action_type: string;
+  action_label?: string;
   reason?: string;
   metadata?: Record<string, unknown>;
 }): Promise<void> {
@@ -184,6 +186,7 @@ export async function insertAdminAction(payload: {
     admin_id: payload.admin_id,
     target_user_id: payload.target_user_id ?? null,
     action_type: payload.action_type,
+    action_label: payload.action_label ?? null,
     reason: payload.reason ?? null,
     metadata: payload.metadata ?? null,
   });
@@ -191,6 +194,106 @@ export async function insertAdminAction(payload: {
     console.error("insertAdminAction failed:", error);
     throw error;
   }
+}
+
+export type AdminActionWithUsers = AdminActionRow & {
+  admin: { nickname: string; avatar_url: string | null };
+  target: { nickname: string; avatar_url: string | null } | null;
+};
+
+export async function findAdminActions(params: {
+  page?: number;
+  actionType?: string;
+  adminId?: string;
+  targetUserId?: string;
+  search?: string;
+}): Promise<{ actions: AdminActionWithUsers[]; total: number }> {
+  const admin = createAdminClient();
+  const page = Math.max(1, params.page ?? 1);
+  const pageSize = 30;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let searchUserIds: string[] | null = null;
+  if (params.search?.trim()) {
+    const { data: users, error: usersError } = await admin
+      .from("users")
+      .select("id")
+      .ilike("nickname", `%${params.search.trim()}%`)
+      .limit(200);
+    if (usersError) throw usersError;
+    searchUserIds = (users ?? []).map((u) => u.id as string);
+    if (searchUserIds.length === 0) {
+      return { actions: [], total: 0 };
+    }
+  }
+
+  let query = admin
+    .from("admin_actions")
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (params.actionType?.trim()) query = query.eq("action_type", params.actionType.trim());
+  if (params.adminId?.trim()) query = query.eq("admin_id", params.adminId.trim());
+  if (params.targetUserId?.trim()) query = query.eq("target_user_id", params.targetUserId.trim());
+  if (searchUserIds) {
+    const inList = searchUserIds.map((id) => `"${id}"`).join(",");
+    query = query.or(`admin_id.in.(${inList}),target_user_id.in.(${inList})`);
+  }
+
+  const { data, error, count } = await query;
+  if (error) throw error;
+  const rows = (data ?? []) as AdminActionRow[];
+  if (rows.length === 0) return { actions: [], total: count ?? 0 };
+
+  const userIds = Array.from(
+    new Set(
+      rows
+        .flatMap((row) => [row.admin_id, row.target_user_id])
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const { data: users, error: usersError } = await admin
+    .from("users")
+    .select("id, nickname, avatar_url")
+    .in("id", userIds);
+  if (usersError) throw usersError;
+
+  const userMap = new Map(
+    (users ?? []).map((u) => [
+      u.id as string,
+      {
+        nickname: (u.nickname as string) ?? "（未知）",
+        avatar_url: (u.avatar_url as string | null) ?? null,
+      },
+    ]),
+  );
+
+  const actions: AdminActionWithUsers[] = rows.map((row) => ({
+    ...row,
+    admin: userMap.get(row.admin_id) ?? { nickname: "（未知）", avatar_url: null },
+    target: row.target_user_id
+      ? (userMap.get(row.target_user_id) ?? { nickname: "（未知）", avatar_url: null })
+      : null,
+  }));
+
+  return { actions, total: count ?? 0 };
+}
+
+export async function findUserActionHistory(
+  userId: string,
+  limit = 20,
+): Promise<AdminActionRow[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("admin_actions")
+    .select("*")
+    .eq("target_user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as AdminActionRow[];
 }
 
 export async function adminAdjustExp(

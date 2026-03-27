@@ -3,14 +3,6 @@ import type { CoinTransactionRow, UserRow } from "@/types/database.types";
 
 const PAGE_SIZE = 20;
 
-function numFromAggregate(row: Record<string, unknown> | null): number {
-  if (!row) return 0;
-  const v = row.sum ?? row["premium_coins.sum"] ?? row["free_coins.sum"];
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (typeof v === "string") return parseFloat(v) || 0;
-  return 0;
-}
-
 export async function getCoinBalance(userId: string): Promise<{
   premium_coins: number;
   free_coins: number;
@@ -266,51 +258,19 @@ export async function findCoinTransactions(
 export async function getCoinStats(): Promise<{
   totalPremiumCoins: number;
   totalFreeCoins: number;
+  totalUsers: number;
   totalTopupAmount: number;
-  totalSpentAmount: number;
-  negativeBalanceUserCount: number;
+  totalPaidOrders: number;
 }> {
   const admin = createAdminClient();
-
-  const [
-    premRes,
-    freeRes,
-    topupRes,
-    spentRes,
-    negRes,
-  ] = await Promise.all([
-    admin.from("users").select("premium_coins.sum()").maybeSingle(),
-    admin.from("users").select("free_coins.sum()").maybeSingle(),
-    admin
-      .from("topup_orders")
-      .select("amount_twd.sum()")
-      .eq("status", "paid")
-      .maybeSingle(),
-    admin
-      .from("coin_transactions")
-      .select("amount.sum()")
-      .eq("source", "shop_purchase")
-      .lt("amount", 0)
-      .maybeSingle(),
-    admin
-      .from("users")
-      .select("id", { count: "exact", head: true })
-      .or("premium_coins.lt.0,free_coins.lt.0"),
-  ]);
-
-  if (premRes.error) throw premRes.error;
-  if (freeRes.error) throw freeRes.error;
-  if (topupRes.error) throw topupRes.error;
-  if (spentRes.error) throw spentRes.error;
-  if (negRes.error) throw negRes.error;
-
-  const spentRaw = numFromAggregate(spentRes.data as Record<string, unknown> | null);
-  return {
-    totalPremiumCoins: numFromAggregate(premRes.data as Record<string, unknown> | null),
-    totalFreeCoins: numFromAggregate(freeRes.data as Record<string, unknown> | null),
-    totalTopupAmount: numFromAggregate(topupRes.data as Record<string, unknown> | null),
-    totalSpentAmount: Math.abs(spentRaw),
-    negativeBalanceUserCount: negRes.count ?? 0,
+  const { data, error } = await admin.rpc("get_coin_stats");
+  if (error) throw error;
+  return data as {
+    totalPremiumCoins: number;
+    totalFreeCoins: number;
+    totalUsers: number;
+    totalTopupAmount: number;
+    totalPaidOrders: number;
   };
 }
 

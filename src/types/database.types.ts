@@ -568,6 +568,7 @@ export interface Database {
           admin_id: string;
           target_user_id: string | null;
           action_type: string;
+          action_label: string | null;
           reason: string | null;
           metadata: Record<string, unknown> | null;
           created_at: string;
@@ -577,6 +578,7 @@ export interface Database {
           admin_id: string;
           target_user_id?: string | null;
           action_type: string;
+          action_label?: string | null;
           reason?: string | null;
           metadata?: Record<string, unknown> | null;
           created_at?: string;
@@ -586,6 +588,7 @@ export interface Database {
           admin_id?: string;
           target_user_id?: string | null;
           action_type?: string;
+          action_label?: string | null;
           reason?: string | null;
           metadata?: Record<string, unknown> | null;
           created_at?: string;

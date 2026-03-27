@@ -75,6 +75,15 @@
   - `8` 🎊 大豐收！
   - `9` 🔥 傳奇運氣！！
 
+### Wave C 金幣統計與操作稽核（2026-03-27）
+
+- **🗄️ `get_coin_stats` RPC（修復 PostgREST 聚合限制）**：新增 PostgreSQL function `get_coin_stats()`，回傳 `totalPremiumCoins`、`totalFreeCoins`、`totalUsers`、`totalTopupAmount`、`totalPaidOrders`。
+- **Layer 2 金幣統計改為 RPC**：`src/lib/repositories/server/coin.repository.ts` 的 `getCoinStats()` 已改用 `admin.rpc('get_coin_stats')`，不再使用 `.sum()` 聚合查詢。
+- **🗄️ `admin_actions.action_label` 欄位**：`public.admin_actions` 需有 `action_label text`（nullable）做「人類可讀描述」；型別已同步到 `src/types/database.types.ts`。
+- **後台稽核頁**：新增 `src/app/(admin)/admin/audit/page.tsx`（master only），支援操作類型篩選、暱稱搜尋、分頁、badge 色彩與台北時間格式。
+- **稽核寫入規範（action_label）**：管理操作應寫入統一描述格式，至少覆蓋 `exp_grant`、`suspend`、`ban`、`unban`、`role_change`、`coin_adjust`、`tavern_ban`、`ig_review`，metadata 需帶 `target_nickname`、`admin_nickname` 與核心欄位（如 `delta`、`coin_type`、`verdict` 等）。
+- **用戶詳情操作紀錄**：`/admin/users` 用戶 Sheet 已新增最近 20 筆 `admin_actions` 折疊區塊（顯示 `action_label` + 台北時間）。
+
 ### 角色識別、探索排序與命定師徒（2026-03-26）
 
 - **`src/lib/utils/role-display.ts`**：**`getRoleDisplay(role)`** 回傳 **`crown`** + **`nameClass`** — **`master`** → **👑**、`text-amber-300 font-semibold`；**`moderator`** → **🛡️**、`text-blue-300 font-semibold`；其餘 **`crown: null`**、`text-zinc-100`。套用：**`UserCard`**（**`src/components/ui/UserCard.tsx`**，**`cards/UserCard.tsx`** re-export）、**`UserDetailModal`**、**`TavernModal`** 訊息列、**`/guild`** 血盟（待確認／夥伴）與聊天列表暱稱。

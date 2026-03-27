@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import Avatar from "@/components/ui/Avatar";
-import type { UserRow } from "@/types/database.types";
+import type { UserRow, AdminActionRow } from "@/types/database.types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +31,7 @@ import {
 import {
   getUsersAction,
   getUserDetailAction,
+  getUserActionHistoryAction,
   banUserAction,
   suspendUserAction,
   unbanUserAction,
@@ -80,6 +81,20 @@ type Props = {
 
 type UserDetail = UserRow & { email: string | null; tavern_banned: boolean };
 
+function formatTaipeiTime(iso: string) {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Taipei",
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+    .format(new Date(iso))
+    .replaceAll("-", "/");
+}
+
 function canOperate(operatorRole: string, targetRole: string): boolean {
   if (targetRole === "master") return false;
   if (operatorRole === "moderator" && targetRole === "moderator") return false;
@@ -114,6 +129,7 @@ export default function UsersClient({
   >([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [userActions, setUserActions] = useState<AdminActionRow[]>([]);
 
   const [actionReason, setActionReason] = useState("");
   const [expDelta, setExpDelta] = useState("");
@@ -194,10 +210,12 @@ export default function UsersClient({
     setSelectedUserId(userId);
     setSelectedUser(null);
     setIgRequests([]);
+    setUserActions([]);
 
-    const [detailRes, igRes] = await Promise.all([
+    const [detailRes, igRes, actionRes] = await Promise.all([
       getUserDetailAction(userId),
       getPendingIgRequestsForUserAction(userId),
+      getUserActionHistoryAction(userId),
     ]);
 
     if (detailRes.ok) {
@@ -212,6 +230,9 @@ export default function UsersClient({
     if (igRes.ok) {
       setIgRequests(igRes.data as typeof igRequests);
     }
+    if (actionRes.ok) {
+      setUserActions(actionRes.data);
+    }
     setDetailLoading(false);
   };
 
@@ -221,9 +242,10 @@ export default function UsersClient({
 
   const refreshDetail = async (userId: string) => {
     setDetailError(null);
-    const [detailRes, igRes] = await Promise.all([
+    const [detailRes, igRes, actionRes] = await Promise.all([
       getUserDetailAction(userId),
       getPendingIgRequestsForUserAction(userId),
+      getUserActionHistoryAction(userId),
     ]);
     if (detailRes.ok) {
       if (detailRes.data) {
@@ -236,6 +258,7 @@ export default function UsersClient({
       setDetailError(detailRes.error || "讀取用戶資料失敗");
     }
     if (igRes.ok) setIgRequests(igRes.data as typeof igRequests);
+    if (actionRes.ok) setUserActions(actionRes.data);
   };
 
   const handleBan = async () => {
@@ -878,6 +901,30 @@ export default function UsersClient({
                     </div>
                   )}
                 </div>
+
+                <details className="mt-4">
+                  <summary className="text-sm text-gray-600 cursor-pointer py-2 border-t">
+                    📋 操作記錄（最近 20 筆）
+                  </summary>
+                  <div className="mt-2 space-y-2">
+                    {userActions.map((action) => (
+                      <div
+                        key={action.id}
+                        className="text-xs text-gray-500 py-1 border-b border-gray-100"
+                      >
+                        <span className="text-gray-400">
+                          {formatTaipeiTime(action.created_at)}
+                        </span>
+                        <p className="text-gray-700 mt-0.5">
+                          {action.action_label ?? action.reason ?? "（無描述）"}
+                        </p>
+                      </div>
+                    ))}
+                    {userActions.length === 0 && (
+                      <p className="text-xs text-gray-400 py-2">尚無操作記錄</p>
+                    )}
+                  </div>
+                </details>
               </>
             ) : (
               <div className="text-center py-8">

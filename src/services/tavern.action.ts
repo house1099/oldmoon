@@ -116,8 +116,10 @@ export async function banTavernUserAction(params: {
   reason: string;
   durationHours: 1 | 3 | 24;
 }): Promise<void> {
-  const { user } = await requireRole(["master", "moderator"]);
+  const { user, profile: operator } = await requireRole(["master", "moderator"]);
   await checkOperationPermission(user.id, params.userId);
+  const target = await findProfileById(params.userId);
+  const targetNickname = target?.nickname ?? "（未知）";
   const r = params.reason.trim() || null;
   await insertTavernBan({
     user_id: params.userId,
@@ -129,8 +131,14 @@ export async function banTavernUserAction(params: {
     admin_id: user.id,
     target_user_id: params.userId,
     action_type: "tavern_ban",
+    action_label: `酒館禁言 ${targetNickname} ${params.durationHours} 小時，原因：${r ?? "未說明"}`,
     reason: r ?? undefined,
-    metadata: { durationHours: params.durationHours },
+    metadata: {
+      duration_hours: params.durationHours,
+      reason: r ?? "未說明",
+      target_nickname: targetNickname,
+      admin_nickname: operator.nickname,
+    },
   });
   await notifyUserMailboxSilent({
     user_id: params.userId,

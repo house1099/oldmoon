@@ -13,6 +13,7 @@ import {
   Coins,
   Lock,
   Settings,
+  ClipboardList,
   Menu,
   X,
   LogOut,
@@ -80,6 +81,7 @@ export function AdminShell({
     },
     { href: "/admin/coins", label: "金幣管理", Icon: Coins, show: isMaster },
     { href: "/admin/roles", label: "授權管理", Icon: Lock, show: isMaster },
+    { href: "/admin/audit", label: "操作記錄", Icon: ClipboardList, show: isMaster },
     { href: "/admin/settings", label: "系統設定", Icon: Settings, show: isMaster },
   ].filter((item) => item.show);
 
