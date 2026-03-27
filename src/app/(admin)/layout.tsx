@@ -17,6 +17,7 @@ import {
   MailPlus,
   Gift,
   Megaphone,
+  Coins,
 } from "lucide-react";
 
 type NavItem = {
@@ -51,6 +52,12 @@ const NAV_ITEMS: NavItem[] = [
     href: "/admin/exp",
     icon: Gift,
     roles: ["master", "moderator"],
+  },
+  {
+    label: "🪙 金幣管理",
+    href: "/admin/coins",
+    icon: Coins,
+    roles: ["master"],
   },
   {
     label: "發布中心",

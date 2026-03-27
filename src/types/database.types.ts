@@ -81,6 +81,10 @@ export interface Database {
           mood_at: string | null;
           /** 上次簽到時間（ISO）；24h 內不可再簽 */
           last_checkin_at: string | null;
+          /** 付費幣（≥0） */
+          premium_coins: number;
+          /** 免費幣（≥0） */
+          free_coins: number;
           created_at: string;
           updated_at: string;
         };
@@ -118,6 +122,8 @@ export interface Database {
           mood?: string | null;
           mood_at?: string | null;
           last_checkin_at?: string | null;
+          premium_coins?: number;
+          free_coins?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -155,6 +161,8 @@ export interface Database {
           mood?: string | null;
           mood_at?: string | null;
           last_checkin_at?: string | null;
+          premium_coins?: number;
+          free_coins?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -977,6 +985,117 @@ export interface Database {
           },
         ];
       };
+      coin_transactions: {
+        Row: {
+          id: string;
+          user_id: string;
+          coin_type: "premium" | "free";
+          amount: number;
+          balance_after: number;
+          source:
+            | "checkin"
+            | "admin_grant"
+            | "admin_deduct"
+            | "shop_purchase"
+            | "refund"
+            | "convert_in"
+            | "convert_out"
+            | "topup";
+          reference_id: string | null;
+          note: string | null;
+          operator_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          coin_type: "premium" | "free";
+          amount: number;
+          balance_after: number;
+          source:
+            | "checkin"
+            | "admin_grant"
+            | "admin_deduct"
+            | "shop_purchase"
+            | "refund"
+            | "convert_in"
+            | "convert_out"
+            | "topup";
+          reference_id?: string | null;
+          note?: string | null;
+          operator_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          coin_type?: "premium" | "free";
+          amount?: number;
+          balance_after?: number;
+          source?:
+            | "checkin"
+            | "admin_grant"
+            | "admin_deduct"
+            | "shop_purchase"
+            | "refund"
+            | "convert_in"
+            | "convert_out"
+            | "topup";
+          reference_id?: string | null;
+          note?: string | null;
+          operator_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "coin_transactions_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      topup_orders: {
+        Row: {
+          id: string;
+          user_id: string;
+          amount_twd: number;
+          premium_coins: number;
+          status: "pending" | "paid" | "failed" | "refunded";
+          payment_method: string | null;
+          payment_ref: string | null;
+          paid_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          amount_twd: number;
+          premium_coins: number;
+          status?: "pending" | "paid" | "failed" | "refunded";
+          payment_method?: string | null;
+          payment_ref?: string | null;
+          paid_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          amount_twd?: number;
+          premium_coins?: number;
+          status?: "pending" | "paid" | "failed" | "refunded";
+          payment_method?: string | null;
+          payment_ref?: string | null;
+          paid_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "topup_orders_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -1014,6 +1133,8 @@ export type AdClickRow = PublicTables["ad_clicks"]["Row"];
 export type InvitationCodeRow = PublicTables["invitation_codes"]["Row"];
 export type InvitationCodeUseRow = PublicTables["invitation_code_uses"]["Row"];
 export type AnnouncementRow = PublicTables["announcements"]["Row"];
+export type CoinTransactionRow = PublicTables["coin_transactions"]["Row"];
+export type TopupOrderRow = PublicTables["topup_orders"]["Row"];
 
 export type TavernMessageRow = PublicTables["tavern_messages"]["Row"];
 export type TavernBanRow = PublicTables["tavern_bans"]["Row"];

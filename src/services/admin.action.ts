@@ -45,6 +45,12 @@ import {
   findSystemSettingByKey,
   findInvitationUsesByCodeId,
 } from "@/lib/repositories/server/invitation.repository";
+import {
+  creditCoins,
+  getCoinStats,
+  findUsersWithCoins,
+  findCoinTransactions,
+} from "@/lib/repositories/server/coin.repository";
 import { DEFAULT_MODERATOR_PERMISSIONS } from "@/lib/constants/admin-permissions";
 import type {
   UserRow,
@@ -57,6 +63,7 @@ import type {
   AnnouncementRow,
   AnnouncementDto,
   AdvertisementRow,
+  CoinTransactionRow,
 } from "@/types/database.types";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
 import { isTavernBanned } from "@/lib/repositories/server/tavern.repository";
@@ -1247,6 +1254,114 @@ export async function toggleAdvertisementAction(
     await requireRole(["master", "moderator"]);
     await repoUpdateAd(id, { is_active });
     return { ok: true, data: undefined };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+// ─── Coins（金幣）───
+
+export async function adminAdjustCoinsAction(params: {
+  userId: string;
+  coinType: "premium" | "free";
+  amount: number;
+  note: string;
+  pin: string;
+}): Promise<ActionResult> {
+  try {
+    const { user } = await requireRole(["master"]);
+    const note = params.note?.trim();
+    if (!note) return { ok: false, error: "請填寫原因" };
+    const pin = params.pin?.trim();
+    if (!/^\d{4}$/.test(pin)) return { ok: false, error: "請輸入四位數密碼" };
+
+    const stored = await findSystemSettingByKey("coin_admin_pin");
+    if (!stored || pin !== stored) {
+      return { ok: false, error: "密碼錯誤" };
+    }
+
+    const source =
+      params.amount >= 0 ? "admin_grant" : "admin_deduct";
+    const result = await creditCoins({
+      userId: params.userId,
+      coinType: params.coinType,
+      amount: params.amount,
+      source,
+      note,
+      operatorId: user.id,
+    });
+    if (!result.success) {
+      return { ok: false, error: result.error ?? "調整失敗" };
+    }
+
+    await insertAdminAction({
+      admin_id: user.id,
+      target_user_id: params.userId,
+      action_type: "coin_adjust",
+      reason: note,
+      metadata: {
+        coin_type: params.coinType,
+        amount: params.amount,
+      },
+    });
+
+    const coinLabel = params.coinType === "premium" ? "付費幣" : "免費幣";
+    const msg =
+      params.amount > 0
+        ? `🪙 管理員贈與了 +${params.amount} ${coinLabel}，備註：${note}`
+        : `🪙 管理員扣除了 ${Math.abs(params.amount)} ${coinLabel}，備註：${note}`;
+    await notifyUserMailboxSilent({
+      user_id: params.userId,
+      type: "system",
+      message: msg,
+      is_read: false,
+    });
+
+    return { ok: true, data: undefined };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function getAdminCoinStatsAction(): Promise<
+  ActionResult<
+    Awaited<ReturnType<typeof getCoinStats>>
+  >
+> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const stats = await getCoinStats();
+    return { ok: true, data: stats };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function getAdminUsersWithCoinsAction(params: {
+  search?: string;
+  page?: number;
+}): Promise<
+  ActionResult<
+    Awaited<ReturnType<typeof findUsersWithCoins>>
+  >
+> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const data = await findUsersWithCoins(params);
+    return { ok: true, data };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function getAdminCoinTransactionsAction(
+  userId: string,
+  page: number,
+): Promise<ActionResult<{ transactions: CoinTransactionRow[]; total: number }>> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const data = await findCoinTransactions(userId, { page });
+    return { ok: true, data };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
   }

@@ -136,6 +136,9 @@ export async function middleware(request: NextRequest) {
     if (role !== "master" && role !== "moderator") {
       return NextResponse.redirect(homeUrl);
     }
+    if (pathname.startsWith("/admin/coins") && role !== "master") {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    }
     const moderatorAllowed = ["/admin", "/admin/users", "/admin/invitations", "/admin/exp", "/admin/publish", "/admin/reports"];
     if (
       role === "moderator" &&
