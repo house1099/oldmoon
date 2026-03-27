@@ -86,6 +86,7 @@ export default function LeaderToolsSheet({
       const codeRes = await generateInvitationCodeAction({
         expiresInDays: 30,
         note: `領袖發給 ${targetNickname}`,
+        maxUses: 1,
       });
       if (!codeRes.ok) {
         toast.error(codeRes.error);

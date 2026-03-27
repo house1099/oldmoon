@@ -4,6 +4,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createProfile } from "@/lib/repositories/server/user.repository";
 import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
+import { claimInvitationCodeAction } from "@/services/invitation.action";
 
 import {
   offlineIntentToOfflineOk,
@@ -137,6 +138,19 @@ export async function completeAdventurerProfile(input: {
       };
     }
     return { ok: false, error: "建立檔案時發生錯誤，請稍後再試。" };
+  }
+
+  const inviteRaw = meta?.invite_code;
+  const inviteStr =
+    typeof inviteRaw === "string" ? inviteRaw.trim() : "";
+  if (inviteStr) {
+    const claim = await claimInvitationCodeAction(inviteStr, user.id);
+    if (!claim.success) {
+      console.error(
+        "邀請碼核銷失敗（註冊仍完成）:",
+        claim.error ?? claim,
+      );
+    }
   }
 
   revalidatePath("/");

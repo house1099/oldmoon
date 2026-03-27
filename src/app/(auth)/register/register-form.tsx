@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { GuildAuthShell } from "@/components/auth/guild-auth-shell";
 import TermsModal from "@/components/auth/TermsModal";
@@ -20,10 +20,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { registerStep1Schema } from "@/lib/validation/register-step1";
 import { friendlyAuthErrorMessage } from "@/lib/utils/auth-errors";
-import {
-  validateInviteCodeAction,
-  claimInviteCodeAfterRegisterAction,
-} from "@/services/admin.action";
+import { validateInvitationCodeAction } from "@/services/invitation.action";
 
 const PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d)/;
 
@@ -39,6 +36,32 @@ export function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  /** onBlur 驗證：通過時 true、失敗時 false、尚未檢查 null */
+  const [inviteFieldValid, setInviteFieldValid] = useState<boolean | null>(
+    null,
+  );
+  const [inviteFieldError, setInviteFieldError] = useState<string | null>(null);
+  const [inviteChecking, setInviteChecking] = useState(false);
+
+  const runInviteValidation = useCallback(async (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      setInviteFieldValid(null);
+      setInviteFieldError(null);
+      return;
+    }
+    setInviteChecking(true);
+    const upper = trimmed.toUpperCase();
+    const res = await validateInvitationCodeAction(upper);
+    setInviteChecking(false);
+    if (res.valid) {
+      setInviteFieldValid(true);
+      setInviteFieldError(null);
+    } else {
+      setInviteFieldValid(false);
+      setInviteFieldError(res.error ?? "邀請碼無效");
+    }
+  }, []);
 
   async function handleRegisterClick() {
     setFieldErrors({});
@@ -60,7 +83,7 @@ export function RegisterForm() {
       email,
       password,
       instagram: igHandle,
-      inviteCode: inviteCode.trim() || undefined,
+      inviteCode: inviteCode.trim(),
       termsAccepted,
     });
 
@@ -78,13 +101,18 @@ export function RegisterForm() {
       return;
     }
 
-    const trimmedCode = parsed.data.inviteCode?.trim().toUpperCase() || "";
-    if (trimmedCode) {
-      const codeCheck = await validateInviteCodeAction(trimmedCode);
-      if (!codeCheck.ok) {
-        toast.error(codeCheck.error);
-        return;
-      }
+    const trimmedCode = parsed.data.inviteCode.trim().toUpperCase();
+    if (!trimmedCode) {
+      toast.error("請輸入邀請碼");
+      return;
+    }
+
+    const codeCheck = await validateInvitationCodeAction(trimmedCode);
+    if (!codeCheck.valid) {
+      toast.error(codeCheck.error ?? "邀請碼無效");
+      setInviteFieldValid(false);
+      setInviteFieldError(codeCheck.error ?? "邀請碼無效");
+      return;
     }
 
     const supabase = createClient();
@@ -94,7 +122,7 @@ export function RegisterForm() {
       options: {
         data: {
           instagram_handle: parsed.data.instagram,
-          ...(trimmedCode ? { invite_code: trimmedCode } : {}),
+          invite_code: trimmedCode,
         },
       },
     });
@@ -107,12 +135,6 @@ export function RegisterForm() {
         ),
       );
       return;
-    }
-
-    if (trimmedCode && data.user?.id) {
-      claimInviteCodeAfterRegisterAction(trimmedCode, data.user.id).catch(
-        () => {},
-      );
     }
 
     if (data.session) {
@@ -261,7 +283,7 @@ export function RegisterForm() {
           ) : null}
         </div>
 
-        {/* 邀請碼（選填） */}
+        {/* 邀請碼（必填） */}
         <div className="relative">
           <Hash
             className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
@@ -271,11 +293,33 @@ export function RegisterForm() {
             id="reg-invite"
             name="inviteCode"
             type="text"
+            required
             value={inviteCode}
-            onChange={(e) => setInviteCode(e.target.value)}
-            placeholder="邀請碼（選填）"
+            onChange={(e) => {
+              setInviteCode(e.target.value);
+              setInviteFieldValid(null);
+              setInviteFieldError(null);
+            }}
+            onBlur={(e) => {
+              void runInviteValidation(e.target.value);
+            }}
+            placeholder="請輸入邀請碼（必填）"
             className="w-full rounded-full border border-white/10 bg-zinc-900/50 py-4 pl-11 pr-4 text-base text-white placeholder:text-zinc-600 transition-colors focus:border-white/30 focus:outline-none"
+            aria-invalid={Boolean(fieldErrors.inviteCode) || inviteFieldValid === false}
           />
+          {fieldErrors.inviteCode ? (
+            <p className="mt-1.5 px-2 text-xs text-red-300">
+              {fieldErrors.inviteCode}
+            </p>
+          ) : inviteChecking ? (
+            <p className="mt-1.5 px-2 text-xs text-zinc-400">驗證中…</p>
+          ) : inviteFieldValid === false && inviteFieldError ? (
+            <p className="mt-1.5 px-2 text-xs text-red-300">{inviteFieldError}</p>
+          ) : inviteFieldValid === true ? (
+            <p className="mt-1.5 px-2 text-xs text-emerald-400">
+              ✓ 邀請碼有效
+            </p>
+          ) : null}
         </div>
 
         <div className="flex items-start gap-3 rounded-xl border border-violet-500/30 bg-violet-950/25 px-3 py-2.5 transition-colors hover:border-violet-400/40 hover:bg-violet-950/35">

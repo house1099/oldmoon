@@ -37,12 +37,13 @@ import {
 } from "@/lib/repositories/server/announcement.repository";
 import {
   findAllInvitationCodes,
-  findInvitationByCode,
+  findInvitationRowByCode,
   insertInvitationCode,
   insertInvitationCodes,
   revokeInvitationCode as repoRevokeInvitationCode,
   findInvitationTree,
   findSystemSettingByKey,
+  findInvitationUsesByCodeId,
 } from "@/lib/repositories/server/invitation.repository";
 import { DEFAULT_MODERATOR_PERMISSIONS } from "@/lib/constants/admin-permissions";
 import type {
@@ -52,6 +53,7 @@ import type {
   SystemSettingRow,
   InvitationCodeRow,
   InvitationCodeDto,
+  InvitationCodeUseRow,
   AnnouncementRow,
   AnnouncementDto,
   AdvertisementRow,
@@ -775,7 +777,7 @@ function generateRandomCode(length = 8): string {
 async function generateUniqueCode(): Promise<string> {
   for (let i = 0; i < 5; i++) {
     const code = generateRandomCode();
-    const existing = await findInvitationByCode(code);
+    const existing = await findInvitationRowByCode(code);
     if (!existing) return code;
   }
   throw new Error("無法產生唯一邀請碼，請重試");
@@ -796,9 +798,16 @@ export async function getInvitationCodesAction(): Promise<
 export async function generateInvitationCodeAction(params: {
   expiresInDays?: number;
   note?: string;
+  /** 使用人數上限，預設 1，最大 100 */
+  maxUses?: number;
 }): Promise<ActionResult<InvitationCodeRow>> {
   try {
     const { user } = await requireRole(["master", "moderator"]);
+
+    const maxUses = Math.min(
+      100,
+      Math.max(1, params.maxUses ?? 1),
+    );
 
     let expiresInDays = params.expiresInDays;
     if (expiresInDays === undefined) {
@@ -821,12 +830,13 @@ export async function generateInvitationCodeAction(params: {
       created_by: user.id,
       expires_at: expiresAt,
       note: params.note?.trim() || null,
+      max_uses: maxUses,
     });
 
     await insertAdminAction({
       admin_id: user.id,
       action_type: "invitation_create",
-      metadata: { code, expires_in_days: expiresInDays },
+      metadata: { code, expires_in_days: expiresInDays, max_uses: maxUses },
     });
 
     return { ok: true, data: row };
@@ -839,11 +849,13 @@ export async function generateBatchInvitationCodesAction(params: {
   count: number;
   expiresInDays?: number;
   note?: string;
+  maxUses?: number;
 }): Promise<ActionResult<InvitationCodeRow[]>> {
   try {
     const { user } = await requireRole(["master", "moderator"]);
 
     const count = Math.min(Math.max(1, params.count), 50);
+    const maxUses = Math.min(100, Math.max(1, params.maxUses ?? 1));
 
     let expiresInDays = params.expiresInDays;
     if (expiresInDays === undefined) {
@@ -870,6 +882,7 @@ export async function generateBatchInvitationCodesAction(params: {
       created_by: user.id,
       expires_at: expiresAt,
       note: params.note?.trim() || null,
+      max_uses: maxUses,
     }));
 
     const rows = await insertInvitationCodes(payloads);
@@ -877,7 +890,11 @@ export async function generateBatchInvitationCodesAction(params: {
     await insertAdminAction({
       admin_id: user.id,
       action_type: "invitation_batch_create",
-      metadata: { count: rows.length, expires_in_days: expiresInDays },
+      metadata: {
+        count: rows.length,
+        expires_in_days: expiresInDays,
+        max_uses: maxUses,
+      },
     });
 
     return { ok: true, data: rows };
@@ -895,12 +912,12 @@ export async function revokeInvitationCodeAction(
 
     const { data: row, error: readErr } = await admin
       .from("invitation_codes")
-      .select("used_by, code")
+      .select("use_count, code")
       .eq("id", id)
       .single();
     if (readErr) throw readErr;
 
-    if (row?.used_by) {
+    if (row && Number(row.use_count) > 0) {
       return { ok: false, error: "已使用的邀請碼無法撤銷" };
     }
 
@@ -924,6 +941,14 @@ export type InvitationTreeNodeDto = {
   avatar_url: string | null;
   level: number;
   created_at: string;
+  registration_invite_code: string | null;
+  registration_invite_meta: {
+    note: string | null;
+    expires_at: string | null;
+    max_uses: number;
+    use_count: number;
+    is_revoked: boolean;
+  } | null;
   children: InvitationTreeNodeDto[];
 };
 
@@ -942,6 +967,8 @@ export async function getInvitationTreeAction(): Promise<
         avatar_url: u.avatar_url,
         level: u.level,
         created_at: u.created_at,
+        registration_invite_code: u.registration_invite_code,
+        registration_invite_meta: u.registration_invite_meta,
         children: [],
       });
     }
@@ -962,40 +989,25 @@ export async function getInvitationTreeAction(): Promise<
   }
 }
 
-export async function validateInviteCodeAction(
-  code: string,
-): Promise<ActionResult<{ valid: boolean }>> {
+export async function getInvitationCodeUsesAction(
+  codeId: string,
+): Promise<
+  ActionResult<
+    (InvitationCodeUseRow & {
+      user: {
+        nickname: string;
+        avatar_url: string | null;
+        created_at: string;
+      };
+    })[]
+  >
+> {
   try {
-    const row = await findInvitationByCode(code.trim().toUpperCase());
-    if (!row) {
-      return { ok: true, data: { valid: true } };
-    }
-    if (row.is_revoked) {
-      return { ok: false, error: "此邀請碼已被撤銷" };
-    }
-    if (row.used_by) {
-      return { ok: false, error: "此邀請碼已被使用" };
-    }
-    if (row.expires_at && new Date(row.expires_at) < new Date()) {
-      return { ok: false, error: "此邀請碼已過期" };
-    }
-    return { ok: true, data: { valid: true } };
+    await requireRole(["master", "moderator"]);
+    const rows = await findInvitationUsesByCodeId(codeId);
+    return { ok: true, data: rows };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
-  }
-}
-
-export async function claimInviteCodeAfterRegisterAction(
-  code: string,
-  userId: string,
-): Promise<void> {
-  try {
-    const { claimInvitationCode } = await import(
-      "@/lib/repositories/server/invitation.repository"
-    );
-    await claimInvitationCode(code.trim().toUpperCase(), userId);
-  } catch {
-    // silent — backward compatible
   }
 }
 

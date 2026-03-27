@@ -1,7 +1,7 @@
 /**
  * 與 Supabase `public` schema 對齊的型別（手動維護，請在雲端 Schema 變更後同步更新）。
  * 表：users, exp_logs, likes, alliances（雙人血盟）, conversations, chat_messages, blocks, reports, messages, notifications, ig_change_requests,
- *     admin_actions, moderator_permissions, system_settings, advertisements, ad_clicks, invitation_codes, announcements,
+ *     admin_actions, moderator_permissions, system_settings, advertisements, ad_clicks, invitation_codes, invitation_code_uses, announcements,
  *     tavern_messages, tavern_bans
  */
 
@@ -899,6 +899,10 @@ export interface Database {
           expires_at: string | null;
           is_revoked: boolean;
           note: string | null;
+          /** 允許使用人次上限（1 = 一次性） */
+          max_uses: number;
+          /** 已使用人次 */
+          use_count: number;
           created_at: string;
         };
         Insert: {
@@ -910,6 +914,8 @@ export interface Database {
           expires_at?: string | null;
           is_revoked?: boolean;
           note?: string | null;
+          max_uses?: number;
+          use_count?: number;
           created_at?: string;
         };
         Update: {
@@ -920,6 +926,8 @@ export interface Database {
           expires_at?: string | null;
           is_revoked?: boolean;
           note?: string | null;
+          max_uses?: number;
+          use_count?: number;
         };
         Relationships: [
           {
@@ -936,9 +944,50 @@ export interface Database {
           },
         ];
       };
+      invitation_code_uses: {
+        Row: {
+          id: string;
+          code_id: string;
+          used_by: string;
+          used_at: string;
+        };
+        Insert: {
+          id?: string;
+          code_id: string;
+          used_by: string;
+          used_at?: string;
+        };
+        Update: {
+          code_id?: string;
+          used_by?: string;
+          used_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "invitation_code_uses_code_id_fkey";
+            columns: ["code_id"];
+            referencedRelation: "invitation_codes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invitation_code_uses_used_by_fkey";
+            columns: ["used_by"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      claim_invitation_code: {
+        Args: {
+          p_code: string;
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };
@@ -963,6 +1012,7 @@ export type SystemSettingRow = PublicTables["system_settings"]["Row"];
 export type AdvertisementRow = PublicTables["advertisements"]["Row"];
 export type AdClickRow = PublicTables["ad_clicks"]["Row"];
 export type InvitationCodeRow = PublicTables["invitation_codes"]["Row"];
+export type InvitationCodeUseRow = PublicTables["invitation_code_uses"]["Row"];
 export type AnnouncementRow = PublicTables["announcements"]["Row"];
 
 export type TavernMessageRow = PublicTables["tavern_messages"]["Row"];

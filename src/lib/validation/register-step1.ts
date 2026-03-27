@@ -12,7 +12,10 @@ export const registerStep1Schema = z.object({
       "密碼需同時包含英文與數字",
     ),
   instagram: instagramHandleSchema,
-  inviteCode: z.string().trim().optional(),
+  inviteCode: z
+    .string()
+    .trim()
+    .min(1, "邀請碼為必填欄位"),
   termsAccepted: z.boolean().refine((v) => v === true, {
     message: "請同意冒險者公會使用條款",
   }),

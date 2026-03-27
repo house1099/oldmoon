@@ -10,6 +10,8 @@ import {
   TreePine,
   BarChart3,
   Loader2,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 import {
@@ -18,10 +20,12 @@ import {
   generateBatchInvitationCodesAction,
   revokeInvitationCodeAction,
   getInvitationTreeAction,
+  getInvitationCodeUsesAction,
 } from "@/services/admin.action";
 import type {
   InvitationCodeDto,
   InvitationCodeRow,
+  InvitationCodeUseRow,
 } from "@/types/database.types";
 import type { InvitationTreeNodeDto } from "@/services/admin.action";
 
@@ -30,10 +34,18 @@ import type { InvitationTreeNodeDto } from "@/services/admin.action";
 type CodeStatus = "available" | "used" | "revoked" | "expired";
 
 function getCodeStatus(row: InvitationCodeDto): CodeStatus {
+  const maxUses = row.max_uses ?? 1;
+  const useCount = row.use_count ?? 0;
   if (row.is_revoked) return "revoked";
-  if (row.used_by) return "used";
   if (row.expires_at && new Date(row.expires_at) < new Date()) return "expired";
+  if (useCount >= maxUses) return "used";
   return "available";
+}
+
+function useProgressRatio(row: InvitationCodeDto): number {
+  const maxUses = Math.max(1, row.max_uses ?? 1);
+  const useCount = row.use_count ?? 0;
+  return Math.min(100, (useCount / maxUses) * 100);
 }
 
 const STATUS_BADGE: Record<CodeStatus, { label: string; cls: string }> = {
@@ -67,10 +79,87 @@ function fmtDate(iso: string | null) {
   }).format(new Date(iso));
 }
 
+function inviteTreeTooltip(node: InvitationTreeNodeDto): string | undefined {
+  if (!node.registration_invite_code || !node.registration_invite_meta) {
+    return undefined;
+  }
+  const m = node.registration_invite_meta;
+  return [
+    `邀請碼：${node.registration_invite_code}`,
+    `備註：${m.note ?? "—"}`,
+    `到期：${m.expires_at ? fmtDate(m.expires_at) : "無"}`,
+    `使用狀況：${m.use_count} / ${m.max_uses}`,
+    `撤銷：${m.is_revoked ? "是" : "否"}`,
+  ].join("\n");
+}
+
 function copyText(text: string) {
   navigator.clipboard.writeText(text).then(
     () => toast.success("已複製！"),
     () => toast.error("複製失敗"),
+  );
+}
+
+type InvitationUseWithUser = InvitationCodeUseRow & {
+  user: { nickname: string; avatar_url: string | null; created_at: string };
+};
+
+function InvitationUsesPanel({ codeId }: { codeId: string }) {
+  const [rows, setRows] = useState<InvitationUseWithUser[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRows(null);
+    getInvitationCodeUsesAction(codeId).then((res) => {
+      if (cancelled) return;
+      if (res.ok) setRows(res.data);
+      else {
+        toast.error(res.error);
+        setRows([]);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [codeId]);
+
+  if (rows === null) {
+    return (
+      <div className="flex justify-center py-6">
+        <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (rows.length === 0) {
+    return (
+      <p className="text-sm text-gray-500 py-4 px-2">尚無使用紀錄</p>
+    );
+  }
+
+  return (
+    <ul className="divide-y divide-gray-100 py-2 px-2 bg-gray-50/80 rounded-lg">
+      {rows.map((r) => (
+        <li
+          key={r.id}
+          className="flex items-center gap-3 py-2.5 first:pt-1 last:pb-1"
+        >
+          <Avatar
+            src={r.user.avatar_url}
+            nickname={r.user.nickname}
+            size={32}
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-gray-800 truncate">
+              {r.user.nickname}
+            </p>
+            <p className="text-xs text-gray-500">
+              使用時間：{fmtDate(r.used_at)}
+            </p>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -126,6 +215,7 @@ function InvitationList() {
   const [filter, setFilter] = useState<"all" | CodeStatus>("all");
   const [showGenerate, setShowGenerate] = useState(false);
   const [showBatch, setShowBatch] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -198,10 +288,12 @@ function InvitationList() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-600">
                 <tr>
+                  <th className="w-8 px-2 py-3" aria-hidden />
                   <th className="text-left px-4 py-3 font-medium">邀請碼</th>
                   <th className="text-left px-4 py-3 font-medium">建立者</th>
+                  <th className="text-left px-4 py-3 font-medium">使用次數</th>
                   <th className="text-left px-4 py-3 font-medium">狀態</th>
-                  <th className="text-left px-4 py-3 font-medium">使用者</th>
+                  <th className="text-left px-4 py-3 font-medium">最近使用者</th>
                   <th className="text-left px-4 py-3 font-medium">建立時間</th>
                   <th className="text-left px-4 py-3 font-medium">到期時間</th>
                   <th className="text-left px-4 py-3 font-medium">備註</th>
@@ -212,56 +304,111 @@ function InvitationList() {
                 {filtered.map((c) => {
                   const status = getCodeStatus(c);
                   const badge = STATUS_BADGE[status];
+                  const maxU = c.max_uses ?? 1;
+                  const useC = c.use_count ?? 0;
+                  const expanded = expandedId === c.id;
                   return (
-                    <tr key={c.id} className="hover:bg-gray-50/50">
-                      <td className="px-4 py-3 font-mono font-semibold tracking-wider text-gray-900">
-                        {c.code}
-                      </td>
-                      <td className="px-4 py-3 text-gray-600">
-                        {c.creator?.nickname ?? "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${badge.cls}`}
-                        >
-                          {badge.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-gray-600">
-                        {c.user?.nickname ?? "—"}
-                      </td>
-                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                        {fmtDate(c.created_at)}
-                      </td>
-                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                        {fmtDate(c.expires_at)}
-                      </td>
-                      <td className="px-4 py-3 text-gray-500 max-w-[120px] truncate">
-                        {c.note || "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-1.5">
-                          {status === "available" && (
-                            <>
-                              <button
-                                onClick={() => copyText(c.code)}
-                                className="px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600 text-xs hover:bg-gray-200 transition-colors"
-                                title="複製"
-                              >
-                                <Copy className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleRevoke(c.id)}
-                                className="px-2.5 py-1 rounded-lg bg-red-50 text-red-600 text-xs hover:bg-red-100 transition-colors"
-                                title="撤銷"
-                              >
-                                <Ban className="w-3.5 h-3.5" />
-                              </button>
-                            </>
+                    <React.Fragment key={c.id}>
+                      <tr
+                        role="button"
+                        tabIndex={0}
+                        onClick={() =>
+                          setExpandedId(expanded ? null : c.id)
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setExpandedId(expanded ? null : c.id);
+                          }
+                        }}
+                        className="hover:bg-gray-50/50 cursor-pointer"
+                      >
+                        <td className="px-2 py-3 text-gray-400">
+                          {expanded ? (
+                            <ChevronDown className="w-4 h-4" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4" />
                           )}
-                        </div>
-                      </td>
-                    </tr>
+                        </td>
+                        <td className="px-4 py-3 font-mono font-semibold tracking-wider text-gray-900">
+                          {c.code}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">
+                          {c.creator?.nickname ?? "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-xs text-gray-600 tabular-nums">
+                              {useC} / {maxU}
+                            </span>
+                            <div className="w-16 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-emerald-500 transition-[width]"
+                                style={{
+                                  width: `${useProgressRatio(c)}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${badge.cls}`}
+                          >
+                            {badge.label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">
+                          {c.user?.nickname ?? "—"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
+                          {fmtDate(c.created_at)}
+                        </td>
+                        <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
+                          {fmtDate(c.expires_at)}
+                        </td>
+                        <td className="px-4 py-3 text-gray-500 max-w-[120px] truncate">
+                          {c.note || "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div
+                            className="flex gap-1.5"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {status === "available" && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => copyText(c.code)}
+                                  className="px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600 text-xs hover:bg-gray-200 transition-colors"
+                                  title="複製"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRevoke(c.id)}
+                                  className="px-2.5 py-1 rounded-lg bg-red-50 text-red-600 text-xs hover:bg-red-100 transition-colors"
+                                  title="撤銷"
+                                >
+                                  <Ban className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      {expanded ? (
+                        <tr className="bg-gray-50/30">
+                          <td colSpan={10} className="px-6 py-2">
+                            <p className="text-xs font-medium text-gray-500 mb-2">
+                              使用紀錄
+                            </p>
+                            <InvitationUsesPanel codeId={c.id} />
+                          </td>
+                        </tr>
+                      ) : null}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
@@ -273,37 +420,74 @@ function InvitationList() {
             {filtered.map((c) => {
               const status = getCodeStatus(c);
               const badge = STATUS_BADGE[status];
+              const maxU = c.max_uses ?? 1;
+              const useC = c.use_count ?? 0;
+              const expanded = expandedId === c.id;
               return (
                 <div
                   key={c.id}
                   className="rounded-xl border border-gray-200 bg-white p-4 space-y-2"
                 >
-                  <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedId(expanded ? null : c.id)
+                    }
+                    className="flex w-full items-center justify-between text-left gap-2"
+                  >
                     <span className="font-mono font-semibold tracking-wider text-gray-900">
                       {c.code}
                     </span>
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${badge.cls}`}
-                    >
-                      {badge.label}
+                    <span className="flex items-center gap-2 shrink-0">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${badge.cls}`}
+                      >
+                        {badge.label}
+                      </span>
+                      {expanded ? (
+                        <ChevronDown className="w-4 h-4 text-gray-400" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                      )}
                     </span>
-                  </div>
+                  </button>
                   <div className="text-xs text-gray-500 space-y-1">
                     <p>建立者：{c.creator?.nickname ?? "—"}</p>
-                    {c.user && <p>使用者：{c.user.nickname}</p>}
+                    <div className="flex items-center gap-2">
+                      <span className="tabular-nums">
+                        使用次數：{useC} / {maxU}
+                      </span>
+                      <div className="w-16 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-emerald-500"
+                          style={{ width: `${useProgressRatio(c)}%` }}
+                        />
+                      </div>
+                    </div>
+                    {c.user && <p>最近使用者：{c.user.nickname}</p>}
                     <p>建立：{fmtDate(c.created_at)}</p>
                     {c.expires_at && <p>到期：{fmtDate(c.expires_at)}</p>}
                     {c.note && <p>備註：{c.note}</p>}
                   </div>
+                  {expanded ? (
+                    <div className="pt-2 border-t border-gray-100">
+                      <p className="text-xs font-medium text-gray-500 mb-2">
+                        使用紀錄
+                      </p>
+                      <InvitationUsesPanel codeId={c.id} />
+                    </div>
+                  ) : null}
                   {status === "available" && (
                     <div className="flex gap-2 pt-1">
                       <button
+                        type="button"
                         onClick={() => copyText(c.code)}
                         className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 text-xs hover:bg-gray-200"
                       >
                         <Copy className="w-3.5 h-3.5" /> 複製
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleRevoke(c.id)}
                         className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-50 text-red-600 text-xs hover:bg-red-100"
                       >
@@ -341,6 +525,7 @@ function GenerateDialog({
   onCreated: () => void;
 }) {
   const [daysStr, setDaysStr] = useState("30");
+  const [maxUsesStr, setMaxUsesStr] = useState("1");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<InvitationCodeRow | null>(null);
@@ -351,10 +536,16 @@ function GenerateDialog({
       toast.error("有效天數須為 0 以上的整數（0 = 永不過期）");
       return;
     }
+    const maxUses = parseInt(maxUsesStr, 10);
+    if (!Number.isFinite(maxUses) || maxUses < 1 || maxUses > 100) {
+      toast.error("使用人數上限須為 1–100");
+      return;
+    }
     setLoading(true);
     const res = await generateInvitationCodeAction({
       expiresInDays: days,
       note: note || undefined,
+      maxUses,
     });
     setLoading(false);
     if (res.ok) {
@@ -389,6 +580,24 @@ function GenerateDialog({
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                使用人數上限
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={maxUsesStr}
+                onChange={(e) =>
+                  setMaxUsesStr(e.target.value.replace(/[^0-9]/g, ""))
+                }
+                placeholder="1–100"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                設為 1 代表一次性邀請碼
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 備註（選填）
               </label>
               <input
@@ -401,12 +610,14 @@ function GenerateDialog({
             </div>
             <div className="flex gap-3 justify-end pt-2">
               <button
+                type="button"
                 onClick={onClose}
                 className="px-4 py-2 rounded-full text-sm text-gray-600 hover:bg-gray-100"
               >
                 取消
               </button>
               <button
+                type="button"
                 onClick={handleGenerate}
                 disabled={loading}
                 className="px-5 py-2 rounded-full bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 disabled:opacity-50"
@@ -425,12 +636,14 @@ function GenerateDialog({
             </div>
             <div className="flex gap-3 justify-end pt-2">
               <button
+                type="button"
                 onClick={() => copyText(result.code)}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-violet-600 text-white text-sm font-medium hover:bg-violet-700"
               >
                 <Copy className="w-4 h-4" /> 複製邀請碼
               </button>
               <button
+                type="button"
                 onClick={onClose}
                 className="px-4 py-2 rounded-full text-sm text-gray-600 hover:bg-gray-100"
               >
@@ -455,6 +668,7 @@ function BatchDialog({
 }) {
   const [countStr, setCountStr] = useState("10");
   const [daysStr, setDaysStr] = useState("30");
+  const [maxUsesStr, setMaxUsesStr] = useState("1");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<InvitationCodeRow[]>([]);
@@ -470,11 +684,17 @@ function BatchDialog({
       toast.error("有效天數須為 0 以上的整數（0 = 永不過期）");
       return;
     }
+    const maxUses = parseInt(maxUsesStr, 10);
+    if (!Number.isFinite(maxUses) || maxUses < 1 || maxUses > 100) {
+      toast.error("使用人數上限須為 1–100");
+      return;
+    }
     setLoading(true);
     const res = await generateBatchInvitationCodesAction({
       count,
       expiresInDays: days,
       note: note || undefined,
+      maxUses,
     });
     setLoading(false);
     if (res.ok) {
@@ -529,6 +749,24 @@ function BatchDialog({
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                使用人數上限
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={maxUsesStr}
+                onChange={(e) =>
+                  setMaxUsesStr(e.target.value.replace(/[^0-9]/g, ""))
+                }
+                placeholder="1–100"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                設為 1 代表一次性邀請碼
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 備註（選填）
               </label>
               <input
@@ -541,12 +779,14 @@ function BatchDialog({
             </div>
             <div className="flex gap-3 justify-end pt-2">
               <button
+                type="button"
                 onClick={onClose}
                 className="px-4 py-2 rounded-full text-sm text-gray-600 hover:bg-gray-100"
               >
                 取消
               </button>
               <button
+                type="button"
                 onClick={handleBatch}
                 disabled={loading}
                 className="px-5 py-2 rounded-full bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 disabled:opacity-50"
@@ -580,12 +820,14 @@ function BatchDialog({
             </div>
             <div className="flex gap-3 justify-end pt-2">
               <button
+                type="button"
                 onClick={copyAll}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-violet-600 text-white text-sm font-medium hover:bg-violet-700"
               >
                 <Copy className="w-4 h-4" /> 全部複製
               </button>
               <button
+                type="button"
                 onClick={onClose}
                 className="px-4 py-2 rounded-full text-sm text-gray-600 hover:bg-gray-100"
               >
@@ -669,6 +911,14 @@ function TreeNode({
         <span className="text-sm font-medium text-gray-800">
           {node.nickname}
         </span>
+        <span
+          className="text-[10px] text-gray-500 font-mono tabular-nums max-w-[5.5rem] truncate shrink-0"
+          title={inviteTreeTooltip(node)}
+        >
+          {node.registration_invite_code
+            ? `碼 ${node.registration_invite_code}`
+            : ""}
+        </span>
         <span className="text-xs px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-600 font-medium">
           Lv.{node.level}
         </span>
@@ -727,7 +977,14 @@ function InvitationStats() {
   }
 
   const total = codes.length;
-  const used = codes.filter((c) => c.used_by).length;
+  const totalRedemptions = codes.reduce(
+    (s, c) => s + (c.use_count ?? 0),
+    0,
+  );
+  const totalCapacity = codes.reduce(
+    (s, c) => s + (c.max_uses ?? 1),
+    0,
+  );
   const available = codes.filter(
     (c) => getCodeStatus(c) === "available",
   ).length;
@@ -742,12 +999,19 @@ function InvitationStats() {
     (c) => new Date(c.created_at) >= weekAgo,
   ).length;
 
-  const rate = total > 0 ? ((used / total) * 100).toFixed(1) : "0";
+  const rate =
+    totalCapacity > 0
+      ? ((totalRedemptions / totalCapacity) * 100).toFixed(1)
+      : "0";
 
   const cards = [
     { label: "總邀請碼數", value: total, color: "text-gray-900" },
-    { label: "已使用 / 使用率", value: `${used} / ${rate}%`, color: "text-blue-600" },
-    { label: "未使用", value: available, color: "text-emerald-600" },
+    {
+      label: "已核銷人次 / 名額佔比",
+      value: `${totalRedemptions} / ${rate}%`,
+      color: "text-blue-600",
+    },
+    { label: "仍有名額的碼", value: available, color: "text-emerald-600" },
     { label: "已撤銷", value: revoked, color: "text-red-600" },
     { label: "已過期", value: expired, color: "text-gray-500" },
     { label: "本週新產生", value: weekNew, color: "text-violet-600" },
