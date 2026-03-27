@@ -1109,6 +1109,10 @@ export interface Database {
         };
         Returns: Json;
       };
+      get_coin_stats: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
