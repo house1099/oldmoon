@@ -14,6 +14,7 @@ import { getRoleDisplay } from "@/lib/utils/role-display";
 import { UserDetailModal } from "@/components/modals/UserDetailModal";
 import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
 import { LevelBadge } from "@/components/ui/LevelBadge";
+import { LevelCardEffect } from "@/components/ui/LevelCardEffect";
 
 function tagLabel(slug: string): string {
   return INTEREST_TAG_OPTIONS.find((o) => o.value === slug)?.label ?? slug;
@@ -58,21 +59,23 @@ export function UserCard({
 
   return (
     <>
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={handleActivate}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            handleActivate();
-          }
-        }}
-        className={cn(
-          "relative cursor-pointer overflow-visible rounded-2xl border border-zinc-800/60 bg-zinc-900/60 p-4 transition-all duration-200 hover:border-zinc-700/80 hover:bg-zinc-900/80 active:scale-[0.99]",
-          className,
-        )}
+      <LevelCardEffect
+        level={Number(user.level) || 1}
+        role={user.role}
+        className={cn("cursor-pointer overflow-visible", className)}
       >
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={handleActivate}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleActivate();
+            }
+          }}
+          className="relative overflow-visible rounded-2xl bg-zinc-900/60 p-4 transition-all duration-200 hover:bg-zinc-900/80 active:scale-[0.99]"
+        >
         {variant === "market" && isPerfectMatch ? (
           <div
             className="pointer-events-none absolute inset-0 rounded-2xl border border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.15)]"
@@ -226,7 +229,8 @@ export function UserCard({
             </div>
           ) : null}
         </div>
-      </div>
+        </div>
+      </LevelCardEffect>
 
       <UserDetailModal
         user={user}

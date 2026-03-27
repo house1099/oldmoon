@@ -840,7 +840,7 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
         >
           <div
             className={cn(
-              "relative mx-auto rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
+              "relative z-0 mx-auto rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
               profile.role === "master" ? "overflow-visible" : "overflow-hidden",
               uploading || cropOpen
                 ? "cursor-not-allowed opacity-80"
@@ -891,7 +891,12 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             />
           </div>
 
-          <div className="w-full space-y-2">
+          <div
+            className={cn(
+              "relative z-10 w-full space-y-2",
+              profile.role === "master" && "mt-5 pt-1",
+            )}
+          >
             <p className="font-serif text-xl tracking-wide text-zinc-100 sm:text-2xl">
               {profile.nickname}
             </p>

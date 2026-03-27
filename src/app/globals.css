@@ -313,6 +313,172 @@
   }
 }
 
+/* UserCard：等級外框特效（LevelCardEffect） */
+@keyframes fade-up-particle {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+}
+
+.animate-fade-up-particle {
+  animation-name: fade-up-particle;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+
+/* Lv.3-4 呼吸微光 */
+@keyframes breathe-blue {
+  0%,
+  100% {
+    box-shadow:
+      0 0 8px rgba(99, 102, 241, 0.3),
+      inset 0 0 8px rgba(99, 102, 241, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 16px rgba(99, 102, 241, 0.6),
+      inset 0 0 12px rgba(99, 102, 241, 0.2);
+  }
+}
+
+.effect-breathe-blue {
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  animation: breathe-blue 3s ease-in-out infinite;
+}
+
+/* Lv.5-6 流光 */
+@keyframes flow-cyan {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.effect-flow-cyan {
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(#18181b, #18181b) padding-box,
+    linear-gradient(90deg, #06b6d4, #6366f1, #06b6d4) border-box;
+  background-size: 200% 200%;
+  animation: flow-cyan 4s linear infinite;
+}
+
+/* Lv.7-8 流光+閃爍 */
+@keyframes flow-purple {
+  0% {
+    background-position: 0% 50%;
+    opacity: 1;
+  }
+  45% {
+    opacity: 0.7;
+  }
+  50% {
+    background-position: 100% 50%;
+    opacity: 1;
+  }
+  95% {
+    opacity: 0.7;
+  }
+  100% {
+    background-position: 0% 50%;
+    opacity: 1;
+  }
+}
+
+.effect-flow-purple {
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(#18181b, #18181b) padding-box,
+    linear-gradient(90deg, #a855f7, #ec4899, #a855f7) border-box;
+  background-size: 200% 200%;
+  animation: flow-purple 3s linear infinite;
+}
+
+/* Lv.9 烈焰呼吸 */
+@keyframes breathe-fire {
+  0%,
+  100% {
+    box-shadow:
+      0 0 12px rgba(249, 115, 22, 0.4),
+      0 0 24px rgba(234, 179, 8, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 20px rgba(249, 115, 22, 0.7),
+      0 0 40px rgba(234, 179, 8, 0.4);
+  }
+}
+
+.effect-fire {
+  border: 1.5px solid rgba(249, 115, 22, 0.6);
+  animation: breathe-fire 2s ease-in-out infinite;
+}
+
+/* Lv.10 彩虹流光 */
+@keyframes rainbow-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.effect-rainbow {
+  border: 2px solid transparent;
+  background:
+    linear-gradient(#18181b, #18181b) padding-box,
+    linear-gradient(
+        90deg,
+        #f59e0b,
+        #10b981,
+        #6366f1,
+        #ec4899,
+        #f59e0b
+      )
+      border-box;
+  background-size: 300% 300%;
+  animation: rainbow-flow 3s linear infinite;
+}
+
+/* master 紫金傳奇 */
+@keyframes master-flow {
+  0% {
+    background-position: 0% 50%;
+    box-shadow: 0 0 16px rgba(168, 85, 247, 0.5);
+  }
+  50% {
+    background-position: 100% 50%;
+    box-shadow: 0 0 28px rgba(234, 179, 8, 0.6);
+  }
+  100% {
+    background-position: 0% 50%;
+    box-shadow: 0 0 16px rgba(168, 85, 247, 0.5);
+  }
+}
+
+.effect-master {
+  border: 2px solid transparent;
+  background:
+    linear-gradient(#18181b, #18181b) padding-box,
+    linear-gradient(90deg, #a855f7, #f59e0b, #a855f7, #f59e0b) border-box;
+  background-size: 300% 300%;
+  animation: master-flow 2s linear infinite;
+}
+
 @layer base {
   .theme {
     --font-heading: var(--font-sans);

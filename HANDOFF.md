@@ -44,6 +44,24 @@
 - **技能市集排序**（**`getMarketUsersAction`**／**`market.service.ts`**）：**不做** staff 置頂 — **①** **Perfect Match**（雙向技能契合）→ **②** **互補分** → **③** **同好分** → **④** 同分 **`level` 高→低**。**`findMarketUsers`** **`select`** 同上（**`level`**、**`role`**、心情與活躍狀態等列表與詳情所需欄位）。
 - **命定師徒**：市集 UI 將原「靈魂伴侶／完美匹配」文案改為 **「⚔️ 命定師徒」**（**`MarketContent.tsx`**）；**`.perfect-match-market-shell`** 高光樣式不變（**`globals.css`** 註解同步）。
 
+### 列表卡等級外框特效 `LevelCardEffect`（2026-03-27）
+
+- **元件**：**`src/components/ui/LevelCardEffect.tsx`** — 依 **`level`** 與 **`role`** 在卡片外緣套邊框動畫；**`UserCard`**（**`src/components/ui/UserCard.tsx`**）最外層已改為 **`LevelCardEffect`** 包裝，內層 **`rounded-2xl`** 與特效層一致。**`moderator`** 不套用 **master** 特效，僅 **`role === 'master'`** 使用 **`effect-master`**。
+- **等級／角色對照**（**`getEffectClass`**）：
+
+| 條件 | 邊框 CSS class | 粒子 |
+|------|----------------|------|
+| **`role === 'master'`** | **`effect-master`** | ✅ |
+| **Lv ≥ 10** | **`effect-rainbow`** | ✅ |
+| **Lv ≥ 9** | **`effect-fire`** | ✅ |
+| **Lv 7–8** | **`effect-flow-purple`** | ❌ |
+| **Lv 5–6** | **`effect-flow-cyan`** | ❌ |
+| **Lv 3–4** | **`effect-breathe-blue`** | ❌ |
+| **Lv 1–2**（一般） | Tailwind：**`border border-zinc-800/60`** | ❌ |
+
+- **粒子**：**`ParticleEffect`** 同檔；僅 **Lv ≥ 9** 或 **master** 時渲染（**`getEffectClass(...).particles === true`**），**`pointer-events-none`**，動畫 **`fade-up-particle`**（**`globals.css`** 之 **`@keyframes fade-up-particle`** + **`.animate-fade-up-particle`**）。粒子色：**Lv 9** **`bg-orange-400/60`**；**Lv 10** **`bg-yellow-300/70`**；**master** 紫／黃交替。
+- **樣式定義**：**`src/app/globals.css`** — **`effect-breathe-blue`**、**`effect-flow-cyan`**、**`effect-flow-purple`**、**`effect-fire`**、**`effect-rainbow`**、**`effect-master`** 與對應 **`@keyframes`**（**`breathe-blue`**、**`flow-cyan`**、**`flow-purple`**、**`breathe-fire`**、**`rainbow-flow`**、**`master-flow`**）。
+
 ### 廣告顯示與後台（2026-03-26 起）
 
 - **Layer 2 `findActiveHomeAds`**：併查 **`position = banner`**（最多 **15** 則）與 **`card`**（最多 **3** 則），權重降序、**`is_active`** 與上下架時間窗與先前一致；**`getHomeAdsAction`** 仍回傳單一陣列，**UI 依 `position` 分流**（橫幅輪播／卡片橫滑互不混用）。
@@ -166,6 +184,7 @@
 | DB 型別 | `src/types/database.types.ts`（含 **`ig_change_requests`**、**`users.role`**、**`skills_offer`**／**`skills_want`**、**`conversations`**／**`chat_messages`**／**`blocks`**／**`reports`**、**`tavern_messages`**／**`tavern_bans`**、**`TavernMessageDto`** 等） |
 | SWR Keys | **`src/lib/swr/keys.ts`** — 含 **`SWR_KEYS.tavernMessages`** |
 | 市集命定師徒高光 | `src/app/globals.css`（**`.perfect-match-market-shell`**，Perfect Match 外環；文案 **命定師徒**） |
+| 列表卡等級外框 | **`src/components/ui/LevelCardEffect.tsx`**（**`UserCard`** 套用；**`globals.css`** **`effect-*`** class） |
 | 防重複點擊按鈕 | **`src/components/ui/LoadingButton.tsx`**（**`PendingLabel`** spinner）；註冊／首頁個人卡／**`UserDetailModal`** 等重要操作採用；**Sonner** 成功／失敗文案見下「Toast 統一規範」 |
 
 ---

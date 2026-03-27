@@ -318,7 +318,7 @@ export function UserDetailModal({
         >
           <DialogTitle className="sr-only">{user.nickname} 的冒險者資料</DialogTitle>
 
-          <div className="relative flex-shrink-0 overflow-visible bg-gradient-to-b from-zinc-900/80 to-zinc-950 px-5 pb-4 pt-8">
+          <div className="relative flex-shrink-0 overflow-visible bg-gradient-to-b from-zinc-900/80 to-zinc-950 px-5 pb-5 pt-6">
             <button
               type="button"
               onClick={() => onOpenChange(false)}
@@ -328,7 +328,7 @@ export function UserDetailModal({
               <X className="h-4 w-4" />
             </button>
 
-            <div className="flex items-start gap-4 pr-2">
+            <div className="flex items-start gap-5 pr-2">
               <div className="relative shrink-0 overflow-visible">
                 <MasterAvatarShell
                   role={user.role}
@@ -349,20 +349,23 @@ export function UserDetailModal({
                 </MasterAvatarShell>
               </div>
 
-              <div className="min-w-0 flex-1 pt-1">
+              <div className="min-w-0 flex-1 space-y-2 pl-0.5">
                 <div className="flex flex-wrap items-center gap-1.5">
                   {roleCrown ? <span aria-hidden>{roleCrown}</span> : null}
                   <h2
-                    className={cn("truncate text-xl font-bold", roleNameClass)}
+                    className={cn(
+                      "truncate text-xl font-bold leading-snug",
+                      roleNameClass,
+                    )}
                   >
                     {user.nickname}
                   </h2>
                 </div>
-                <div className="mt-0.5 flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <LevelBadge level={user.level} />
                   <span className="text-xs text-zinc-500">{levelTitle}</span>
                 </div>
-                <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5">
                   <span className="flex items-center gap-1 text-xs text-zinc-400">
                     <User className="h-3 w-3 shrink-0" />
                     {genderLabel}
