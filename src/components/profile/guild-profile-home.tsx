@@ -1528,12 +1528,12 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
 
       {cropOpen && cropSrc ? (
         <div
-          className="fixed inset-0 z-[200] flex flex-col bg-black"
+          className="fixed inset-0 z-[200] flex h-dvh flex-col bg-black"
           role="dialog"
           aria-modal="true"
           aria-labelledby="avatar-crop-title"
         >
-          <div className="glass-panel shrink-0 border-b border-white/10 px-4 py-3 text-center shadow-2xl backdrop-blur-xl">
+          <div className="glass-panel z-10 shrink-0 border-b border-white/10 px-4 py-3 text-center shadow-2xl backdrop-blur-xl">
             <p
               id="avatar-crop-title"
               className="text-sm font-medium tracking-wide text-zinc-100"
@@ -1545,7 +1545,13 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             </p>
           </div>
 
-          <div className="relative min-h-0 flex-1 w-full bg-black">
+          <div
+            className="relative min-h-0 w-full shrink-0 overflow-hidden bg-black"
+            style={{
+              height:
+                "calc(100dvh - 5.75rem - (1rem + 3rem + max(1rem, env(safe-area-inset-bottom, 0px))))",
+            }}
+          >
             <Cropper
               image={cropSrc}
               crop={crop}
@@ -1559,26 +1565,26 @@ export function GuildProfileHome({ profile }: { profile: UserRow }) {
             />
           </div>
 
-          <div className="glass-panel shrink-0 border-t border-white/10 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl backdrop-blur-xl">
-            <div className="mx-auto flex w-full max-w-md gap-3">
-              <button
-                type="button"
-                disabled={uploading}
-                onClick={closeCropModal}
-                className="flex-1 rounded-full border border-white/15 bg-zinc-900/70 px-5 py-2.5 text-sm text-zinc-200 transition hover:bg-zinc-800/90 disabled:opacity-50"
-              >
-                取消
-              </button>
-              <LoadingButton
-                className="flex-1 rounded-full border border-violet-400/35 bg-violet-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-950/50 transition hover:bg-violet-500 disabled:pointer-events-none disabled:opacity-45"
-                loading={uploading}
-                loadingText="處理中…"
-                disabled={!croppedAreaPixels}
-                onClick={handleCropConfirm}
-              >
-                確認裁切
-              </LoadingButton>
-            </div>
+          {/* 底部按鈕區：fixed 避免被 flex / safe-area 推出視窗外（桌機網頁） */}
+          <div
+            className="fixed bottom-0 left-0 right-0 z-[9999] flex gap-3 bg-black/80 px-4 py-4 backdrop-blur-sm pb-[max(1rem,env(safe-area-inset-bottom))]"
+          >
+            <button
+              type="button"
+              onClick={closeCropModal}
+              disabled={uploading}
+              className="flex-1 rounded-full bg-zinc-800 py-3 text-sm font-medium text-zinc-200 transition-transform active:scale-95 disabled:opacity-50"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleCropConfirm()}
+              disabled={uploading || !croppedAreaPixels}
+              className="flex-1 rounded-full bg-violet-600 py-3 text-sm font-medium text-white transition-transform active:scale-95 disabled:opacity-60"
+            >
+              {uploading ? "上傳中..." : "確認裁切"}
+            </button>
           </div>
         </div>
       ) : null}
