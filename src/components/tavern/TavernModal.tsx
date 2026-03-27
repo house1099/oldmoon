@@ -83,6 +83,8 @@ export function TavernModal({
   const [actionTarget, setActionTarget] = useState<TavernMessageDto | null>(
     null,
   );
+  const [selectedBanHours, setSelectedBanHours] = useState<1 | 3 | 24 | null>(null);
+  const [banReason, setBanReason] = useState("");
   const [tavernProfileUser, setTavernProfileUser] = useState<UserRow | null>(
     null,
   );
@@ -104,6 +106,8 @@ export function TavernModal({
       setInput("");
       setStickersOpen(false);
       setActionTarget(null);
+      setSelectedBanHours(null);
+      setBanReason("");
       setTavernProfileOpen(false);
       setTavernProfileUser(null);
     }
@@ -159,16 +163,18 @@ export function TavernModal({
     }
   };
 
-  const handleBanUser = async (hours: 1 | 3 | 24) => {
+  const handleBanUser = async (hours: 1 | 3 | 24, reason: string) => {
     if (!actionTarget) return;
     try {
       await banTavernUserAction({
         userId: actionTarget.user_id,
-        reason: "酒館管理操作",
+        reason: reason.trim(),
         durationHours: hours,
       });
       toast.success(`已禁言 ${actionTarget.user.nickname} ${hours} 小時`);
       setActionTarget(null);
+      setSelectedBanHours(null);
+      setBanReason("");
       void mutate();
     } catch (e) {
       toast.error((e as Error).message ?? "禁言失敗");
@@ -192,7 +198,7 @@ export function TavernModal({
   return createPortal(
     <>
       <div
-        className="fixed inset-0 z-[500] flex flex-col bg-zinc-950/95 backdrop-blur-xl"
+        className="fixed inset-0 z-50 flex flex-col bg-zinc-950/95 backdrop-blur-xl"
         aria-modal="true"
         role="dialog"
         aria-labelledby="tavern-modal-title"
@@ -393,7 +399,7 @@ export function TavernModal({
       </div>
 
       {actionTarget ? (
-        <div className="fixed inset-0 z-[520] flex items-end justify-center bg-black/60 p-4 sm:items-center">
+        <div className="fixed inset-0 z-[52] flex items-end justify-center bg-black/60 p-4 sm:items-center">
           <div className="flex flex-col gap-2 rounded-2xl border border-zinc-700 bg-zinc-900 p-3">
             <p className="mb-1 text-xs text-zinc-400">
               禁言 {actionTarget.user.nickname}
@@ -402,12 +408,31 @@ export function TavernModal({
               <button
                 type="button"
                 key={hours}
-                onClick={() => void handleBanUser(hours as 1 | 3 | 24)}
+                onClick={() => setSelectedBanHours(hours as 1 | 3 | 24)}
                 className="py-1.5 text-left text-sm text-amber-400 transition-colors hover:text-amber-300"
               >
                 🔇 禁言 {hours} 小時
               </button>
             ))}
+            {selectedBanHours ? (
+              <div className="space-y-2 rounded-xl border border-zinc-700/70 bg-zinc-800/60 p-3">
+                <input
+                  type="text"
+                  placeholder="禁言原因（必填）"
+                  value={banReason}
+                  onChange={(e) => setBanReason(e.target.value)}
+                  className="w-full rounded-xl bg-zinc-800 px-3 py-2 text-sm text-zinc-200"
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleBanUser(selectedBanHours, banReason)}
+                  disabled={!banReason.trim()}
+                  className="w-full rounded-xl bg-amber-600 py-2 text-sm text-white disabled:opacity-40"
+                >
+                  確認禁言 {selectedBanHours} 小時
+                </button>
+              </div>
+            ) : null}
             <button
               type="button"
               onClick={() => void handleDeleteMessage()}
@@ -417,7 +442,11 @@ export function TavernModal({
             </button>
             <button
               type="button"
-              onClick={() => setActionTarget(null)}
+              onClick={() => {
+                setActionTarget(null);
+                setSelectedBanHours(null);
+                setBanReason("");
+              }}
               className="pt-1 text-center text-xs text-zinc-500 hover:text-zinc-400"
             >
               取消

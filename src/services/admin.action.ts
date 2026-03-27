@@ -2,12 +2,11 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
 import {
   getDashboardStats as repoGetDashboardStats,
   findUsersForAdmin,
-  findUserDetailById,
   updateUserStatus,
   updateSuspendedUntil,
   insertAdminAction,
@@ -149,17 +148,29 @@ export async function getUserDetailAction(
   userId: string,
 ): Promise<
   ActionResult<
-    (UserRow & { email: string; tavern_banned: boolean }) | null
+    (UserRow & { email: string | null; tavern_banned: boolean }) | null
   >
 > {
   try {
-    await requireRole(["master", "moderator"]);
-    const detail = await findUserDetailById(userId);
+    const { profile: operator } = await requireRole(["master", "moderator"]);
+    const detail = await findProfileById(userId);
     if (!detail) {
       return { ok: true, data: null };
     }
+
+    let email: string | null = null;
+    if (operator.role === "master") {
+      try {
+        const admin = createAdminClient();
+        const { data } = await admin.auth.admin.getUserById(userId);
+        email = data.user?.email ?? null;
+      } catch {
+        email = null;
+      }
+    }
+
     const tavern_banned = await isTavernBanned(userId);
-    return { ok: true, data: { ...detail, tavern_banned } };
+    return { ok: true, data: { ...detail, email, tavern_banned } };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
   }
@@ -524,6 +535,7 @@ export async function getSystemSettingsAction(): Promise<
   ActionResult<SystemSettingRow[]>
 > {
   try {
+    noStore();
     await requireRole(["master"]);
     const settings = await repoFindAllSystemSettings();
     return { ok: true, data: settings };

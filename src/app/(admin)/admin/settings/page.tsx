@@ -238,7 +238,7 @@ export default function AdminSettingsPage() {
                 <p className="text-xs text-gray-500">🧭 {item.coin} 幣權重</p>
                 <div className="mt-2 flex items-center gap-2">
                   <input
-                    type="number"
+                    type="text"
                     value={
                       settings[item.key] && settings[item.key].trim() !== ""
                         ? settings[item.key]
@@ -247,7 +247,7 @@ export default function AdminSettingsPage() {
                     onChange={(e) =>
                       setSettings((prev) => ({
                         ...prev,
-                        [item.key]: e.target.value,
+                        [item.key]: e.target.value.replace(/[^0-9]/g, ""),
                       }))
                     }
                     className="w-full rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm"

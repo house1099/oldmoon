@@ -78,7 +78,7 @@ type Props = {
   viewerRole: "master" | "moderator" | "member";
 };
 
-type UserDetail = UserRow & { email: string; tavern_banned: boolean };
+type UserDetail = UserRow & { email: string | null; tavern_banned: boolean };
 
 function canOperate(operatorRole: string, targetRole: string): boolean {
   if (targetRole === "master") return false;
@@ -108,10 +108,12 @@ export default function UsersClient({
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserDetail | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [igRequests, setIgRequests] = useState<
     { id: string; old_handle: string | null; new_handle: string; status: string }[]
   >([]);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   const [actionReason, setActionReason] = useState("");
   const [expDelta, setExpDelta] = useState("");
@@ -188,6 +190,8 @@ export default function UsersClient({
   const openUserDetail = async (userId: string) => {
     setSheetOpen(true);
     setDetailLoading(true);
+    setDetailError(null);
+    setSelectedUserId(userId);
     setSelectedUser(null);
     setIgRequests([]);
 
@@ -196,8 +200,14 @@ export default function UsersClient({
       getPendingIgRequestsForUserAction(userId),
     ]);
 
-    if (detailRes.ok && detailRes.data) {
-      setSelectedUser(detailRes.data);
+    if (detailRes.ok) {
+      if (detailRes.data) {
+        setSelectedUser(detailRes.data);
+      } else {
+        setDetailError("找不到此用戶資料");
+      }
+    } else {
+      setDetailError(detailRes.error || "讀取用戶資料失敗");
     }
     if (igRes.ok) {
       setIgRequests(igRes.data as typeof igRequests);
@@ -210,11 +220,21 @@ export default function UsersClient({
   };
 
   const refreshDetail = async (userId: string) => {
+    setDetailError(null);
     const [detailRes, igRes] = await Promise.all([
       getUserDetailAction(userId),
       getPendingIgRequestsForUserAction(userId),
     ]);
-    if (detailRes.ok && detailRes.data) setSelectedUser(detailRes.data);
+    if (detailRes.ok) {
+      if (detailRes.data) {
+        setSelectedUser(detailRes.data);
+      } else {
+        setSelectedUser(null);
+        setDetailError("找不到此用戶資料");
+      }
+    } else {
+      setDetailError(detailRes.error || "讀取用戶資料失敗");
+    }
     if (igRes.ok) setIgRequests(igRes.data as typeof igRequests);
   };
 
@@ -597,7 +617,11 @@ export default function UsersClient({
                     <h3 className="text-lg font-bold text-gray-900">
                       {selectedUser.nickname}
                     </h3>
-                    <p className="text-xs text-gray-400">{selectedUser.email}</p>
+                    {viewerRole === "master" ? (
+                      <p className="text-xs text-gray-400">
+                        {selectedUser.email ?? "無 Email"}
+                      </p>
+                    ) : null}
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 font-medium">
                         Lv.{selectedUser.level}
@@ -856,7 +880,20 @@ export default function UsersClient({
                 </div>
               </>
             ) : (
-              <p className="text-gray-400 text-center py-12">載入失敗</p>
+              <div className="text-center py-8">
+                <p className="text-gray-500 text-sm">{detailError ?? "載入失敗"}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedUserId) {
+                      void refreshDetail(selectedUserId);
+                    }
+                  }}
+                  className="mt-2 text-violet-600 text-sm"
+                >
+                  重試
+                </button>
+              </div>
             )}
           </div>
         </SheetContent>

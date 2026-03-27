@@ -335,14 +335,15 @@ export async function updateSystemSetting(
   updatedBy: string,
 ): Promise<void> {
   const admin = createAdminClient();
-  const { error } = await admin
-    .from("system_settings")
-    .update({
+  const { error } = await admin.from("system_settings").upsert(
+    {
+      key,
       value,
       updated_by: updatedBy,
       updated_at: new Date().toISOString(),
-    })
-    .eq("key", key);
+    },
+    { onConflict: "key" },
+  );
   if (error) throw error;
 }
 

@@ -103,7 +103,7 @@ export async function isTavernBanned(userId: string): Promise<boolean> {
   const nowIso = new Date().toISOString();
   const { data, error } = await admin
     .from("tavern_bans")
-    .select("id")
+    .select("id, expires_at")
     .eq("user_id", userId)
     .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
     .maybeSingle();
@@ -118,18 +118,22 @@ export async function insertTavernBan(payload: {
   user_id: string;
   banned_by: string;
   reason: string | null;
-  durationHours?: 1 | 3 | 24;
+  durationHours: 1 | 3 | 24;
 }): Promise<void> {
   const admin = createAdminClient();
-  const expiresAt = payload.durationHours
-    ? new Date(Date.now() + payload.durationHours * 60 * 60 * 1000).toISOString()
-    : null;
-  const { error } = await admin.from("tavern_bans").upsert({
-    user_id: payload.user_id,
-    banned_by: payload.banned_by,
-    reason: payload.reason,
-    expires_at: expiresAt,
-  }, { onConflict: "user_id" });
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + payload.durationHours);
+  const { error } = await admin
+    .from("tavern_bans")
+    .upsert(
+      {
+        user_id: payload.user_id,
+        banned_by: payload.banned_by,
+        reason: payload.reason,
+        expires_at: expiresAt.toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
   if (error) {
     throw error;
   }

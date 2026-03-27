@@ -28,7 +28,7 @@ export function TavernFab() {
       <button
         type="button"
         onClick={() => handleOpenChange(true)}
-        className="fixed bottom-24 right-4 z-[480] flex h-12 w-12 items-center justify-center rounded-full bg-amber-600 text-xl shadow-lg transition-colors hover:bg-amber-500"
+        className="fixed bottom-20 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-amber-600 text-xl shadow-lg transition-colors hover:bg-amber-500"
         style={{
           marginBottom: "env(safe-area-inset-bottom, 0px)",
         }}

@@ -47,6 +47,7 @@
 - **系統設定頁正式上線**：**`/admin/settings`** 由占位頁改為可編輯面板（三區塊：平台規則、簽到探險幣、Lv1-10 門檻），每項旁有單獨儲存按鈕，透過 **`updateSystemSettingAction(key, value)`** 寫入並 toast 成功提示。
 - **系統設定持久化修復**：更新 `updateSystemSettingAction` 成功後呼叫 `revalidatePath('/admin/settings')`，避免離開/返回後顯示舊預設值。
 - **探險幣權重動態範圍**：權重格子依 `checkin_free_coins_min/max` 動態產生並存取 `checkin_weight_{coin}`；缺值預設顯示 `10`。
+- **系統設定讀寫再修正**：`getSystemSettingsAction` 加 `noStore()` 確保每次讀 DB 最新值；`updateSystemSetting` 改為 `upsert(onConflict: key)`，若 key 尚不存在會自動補入。
 - **新增/納管 system_settings keys**：
   **`interests_max_select`**、**`skills_max_select`**、**`mood_max_length`**、**`tavern_message_max_length`**、**`registration_open`**、**`maintenance_mode`**、**`like_require_mutual`**、**`checkin_free_coins_min`**、**`checkin_free_coins_max`**、**`checkin_weight_1` ~ `checkin_weight_9`**、**`level_threshold_1` ~ `level_threshold_10`**。
 
@@ -57,9 +58,12 @@
   - `operator.role === 'moderator'` 不可操作其他 `moderator`
   - `master` 可操作所有非 master 目標
 - **管理員操作權限保護（前端）**：`src/app/(admin)/admin/users/users-client.tsx` 新增 `canOperate(operatorRole, targetRole)` 控制操作區顯示；不可操作時顯示灰色提示「此用戶無法被操作」；列表中的 `master` 加上 `👑` 標示。
+- **用戶詳情（moderator）修復**：`getUserDetailAction` 改為 moderator 只讀 profile，不走 `auth.admin.getUserById`；email 僅 master 查詢/顯示。`users-client.tsx` 補上具體錯誤訊息與重試按鈕。
 - **裝備欄浮動按鈕**：新增 `src/components/ui/EquipmentFab.tsx`（右下 `bottom-36 right-4`，4x4 鎖定格裝備欄）；已在 `src/app/(app)/layout.tsx` 掛載於 `TavernFab` 上方。
+- **FAB 位置分離**：`EquipmentFab` 固定 `bottom-36 right-4`，`TavernFab` 固定 `bottom-20 right-4`，避免重疊；按鈕層級 `z-40`，開啟層使用 `z-50+`。
 - **酒館禁言時效**：`banTavernUserAction` 改為 `durationHours: 1 | 3 | 24`；`TavernModal` 長按他人訊息可選 `1/3/24` 小時禁言；成功 toast 顯示「已禁言 {nickname} {hours} 小時」；並寫入系統信件「🔇 你已被禁止在酒館發言 {hours} 小時，原因：{reason}」。
 - **`tavern_bans.expires_at`**：Layer 2 `isTavernBanned` 改為「`expires_at IS NULL`（永久）或 `expires_at > now`（時效內）」判斷；`insertTavernBan` 寫入對應到期時間；遷移 `supabase/migrations/20260327143000_tavern_bans_expires_at.sql` 會補 `expires_at timestamptz`（若尚未存在）。
+- **酒館禁言流程補強**：`TavernModal` 長按管理選單改為「先選禁言時數，再輸入必填原因後確認」；`banTavernUserAction` admin log metadata 同步為 `durationHours`，Repository 持續寫入 `expires_at` 並以未過期條件判定禁言。
 - **簽到彈窗（9 種訊息對照）**：`src/components/profile/guild-profile-home.tsx` 新增 `CHECKIN_MESSAGES` 與簽到成功 Dialog（取代成功 toast）：
   - `1` 🎲 普通的一天
   - `2` 🌱 小小收穫

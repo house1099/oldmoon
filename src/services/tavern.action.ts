@@ -130,7 +130,7 @@ export async function banTavernUserAction(params: {
     target_user_id: params.userId,
     action_type: "tavern_ban",
     reason: r ?? undefined,
-    metadata: { duration_hours: params.durationHours },
+    metadata: { durationHours: params.durationHours },
   });
   await notifyUserMailboxSilent({
     user_id: params.userId,
