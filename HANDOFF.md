@@ -64,16 +64,16 @@
 - **酒館禁言時效**：`banTavernUserAction` 改為 `durationHours: 1 | 3 | 24`；`TavernModal` 長按他人訊息可選 `1/3/24` 小時禁言；成功 toast 顯示「已禁言 {nickname} {hours} 小時」；並寫入系統信件「🔇 你已被禁止在酒館發言 {hours} 小時，原因：{reason}」。
 - **`tavern_bans.expires_at`**：Layer 2 `isTavernBanned` 改為「`expires_at IS NULL`（永久）或 `expires_at > now`（時效內）」判斷；`insertTavernBan` 寫入對應到期時間；遷移 `supabase/migrations/20260327143000_tavern_bans_expires_at.sql` 會補 `expires_at timestamptz`（若尚未存在）。
 - **酒館禁言流程補強**：`TavernModal` 長按管理選單改為「先選禁言時數，再輸入必填原因後確認」；`banTavernUserAction` admin log metadata 同步為 `durationHours`，Repository 持續寫入 `expires_at` 並以未過期條件判定禁言。
-- **簽到彈窗（9 種訊息對照）**：`src/components/profile/guild-profile-home.tsx` 新增 `CHECKIN_MESSAGES` 與簽到成功 Dialog（取代成功 toast）：
+- **簽到成功遊戲感彈窗**：`src/services/daily-checkin.action.ts` 之 **`ClaimDailyCheckinResult`** 成功分支為 **`{ ok: true; freeCoinsEarned: number }`**（探險幣隨機區間見系統設定 **`checkin_free_coins_min`／`max`**，**`creditCoins`** 失敗時可為 **0**）。`src/components/profile/guild-profile-home.tsx`：狀態 **`showCheckinModal`**、**`checkinCoins`**；**`CHECKIN_MESSAGES`** 含 **`bgFrom`／`bgTo`**（Tailwind 漸層）與 **`getCheckinMessage(coins)`**（**`>9`** 預設 🌈 史詩文案）；成功後 **`setCheckinCoins(result.freeCoinsEarned ?? 1)`**、開 **Dialog**（emoji **`animate-bounce`**、**+1 EXP**／探險幣列、膠囊確認鈕），**無**簽到成功 **toast**。
   - `1` 🎲 普通的一天
-  - `2` 🌱 小小收穫
+  - `2` 🌱 小苗發芽
   - `3` ⭐ 不錯喔！
   - `4` ✨ 閃閃發光
   - `5` 🎯 剛剛好！
-  - `6` 🍀 幸運草！
+  - `6` 🍀 幸運草出現！
   - `7` 🌟 超級幸運！
-  - `8` 🎊 大豐收！
-  - `9` 🔥 傳奇運氣！！
+  - `8` 🎊 大豐收！！
+  - `9` 🔥 傳奇運氣！！！
 
 ### Wave C 金幣統計與操作稽核（2026-03-27）
 
@@ -185,7 +185,7 @@
 | Keep-alive（監控／喚醒） | **`GET /api/ping`** — `src/app/api/ping/route.ts` 回傳 **`{ ok: true, time }`**（**`time`** 為伺服器 **`toISOString()`**）；供 Uptime、cron 或緩解無伺服器冷啟動 |
 | 補名冊（含 IG） | `src/services/adventurer-profile.action.ts`（註冊 insert **不帶 `bio`**） |
 | 讀取他人 profile（Modal） | **`src/services/profile.action.ts`** — **`getMyProfileAction`**、**`getMemberProfileByIdAction`**（冒險團血盟詳情等） |
-| 每日簽到 +1 EXP | `src/services/daily-checkin.action.ts`（**`claimDailyCheckin`**；冷卻 **`users.last_checkin_at`**）；成功後靜默 **`restoreActivityOnCheckin`**（**`active`** + 信譽 **+1** 上限 **100**）；**`updateLastCheckinAt`** 見 `user.repository.ts`；**`insertExpLog`（`delta`+`delta_exp`）** 見 `exp.repository.ts`；機讀錯誤 **`DAILY_CHECKIN_ALREADY_CLAIMED`**（**`already_claimed`**）見 `daily-checkin.ts`；**`taipeiCalendarDateKey()`** 仍供其他日曆日用途，**簽到判斷已不採用** |
+| 每日簽到 +1 EXP | `src/services/daily-checkin.action.ts`（**`claimDailyCheckin`**；冷卻 **`users.last_checkin_at`**）；成功回傳 **`freeCoinsEarned`**（探險幣 **`creditCoins`** **`source: checkin`**）；成功後靜默 **`restoreActivityOnCheckin`**（**`active`** + 信譽 **+1** 上限 **100**）；**`updateLastCheckinAt`** 見 `user.repository.ts`；**`insertExpLog`（`delta`+`delta_exp`）** 見 `exp.repository.ts`；機讀錯誤 **`DAILY_CHECKIN_ALREADY_CLAIMED`**（**`already_claimed`**）見 `daily-checkin.ts`；**`taipeiCalendarDateKey()`** 仍供其他日曆日用途，**簽到判斷已不採用**；首頁成功 UI 見 **`guild-profile-home`** **簽到遊戲感 Dialog**（見上方「簽到成功遊戲感彈窗」） |
 | 編輯自介／分域自白／**`instagram_handle`**／IG 公開／心情 | `src/services/profile-update.action.ts`（**支援部分欄位 patch**；**`mood`** 時更新 **`mood_at`**；**`bio_village`**／**`bio_market`**；**`instagram_handle`** 經 **`instagramHandleSchema`**；空字串寫入 **null**） |
 | IG 變更申請／審核 | `src/services/ig-request.action.ts`（**`requestIgChangeAction`**、**`reviewIgRequestAction`**、**`getPendingIgRequestsAction`**）→ **`src/lib/repositories/server/ig-request.repository.ts`**（**admin client** 寫入 **`ig_change_requests`**、核准時更新 **`users.instagram_handle`**） |
 | 管理員後台 | **src/app/(admin)/layout.tsx**（獨立 layout、sidebar；根層 **`text-gray-900`** + **`[color-scheme:light]`**）；**/admin**（儀表板 **`page.tsx`** 為 client：統計卡 **`router.push`** 至 **`/admin/users?filter=…`**／**`/admin/reports?filter=pending`** 等）、**/admin/users**（**`searchParams.filter`**：`today`／`pending`／`active`／`ig_pending`；見檔末變更紀錄）、**/admin/invitations**、**/admin/exp**、**/admin/publish**、**/admin/reports**、**/admin/roles**（master only）、**/admin/settings**（Wave 2） |
@@ -198,7 +198,7 @@
 | 管理員後台 Layer 3 | **src/services/admin.action.ts** |
 | 管理員常數 | **src/lib/constants/admin-permissions.ts** |
 | 個人頁 EXP 紀錄 | `src/services/exp-logs.action.ts`（**`getMyRecentExpLogsAction`**）→ **`exp.repository`** **`findRecentExpLogsForUser`** |
-| 首頁個人頁 UI | `src/app/(app)/page.tsx`（**`'use client'`**、**`useMyProfile`** SWR + **`HomePageSkeleton`**、背景 **`HomeParticlesBackground`**：**`fetch('/particles.json')`**（**`public/particles.json`**），失敗則退回 **`src/config/home-particles.json`**；**`fixed inset-0 z-[1]`**、**`background.color` 透明**、內容 **`z-10`**） → `guild-profile-home.tsx`（**公告上方**：**banner 輪播**；**公告區塊**（**滿版垂直堆疊**、**`line-clamp-2`＋「⋯ 展開」**、整卡 **Dialog**）；**今日心情下方**：**card 贊助橫滑**（最多 3 則、固定卡尺寸；點擊開連結並 **`recordAdClickAction`**）） |
+| 首頁個人頁 UI | `src/app/(app)/page.tsx`（**`'use client'`**、**`useMyProfile`** SWR + **`HomePageSkeleton`**、背景 **`HomeParticlesBackground`**：**`fetch('/particles.json')`**（**`public/particles.json`**），失敗則退回 **`src/config/home-particles.json`**；**`fixed inset-0 z-[1]`**、**`background.color` 透明**、內容 **`z-10`**） → `guild-profile-home.tsx`（**公告上方**：**banner 輪播**；**公告區塊**（**滿版垂直堆疊**、**`line-clamp-2`＋「⋯ 展開」**、整卡 **Dialog**）；**今日心情下方**：**card 贊助橫滑**（最多 3 則、固定卡尺寸；點擊開連結並 **`recordAdClickAction`**）；**每日簽到成功**為 **遊戲感 Gradient Dialog**（**`CHECKIN_MESSAGES`／`getCheckinMessage`**），無成功 **toast**） |
 | 頁面切換「開門」過場 | **`src/components/layout/app-shell-motion.tsx`**：**`pathname` 變更**（**`/` 首頁不播**）→ 上／下扇 **`fixed`** 覆蓋**整個視口**（各 **`h-1/2`**、**`z-[9999]`**），**不受內容區高度／`overflow` 裁切**；**`splash`** **`backgroundSize: 100% 200%`**、**`center top`／`bottom`**（**X** 中線接縫）。**時序**：關 **100ms** → 停 **1s** → 開 **1s**。扇門 **`pointer-events-none`**；過場中外層暫 **`pointer-events-auto`** 阻擋誤觸；**idle** 時上下扇分別 **`-translate-y-full`／`translate-y-full`** 完全離開可視區。內容區 **`min-h-[100dvh]`**、**`pt-[calc(2rem+env(safe-area-inset-top,0px))]`** 預留頂部 **`TavernMarquee`**；**無 `overflow-hidden`**；**pb** 預留底欄＋底部 **`bg-zinc-950`** 條避免切頁藍線。**`GuildTabProvider`**／**`Navbar`**（**`z-40`**）／**`TavernFab`** 掛在 **`src/app/(app)/layout.tsx`**，與 **`AppShellMotion`** 同層，**不受開門動畫裁切**；過場層在上，播完 idle 後不擋導航。 |
 | 酒館廣場（全頁） | **`TavernMarquee`**（**`src/components/tavern/TavernMarquee.tsx`**）：頂欄跑馬燈最新 5 則、**`useTavern`**；**`TavernFab`**＋**`TavernModal`**（**`src/components/tavern/TavernFab.tsx`**／**`TavernModal.tsx`**）全螢幕聊天、貼圖、**master/moderator** 長按訊息刪除與禁言；**`globals.css`** **`.animate-marquee`**。 |
 | 酒館 Layer 2／3 | **`src/lib/repositories/server/tavern.repository.ts`**、**`src/services/tavern.action.ts`**（**`getTavernMessagesAction`**、**`sendTavernMessageAction`**、**`getMyTavernBanStatusAction`**、**`banTavernUserAction`**／**`unbanTavernUserAction`**、**`deleteTavernMessageAction`**、**`getTavernBansAction`**）。 |
@@ -657,7 +657,7 @@ NOTIFY pgrst, 'reload schema';
 - **Layer 5 — `src/components/ui/LoadingButton.tsx`**：共用 **`LoadingButton`**（內部 **`useRef` lock** 防連點；可選 **`loading` 受控**）＋ **`PendingLabel`**（spinner + 文案，預設 **「處理中…」**）；**`active:scale-95`**，**disabled** 時 **`disabled:active:scale-100`**；可轉傳 **`aria-label`** 等 button 屬性。
 - **套用處**：**`register-form`** 建立帳號；**`profile-form`** 下一步（**`LoadingButton`**）／完成（**`PendingLabel` + `loading`**）；**`/register/skills`** 完成（自管 **submitting**）；**`guild-profile-home`** 簽到列（**`PendingLabel`**）、今日心情／雙自白／帳號設定 IG／裁切確認；**`UserDetailModal`** 緣分鈕（**`LoadingButton`**，`likeLoading` 時 **disabled**）＋取消緣分 **AlertDialog** 確定鈕內 **PendingLabel**。
 - **註冊名冊**：**`profile-form`** 之 **「下一步」** 以 **`LoadingButton`** 包 **`goNext()`**（**`await Promise.resolve()`** 後執行，避免同幀連點）；完成送出維持 **`<button type="submit">`** + **`PendingLabel`**。
-- **Toast 規範（Sonner）**：簽到成功 **「+1 EXP！繼續加油 ⚔️」**；已簽／冷卻 **「還在冷卻中，明天再來！」**；送出緣分 **「💖 緣分已送出！」**（互有緣分仍保留 **🎉 互有緣分！**）；取消緣分 **「緣分已取消」**；自白成功 **「✅ 已更新」**；心情 **「今日心情已更新 ✨」**；IG 綁定 **「IG 帳號已綁定」**；IG 申請 **「申請已送出，等待管理員審核」**；上述流程之 API 失敗統一 **「❌ 操作失敗，請稍後再試」**（表單驗證類訊息仍可維持原 **toast.error** 具體文案）。
+- **Toast 規範（Sonner）**：簽到成功改以 **`guild-profile-home`** **Dialog** 呈現（**無** success **toast**）；已簽／冷卻 **「還在冷卻中，明天再來！」**（仍 **toast.success**）；送出緣分 **「💖 緣分已送出！」**（互有緣分仍保留 **🎉 互有緣分！**）；取消緣分 **「緣分已取消」**；自白成功 **「✅ 已更新」**；心情 **「今日心情已更新 ✨」**；IG 綁定 **「IG 帳號已綁定」**；IG 申請 **「申請已送出，等待管理員審核」**；上述流程之 API 失敗統一 **「❌ 操作失敗，請稍後再試」**（表單驗證類訊息仍可維持原 **toast.error** 具體文案）。
 
 ### 2025-03-24 — 性向隱私：`UserDetailModal`／`UserCard` 移除展示
 
