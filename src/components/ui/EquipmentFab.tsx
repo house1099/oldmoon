@@ -24,9 +24,14 @@ export function EquipmentFab() {
       </button>
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="z-50 w-80">
+        <SheetContent
+          side="right"
+          className="z-50 w-80 rounded-l-xl bg-white"
+        >
           <SheetHeader>
-            <SheetTitle className="text-zinc-100">⚔️ 裝備欄</SheetTitle>
+            <SheetTitle className="bg-gradient-to-r from-zinc-900 via-zinc-700 to-zinc-900 bg-clip-text text-transparent drop-shadow-[0_0_8px_rgba(99,102,241,0.35)]">
+              ⚔️ 裝備欄
+            </SheetTitle>
             <p className="text-xs text-zinc-500">
               收集道具，強化你的冒險之旅
             </p>
