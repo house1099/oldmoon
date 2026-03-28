@@ -102,3 +102,58 @@ export async function getMarqueeSettingsAction(): Promise<{
 }> {
   return getCachedMarqueeSettings();
 }
+
+const DEFAULT_TAVERN_MODE = "scroll";
+const DEFAULT_TAVERN_SPEED = 20;
+const DEFAULT_BROADCAST_STYLE = "glow";
+const DEFAULT_BROADCAST_SPEED = 10;
+
+function parseSpeed(raw: string | null, fallback: number): number {
+  const n = parseInt((raw ?? "").trim(), 10);
+  if (!Number.isFinite(n) || n < 1) return fallback;
+  return Math.min(300, n);
+}
+
+async function loadMarqueeAndBroadcastSettings(): Promise<{
+  marquee: { mode: string; speed: number };
+  broadcast: { style: string; speed: number };
+}> {
+  const [modeRaw, tavernSpeedRaw, styleRaw, broadcastSpeedRaw] =
+    await Promise.all([
+      findSystemSettingByKey("tavern_marquee_mode"),
+      findSystemSettingByKey("tavern_marquee_speed"),
+      findSystemSettingByKey("broadcast_style"),
+      findSystemSettingByKey("broadcast_speed"),
+    ]);
+
+  const mode = (modeRaw ?? DEFAULT_TAVERN_MODE).trim() || DEFAULT_TAVERN_MODE;
+  const tavernSpeed = parseSpeed(tavernSpeedRaw, DEFAULT_TAVERN_SPEED);
+
+  const style =
+    (styleRaw ?? DEFAULT_BROADCAST_STYLE).trim() || DEFAULT_BROADCAST_STYLE;
+  const broadcastSpeed = parseSpeed(
+    broadcastSpeedRaw,
+    DEFAULT_BROADCAST_SPEED,
+  );
+
+  return {
+    marquee: { mode, speed: tavernSpeed },
+    broadcast: { style, speed: broadcastSpeed },
+  };
+}
+
+const getCachedMarqueeAndBroadcastSettings = unstable_cache(
+  loadMarqueeAndBroadcastSettings,
+  ["system-settings-marquee-broadcast-v1"],
+  { revalidate: 60, tags: ["system_settings"] },
+);
+
+/**
+ * 酒館跑馬燈（mode／speed）與廣播橫幅（style／speed）；快取 60s，tag **`system_settings`**。
+ */
+export async function getMarqueeAndBroadcastSettingsAction(): Promise<{
+  marquee: { mode: string; speed: number };
+  broadcast: { style: string; speed: number };
+}> {
+  return getCachedMarqueeAndBroadcastSettings();
+}

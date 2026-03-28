@@ -4,18 +4,25 @@ import { Navbar } from "@/components/layout/Navbar";
 import { GuildTabProvider } from "@/contexts/guild-tab-context";
 import SWRProvider from "@/lib/swr/provider";
 import { getMessageLimitsAction } from "@/services/system-settings.action";
+import { getActiveBroadcastsAction } from "@/services/rewards.action";
 
 export default async function AppGroupLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { tavernMax } = await getMessageLimitsAction();
+  const [{ tavernMax }, broadcasts] = await Promise.all([
+    getMessageLimitsAction(),
+    getActiveBroadcastsAction(),
+  ]);
+  const initialHasBroadcast = broadcasts.length > 0;
   return (
     <SWRProvider>
       <GuildTabProvider>
         <FloatingToolbarProvider messageMaxLength={tavernMax}>
-          <AppBroadcastChrome>{children}</AppBroadcastChrome>
+          <AppBroadcastChrome initialHasBroadcast={initialHasBroadcast}>
+            {children}
+          </AppBroadcastChrome>
           <Navbar />
         </FloatingToolbarProvider>
       </GuildTabProvider>

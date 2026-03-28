@@ -43,7 +43,7 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 - 血盟／社交：`alliance.action.ts`；`alliance.repository.ts`；`social.action.ts`
 - 私訊／檢舉：`chat.action.ts`；`chat.repository.ts`；`ChatModal.tsx`；`useChat.ts`
 - 通知／信件：`notification.action.ts`；`notification.repository.ts`；`guild/page.tsx` `MailBox`
-- 酒館／廣播橫幅：`tavern.action.ts`；`tavern.repository.ts`；`TavernMarquee.tsx`（全站固定廣播）；`app-broadcast-chrome.tsx`；`useTavern.ts`
+- 酒館／廣播：`tavern.action.ts`；`TavernMarquee.tsx`（首頁酒館、`tavern_marquee_*`）；`broadcast/BroadcastBanner.tsx`（全站廣播、`broadcast_*`）；`getMarqueeAndBroadcastSettingsAction`；`app-broadcast-chrome.tsx`；`useTavern.ts`
 - 後台：`(admin)/layout.tsx`；`admin-shell.tsx`；`admin.action.ts`；`admin.repository.ts`；`admin-permissions.ts`
 - 邀請碼：`invitation.repository.ts`；`invitation.action.ts`
 - 公告／廣告：`announcement.*`；`advertisement.*`
@@ -93,9 +93,9 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## ✅ 最近完成（最新 3 次任務）
 
-1. **2026-03-29 — 金幣後台＋背包＋廣播／酒館位置對調**：`/admin/coins` 雙 Tab（調整需 **`coin_admin_pin` 四位數**、`admin_adjust` 流水、`getAdminCoinLedgerAction`）；裝備背包依 `reward_type` 區分裝備／使用；`getMyRewardsAction` 僅未用廣播券／改名卡；全站固定廣播橫幅、首頁酒館跑馬燈；`updateMyProfile({ nickname })`。
-2. **2026-03-29 — HANDOFF 雙檔架構**：主檔精簡；`.cursorrules` 雙檔規範；歷史追加於 `HANDOFF_HISTORY.md`。
-3. **2026-03-29 — 商城 Bug 修復與補強**：盲盒／商城退款與 UI；跑馬燈設定；裝備 Sheet safe-area 等。
+1. **2026-03-29 — 酒館／廣播設定分離與樣式**：`system_settings` 新增 **`tavern_marquee_mode`／`speed`、`broadcast_style`／`speed`**；`getMarqueeAndBroadcastSettingsAction`；首頁 **`TavernMarquee`**（scroll／fade／bounce）；**`BroadcastBanner`**（glow／flicker／fullscreen／fire／lightning／flow）；`/admin/settings` 兩區塊＋預覽；`layout` 依廣播預留 **40px**。
+2. **2026-03-29 — 金幣後台＋背包＋廣播／酒館位置對調**：`/admin/coins`、裝備背包、`getMyRewardsAction`、PIN、`BroadcastBanner` 前版等。
+3. **2026-03-29 — HANDOFF 雙檔架構**：主檔精簡；歷史追加於 `HANDOFF_HISTORY.md`。
 
 ## ⚠️ 目前已知問題
 

@@ -10,6 +10,7 @@ import {
   getStreakRewardSettingsAdminAction,
   updateStreakRewardAction,
 } from "@/services/admin.action";
+import { cn } from "@/lib/utils";
 
 type SettingsMap = Record<string, string>;
 
@@ -40,6 +41,70 @@ type StreakFormRow = {
   coinsMax: string;
   specialLabel: string;
 };
+
+function BroadcastStylePreview({ style }: { style: string }) {
+  const st = (style || "glow").trim();
+  const shell = cn(
+    "flex h-10 w-full items-center gap-1.5 overflow-hidden rounded-lg border px-2 text-[11px] shadow-sm",
+    st === "glow" &&
+      "border-amber-500/50 bg-amber-950/90 shadow-[0_2px_12px_rgba(251,191,36,0.35)]",
+    st === "flicker" &&
+      "border-amber-500/50 bg-amber-950/90 shadow-[0_2px_12px_rgba(251,191,36,0.35)]",
+    st === "fullscreen" &&
+      "border-amber-500/50 bg-amber-950/90 shadow-[0_2px_12px_rgba(251,191,36,0.35)]",
+    st === "fire" &&
+      "border-orange-500/60 bg-gradient-to-r from-red-950 to-orange-950 shadow-[0_2px_12px_rgba(249,115,22,0.45)]",
+    st === "lightning" &&
+      "border-blue-400/60 bg-gradient-to-r from-blue-950 to-violet-950 shadow-[0_2px_12px_rgba(96,165,250,0.45)]",
+    st === "flow" && "border-violet-500/40 bb-broadcast-flow-bg shadow-md",
+  );
+  const nick = cn(
+    "shrink-0 font-semibold",
+    st === "glow" && "text-amber-300",
+    st === "flicker" && "text-amber-300 animate-broadcast-flicker-text",
+    st === "fire" && "text-orange-300",
+    st === "lightning" && "text-blue-200",
+    st === "flow" &&
+      "font-bold text-white [text-shadow:0_0_8px_rgba(255,255,255,0.7)]",
+    st === "fullscreen" && "text-amber-300",
+  );
+  const msg = cn(
+    "min-w-0 truncate",
+    st === "glow" && "text-amber-100",
+    st === "flicker" && "text-amber-100",
+    st === "fire" && "text-orange-100",
+    st === "lightning" && "text-blue-100",
+    st === "flow" && "font-bold text-white",
+    st === "fullscreen" && "text-amber-100",
+  );
+  return (
+    <div className={shell}>
+      {st === "fire" ? (
+        <span className="text-xs animate-broadcast-fire-emoji" aria-hidden>
+          🔥
+        </span>
+      ) : null}
+      {st === "lightning" ? (
+        <span className="text-xs animate-broadcast-lightning-emoji" aria-hidden>
+          ⚡
+        </span>
+      ) : null}
+      <span aria-hidden>📢</span>
+      <span className={nick}>預覽暱稱</span>
+      <span className={msg}>：廣播預覽文字</span>
+      {st === "lightning" ? (
+        <span className="text-xs animate-broadcast-lightning-emoji" aria-hidden>
+          ⚡
+        </span>
+      ) : null}
+      {st === "fire" ? (
+        <span className="text-xs animate-broadcast-fire-emoji" aria-hidden>
+          🔥
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 export default function AdminSettingsClient({ isMaster }: { isMaster: boolean }) {
   const [loading, setLoading] = useState(true);
@@ -143,6 +208,29 @@ export default function AdminSettingsClient({ isMaster }: { isMaster: boolean })
     toast.success("設定已更新");
   };
 
+  const saveBroadcastBundle = async () => {
+    setSavingKey("broadcast_bundle");
+    const style = String(settings.broadcast_style ?? "glow").trim() || "glow";
+    const speedRaw = (settings.broadcast_speed ?? "10").replace(/[^0-9]/g, "");
+    const speed = speedRaw.length > 0 ? speedRaw : "10";
+    const results = await Promise.allSettled([
+      updateSystemSettingAction("broadcast_style", style),
+      updateSystemSettingAction("broadcast_speed", speed),
+    ]);
+    setSavingKey(null);
+    for (const r of results) {
+      if (r.status === "rejected") {
+        toast.error("儲存廣播設定失敗");
+        return;
+      }
+      if (!r.value.ok) {
+        toast.error(r.value.error || "儲存廣播設定失敗");
+        return;
+      }
+    }
+    toast.success("廣播樣式與輪播速度已更新");
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-20">
@@ -214,72 +302,146 @@ export default function AdminSettingsClient({ isMaster }: { isMaster: boolean })
             );
           })}
 
-          <div className="rounded-xl border border-amber-100 bg-amber-50/50 px-4 py-3 space-y-4 mt-4">
-            <h3 className="text-sm font-semibold text-gray-900">跑馬燈設定</h3>
-            <div className="space-y-2">
-              <p className="text-xs text-gray-600">
-                輪播間隔（秒），建議 5〜30
-              </p>
-              <div className="flex flex-wrap items-center gap-2 max-w-xs">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={settings.marquee_speed_seconds ?? "10"}
-                  onChange={(e) =>
-                    setSettings((prev) => ({
-                      ...prev,
-                      marquee_speed_seconds: e.target.value.replace(/[^0-9]/g, ""),
-                    }))
-                  }
-                  className="flex-1 min-w-[6rem] rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                />
-                <button
-                  type="button"
-                  disabled={savingKey === "marquee_speed_seconds"}
-                  onClick={() =>
-                    void saveSetting(
-                      "marquee_speed_seconds",
-                      String(settings.marquee_speed_seconds ?? "10"),
-                    )
-                  }
-                  className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-60"
-                >
-                  {savingKey === "marquee_speed_seconds" ? "儲存中..." : "儲存"}
-                </button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs text-gray-600">廣播／跑馬燈文字特效</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <select
-                  value={settings.marquee_broadcast_effect ?? "glow"}
-                  onChange={(e) =>
-                    setSettings((prev) => ({
-                      ...prev,
-                      marquee_broadcast_effect: e.target.value,
-                    }))
-                  }
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                >
-                  <option value="glow">glow（光暈）</option>
-                  <option value="pulse">pulse（脈動）</option>
-                  <option value="rainbow">rainbow（彩虹）</option>
-                </select>
-                <button
-                  type="button"
-                  disabled={savingKey === "marquee_broadcast_effect"}
-                  onClick={() =>
-                    void saveSetting(
-                      "marquee_broadcast_effect",
-                      String(settings.marquee_broadcast_effect ?? "glow"),
-                    )
-                  }
-                  className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-60"
-                >
-                  {savingKey === "marquee_broadcast_effect" ? "儲存中..." : "儲存"}
-                </button>
-              </div>
-            </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
+        <h2 className="text-base font-semibold text-gray-900">
+          🍺 酒館跑馬燈設定
+        </h2>
+        <p className="text-xs text-gray-500">
+          首頁內容區頂部酒館訊息（與全站廣播橫幅分離）。變更後約 60 秒內前台快取更新。
+        </p>
+        <div className="space-y-3">
+          <label className="block text-sm text-gray-700">
+            播放模式
+            <select
+              value={settings.tavern_marquee_mode ?? "scroll"}
+              onChange={(e) =>
+                setSettings((prev) => ({
+                  ...prev,
+                  tavern_marquee_mode: e.target.value,
+                }))
+              }
+              className="mt-1 block w-full max-w-md rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+            >
+              <option value="scroll">scroll — 橫向滑動跑馬燈</option>
+              <option value="fade">fade — 淡入淡出輪播</option>
+              <option value="bounce">bounce — 彈跳出現</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            disabled={savingKey === "tavern_marquee_mode"}
+            onClick={() =>
+              void saveSetting(
+                "tavern_marquee_mode",
+                String(settings.tavern_marquee_mode ?? "scroll"),
+              )
+            }
+            className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-60"
+          >
+            {savingKey === "tavern_marquee_mode" ? "儲存中…" : "儲存播放模式"}
+          </button>
+        </div>
+        <div className="space-y-2 border-t border-gray-100 pt-4">
+          <label className="block text-sm text-gray-700">
+            {(settings.tavern_marquee_mode ?? "scroll") === "scroll"
+              ? "滾動時間（秒，建議 10–60）"
+              : "每則顯示秒數（建議 3–15）"}
+            <input
+              type="text"
+              inputMode="numeric"
+              value={settings.tavern_marquee_speed ?? "20"}
+              onChange={(e) =>
+                setSettings((prev) => ({
+                  ...prev,
+                  tavern_marquee_speed: e.target.value.replace(/[^0-9]/g, ""),
+                }))
+              }
+              className="mt-1 block w-full max-w-xs rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+            />
+          </label>
+          <p className="text-xs text-gray-500">
+            {(settings.tavern_marquee_mode ?? "scroll") === "scroll"
+              ? "數字越小，橫向滑動越快跑完全程。"
+              : "fade：淡入後停留再淡出切下一則；bounce：彈入後停留再彈出。"}
+          </p>
+          <button
+            type="button"
+            disabled={savingKey === "tavern_marquee_speed"}
+            onClick={() =>
+              void saveSetting(
+                "tavern_marquee_speed",
+                String(settings.tavern_marquee_speed ?? "20"),
+              )
+            }
+            className="rounded-lg bg-violet-600 px-4 py-2 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-60"
+          >
+            {savingKey === "tavern_marquee_speed" ? "儲存中…" : "儲存播放速度"}
+          </button>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
+        <h2 className="text-base font-semibold text-gray-900">
+          📢 廣播橫幅設定
+        </h2>
+        <p className="text-xs text-gray-500">
+          全站固定頂部廣播（無廣播時不顯示）。儲存後會 revalidate{" "}
+          <code className="rounded bg-gray-100 px-1">system_settings</code>。
+        </p>
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+          <div className="min-w-0 flex-1 space-y-3">
+            <label className="block text-sm text-gray-700">
+              廣播樣式
+              <select
+                value={settings.broadcast_style ?? "glow"}
+                onChange={(e) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    broadcast_style: e.target.value,
+                  }))
+                }
+                className="mt-1 block w-full max-w-md rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              >
+                <option value="glow">glow — 金色發光橫幅</option>
+                <option value="flicker">flicker — 閃爍跳動</option>
+                <option value="fullscreen">fullscreen — 全屏強制覆蓋</option>
+                <option value="fire">fire — 火焰特效</option>
+                <option value="lightning">lightning — 閃電特效</option>
+                <option value="flow">flow — 流光特效</option>
+              </select>
+            </label>
+            <label className="block text-sm text-gray-700">
+              每則廣播顯示秒數（建議 5–30）
+              <input
+                type="text"
+                inputMode="numeric"
+                value={settings.broadcast_speed ?? "10"}
+                onChange={(e) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    broadcast_speed: e.target.value.replace(/[^0-9]/g, ""),
+                  }))
+                }
+                className="mt-1 block w-full max-w-xs rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={savingKey === "broadcast_bundle"}
+              onClick={() => void saveBroadcastBundle()}
+              className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-60"
+            >
+              {savingKey === "broadcast_bundle" ? "儲存中…" : "儲存廣播設定"}
+            </button>
+          </div>
+          <div className="w-full shrink-0 lg:w-80">
+            <p className="mb-2 text-xs font-medium text-gray-600">即時預覽</p>
+            <BroadcastStylePreview
+              style={settings.broadcast_style ?? "glow"}
+            />
           </div>
         </div>
       </section>

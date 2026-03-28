@@ -66,8 +66,7 @@ import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { cn } from "@/lib/utils";
 import { rewardEffectClassName } from "@/lib/utils/reward-effects";
 import { getMoodCountdown, isMoodActive } from "@/lib/utils/mood";
-import { useTavern } from "@/hooks/useTavern";
-import { getMarqueeSettingsAction } from "@/services/system-settings.action";
+import { TavernMarquee } from "@/components/tavern/TavernMarquee";
 import { getActiveAnnouncementsAction } from "@/services/announcement.action";
 import { getHomeAdsAction } from "@/services/advertisement.action";
 import { recordAdClickAction } from "@/services/advertisement.action";
@@ -232,57 +231,6 @@ function AnnouncementClampedPreview({
         </span>
       ) : null}
     </>
-  );
-}
-
-function HomeTavernMarqueeBanner() {
-  const { messages } = useTavern();
-  const [speedSeconds, setSpeedSeconds] = useState(20);
-
-  useEffect(() => {
-    void getMarqueeSettingsAction()
-      .then((s) => {
-        const sec =
-          Number.isFinite(s.speedSeconds) && s.speedSeconds >= 1
-            ? s.speedSeconds
-            : 10;
-        setSpeedSeconds(sec);
-      })
-      .catch(() => {});
-  }, []);
-
-  const text = useMemo(() => {
-    const latest = messages.slice(-5);
-    if (latest.length === 0) return "";
-    return latest
-      .map((m) => `${m.user.nickname}：${m.content}　　`)
-      .join("");
-  }, [messages]);
-
-  if (!text) return null;
-
-  return (
-    <section
-      aria-label="酒館訊息"
-      className="w-full overflow-hidden border-b border-zinc-700/30 bg-zinc-900/60"
-    >
-      <div className="flex min-h-9 items-stretch">
-        <span
-          className="flex shrink-0 items-center px-3 text-xs text-zinc-400"
-          aria-hidden
-        >
-          🍺
-        </span>
-        <div className="relative min-w-0 flex-1 overflow-hidden py-2 pr-2">
-          <div
-            className="animate-marquee inline-block whitespace-nowrap text-xs text-zinc-100 will-change-transform"
-            style={{ animationDuration: `${speedSeconds}s` }}
-          >
-            {text}
-          </div>
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -921,7 +869,7 @@ export function GuildProfileHome({
         </section>
       ) : null}
 
-      <HomeTavernMarqueeBanner />
+      <TavernMarquee />
 
       {announcements.length > 0 && (
         <div className="space-y-3">

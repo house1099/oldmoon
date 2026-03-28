@@ -834,3 +834,31 @@ Git
 Git
 
 130816e fix(admin): restore coin adjust PIN (coin_admin_pin)
+
+---
+
+[2026-03-29] — 酒館跑馬燈／廣播橫幅分離、system_settings 與後台設定
+
+完成項目
+
+1. **🗄️ Supabase MCP**：**`INSERT INTO system_settings`** **`tavern_marquee_mode`**、**`tavern_marquee_speed`**、**`broadcast_style`**、**`broadcast_speed`**（**`ON CONFLICT DO NOTHING`** + **`NOTIFY pgrst`**）；本機遷移 **`20260329210000_tavern_broadcast_system_settings.sql`** 同步。
+2. **Layer 3 `getMarqueeAndBroadcastSettingsAction`**（**`system-settings.action.ts`**）：**`unstable_cache` 60s**、**`tags: ['system_settings']`**；回傳 **`marquee`／`broadcast`** 結構。保留舊 **`getMarqueeSettingsAction`**（**`marquee_speed_seconds`**／**`marquee_broadcast_effect`**）供相容，後台 UI 已改寫新 key。
+3. **`TavernMarquee.tsx`**：僅酒館；**`useTavern`** 最新 5 則；**scroll**（**`marquee-scroll`**、**`tavern_marquee_speed` 秒**）、**fade**（opacity 循環）、**bounce**（timeout + in/out class）；**`h-8`**、**`bg-zinc-900/60`**；掛於 **`guild-profile-home.tsx`** 頂部（隨頁捲動）。
+4. **`BroadcastBanner.tsx`**：**`getActiveBroadcastsAction`** + 新設定；**fixed `z-[45]`**、約 **40px** 高；**fullscreen** 全屏 **`z-[200]`** + 繼續／自動 **`broadcast_speed`** 秒；六樣式 **glow／flicker／fire／lightning／flow** 與切換動畫；**`AppBroadcastChrome`** 預留 **`BROADCAST_COMPACT_HEIGHT_PX`（40）**。
+5. **`globals.css`**：**`marquee-scroll`**、**bounce**、**flicker／fire／lightning／flow-gradient**、橫幅 enter 動畫等。
+6. **`(app)/layout.tsx`**：**`getActiveBroadcastsAction`** 傳 **`initialHasBroadcast`**；**`AppBroadcastChrome`** 掛 **`BroadcastBanner`**（不再掛酒館元件）。
+7. **`/admin/settings`**：**🍺 酒館跑馬燈**（模式／速度分鍵儲存）、**📢 廣播橫幅**（樣式 + 速度 **`Promise.allSettled`**、預覽條）；移除原「跑馬燈設定」**`marquee_speed_seconds`**／**`marquee_broadcast_effect`** 區塊。
+8. **HANDOFF.md** 索引與「最近完成」更新。
+
+資料庫異動
+
+- 🗄️ **`system_settings`** 四筆新 key（雲端 MCP + 遷移檔）。
+
+需要注意
+
+- 廣播／設定前台約 **30s／60s** 輪詢 + **`system_settings`／`broadcasts` revalidate** 後最多 **60s** 快取才更新。
+- 全屏廣播首次進入 **`fullscreen`** 樣式會再顯示覆蓋層（由 **`overlayDismissed`** 控制）。
+
+Git
+
+（見 `git log -1 --oneline`。）

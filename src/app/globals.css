@@ -95,6 +95,231 @@
   animation: rainbow-text 3s linear infinite;
 }
 
+/* ── 酒館跑馬燈 scroll 模式（system_settings tavern_marquee_speed）── */
+@keyframes marquee-scroll {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+.bb-tavern-marquee-scroll {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee-scroll var(--tavern-marquee-dur, 20s) linear infinite;
+}
+
+/* 酒館 bounce 模式 */
+@keyframes marquee-bounce-in {
+  0% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  20% {
+    transform: translateY(-10%);
+    opacity: 1;
+  }
+  35% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes marquee-bounce-out {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+}
+
+.bb-tavern-bounce-in {
+  animation: marquee-bounce-in 0.55s ease-out forwards;
+}
+
+.bb-tavern-bounce-out {
+  animation: marquee-bounce-out 0.45s ease-in forwards;
+}
+
+/* ── 廣播橫幅：flicker 文字 ── */
+@keyframes bb-flicker-text {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  93% {
+    opacity: 0.3;
+  }
+  94% {
+    opacity: 1;
+  }
+  96% {
+    opacity: 0.5;
+  }
+  97% {
+    opacity: 1;
+  }
+}
+
+.animate-broadcast-flicker-text {
+  animation: bb-flicker-text 3s infinite;
+}
+
+/* 廣播：火焰 emoji */
+@keyframes bb-fire-flicker {
+  0%,
+  100% {
+    transform: scaleY(1) rotate(-2deg);
+  }
+  50% {
+    transform: scaleY(1.2) rotate(2deg);
+  }
+}
+
+.animate-broadcast-fire-emoji {
+  animation: bb-fire-flicker 0.5s infinite alternate;
+}
+
+/* 廣播：閃電 emoji */
+@keyframes bb-lightning-strike {
+  0%,
+  90%,
+  100% {
+    opacity: 0;
+  }
+  91%,
+  99% {
+    opacity: 1;
+  }
+}
+
+.animate-broadcast-lightning-emoji {
+  animation: bb-lightning-strike 2s infinite;
+}
+
+/* 廣播：流光背景 */
+@keyframes bb-flow-gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 400% 50%;
+  }
+}
+
+.bb-broadcast-flow-bg {
+  background: linear-gradient(
+    90deg,
+    #7c3aed,
+    #db2777,
+    #ea580c,
+    #ca8a04,
+    #16a34a,
+    #0891b2,
+    #7c3aed
+  );
+  background-size: 400% 100%;
+  animation: bb-flow-gradient 4s linear infinite;
+}
+
+/* 廣播橫幅：項目切換動畫 */
+.bb-broadcast-enter-fade {
+  animation: bb-enter-fade 0.45s ease-out both;
+}
+
+.bb-broadcast-exit-fade {
+  animation: bb-exit-fade 0.45s ease-in both;
+}
+
+@keyframes bb-enter-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bb-exit-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.bb-broadcast-enter-slide-l {
+  animation: bb-enter-slide-l 0.4s ease-out both;
+}
+
+@keyframes bb-enter-slide-l {
+  from {
+    opacity: 0;
+    transform: translateX(-1.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.bb-broadcast-enter-slide-t {
+  animation: bb-enter-slide-t 0.15s ease-out both;
+}
+
+@keyframes bb-enter-slide-t {
+  from {
+    opacity: 0;
+    transform: translateY(-0.75rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bb-broadcast-enter-zoom {
+  animation: bb-enter-zoom 0.4s ease-out both;
+}
+
+.bb-broadcast-exit-zoom {
+  animation: bb-exit-zoom 0.35s ease-in both;
+}
+
+@keyframes bb-enter-zoom {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes bb-exit-zoom {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

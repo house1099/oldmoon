@@ -1,129 +1,248 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import {
-  getActiveBroadcastsAction,
-  type ActiveBroadcastDto,
-} from "@/services/rewards.action";
-import { getMarqueeSettingsAction } from "@/services/system-settings.action";
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+} from "react";
+import { useTavern } from "@/hooks/useTavern";
+import { getMarqueeAndBroadcastSettingsAction } from "@/services/system-settings.action";
 import { cn } from "@/lib/utils";
-import { rewardEffectClassName } from "@/lib/utils/reward-effects";
 
-const BROADCAST_BAR_PX = 36;
+const FADE_MS = 500;
 
-function broadcastNicknameClass(effect: string): string {
-  const e = effect.trim();
-  if (e === "pulse") return "animate-pulse text-amber-300";
-  if (e === "rainbow") return "animate-rainbow-text text-amber-300";
-  return "text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]";
-}
-
-export function TavernMarquee({
-  onBroadcastBarPx,
-}: {
-  /** 有廣播時約 36，無則 0 — 供版面預留頂部間距 */
-  onBroadcastBarPx?: (px: number) => void;
-}) {
-  const [items, setItems] = useState<ActiveBroadcastDto[]>([]);
-  const [index, setIndex] = useState(0);
-  const [rotateMs, setRotateMs] = useState(10_000);
-  const [broadcastEffect, setBroadcastEffect] = useState("glow");
+/**
+ * 首頁內容區酒館跑馬燈（隨頁捲動，非 fixed）。
+ * 設定來自 system_settings：`tavern_marquee_mode`／`tavern_marquee_speed`。
+ */
+export function TavernMarquee() {
+  const { messages } = useTavern();
+  const [mode, setMode] = useState("scroll");
+  const [speed, setSpeed] = useState(20);
 
   useEffect(() => {
-    void getMarqueeSettingsAction()
+    void getMarqueeAndBroadcastSettingsAction()
       .then((s) => {
-        const sec =
-          Number.isFinite(s.speedSeconds) && s.speedSeconds >= 1
-            ? s.speedSeconds
-            : 10;
-        setRotateMs(Math.max(1000, sec * 1000));
-        setBroadcastEffect(s.broadcastEffect?.trim() || "glow");
+        setMode((s.marquee.mode || "scroll").trim() || "scroll");
+        setSpeed(
+          Number.isFinite(s.marquee.speed) && s.marquee.speed >= 1
+            ? s.marquee.speed
+            : 20,
+        );
       })
       .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    void getActiveBroadcastsAction()
-      .then((rows) => {
-        if (!cancelled) setItems(rows);
-      })
-      .catch(() => {
-        if (!cancelled) setItems([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    onBroadcastBarPx?.(items.length > 0 ? BROADCAST_BAR_PX : 0);
-  }, [items.length, onBroadcastBarPx]);
-
-  useEffect(() => {
-    if (items.length <= 1) return;
     const id = window.setInterval(() => {
-      setIndex((i) => (i + 1) % items.length);
-    }, rotateMs);
+      void getMarqueeAndBroadcastSettingsAction()
+        .then((s) => {
+          setMode((s.marquee.mode || "scroll").trim() || "scroll");
+          setSpeed(
+            Number.isFinite(s.marquee.speed) && s.marquee.speed >= 1
+              ? s.marquee.speed
+              : 20,
+          );
+        })
+        .catch(() => {});
+    }, 60_000);
     return () => window.clearInterval(id);
-  }, [items.length, rotateMs]);
+  }, []);
+
+  const latest = useMemo(() => messages.slice(-5), [messages]);
+
+  const scrollText = useMemo(() => {
+    if (latest.length === 0) return "";
+    return latest
+      .map((m) => `🍺 ${m.user.nickname}：${m.content}`)
+      .join(" ・ ");
+  }, [latest]);
+
+  if (latest.length === 0) return null;
+
+  if (mode === "scroll") {
+    return (
+      <section
+        aria-label="酒館訊息"
+        className="h-8 w-full overflow-hidden border-b border-zinc-700/30 bg-zinc-900/60"
+      >
+        <div className="flex h-full items-center">
+          <span
+            className="flex shrink-0 items-center px-2 text-xs text-zinc-400"
+            aria-hidden
+          >
+            🍺
+          </span>
+          <div className="relative min-w-0 flex-1 overflow-hidden">
+            <div
+              className="bb-tavern-marquee-scroll text-xs text-zinc-100"
+              style={
+                {
+                  "--tavern-marquee-dur": `${speed}s`,
+                } as CSSProperties
+              }
+            >
+              {scrollText}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (mode === "fade") {
+    return (
+      <section
+        aria-label="酒館訊息"
+        className="h-8 w-full overflow-hidden border-b border-zinc-700/30 bg-zinc-900/60"
+      >
+        <TavernFadeRotator items={latest} speedSec={speed} />
+      </section>
+    );
+  }
+
+  if (mode === "bounce") {
+    return (
+      <section
+        aria-label="酒館訊息"
+        className="h-8 w-full overflow-hidden border-b border-zinc-700/30 bg-zinc-900/60"
+      >
+        <TavernBounceRotator items={latest} speedSec={speed} />
+      </section>
+    );
+  }
+
+  return (
+    <section
+      aria-label="酒館訊息"
+      className="h-8 w-full overflow-hidden border-b border-zinc-700/30 bg-zinc-900/60"
+    >
+      <div className="flex h-full items-center px-2 text-xs text-zinc-100">
+        🍺 {latest[0]!.user.nickname}：{latest[0]!.content}
+      </div>
+    </section>
+  );
+}
+
+type TavernMsg = {
+  user: { nickname: string };
+  content: string;
+};
+
+function TavernFadeRotator({
+  items,
+  speedSec,
+}: {
+  items: TavernMsg[];
+  speedSec: number;
+}) {
+  const [idx, setIdx] = useState(0);
+  const [opacity, setOpacity] = useState(0);
 
   useEffect(() => {
     if (items.length === 0) return;
-    setIndex((i) => Math.min(i, items.length - 1));
-  }, [items.length]);
+    let cancelled = false;
+    let i = 0;
 
-  const nicknameClass = broadcastNicknameClass(broadcastEffect);
-  const fxClass = rewardEffectClassName(broadcastEffect);
+    (async () => {
+      while (!cancelled) {
+        setIdx(i % items.length);
+        setOpacity(0);
+        await new Promise((r) => setTimeout(r, 40));
+        if (cancelled) break;
+        setOpacity(1);
+        await new Promise((r) => setTimeout(r, FADE_MS + speedSec * 1000));
+        if (cancelled) break;
+        setOpacity(0);
+        await new Promise((r) => setTimeout(r, FADE_MS));
+        if (cancelled) break;
+        i += 1;
+      }
+    })();
 
-  const body = useMemo(() => {
-    if (items.length === 0) return null;
-    if (items.length === 1) {
-      const b = items[0]!;
-      return (
-        <p className="flex min-h-[36px] min-w-0 items-center gap-2 px-2 text-xs font-medium text-amber-100">
-          <span aria-hidden>📢</span>
-          <span className={cn("shrink-0 font-bold", nicknameClass, fxClass)}>
-            {b.nickname}
-          </span>
-          <span className="min-w-0 truncate text-amber-100/95">：{b.message}</span>
-        </p>
-      );
-    }
-    return (
-      <div className="relative min-h-[36px] min-w-0 overflow-hidden px-2">
-        {items.map((it, i) => (
-          <div
-            key={it.id}
-            className={cn(
-              "flex min-h-[36px] items-center gap-2 text-xs font-medium text-amber-100 transition-opacity duration-500",
-              i === index
-                ? "relative z-10 opacity-100"
-                : "pointer-events-none absolute inset-0 opacity-0",
-            )}
-          >
-            <span aria-hidden>📢</span>
-            <span className={cn("shrink-0 font-bold", nicknameClass, fxClass)}>
-              {it.nickname}
-            </span>
-            <span className="min-w-0 truncate text-amber-100/95">：{it.message}</span>
-          </div>
-        ))}
-      </div>
-    );
-  }, [items, index, nicknameClass, fxClass]);
+    return () => {
+      cancelled = true;
+    };
+  }, [items, speedSec]);
 
-  if (!body) return null;
+  const m = items[idx];
+  if (!m) return null;
 
   return (
-    <div
-      className="fixed left-0 right-0 top-0 z-[45] flex flex-col pt-[env(safe-area-inset-top,0px)]"
-      role="region"
-      aria-label="公會廣播"
-    >
-      <div className="flex min-h-[36px] items-stretch border-b border-amber-900/40 bg-amber-950/80 backdrop-blur-sm">
-        {body}
-      </div>
+    <div className="flex h-full items-center justify-center px-3">
+      <p
+        className="line-clamp-1 text-center text-xs text-zinc-100 transition-opacity duration-500"
+        style={{ opacity }}
+      >
+        🍺 {m.user.nickname}：{m.content}
+      </p>
+    </div>
+  );
+}
+
+const BOUNCE_IN_MS = 550;
+const BOUNCE_OUT_MS = 450;
+
+function TavernBounceRotator({
+  items,
+  speedSec,
+}: {
+  items: TavernMsg[];
+  speedSec: number;
+}) {
+  const [idx, setIdx] = useState(0);
+  const [bounceClass, setBounceClass] = useState("bb-tavern-bounce-in");
+
+  useEffect(() => {
+    if (items.length === 0) return;
+    let cancelled = false;
+    let i = 0;
+    const timers: number[] = [];
+
+    const tick = () => {
+      if (cancelled) return;
+      setIdx(i % items.length);
+      setBounceClass("bb-tavern-bounce-in");
+      timers.push(
+        window.setTimeout(() => {
+          if (cancelled) return;
+          setBounceClass("");
+          timers.push(
+            window.setTimeout(() => {
+              if (cancelled) return;
+              setBounceClass("bb-tavern-bounce-out");
+              timers.push(
+                window.setTimeout(() => {
+                  if (cancelled) return;
+                  i += 1;
+                  tick();
+                }, BOUNCE_OUT_MS),
+              );
+            }, speedSec * 1000),
+          );
+        }, BOUNCE_IN_MS),
+      );
+    };
+
+    tick();
+    return () => {
+      cancelled = true;
+      timers.forEach((t) => window.clearTimeout(t));
+    };
+  }, [items, speedSec]);
+
+  const m = items[idx];
+  if (!m) return null;
+
+  return (
+    <div className="flex h-full items-center justify-center overflow-hidden px-2">
+      <p
+        key={`${idx}-${bounceClass}`}
+        className={cn(
+          "line-clamp-1 text-center text-xs text-zinc-100",
+          bounceClass,
+        )}
+      >
+        🍺 {m.user.nickname}：{m.content}
+      </p>
     </div>
   );
 }
