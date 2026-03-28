@@ -62,3 +62,10 @@ git push
 
 ## 新對話與 HANDOFF 同步
 - **每次開啟新的 chat、或承接新任務時**，必須先閱讀專案根目錄的 **`HANDOFF.md`**，確認目前階段、已完成模組、進行中任務與下一步，再開始實作或回答，避免與 Vibe Coder 的共識脫節。
+
+## HANDOFF 讀取規範
+- **每次任務必讀**：**`HANDOFF.md`**（主檔：階段、五層禁則、SSOT 摘要、關鍵檔案索引、最近完成、下一步）。
+- **需要查資料庫結構／遷移／RLS／DDL 時**：**`HANDOFF_DB.md`**。
+- **需要查功能完成度、已知 bug、視覺待辦、Wave 規劃時**：**`HANDOFF_FEATURES.md`**。
+- **需要查歷史逐日任務長文時**：**`HANDOFF_HISTORY.md`**（**通常不需要**）。
+- **任務完成後**：僅更新 **`HANDOFF.md`** 的 **「最近完成」** 與 **「下一步待辦」**；詳細紀錄寫入對應子檔（**`HANDOFF_DB.md`**／**`HANDOFF_FEATURES.md`**／**`HANDOFF_HISTORY.md`**）。
