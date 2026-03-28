@@ -12,6 +12,13 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Backpack,
+  Beer,
+  Mail,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { useTavern } from "@/hooks/useTavern";
 import { useUnreadNotificationCount } from "@/hooks/useChat";
 import { useGuildTabContext } from "@/contexts/guild-tab-context";
@@ -222,46 +229,44 @@ function FloatingToolbarInner({
     router.refresh();
   };
 
-  const subButtons = useMemo(
-    () =>
-      [
-        {
-          id: "mail" as const,
-          emoji: "📬",
-          label: "信件",
-          delayMs: 100,
-          onClick: () => {
-            setExpanded(false);
-            guildCtx?.requestGuildSubTab("信件");
-            router.push("/guild");
-          },
-          showDot: unreadMail > 0,
-        },
-        {
-          id: "equip" as const,
-          emoji: "🎒",
-          label: "裝備欄",
-          delayMs: 50,
-          onClick: () => {
-            setExpanded(false);
-            setEquipOpen(true);
-          },
-          showDot: false,
-        },
-        {
-          id: "tavern" as const,
-          emoji: "🍺",
-          label: "酒館",
-          delayMs: 0,
-          onClick: () => {
-            setExpanded(false);
-            handleTavernOpenChange(true);
-          },
-          showDot: showTavernDot,
-        },
-      ] as const,
-    [guildCtx, router, unreadMail, showTavernDot],
-  );
+  const subButtons = [
+    {
+      id: "mail" as const,
+      label: "信件",
+      delayMs: 100,
+      onClick: () => {
+        setExpanded(false);
+        guildCtx?.requestGuildSubTab("信件");
+        router.push("/guild");
+      },
+      icon: <Mail className="h-5 w-5 text-zinc-200" strokeWidth={1.75} />,
+      badge: "mail" as const,
+    },
+    {
+      id: "equip" as const,
+      label: "裝備",
+      delayMs: 50,
+      onClick: () => {
+        setExpanded(false);
+        setEquipOpen(true);
+      },
+      icon: <Backpack className="h-5 w-5 text-zinc-200" strokeWidth={1.75} />,
+      badge: "none" as const,
+    },
+    {
+      id: "tavern" as const,
+      label: "酒館",
+      delayMs: 0,
+      onClick: () => {
+        setExpanded(false);
+        handleTavernOpenChange(true);
+      },
+      icon: <Beer className="h-5 w-5 text-amber-200/95" strokeWidth={1.75} />,
+      badge: "tavern" as const,
+    },
+  ] as const;
+
+  const mainButtonHasNotice = unreadMail > 0;
 
   return (
     <>
@@ -281,25 +286,30 @@ function FloatingToolbarInner({
             {subButtons.map((btn) => (
               <div
                 key={btn.id}
-                className="ft-toolbar-pop flex flex-row items-center gap-2"
+                className="ft-toolbar-pop flex flex-row items-center gap-2.5"
                 style={
                   { "--ft-delay": `${btn.delayMs}ms` } as CSSProperties & {
                     "--ft-delay"?: string;
                   }
                 }
               >
-                <span className="whitespace-nowrap rounded-full bg-zinc-900/80 px-2 py-1 text-xs text-zinc-100 shadow-md backdrop-blur-sm">
+                <span className="whitespace-nowrap rounded-full border border-zinc-700/50 bg-zinc-900/90 px-3 py-1 text-xs text-zinc-200 shadow-sm backdrop-blur-sm">
                   {btn.label}
                 </span>
                 <button
                   type="button"
                   onClick={btn.onClick}
                   aria-label={btn.label}
-                  className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-zinc-700/40 bg-zinc-800/90 text-lg shadow-lg transition-transform hover:bg-zinc-700/90 active:scale-95"
+                  className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-zinc-700/40 bg-zinc-800/90 shadow-md transition-transform hover:bg-zinc-700/90 active:scale-95"
                 >
-                  <span aria-hidden>{btn.emoji}</span>
-                  {btn.showDot ? (
-                    <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-zinc-950" />
+                  {btn.icon}
+                  {btn.badge === "mail" && unreadMail > 0 ? (
+                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-0.5 text-[10px] font-bold leading-none text-white ring-2 ring-zinc-950">
+                      {unreadMail > 9 ? "9+" : unreadMail}
+                    </span>
+                  ) : null}
+                  {btn.badge === "tavern" && showTavernDot ? (
+                    <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-zinc-950" />
                   ) : null}
                 </button>
               </div>
@@ -313,11 +323,23 @@ function FloatingToolbarInner({
           aria-expanded={expanded}
           aria-label={expanded ? "收合快捷選單" : "展開快捷選單"}
           className={cn(
-            "flex h-14 w-14 items-center justify-center rounded-full border border-zinc-700/50 bg-zinc-900/90 text-xl text-violet-200 shadow-[0_0_20px_rgba(139,92,246,0.3)] backdrop-blur-xl transition-transform duration-200 hover:border-violet-500/40 active:scale-95",
-            expanded && "rotate-45",
+            "relative flex h-14 w-14 items-center justify-center rounded-full border bg-zinc-900/90 text-violet-200 backdrop-blur-xl transition-[transform,box-shadow,filter] duration-200 hover:border-violet-500/40 active:scale-95",
+            mainButtonHasNotice
+              ? "border-violet-500/50 shadow-[0_0_16px_rgba(139,92,246,0.8)] ring-2 ring-violet-400/60 animate-pulse"
+              : "border-zinc-700/50 shadow-none ring-0",
           )}
         >
-          {expanded ? "✕" : "✦"}
+          {expanded ? (
+            <X className="h-6 w-6 text-zinc-200" strokeWidth={2} />
+          ) : (
+            <Sparkles className="h-6 w-6 text-violet-300" strokeWidth={1.75} />
+          )}
+          {mainButtonHasNotice && !expanded ? (
+            <span
+              className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-zinc-950"
+              aria-hidden
+            />
+          ) : null}
         </button>
       </div>
 

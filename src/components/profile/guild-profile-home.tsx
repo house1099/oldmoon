@@ -37,7 +37,6 @@ import { Button } from "@/components/ui/button";
 import LoadingButton, { PendingLabel } from "@/components/ui/LoadingButton";
 import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
 import {
-  CalendarCheck,
   ChevronRight,
   Lock,
   LogOut,
@@ -1733,26 +1732,16 @@ export function GuildProfileHome({
           </button>
         ) : null}
 
-        {streakBreakHours != null &&
-        streakBreakHours > 0 &&
-        streakBreakHours < 4 &&
-        currentStreak > 0 ? (
-          <div className="mb-3 rounded-2xl border border-orange-500/40 bg-orange-950/35 px-4 py-2.5 text-center text-sm text-orange-100 backdrop-blur-md">
-            ⚠️ 還有 {streakBreakHours < 1 ? "不到 1" : Math.ceil(streakBreakHours)}{" "}
-            小時，連續簽到就要斷了！
-          </div>
-        ) : null}
-
-        <div className="glass-panel mb-3 rounded-3xl border border-violet-500/25 bg-zinc-950/50 p-4 shadow-[0_0_20px_rgba(139,92,246,0.12)] backdrop-blur-xl">
-          <p className="mb-3 text-center text-xs font-medium text-violet-200/90">
-            七日報到進度
+        <div className="glass-panel mb-3 rounded-2xl p-4">
+          <p className="mb-3 text-sm font-semibold text-zinc-300">
+            ⚔️ 七日報到進度
             {currentStreak > 0 ? (
-              <span className="ml-2 text-violet-300/70">
+              <span className="ml-2 text-xs font-normal text-zinc-500">
                 連續 {currentStreak} 天
               </span>
             ) : null}
           </p>
-          <div className="grid grid-cols-7 gap-1.5">
+          <div className="grid grid-cols-7 gap-2">
             {Array.from({ length: 7 }, (_, index) => {
               const dayNum = index + 1;
               const rw = streakRewardForDay(dayNum, streakRewardSettings);
@@ -1770,104 +1759,148 @@ export function GuildProfileHome({
                   ? `${rw.coins}~${rw.coinsMax}幣`
                   : `+${rw.coins}幣`;
 
+              const isDay7Done = isDay7 && done;
+              const isDay7Pending = isDay7 && !done;
+
               return (
                 <div
                   key={index}
-                  className={cn(
-                    "mx-auto flex h-14 w-10 shrink-0 select-none flex-col items-center justify-between rounded-xl border px-0.5 py-1 text-center transition-colors",
-                    done && "border-violet-400/40 bg-violet-600/80",
-                    !done &&
-                      isTodayToSign &&
-                      "animate-pulse border-violet-400/50 bg-violet-950/50 ring-2 ring-violet-400",
-                    future && "border-zinc-700/30 bg-zinc-800/40",
-                  )}
+                  className="relative flex w-full min-w-0 flex-col items-center select-none"
                 >
-                  <span className="text-[9px] leading-none text-zinc-500">
+                  <span className="mb-1 text-[9px] text-zinc-500">
                     Day {dayNum}
                   </span>
-                  <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0 leading-tight">
-                    <span className="block max-w-full truncate text-[10px] text-violet-300">
-                      +{rw.exp}EXP
-                    </span>
-                    <span className="block max-w-full truncate text-[10px] text-amber-300">
-                      {coinsLine}
-                    </span>
-                    {isDay7 ? (
-                      <span className="max-w-full truncate text-[9px] text-amber-200/90">
-                        {rw.specialLabel ?? "公會盲盒"}
+                  <div
+                    className={cn(
+                      "relative flex w-full aspect-square flex-col items-center justify-center gap-0.5 rounded-2xl border p-1 text-center transition-colors",
+                      isDay7Done &&
+                        "border-amber-400/50 bg-amber-600/80",
+                      !isDay7Done &&
+                        done &&
+                        "border-violet-400/50 bg-violet-600/90",
+                      !done &&
+                        isTodayToSign &&
+                        "animate-pulse border-2 border-violet-400 bg-violet-900/60 shadow-[0_0_12px_rgba(139,92,246,0.5)]",
+                      future &&
+                        "border-zinc-700/30 bg-zinc-800/40",
+                    )}
+                  >
+                    {isDay7Pending ? (
+                      <span
+                        className="absolute -right-1 -top-1 text-xs leading-none"
+                        aria-hidden
+                      >
+                        👑
                       </span>
                     ) : null}
+
+                    {isDay7Done ? (
+                      <>
+                        <span className="text-[9px] text-amber-100">
+                          +{rw.exp}EXP
+                        </span>
+                        <span className="text-base leading-none" aria-hidden>
+                          🎁
+                        </span>
+                        <span className="text-[9px] text-amber-200">
+                          {coinsLine}
+                        </span>
+                      </>
+                    ) : done ? (
+                      <>
+                        <span className="text-[9px] text-violet-200">
+                          +{rw.exp}EXP
+                        </span>
+                        <span className="text-sm font-bold leading-none text-white">
+                          ✓
+                        </span>
+                        <span className="text-[9px] text-amber-300">
+                          {coinsLine}
+                        </span>
+                      </>
+                    ) : isTodayToSign ? (
+                      <>
+                        <span className="text-[9px] font-medium text-violet-100">
+                          +{rw.exp}EXP
+                        </span>
+                        <span className="text-[9px] font-medium text-amber-200">
+                          {coinsLine}
+                        </span>
+                        {isDay7 ? (
+                          <span className="text-[8px] text-amber-300">
+                            🎁盲盒
+                          </span>
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-[9px] text-zinc-600">
+                          +{rw.exp}EXP
+                        </span>
+                        <span className="text-[9px] text-zinc-600">
+                          {coinsLine}
+                        </span>
+                        {isDay7 ? (
+                          <span className="text-[8px] text-zinc-600">
+                            🎁盲盒
+                          </span>
+                        ) : null}
+                      </>
+                    )}
                   </div>
-                  <span className="text-sm leading-none" aria-hidden>
-                    {isDay7
-                      ? done
-                        ? "🎁"
-                        : "👑"
-                      : done
-                        ? "✓"
-                        : isTodayToSign
-                          ? "·"
-                          : ""}
-                  </span>
                 </div>
               );
             })}
           </div>
         </div>
 
+        {streakBreakHours != null &&
+        streakBreakHours > 0 &&
+        streakBreakHours < 4 &&
+        currentStreak > 0 ? (
+          <div className="mb-3 rounded-full border border-amber-500/40 bg-amber-950/60 px-3 py-1.5 text-center text-xs text-amber-300">
+            ⚠️ 還有{" "}
+            {streakBreakHours < 1 ? "不到 1" : Math.ceil(streakBreakHours)}h
+            ，連續就斷了！
+          </div>
+        ) : null}
+
         <button
           type="button"
           disabled={checkinLoading || checkinDone}
           onClick={onCheckin}
           className={cn(
-            "mb-3 flex w-full items-center justify-between rounded-full border p-4 text-left transition disabled:pointer-events-none",
+            "mb-3 w-full rounded-full py-3 text-center font-semibold transition disabled:pointer-events-none",
             checkinDone
-              ? "cursor-not-allowed border-zinc-700/50 bg-zinc-900/40 text-zinc-500 opacity-85 backdrop-blur-sm"
-              : "border-violet-500/30 bg-gradient-to-r from-violet-700/90 via-purple-800/85 to-violet-900/90 text-white shadow-lg shadow-violet-950/40 hover:border-violet-400/40 active:scale-[0.99]",
+              ? "cursor-not-allowed border border-zinc-700/30 bg-zinc-800/60 text-zinc-400"
+              : "bg-gradient-to-r from-violet-600 to-purple-600 text-white hover:brightness-110 active:scale-95",
           )}
         >
-          <span className="flex min-w-0 flex-1 items-center gap-3">
-            <span
-              className={cn(
-                "flex size-10 shrink-0 items-center justify-center rounded-full",
-                checkinDone
-                  ? "bg-zinc-800/80 text-zinc-500"
-                  : "bg-white/15 text-violet-100 ring-1 ring-white/20",
-              )}
-            >
-              {checkinDone ? (
-                <Lock className="size-5" aria-hidden />
-              ) : (
-                <CalendarCheck className="size-5" aria-hidden />
-              )}
-            </span>
-            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="font-medium">
-                {checkinLoading ? (
-                  <PendingLabel
-                    text="處理中…"
-                    className="justify-start text-sm font-medium"
-                  />
-                ) : checkinDone && cooldown ? (
-                  <>
-                    <span className="block text-zinc-400">
-                      🔒 今日已報到
-                    </span>
-                    <span className="text-xs text-zinc-500">
-                      {cooldown.hours}h {cooldown.mins}m 後可報到
-                    </span>
-                  </>
-                ) : checkinDone ? (
-                  "⏳ 報到冷卻中"
-                ) : (
-                  `⚔️ 今日報到 Day ${streakUi.nextDay}`
-                )}
+          {checkinLoading ? (
+            <PendingLabel
+              text="處理中…"
+              className="justify-center text-sm font-semibold"
+            />
+          ) : checkinDone && cooldown ? (
+            <span className="flex w-full items-center justify-center gap-3 px-2">
+              <Lock className="size-5 shrink-0 text-zinc-500" aria-hidden />
+              <span className="flex flex-col items-start gap-0.5 text-left">
+                <span className="text-sm text-zinc-400">今日已報到</span>
+                <span className="text-xs text-zinc-500">
+                  {cooldown.hours}h {cooldown.mins}m 後可報到
+                </span>
               </span>
             </span>
-          </span>
-          {!checkinDone ? (
-            <ChevronRight className="size-5 shrink-0 text-violet-200/80" aria-hidden />
-          ) : null}
+          ) : checkinDone ? (
+            <span className="flex w-full items-center justify-center gap-3 px-2">
+              <Lock className="size-5 shrink-0 text-zinc-500" aria-hidden />
+              <span className="text-sm text-zinc-400">⏳ 報到冷卻中</span>
+            </span>
+          ) : (
+            <span className="text-white">
+              ⚔️ 今日報到 · Day {streakUi.nextDay}
+            </span>
+          )}
         </button>
 
         <button

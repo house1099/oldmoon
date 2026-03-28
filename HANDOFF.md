@@ -30,12 +30,14 @@
 
 1. **`streak_reward_settings` 表**：七日簽到 **EXP／幣／幣上限／特殊獎勵** 由 DB 設定；**`users.inventory_slots`**（預設 **16**，背包總格 **48**，其餘鎖定）。雲端已用 Supabase MCP 建表／補欄；**`database.types.ts`** 已對齊。
 2. **`claimDailyCheckin`**：獎勵改為 **`findStreakRewardByDay`**（週期第 7 天對 **`day=7`**），失敗時 **fallback** 舊硬編碼表；**`special_reward === 'loot_box'`** 觸發盲盒。
-3. **首頁七格進度條**：**`getStreakRewardSettingsAction` + `getMyStreakAction`**；每格 **Day N**、**+EXP／幣區間**、第 7 天顯示 **公會盲盒** 文案；狀態 **完成／今日待簽／未來** 樣式依規格；格子約 **w-10 h-14**。
-4. **`FloatingToolbar`**（**`src/components/layout/FloatingToolbar.tsx`**）：**`FloatingToolbarProvider`** 包 **`(app)/layout`** 內容；主鈕 **bottom-20 right-4**、**z-50**，展開 **z-[60]**；子鈕 **信件**（**`requestGuildSubTab('信件')` + `router.push('/guild')`**、未讀紅點）、**裝備背包 Sheet**（原 **EquipmentFab**）、**酒館**（**`TavernModal` + `useTavern`** 新訊紅點）；**`useOpenEquipmentSheet`** 供首頁「前往裝備背包」連結開啟 Sheet。**`GuildTabContext`** 新增 **`requestGuildSubTab`／`takePendingGuildSubTab`／`guildNavTick`**，**`/guild`** 頁 consume 切 tab。
+3. **首頁七格進度條**：**`getStreakRewardSettingsAction` + `getMyStreakAction`**；**`glass-panel` `rounded-2xl`** 標題 **⚔️ 七日報到進度**；**`grid-cols-7 gap-2`**、每格 **`aspect-square`**：已完成 **紫格 EXP／✓／幣**、今日待簽 **紫邊＋pulse＋外光**、未來 **鋅灰字**、**Day7** 未完成 **👑** 角標＋**🎁盲盒**、完成 **琥珀格＋🎁**；其下 **漸層簽到膠囊**／已簽 **Lock＋冷卻**；斷簽 **4h 內** 於按鈕上方 **琥珀圓角警示條**。
+4. **`FloatingToolbar`**（**`src/components/layout/FloatingToolbar.tsx`**）：**`FloatingToolbarProvider`** 包 **`(app)/layout`**；主鈕 **Lucide `Sparkles`／展開 `X`**，**信件未讀 >0** 時 **外光＋`ring-violet` pulse＋紅點**（無數字）；子鈕 **圓形圖示居中**（**`Mail`／`Backpack`／`Beer`**）＋**左側獨立膠囊標籤**（**信件／裝備／酒館**）；信件 **1–9／9+** 數字角標，酒館 **新訊橘點**；展開動畫 **`translateY(20px)`→0、200ms ease-out、stagger 0／50／100ms**（**`globals.css` `.ft-toolbar-pop`**）。**`GuildTabContext`** **`requestGuildSubTab`** 等與 **`useOpenEquipmentSheet`** 不變。
 5. **「⚙️ 系統資訊」**（取代 **🎁 我的獎勵** 列表）：僅顯示 **已裝備** 頭像框／**卡片外框（`card_frame`）**／稱號；廣播券可點使用；底部連結開裝備背包。
 6. **裝備背包 UI**：深色 **zinc-950**、**48 格**、**`inventory_slots`** 前段開放／後段 **🔒**；道具 **reward_type + label** 堆疊 badge；滿格橘色警示；點格 **裝備／卸下**（**`equipRewardAction`／`unequipRewardAction`**）。
 7. **後台 `/admin/settings`**：**master** 專區 **七日報到獎勵設定**（7 列、**Day7 特殊說明唯讀「公會盲盒」**、**儲存所有獎勵設定**）。
 8. **動態數值**：前台獎勵條與簽到獎勵以 DB／快取為準；後台更新後 **`revalidateTag('streak_rewards')`**，與 **`getStreakRewardSettingsAction`** 快取聯動。
+
+**UI 極簡升級（同日補記）**：七日報到區塊與浮動工具列對齊 **Apple／Instagram 式**留白與層次；主工具列以 **圖示＋通知狀態** 為主、子項 **膠囊標籤與圖示分離**。
 
 ### 前台 Bug 修復紀錄（2026-03-26）
 

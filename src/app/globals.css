@@ -40,11 +40,11 @@
   }
 }
 
-/** 浮動工具列子按鈕展開 */
+/** 浮動工具列子按鈕展開（自主按鈕向上 stagger） */
 @keyframes floating-toolbar-pop {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
@@ -53,7 +53,7 @@
 }
 
 .ft-toolbar-pop {
-  animation: floating-toolbar-pop 0.28s ease-out both;
+  animation: floating-toolbar-pop 200ms ease-out both;
   animation-delay: var(--ft-delay, 0ms);
 }
 
