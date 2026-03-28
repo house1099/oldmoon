@@ -75,7 +75,7 @@ export function AdminShell({
       href: "/admin/prizes",
       label: "🎰 獎池管理",
       Icon: Sparkles,
-      show: isMaster || role === "moderator",
+      show: isMaster,
     },
     {
       href: "/admin/publish",

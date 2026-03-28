@@ -1679,7 +1679,7 @@ export async function getPrizePoolsAction(): Promise<
   ActionResult<PrizePoolRow[]>
 > {
   try {
-    await requireRole(["master", "moderator"]);
+    await requireRole(["master"]);
     const rows = await findAllPools();
     return { ok: true, data: rows };
   } catch (e: unknown) {
@@ -1691,7 +1691,7 @@ export async function getPrizeItemsAction(
   poolId: string,
 ): Promise<ActionResult<PrizeItemRow[]>> {
   try {
-    await requireRole(["master", "moderator"]);
+    await requireRole(["master"]);
     const rows = await findAllItemsByPoolId(poolId);
     return { ok: true, data: rows };
   } catch (e: unknown) {
@@ -1709,7 +1709,7 @@ export async function updatePrizeItemAction(
   },
 ): Promise<ActionResult<void>> {
   try {
-    await requireRole(["master", "moderator"]);
+    await requireRole(["master"]);
     const patch: {
       label?: string;
       weight?: number;
@@ -1750,7 +1750,7 @@ export async function togglePrizeItemAction(
   is_active: boolean,
 ): Promise<ActionResult<void>> {
   try {
-    await requireRole(["master", "moderator"]);
+    await requireRole(["master"]);
     await togglePrizeItem(id, is_active);
     revalidatePath("/admin/prizes");
     return { ok: true, data: undefined };
@@ -1764,7 +1764,7 @@ export async function togglePrizePoolAction(
   is_active: boolean,
 ): Promise<ActionResult<void>> {
   try {
-    await requireRole(["master", "moderator"]);
+    await requireRole(["master"]);
     await updatePool(id, { is_active });
     revalidatePath("/admin/prizes");
     return { ok: true, data: undefined };
@@ -1778,7 +1778,7 @@ export async function getPrizeLogsAction(params?: {
   page?: number;
 }): Promise<ActionResult<Awaited<ReturnType<typeof findPrizeLogs>>>> {
   try {
-    await requireRole(["master", "moderator"]);
+    await requireRole(["master"]);
     const page = Math.max(1, params?.page ?? 1);
     const limit = 50;
     const offset = (page - 1) * limit;
