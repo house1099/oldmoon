@@ -30,7 +30,7 @@
 
 1. **`streak_reward_settings` 表**：七日簽到 **EXP／幣／幣上限／特殊獎勵** 由 DB 設定；**`users.inventory_slots`**（預設 **16**，背包總格 **48**，其餘鎖定）。雲端已用 Supabase MCP 建表／補欄；**`database.types.ts`** 已對齊。
 2. **`claimDailyCheckin`**：獎勵改為 **`findStreakRewardByDay`**（週期第 7 天對 **`day=7`**），失敗時 **fallback** 舊硬編碼表；**`special_reward === 'loot_box'`** 觸發盲盒。
-3. **首頁七格進度條**：**`getStreakRewardSettingsAction` + `getMyStreakAction`**；**`glass-panel` `rounded-2xl`** 標題 **⚔️ 七日報到進度**；**`grid-cols-7 gap-2`**、每格 **`aspect-square`**：已完成 **紫格 EXP／✓／幣**、今日待簽 **紫邊＋pulse＋外光**、未來 **鋅灰字**、**Day7** 未完成 **👑** 角標＋**🎁盲盒**、完成 **琥珀格＋🎁**；其下 **漸層簽到膠囊**／已簽 **Lock＋冷卻**；斷簽 **4h 內** 於按鈕上方 **琥珀圓角警示條**。
+3. **首頁七格進度條**：**`getStreakRewardSettingsAction` + `getMyStreakAction`**；標題 **⚔️ 七日連續簽到**；**`grid-cols-7 gap-2`**、每格 **`aspect-square`**：已完成 **紫格 EXP／✓／幣**、今日待簽 **紫邊＋pulse＋外光**、未來 **鋅灰字**、**Day7** **🎁** 右上角角標（**`-top-1 -right-1 text-sm`**）、格內 **EXP／幣／「盲盒」** 層級文案、完成 **琥珀格＋中央大 🎁**；其下簽到鈕／已簽 **Lock＋冷卻**；斷簽 **4h 內** **琥珀警示條**。
 4. **`FloatingToolbar`**（**`src/components/layout/FloatingToolbar.tsx`**）：**`FloatingToolbarProvider`** 包 **`(app)/layout`**；主鈕 **Lucide `Sparkles`／展開 `X`**，**信件未讀 >0** 時 **外光＋`ring-violet` pulse＋紅點**（無數字）；子鈕 **圓形圖示居中**（**`Mail`／`Backpack`／`Beer`**）＋**左側獨立膠囊標籤**（**信件／裝備／酒館**）；信件 **1–9／9+** 數字角標，酒館 **新訊橘點**；展開動畫 **`translateY(20px)`→0、200ms ease-out、stagger 0／50／100ms**（**`globals.css` `.ft-toolbar-pop`**）。**`GuildTabContext`** **`requestGuildSubTab`** 等與 **`useOpenEquipmentSheet`** 不變。
 5. **「⚙️ 系統資訊」**（取代 **🎁 我的獎勵** 列表）：僅顯示 **已裝備** 頭像框／**卡片外框（`card_frame`）**／稱號；廣播券可點使用；底部連結開裝備背包。
 6. **裝備背包 UI**：深色 **zinc-950**、**48 格**、**`inventory_slots`** 前段開放／後段 **🔒**；道具 **reward_type + label** 堆疊 badge；滿格橘色警示；點格 **裝備／卸下**（**`equipRewardAction`／`unequipRewardAction`**）。
