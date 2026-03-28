@@ -1,24 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   getMyCoinsAction,
@@ -28,6 +20,7 @@ import {
 } from "@/services/coin.action";
 import {
   getShopItemsAction,
+  getShopDailyRemainingAction,
   purchaseItemAction,
   type ShopItemDto,
 } from "@/services/shop.action";
@@ -85,6 +78,9 @@ export default function ShopPage() {
   const [items, setItems] = useState<ShopItemDto[]>([]);
   const [itemsLoading, setItemsLoading] = useState(false);
   const [purchaseTarget, setPurchaseTarget] = useState<ShopItemDto | null>(null);
+  const [purchaseQty, setPurchaseQty] = useState("1");
+  const [dailyRemaining, setDailyRemaining] = useState<number | null>(null);
+  const [dailyLimit, setDailyLimit] = useState<number | null>(null);
   const [purchasing, setPurchasing] = useState(false);
 
   const [convertOpen, setConvertOpen] = useState(false);
@@ -112,7 +108,7 @@ export default function ShopPage() {
     setItems(data);
     const cd: Record<string, number> = {};
     for (const item of data) {
-      if (item.isOnSale && item.remainingSeconds > 0) {
+      if (item.showSaleCountdown && item.remainingSeconds > 0) {
         cd[item.id] = item.remainingSeconds;
       }
     }
@@ -156,6 +152,25 @@ export default function ShopPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!purchaseTarget) {
+      setPurchaseQty("1");
+      setDailyRemaining(null);
+      setDailyLimit(null);
+      return;
+    }
+    setPurchaseQty("1");
+    void getShopDailyRemainingAction(purchaseTarget.id).then((r) => {
+      if (r.ok) {
+        setDailyRemaining(r.remaining);
+        setDailyLimit(r.dailyLimit);
+      } else {
+        setDailyRemaining(null);
+        setDailyLimit(null);
+      }
+    });
+  }, [purchaseTarget]);
+
   function switchTab(t: "free_coins" | "premium_coins") {
     setTab(t);
     void loadItems(t);
@@ -168,8 +183,25 @@ export default function ShopPage() {
 
   async function handlePurchase() {
     if (!purchaseTarget) return;
+    if (dailyRemaining != null && dailyRemaining < 1) {
+      toast.error("今日已達購買上限");
+      setPurchaseTarget(null);
+      return;
+    }
+    let qty = parseInt(purchaseQty.replace(/[^0-9]/g, "") || "0", 10);
+    if (!Number.isFinite(qty) || qty < 1) {
+      toast.error("請輸入有效的購買數量");
+      return;
+    }
+    if (dailyRemaining != null) {
+      qty = Math.min(qty, dailyRemaining);
+    }
+    if (qty < 1) {
+      toast.error("超過今日可購數量");
+      return;
+    }
     setPurchasing(true);
-    const res = await purchaseItemAction(purchaseTarget.id, 1);
+    const res = await purchaseItemAction(purchaseTarget.id, qty);
     setPurchasing(false);
     if (!res.ok) {
       toast.error(ERROR_LABELS[res.error] ?? res.error);
@@ -317,13 +349,27 @@ export default function ShopPage() {
               const balance = item.currency_type === "premium_coins" ? premium : free;
               const canAfford = balance >= item.price;
               const cd = countdowns[item.id];
+              const img = item.image_url?.trim();
 
               return (
                 <div
                   key={item.id}
                   className="flex flex-col rounded-2xl border border-zinc-800/40 bg-zinc-900/60 backdrop-blur-sm p-3"
                 >
-                  <div className="mb-2 text-center text-3xl">{emoji}</div>
+                  <div className="mb-2 flex justify-center">
+                    {img ? (
+                      <Image
+                        src={img}
+                        alt=""
+                        width={80}
+                        height={80}
+                        className="h-20 w-20 rounded-xl object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      <span className="text-center text-3xl">{emoji}</span>
+                    )}
+                  </div>
                   <p className="font-semibold text-zinc-100 text-sm">{item.name}</p>
                   {item.description && (
                     <p className="mt-0.5 text-xs text-zinc-400 line-clamp-2">
@@ -331,12 +377,12 @@ export default function ShopPage() {
                     </p>
                   )}
 
-                  {item.isOnSale && cd != null && cd > 0 && (
+                  {item.showSaleCountdown && cd != null && cd > 0 && (
                     <p className="mt-1 text-xs font-mono text-red-400">
                       ⏱ {formatCountdown(cd)}
                     </p>
                   )}
-                  {item.isOnSale && item.original_price != null && (
+                  {item.hasDiscountDisplay && item.original_price != null && (
                     <p className="text-xs text-zinc-500 line-through">
                       {currencyEmoji} {item.original_price}
                     </p>
@@ -378,47 +424,136 @@ export default function ShopPage() {
         )}
       </div>
 
-      {/* Purchase confirm */}
-      <AlertDialog
+      {/* Purchase quantity */}
+      <Dialog
         open={!!purchaseTarget}
-        onOpenChange={(o) => !o && setPurchaseTarget(null)}
+        onOpenChange={(o) => {
+          if (!o) setPurchaseTarget(null);
+        }}
       >
-        <AlertDialogContent className="border-zinc-800 bg-zinc-950 text-zinc-100">
-          <AlertDialogHeader>
-            <AlertDialogTitle>確認購買？</AlertDialogTitle>
-            <AlertDialogDescription className="text-zinc-400">
-              {purchaseTarget && (
-                <>
-                  商品：{purchaseTarget.name} × 1
-                  <br />
-                  扣除：
-                  {purchaseTarget.currency_type === "premium_coins" ? "💎 純金" : "🪙 探險幣"}{" "}
-                  {purchaseTarget.price}
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800">
-              取消
-            </AlertDialogCancel>
-            <AlertDialogAction
-              disabled={purchasing}
-              onClick={(e) => {
-                e.preventDefault();
-                void handlePurchase();
-              }}
-              className="bg-violet-600 text-white hover:bg-violet-500"
-            >
-              {purchasing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                "確認購買"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <DialogContent className="border-zinc-800 bg-zinc-950 text-zinc-100 sm:max-w-md">
+          {purchaseTarget ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>購買 {purchaseTarget.name}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 text-sm text-zinc-300">
+                {dailyLimit != null && dailyRemaining != null ? (
+                  <p className="text-xs text-amber-200/90">
+                    今日剩餘可購 {dailyRemaining} 個
+                  </p>
+                ) : null}
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-600 text-lg text-zinc-200 hover:bg-zinc-800"
+                    onClick={() => {
+                      const n = Math.max(
+                        1,
+                        parseInt(purchaseQty.replace(/[^0-9]/g, "") || "1", 10) - 1,
+                      );
+                      setPurchaseQty(String(n));
+                    }}
+                    aria-label="減少數量"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={purchaseQty}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^0-9]/g, "");
+                      setPurchaseQty(v === "" ? "" : v.replace(/^0+/, "") || "0");
+                    }}
+                    onBlur={() => {
+                      const n = parseInt(purchaseQty || "1", 10);
+                      setPurchaseQty(String(Number.isFinite(n) && n >= 1 ? n : 1));
+                    }}
+                    className="w-20 rounded-lg border border-zinc-700 bg-zinc-900 py-2 text-center text-base text-white"
+                  />
+                  <button
+                    type="button"
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-600 text-lg text-zinc-200 hover:bg-zinc-800"
+                    onClick={() => {
+                      const cur = parseInt(purchaseQty.replace(/[^0-9]/g, "") || "1", 10);
+                      let next = (Number.isFinite(cur) ? cur : 1) + 1;
+                      if (dailyRemaining != null) {
+                        next = Math.min(next, dailyRemaining);
+                      }
+                      setPurchaseQty(String(Math.max(1, next)));
+                    }}
+                    aria-label="增加數量"
+                  >
+                    +
+                  </button>
+                </div>
+                {(() => {
+                  const qty = Math.max(
+                    1,
+                    parseInt(purchaseQty.replace(/[^0-9]/g, "") || "1", 10),
+                  );
+                  const cap =
+                    dailyRemaining != null ? Math.min(qty, dailyRemaining) : qty;
+                  const eff = dailyRemaining != null ? cap : qty;
+                  const sub = purchaseTarget.price * eff;
+                  const origSub =
+                    purchaseTarget.original_price != null
+                      ? purchaseTarget.original_price * eff
+                      : null;
+                  const currencyEmoji =
+                    purchaseTarget.currency_type === "premium_coins" ? "💎" : "🪙";
+                  const balance =
+                    purchaseTarget.currency_type === "premium_coins" ? premium : free;
+                  const canPay = balance >= sub;
+                  return (
+                    <>
+                      <div className="flex flex-col gap-1 border-t border-zinc-800 pt-3">
+                        <p>
+                          小計：{currencyEmoji}{" "}
+                          <span className="font-semibold text-white">{sub}</span>
+                        </p>
+                        {origSub != null ? (
+                          <p className="text-xs text-zinc-500 line-through">
+                            原價 {currencyEmoji} {origSub}
+                          </p>
+                        ) : null}
+                      </div>
+                      <DialogFooter className="flex-col gap-2 sm:flex-col">
+                        <Button
+                          type="button"
+                          disabled={purchasing || !canPay || eff < 1}
+                          onClick={() => void handlePurchase()}
+                          className="w-full bg-violet-600 text-white hover:bg-violet-500"
+                        >
+                          {purchasing ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : !canPay ? (
+                            "餘額不足"
+                          ) : (
+                            <>
+                              確認購買 {currencyEmoji} {sub}
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full border-zinc-600 bg-transparent text-zinc-300"
+                          onClick={() => setPurchaseTarget(null)}
+                          disabled={purchasing}
+                        >
+                          取消
+                        </Button>
+                      </DialogFooter>
+                    </>
+                  );
+                })()}
+              </div>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       {/* Convert Dialog */}
       <Dialog open={convertOpen} onOpenChange={setConvertOpen}>

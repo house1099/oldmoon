@@ -103,13 +103,24 @@ export async function unequipAllOfType(
   if (error) throw error;
 }
 
-export async function markBroadcastUsed(rewardId: string): Promise<void> {
+/** 將道具標記為已使用（僅當 used_at 仍為 null 時更新；否則拋錯） */
+export async function markUserRewardConsumed(rewardId: string): Promise<void> {
   const admin = createAdminClient();
-  const { error } = await admin
+  const { data, error } = await admin
     .from("user_rewards")
     .update({ used_at: new Date().toISOString() })
-    .eq("id", rewardId);
+    .eq("id", rewardId)
+    .is("used_at", null)
+    .select("id")
+    .maybeSingle();
   if (error) throw error;
+  if (!data) {
+    throw new Error("無法標記道具為已使用（可能已使用或不存在）");
+  }
+}
+
+export async function markBroadcastUsed(rewardId: string): Promise<void> {
+  return markUserRewardConsumed(rewardId);
 }
 
 export async function insertBroadcast(
@@ -118,8 +129,39 @@ export async function insertBroadcast(
   },
 ): Promise<void> {
   const admin = createAdminClient();
-  const { error } = await admin.from("broadcasts").insert(data);
+  const expires_at =
+    data.expires_at ??
+    new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const { error } = await admin
+    .from("broadcasts")
+    .insert({ ...data, expires_at });
   if (error) throw error;
+}
+
+export async function clearUserRewardUsedAt(rewardId: string): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("user_rewards")
+    .update({ used_at: null })
+    .eq("id", rewardId);
+  if (error) throw error;
+}
+
+export async function findEarliestUnusedRenameCard(
+  userId: string,
+): Promise<UserRewardRow | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("user_rewards")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("reward_type", "rename_card")
+    .is("used_at", null)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as UserRewardRow) ?? null;
 }
 
 export type ActiveBroadcastRow = {

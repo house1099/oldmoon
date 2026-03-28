@@ -19,6 +19,9 @@ export async function findPoolByType(
     .from("prize_pools")
     .select("*")
     .eq("pool_type", poolType)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
   if (error) throw error;
   return (data as PrizePoolRow) ?? null;

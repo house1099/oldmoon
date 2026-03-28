@@ -1340,6 +1340,7 @@ export interface Database {
           is_active: boolean;
           sort_order: number;
           metadata: Json | null;
+          image_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1360,6 +1361,7 @@ export interface Database {
           is_active?: boolean;
           sort_order?: number;
           metadata?: Json | null;
+          image_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1379,6 +1381,7 @@ export interface Database {
           is_active?: boolean;
           sort_order?: number;
           metadata?: Json | null;
+          image_url?: string | null;
           updated_at?: string;
         };
         Relationships: [];

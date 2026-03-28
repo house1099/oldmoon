@@ -353,9 +353,9 @@ function FloatingToolbarInner({
       <Sheet open={equipOpen} onOpenChange={setEquipOpen}>
         <SheetContent
           side="right"
-          className="z-[70] flex w-[min(100vw,22rem)] flex-col border-l border-zinc-800 bg-zinc-950 p-0 text-zinc-100"
+          className="z-[70] flex w-[min(100vw,22rem)] flex-col border-l border-zinc-800 bg-zinc-950 px-0 pb-0 pt-[max(1.5rem,env(safe-area-inset-top,0px))] text-zinc-100"
         >
-          <SheetHeader className="space-y-1 border-b border-zinc-800/80 px-4 py-4 text-left">
+          <SheetHeader className="space-y-1 border-b border-zinc-800/80 px-4 pb-4 pt-0 text-left">
             <SheetTitle className="text-lg text-zinc-100">🎒 裝備背包</SheetTitle>
             <p className="text-xs font-normal text-zinc-400">
               收集道具，強化你的冒險之旅

@@ -213,6 +213,74 @@ export default function AdminSettingsClient({ isMaster }: { isMaster: boolean })
               </div>
             );
           })}
+
+          <div className="rounded-xl border border-amber-100 bg-amber-50/50 px-4 py-3 space-y-4 mt-4">
+            <h3 className="text-sm font-semibold text-gray-900">跑馬燈設定</h3>
+            <div className="space-y-2">
+              <p className="text-xs text-gray-600">
+                輪播間隔（秒），建議 5〜30
+              </p>
+              <div className="flex flex-wrap items-center gap-2 max-w-xs">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={settings.marquee_speed_seconds ?? "10"}
+                  onChange={(e) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      marquee_speed_seconds: e.target.value.replace(/[^0-9]/g, ""),
+                    }))
+                  }
+                  className="flex-1 min-w-[6rem] rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                />
+                <button
+                  type="button"
+                  disabled={savingKey === "marquee_speed_seconds"}
+                  onClick={() =>
+                    void saveSetting(
+                      "marquee_speed_seconds",
+                      String(settings.marquee_speed_seconds ?? "10"),
+                    )
+                  }
+                  className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-60"
+                >
+                  {savingKey === "marquee_speed_seconds" ? "儲存中..." : "儲存"}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs text-gray-600">廣播／跑馬燈文字特效</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={settings.marquee_broadcast_effect ?? "glow"}
+                  onChange={(e) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      marquee_broadcast_effect: e.target.value,
+                    }))
+                  }
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                >
+                  <option value="glow">glow（光暈）</option>
+                  <option value="pulse">pulse（脈動）</option>
+                  <option value="rainbow">rainbow（彩虹）</option>
+                </select>
+                <button
+                  type="button"
+                  disabled={savingKey === "marquee_broadcast_effect"}
+                  onClick={() =>
+                    void saveSetting(
+                      "marquee_broadcast_effect",
+                      String(settings.marquee_broadcast_effect ?? "glow"),
+                    )
+                  }
+                  className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-60"
+                >
+                  {savingKey === "marquee_broadcast_effect" ? "儲存中..." : "儲存"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

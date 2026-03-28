@@ -76,6 +76,25 @@
   white-space: nowrap;
 }
 
+@keyframes rainbow-text {
+  0% {
+    color: #f87171;
+  }
+  33% {
+    color: #4ade80;
+  }
+  66% {
+    color: #60a5fa;
+  }
+  100% {
+    color: #f87171;
+  }
+}
+
+.animate-rainbow-text {
+  animation: rainbow-text 3s linear infinite;
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

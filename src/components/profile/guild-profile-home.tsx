@@ -66,6 +66,7 @@ import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { cn } from "@/lib/utils";
 import { rewardEffectClassName } from "@/lib/utils/reward-effects";
 import { getMoodCountdown, isMoodActive } from "@/lib/utils/mood";
+import { getMarqueeSettingsAction } from "@/services/system-settings.action";
 import { getActiveAnnouncementsAction } from "@/services/announcement.action";
 import { getHomeAdsAction } from "@/services/advertisement.action";
 import { recordAdClickAction } from "@/services/advertisement.action";
@@ -234,16 +235,36 @@ function AnnouncementClampedPreview({
   );
 }
 
+function broadcastCopyClass(effect: string): string {
+  const e = effect.trim();
+  if (e === "pulse") return "animate-pulse text-amber-300";
+  if (e === "rainbow") return "animate-rainbow-text text-amber-300";
+  return "text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]";
+}
+
 function BroadcastBannerCarousel({ items }: { items: ActiveBroadcastDto[] }) {
   const [index, setIndex] = useState(0);
+  const [rotateMs, setRotateMs] = useState(10_000);
+  const [broadcastEffect, setBroadcastEffect] = useState("glow");
+
+  useEffect(() => {
+    void getMarqueeSettingsAction()
+      .then((s) => {
+        setRotateMs(Math.max(1000, s.speedSeconds * 1000));
+        setBroadcastEffect(s.broadcastEffect?.trim() || "glow");
+      })
+      .catch(() => {});
+  }, []);
+
+  const msgClass = broadcastCopyClass(broadcastEffect);
 
   useEffect(() => {
     if (items.length <= 1) return;
     const id = window.setInterval(() => {
       setIndex((i) => (i + 1) % items.length);
-    }, 4000);
+    }, rotateMs);
     return () => window.clearInterval(id);
-  }, [items.length]);
+  }, [items.length, rotateMs]);
 
   useEffect(() => {
     if (items.length === 0) return;
@@ -259,8 +280,8 @@ function BroadcastBannerCarousel({ items }: { items: ActiveBroadcastDto[] }) {
         <div className="w-full rounded-2xl border border-amber-400/40 bg-amber-950/60 px-4 py-2">
           <p className="flex flex-wrap items-center gap-2 text-sm text-amber-100">
             <span aria-hidden>📢</span>
-            <span className="font-bold text-amber-200">{b.nickname}</span>
-            <span className="min-w-0 break-words text-amber-50/95">{b.message}</span>
+            <span className={cn("font-bold", msgClass)}>{b.nickname}</span>
+            <span className={cn("min-w-0 break-words", msgClass)}>{b.message}</span>
           </p>
         </div>
       </section>
@@ -282,8 +303,8 @@ function BroadcastBannerCarousel({ items }: { items: ActiveBroadcastDto[] }) {
           >
             <p className="flex flex-wrap items-center gap-2 text-sm text-amber-100">
               <span aria-hidden>📢</span>
-              <span className="font-bold text-amber-200">{it.nickname}</span>
-              <span className="min-w-0 break-words text-amber-50/95">{it.message}</span>
+              <span className={cn("font-bold", msgClass)}>{it.nickname}</span>
+              <span className={cn("min-w-0 break-words", msgClass)}>{it.message}</span>
             </p>
           </div>
         ))}
@@ -927,9 +948,7 @@ export function GuildProfileHome({
     (f) => f.is_equipped,
   )?.effect_key;
 
-  const availableRenameCard = rewardsData?.allRewards.find(
-    (r) => r.reward_type === "rename_card" && r.used_at == null,
-  );
+  const renameCardUnusedCount = rewardsData?.renameCardUnusedCount ?? 0;
 
   const titleCapsuleText = (raw: string) => {
     const t = raw.trim();
@@ -1675,7 +1694,8 @@ export function GuildProfileHome({
               }
               onClick={async () => {
                 const unused = rewardsData?.broadcasts.find(
-                  (b) => b.used_at == null,
+                  (b) =>
+                    b.reward_type === "broadcast" && b.used_at == null,
                 );
                 if (!unused) {
                   toast.error("沒有可用的廣播券");
@@ -2095,7 +2115,7 @@ export function GuildProfileHome({
             </div>
           </div>
 
-          {availableRenameCard && (
+          {renameCardUnusedCount > 0 && (
             <div className="border-t border-white/10 px-4 py-3">
               <p className="text-sm font-medium text-white mb-2">✏️ 改名卡</p>
               <p className="text-xs text-zinc-500 mb-2">
@@ -2109,7 +2129,7 @@ export function GuildProfileHome({
                 }}
                 className="w-full rounded-full bg-violet-600/80 py-2 text-sm text-white transition hover:bg-violet-500/80 active:scale-95"
               >
-                ✏️ 使用改名卡
+                ✏️ 使用改名卡（剩餘 {renameCardUnusedCount} 張）
               </button>
             </div>
           )}
@@ -2163,18 +2183,15 @@ export function GuildProfileHome({
               loadingText="處理中…"
               disabled={!renameDraft.trim()}
               onClick={async () => {
-                if (!availableRenameCard) return;
+                if (renameCardUnusedCount < 1) return;
                 setRenameSaving(true);
-                const res = await consumeRenameCardAction(
-                  availableRenameCard.id,
-                  renameDraft.trim(),
-                );
+                const res = await consumeRenameCardAction(renameDraft.trim());
                 setRenameSaving(false);
                 if (!res.ok) {
                   toast.error(res.error);
                   return;
                 }
-                toast.success("暱稱已更新！");
+                toast.success("✅ 暱稱已更新");
                 setRenameDialogOpen(false);
                 setEditOpen(false);
                 mutateProfile();

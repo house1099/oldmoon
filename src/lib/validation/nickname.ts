@@ -14,3 +14,6 @@ export const adventurerNicknameSchema = z
       ),
     { message: "暱稱含有不當用語，請換一個稱呼" },
   );
+
+/** 與 adventurerNicknameSchema 相同，供改名卡等情境語意化引用 */
+export const nicknameSchema = adventurerNicknameSchema;

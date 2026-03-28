@@ -41,6 +41,17 @@
 11. **`database.types.ts`**：已補 `shop_items`、`shop_orders`、`shop_daily_limits` Row/Insert/Update 型別。
 12. **前台 `/shop`**：保留原有錢包（探險幣兌換純金、金幣紀錄）功能，上方新增商城 Tab 切換與商品 grid。
 
+### 商城 Bug 修復與補強（2026-03-29）
+
+1. **財務管理頁恢復**：**`/admin/coins`** 不再 **redirect** 至 **`/admin/shop`**；**`coins-admin-client.tsx`** 顯示 **全站總探險幣／總純金**（**`getAdminCoinStatsAction`**）、暱稱搜尋分頁列表（**`getAdminUsersWithCoinsAction`**）、**master** 手動調整用戶 **純金**（**`adminAdjustCoinsAction`**，別名 **`adjustCoinsAction`**）。**`admin-shell.tsx`** 獨立 **財務管理**（**`/admin/coins`**，**`Coins` icon**）與 **商城管理** 並列。
+2. **改名卡／廣播券**：**`getMyRewardsAction`** 回傳 **`renameCardUnusedCount`**；**`consumeRenameCardAction(newNickname)`** 由伺服端取 **最早一張** **`rename_card` 且 `used_at IS NULL`**，**`nicknameSchema`** 驗證後 **`updateProfile` + `markUserRewardConsumed`**；帳號設定內按鈕 **「✏️ 使用改名卡（剩餘 N 張）」**。**`useBroadcastAction`**：**`markUserRewardConsumed`**（僅 **`used_at IS NULL`** 才更新）→ **`insertBroadcast`**（預設 **24h `expires_at`**）；若寫入廣播失敗則 **`clearUserRewardUsedAt`** 還原券。
+3. **公會盲盒購買**：**`findPoolByType`** 改為 **`is_active` + `limit(1)`**，避免 **`.maybeSingle()`** 多列錯誤；**`purchaseItemAction`** 發放失敗時 **自動退款**（**`creditCoins` `source: refund`**）並回傳錯誤訊息。雲端若缺 **`loot_box` 獎池** 需補種子（見 **`20260329130000_shop_image_marquee_loot_box.sql`**／MCP）。
+4. **限時特賣與劃線原價**：**`ShopItemDto`** — **`isOnSale`**：`sale_end_at > now`；**`showSaleCountdown`**：起迄皆具且在區間內才倒數；**`hasDiscountDisplay`**：**`original_price` 有值即劃線**（與特賣時段無關）。
+5. **`shop_items.image_url`**：**`database.types`** 已補；後台商品 Dialog **Cloudinary** 上傳（**`uploadAvatarToCloudinary(..., { folder: 'shop_items' })`**）；前台 **`next/image` 80×80** 有圖優先、無圖 **emoji**。
+6. **購買數量 Dialog**：**`getShopDailyRemainingAction`**；**±** 與正整數輸入、小計／原價小計、餘額不足按鈕文案；**`purchaseItemAction`** 每日限購與 **`quantity`** 合併檢查（既有邏輯 **`purchased + quantity <= daily_limit`**）。
+7. **跑馬燈／廣播特效**：**`system_settings`** keys **`marquee_speed_seconds`**、**`marquee_broadcast_effect`**；**`getMarqueeSettingsAction`**（**`unstable_cache` 60s `system_settings`**）；**`TavernMarquee`** 動態 **animationDuration**；首頁 **BroadcastBannerCarousel** 輪播間隔與 **glow／pulse／rainbow**（**`globals.css` `.animate-rainbow-text`**）；**`/admin/settings`** 平台規則內 **跑馬燈設定** 子區塊。
+8. **裝備背包 Sheet**：**`FloatingToolbar`** 內 **裝備 `SheetContent`** 移除會蓋掉 safe-area 的 **`p-0`**，改 **`pt-[max(1.5rem,env(safe-area-inset-top))]`** 等，避免瀏海遮標題。
+
 ### Wave 3 — 動態七日獎勵、浮動工具列、裝備背包與系統資訊（2026-03-28）
 
 1. **`streak_reward_settings` 表**：七日簽到 **EXP／幣／幣上限／特殊獎勵** 由 DB 設定；**`users.inventory_slots`**（預設 **16**，背包總格 **48**，其餘鎖定）。雲端已用 Supabase MCP 建表／補欄；**`database.types.ts`** 已對齊。
@@ -68,7 +79,7 @@
 
 3. **`middleware` `moderatorAllowed` 同步**  
    - **moderator** 可進入 **`/admin`** 及前綴 **`/admin/users`／`invitations`／`exp`／`publish`／`reports`**（**`pathname === prefix` 或 `pathname.startsWith(prefix + '/')`**，避免子路徑被誤擋）。  
-   - **`/admin/shop`** 與 **`/admin/coins`**（redirect）僅 **master**；與 **獎池／roles／settings／audit** 相同層級保護。
+   - **`/admin/shop`** 與 **`/admin/coins`**（財務管理）僅 **master**；與 **獎池／roles／settings／audit** 相同層級保護。
 
 ### 前台 Bug 修復紀錄（2026-03-26）
 
@@ -108,7 +119,7 @@
 - **簽到**：**`claimDailyCheckin`** 依 **`login_streaks`** 判斷 **48h 斷簽**／連續；**EXP／探險幣**讀 **`streak_reward_settings`**（缺列 **fallback** 舊表；**`coins_max`** 時隨機幣）；**`special_reward === 'loot_box'`**（或 fallback 第 7 天）觸發 **`drawFromPool('loot_box')`**，並 **`notifyUserMailboxSilent`**。**`getMyStreakAction`**、**`getStreakRewardSettingsAction`** 供首頁讀 streak／七格文案。
 - **首頁**：**`guild-profile-home.tsx`** — 七格進度、紫系報到鈕、斷簽前 **4h** 橘色警示、成功 Dialog（**Day X／7**、EXP／幣、盲盒 **rotateY** 翻面）。
 - **`/admin/prizes`** 獎池管理改為 **master only**，sidebar 對 **moderator** 隱藏。
-- **後台**：**`/admin/prizes`**：**`middleware`** **`pathname.startsWith('/admin/prizes')`** 非 **master** 導向 **`/admin`**；**moderator** 前綴白名單不含獎池；**`/admin/prizes/page.tsx`**（RSC）非 **master** **`redirect('/admin')`**；**`admin.action`** 獎池六支 action 皆 **`requireRole(['master'])`**；**`AdminShell`** **🎰 獎池管理** **`show: isMaster`**（與 **商城／roles／settings** 同級）。**`coin_transactions.source`** 型別含 **`loot_box`**（**`/admin/shop`**（原金幣後台）、**`/shop`** 來源標籤已補；**`/admin/coins`** 僅 **redirect → `/admin/shop`**）。**`/admin/settings`** 不再顯示簽到幣 min/max 與權重格子，改連結至獎池管理。
+- **後台**：**`/admin/prizes`**：**`middleware`** **`pathname.startsWith('/admin/prizes')`** 非 **master** 導向 **`/admin`**；**moderator** 前綴白名單不含獎池；**`/admin/prizes/page.tsx`**（RSC）非 **master** **`redirect('/admin')`**；**`admin.action`** 獎池六支 action 皆 **`requireRole(['master'])`**；**`AdminShell`** **🎰 獎池管理** **`show: isMaster`**（與 **商城／roles／settings** 同級）。**`coin_transactions.source`** 型別含 **`loot_box`**、**`refund`** 等（**`/shop`** 來源標籤已補）；**`/admin/coins`** 為 **財務管理**（統計＋手動調整純金），**`/admin/shop`** 為 **商城 CRUD**。**`/admin/settings`** 不再顯示簽到幣 min/max 與權重格子，改連結至獎池管理。
 
 ### Wave 2 — 獎池完整 CRUD、前台獎勵與廣播大聲公（2026-03-28）
 

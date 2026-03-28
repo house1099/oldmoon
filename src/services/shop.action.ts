@@ -22,23 +22,36 @@ import { taipeiCalendarDateKey } from "@/lib/utils/date";
 import { insertExpLog } from "@/lib/repositories/server/exp.repository";
 
 export type ShopItemDto = ShopItemRow & {
+  /** sale_end_at 有值且尚未結束（特賣期間） */
   isOnSale: boolean;
+  /** 同時有起迄且在區間內時顯示倒數 */
+  showSaleCountdown: boolean;
+  /** original_price 有值即顯示劃線原價 */
+  hasDiscountDisplay: boolean;
   remainingSeconds: number;
 };
 
 function toShopItemDto(item: ShopItemRow, now: Date): ShopItemDto {
   const saleStart = item.sale_start_at ? new Date(item.sale_start_at) : null;
   const saleEnd = item.sale_end_at ? new Date(item.sale_end_at) : null;
-  const isOnSale =
+  const isOnSale = saleEnd != null && saleEnd > now;
+  const showSaleCountdown =
     saleStart != null &&
     saleEnd != null &&
     saleStart <= now &&
     now <= saleEnd;
   const remainingSeconds =
-    isOnSale && saleEnd
+    showSaleCountdown && saleEnd
       ? Math.max(0, Math.floor((saleEnd.getTime() - now.getTime()) / 1000))
       : 0;
-  return { ...item, isOnSale, remainingSeconds };
+  const hasDiscountDisplay = item.original_price != null;
+  return {
+    ...item,
+    isOnSale,
+    showSaleCountdown,
+    hasDiscountDisplay,
+    remainingSeconds,
+  };
 }
 
 export async function getShopItemsAction(
@@ -114,7 +127,26 @@ export async function purchaseItemAction(
       return { ok: false, error: "insufficient_balance" };
     }
 
-    await dispatchItemToUser(user.id, item, quantity);
+    try {
+      await dispatchItemToUser(user.id, item, quantity);
+    } catch (dispatchErr) {
+      console.error("purchaseItemAction 發放失敗:", dispatchErr);
+      const refund = await creditCoins({
+        userId: user.id,
+        coinType,
+        amount: totalPrice,
+        source: "refund",
+        note: `購買失敗退款：${item.name}`,
+      });
+      if (!refund.success) {
+        console.error("purchaseItemAction 退款失敗:", refund.error);
+      }
+      const msg =
+        dispatchErr instanceof Error
+          ? dispatchErr.message
+          : "購買失敗，請稍後再試";
+      return { ok: false, error: msg };
+    }
 
     await insertShopOrder({
       user_id: user.id,
@@ -266,4 +298,32 @@ export async function getMyOrdersAction(): Promise<ShopOrderRow[]> {
   } = await supabase.auth.getUser();
   if (!user) return [];
   return findMyOrders(user.id);
+}
+
+/** 今日尚可購買數量（無每日上限則 remaining 為 null） */
+export async function getShopDailyRemainingAction(
+  itemId: string,
+): Promise<
+  | { ok: true; remaining: number | null; dailyLimit: number | null }
+  | { ok: false; error: string }
+> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "未登入" };
+
+  const item = await findShopItemById(itemId);
+  if (!item) return { ok: false, error: "商品不存在" };
+  if (item.daily_limit == null) {
+    return { ok: true, remaining: null, dailyLimit: null };
+  }
+  const dateKey = taipeiCalendarDateKey();
+  const purchased = await getDailyPurchaseCount(user.id, item.id, dateKey);
+  const remaining = Math.max(0, item.daily_limit - purchased);
+  return {
+    ok: true,
+    remaining,
+    dailyLimit: item.daily_limit,
+  };
 }

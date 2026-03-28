@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ import {
   deleteShopItemAction,
 } from "@/services/admin.action";
 import type { ShopItemRow } from "@/lib/repositories/server/shop.repository";
+import { uploadAvatarToCloudinary } from "@/lib/utils/cloudinary";
 
 const ITEM_TYPE_LABELS: Record<string, string> = {
   avatar_frame: "頭像框",
@@ -71,6 +72,7 @@ type FormData = {
   sort_order: string;
   is_active: boolean;
   metadata: string;
+  image_url: string;
 };
 
 const EMPTY_FORM: FormData = {
@@ -88,6 +90,7 @@ const EMPTY_FORM: FormData = {
   sort_order: "0",
   is_active: false,
   metadata: "",
+  image_url: "",
 };
 
 function itemToForm(item: ShopItemRow): FormData {
@@ -110,6 +113,7 @@ function itemToForm(item: ShopItemRow): FormData {
     sort_order: String(item.sort_order),
     is_active: item.is_active,
     metadata: item.metadata ? JSON.stringify(item.metadata, null, 2) : "",
+    image_url: item.image_url?.trim() ?? "",
   };
 }
 
@@ -121,6 +125,8 @@ export default function ShopAdminClient() {
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ShopItemRow | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const shopImageInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -197,6 +203,7 @@ export default function ShopAdminClient() {
       is_active: form.is_active,
       sort_order: sortOrder,
       metadata,
+      image_url: form.image_url.trim() || null,
     };
 
     setSaving(true);
@@ -432,6 +439,58 @@ export default function ShopAdminClient() {
                 className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2"
               />
             </label>
+            <div className="block">
+              <span className="text-gray-700">商品圖片</span>
+              <input
+                ref={shopImageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (!f) return;
+                  setImageUploading(true);
+                  void (async () => {
+                    try {
+                      const url = await uploadAvatarToCloudinary(f, {
+                        folder: "shop_items",
+                      });
+                      setField("image_url", url);
+                      toast.success("圖片上傳成功");
+                    } catch {
+                      toast.error("圖片上傳失敗");
+                    } finally {
+                      setImageUploading(false);
+                    }
+                  })();
+                }}
+              />
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  disabled={imageUploading}
+                  onClick={() => shopImageInputRef.current?.click()}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {imageUploading ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" /> 上傳中…
+                    </span>
+                  ) : (
+                    "上傳商品圖片"
+                  )}
+                </button>
+                {form.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={form.image_url}
+                    alt=""
+                    className="h-20 w-20 rounded-xl border border-gray-200 object-cover"
+                  />
+                ) : null}
+              </div>
+            </div>
             <label className="block">
               <span className="text-gray-700">商品說明</span>
               <textarea

@@ -1560,6 +1560,9 @@ export async function adminAdjustCoinsAction(params: {
   }
 }
 
+/** 規格／文件中的 `adjustCoinsAction` 與 `adminAdjustCoinsAction` 為同一實作 */
+export const adjustCoinsAction = adminAdjustCoinsAction;
+
 export async function getAdminCoinStatsAction(): Promise<
   ActionResult<
     Awaited<ReturnType<typeof getCoinStats>>
@@ -2091,6 +2094,7 @@ export async function createShopItemAction(data: {
   is_active: boolean;
   sort_order: number;
   metadata?: Record<string, unknown> | null;
+  image_url?: string | null;
 }): Promise<ActionResult<ShopItemRow>> {
   try {
     await requireRole(["master"]);
@@ -2123,6 +2127,7 @@ export async function createShopItemAction(data: {
       is_active: data.is_active,
       sort_order: data.sort_order,
       metadata: (data.metadata as Json) ?? null,
+      image_url: data.image_url ?? null,
     });
     revalidateTag("shop_items");
     return { ok: true, data: item };
@@ -2149,6 +2154,7 @@ export async function updateShopItemAction(
     is_active?: boolean;
     sort_order?: number;
     metadata?: Record<string, unknown> | null;
+    image_url?: string | null;
   },
 ): Promise<ActionResult<ShopItemRow>> {
   try {

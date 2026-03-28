@@ -9,8 +9,10 @@ import {
   equipReward,
   unequipReward,
   unequipAllOfType,
-  markBroadcastUsed,
+  markUserRewardConsumed,
+  clearUserRewardUsedAt,
   insertBroadcast,
+  findEarliestUnusedRenameCard,
   findActiveBroadcasts,
   findUserRewardById,
   type UserRewardWithEffect,
@@ -22,6 +24,8 @@ export type MyRewardsPayload = {
   cardFrames: UserRewardWithEffect[];
   broadcasts: UserRewardWithEffect[];
   broadcastUnusedCount: number;
+  /** 未使用的改名卡數量 */
+  renameCardUnusedCount: number;
   /** 背包開放格數（總格 48） */
   inventorySlots: number;
   /** 全部持有道具（背包堆疊用） */
@@ -52,6 +56,9 @@ export async function getMyRewardsAction(): Promise<MyRewardsPayload | null> {
     const cardFrames = rows.filter((r) => r.reward_type === "card_frame");
     const broadcasts = rows.filter((r) => r.reward_type === "broadcast");
     const broadcastUnusedCount = broadcasts.filter((r) => r.used_at == null).length;
+    const renameCardUnusedCount = rows.filter(
+      (r) => r.reward_type === "rename_card" && r.used_at == null,
+    ).length;
     const inventorySlots =
       profile && typeof profile.inventory_slots === "number"
         ? Math.min(48, Math.max(0, profile.inventory_slots))
@@ -63,6 +70,7 @@ export async function getMyRewardsAction(): Promise<MyRewardsPayload | null> {
       cardFrames,
       broadcasts,
       broadcastUnusedCount,
+      renameCardUnusedCount,
       inventorySlots,
       allRewards: rows,
     };
@@ -141,23 +149,38 @@ export async function useBroadcastAction(
     return { ok: false, error: "廣播訊息須為 1〜30 字" };
   }
 
-  await markBroadcastUsed(rewardId);
-  await insertBroadcast({
-    user_id: user.id,
-    reward_ref_id: rewardId,
-    message: trimmed,
-  });
+  try {
+    await markUserRewardConsumed(rewardId);
+  } catch (err) {
+    console.error("useBroadcastAction 標記廣播券失敗:", err);
+    return {
+      ok: false,
+      error:
+        err instanceof Error ? err.message : "無法使用此廣播券，請稍後再試",
+    };
+  }
+  try {
+    await insertBroadcast({
+      user_id: user.id,
+      reward_ref_id: rewardId,
+      message: trimmed,
+    });
+  } catch (err) {
+    await clearUserRewardUsedAt(rewardId).catch(() => {});
+    console.error("useBroadcastAction 寫入廣播失敗:", err);
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "廣播發送失敗，請稍後再試",
+    };
+  }
   revalidateTag("broadcasts");
   return { ok: true };
 }
 
 export async function consumeRenameCardAction(
-  rewardId: string,
   newNickname: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { adventurerNicknameSchema } = await import(
-    "@/lib/validation/nickname"
-  );
+  const { nicknameSchema } = await import("@/lib/validation/nickname");
   const { updateProfile } = await import(
     "@/lib/repositories/server/user.repository"
   );
@@ -168,24 +191,18 @@ export async function consumeRenameCardAction(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "未登入" };
 
-  const row = await findUserRewardById(rewardId);
-  if (!row || row.user_id !== user.id) {
-    return { ok: false, error: "找不到改名卡" };
-  }
-  if (row.reward_type !== "rename_card") {
-    return { ok: false, error: "此道具不是改名卡" };
-  }
-  if (row.used_at != null) {
-    return { ok: false, error: "此改名卡已使用" };
+  const card = await findEarliestUnusedRenameCard(user.id);
+  if (!card) {
+    return { ok: false, error: "沒有可用的改名卡" };
   }
 
-  const parsed = adventurerNicknameSchema.safeParse(newNickname);
+  const parsed = nicknameSchema.safeParse(newNickname);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "暱稱格式錯誤" };
   }
 
   await updateProfile(user.id, { nickname: parsed.data });
-  await markBroadcastUsed(rewardId);
+  await markUserRewardConsumed(card.id);
   revalidateTag(profileCacheTag(user.id));
   return { ok: true };
 }

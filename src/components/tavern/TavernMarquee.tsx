@@ -1,10 +1,34 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTavern } from "@/hooks/useTavern";
+import { getMarqueeSettingsAction } from "@/services/system-settings.action";
+import { cn } from "@/lib/utils";
+
+function marqueeTextClass(effect: string): string {
+  const e = effect.trim();
+  if (e === "pulse") return "animate-pulse text-amber-300";
+  if (e === "rainbow") return "animate-rainbow-text text-amber-300";
+  return "text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]";
+}
 
 export function TavernMarquee() {
   const { messages } = useTavern();
+  const [speedSeconds, setSpeedSeconds] = useState(20);
+  const [broadcastEffect, setBroadcastEffect] = useState("glow");
+
+  useEffect(() => {
+    void getMarqueeSettingsAction()
+      .then((s) => {
+        const sec =
+          Number.isFinite(s.speedSeconds) && s.speedSeconds >= 1
+            ? s.speedSeconds
+            : 10;
+        setSpeedSeconds(sec);
+        setBroadcastEffect(s.broadcastEffect?.trim() || "glow");
+      })
+      .catch(() => {});
+  }, []);
 
   const marqueeText = useMemo(() => {
     const latest = messages.slice(-5);
@@ -13,6 +37,8 @@ export function TavernMarquee() {
       .map((m) => `${m.user.nickname}：${m.content}　　`)
       .join("");
   }, [messages]);
+
+  const textClass = marqueeTextClass(broadcastEffect);
 
   return (
     <div className="fixed left-0 right-0 top-0 z-[50] flex flex-col pt-[env(safe-area-inset-top,0px)]">
@@ -25,7 +51,15 @@ export function TavernMarquee() {
         </span>
         <div className="relative min-w-0 flex-1 overflow-hidden">
           {marqueeText ? (
-            <div className="animate-marquee inline-block will-change-transform">
+            <div
+              className={cn(
+                "animate-marquee inline-block will-change-transform text-xs",
+                textClass,
+              )}
+              style={{
+                animationDuration: `${speedSeconds}s`,
+              }}
+            >
               {marqueeText}
             </div>
           ) : (
@@ -38,4 +72,3 @@ export function TavernMarquee() {
     </div>
   );
 }
-

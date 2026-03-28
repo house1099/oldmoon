@@ -68,3 +68,37 @@ export async function getMessageLimitsAction(): Promise<{
 }> {
   return getCachedMessageLimits();
 }
+
+const DEFAULT_MARQUEE_SPEED = 10;
+const DEFAULT_MARQUEE_EFFECT = "glow";
+
+async function loadMarqueeSettings(): Promise<{
+  speedSeconds: number;
+  broadcastEffect: string;
+}> {
+  const [speedRaw, effectRaw] = await Promise.all([
+    findSystemSettingByKey("marquee_speed_seconds"),
+    findSystemSettingByKey("marquee_broadcast_effect"),
+  ]);
+  const speedParsed = parseInt((speedRaw ?? "").trim(), 10);
+  const speedSeconds =
+    Number.isFinite(speedParsed) && speedParsed >= 1 && speedParsed <= 300
+      ? speedParsed
+      : DEFAULT_MARQUEE_SPEED;
+  const broadcastEffect = (effectRaw ?? DEFAULT_MARQUEE_EFFECT).trim() || DEFAULT_MARQUEE_EFFECT;
+  return { speedSeconds, broadcastEffect };
+}
+
+const getCachedMarqueeSettings = unstable_cache(
+  loadMarqueeSettings,
+  ["system-settings-marquee-v1"],
+  { revalidate: 60, tags: ["system_settings"] },
+);
+
+/** 跑馬燈／廣播輪播間隔與特效；快取 60s，tag **`system_settings`**。 */
+export async function getMarqueeSettingsAction(): Promise<{
+  speedSeconds: number;
+  broadcastEffect: string;
+}> {
+  return getCachedMarqueeSettings();
+}
