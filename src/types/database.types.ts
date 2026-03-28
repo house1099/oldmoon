@@ -2,7 +2,7 @@
  * 與 Supabase `public` schema 對齊的型別（手動維護，請在雲端 Schema 變更後同步更新）。
  * 表：users, exp_logs, likes, alliances（雙人血盟）, conversations, chat_messages, blocks, reports, messages, notifications, ig_change_requests,
  *     admin_actions, moderator_permissions, system_settings, advertisements, ad_clicks, invitation_codes, invitation_code_uses, announcements,
- *     tavern_messages, tavern_bans, login_streaks, prize_pools, prize_items, prize_logs, user_rewards
+ *     tavern_messages, tavern_bans, login_streaks, prize_pools, prize_items, prize_logs, user_rewards, broadcasts
  */
 
 export type Json =
@@ -1247,6 +1247,43 @@ export interface Database {
           },
         ];
       };
+      broadcasts: {
+        Row: {
+          id: string;
+          user_id: string;
+          reward_ref_id: string | null;
+          message: string;
+          expires_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          reward_ref_id?: string | null;
+          message: string;
+          expires_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          reward_ref_id?: string | null;
+          message?: string;
+          expires_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "broadcasts_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "broadcasts_reward_ref_id_fkey";
+            columns: ["reward_ref_id"];
+            referencedRelation: "user_rewards";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       topup_orders: {
         Row: {
           id: string;
@@ -1337,6 +1374,7 @@ export type PrizePoolRow = PublicTables["prize_pools"]["Row"];
 export type PrizeItemRow = PublicTables["prize_items"]["Row"];
 export type PrizeLogRow = PublicTables["prize_logs"]["Row"];
 export type UserRewardRow = PublicTables["user_rewards"]["Row"];
+export type BroadcastRow = PublicTables["broadcasts"]["Row"];
 
 export type TavernMessageRow = PublicTables["tavern_messages"]["Row"];
 export type TavernBanRow = PublicTables["tavern_bans"]["Row"];

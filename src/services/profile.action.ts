@@ -4,6 +4,12 @@ import { createClient } from "@/lib/supabase/server";
 import { getCachedProfile } from "@/lib/supabase/get-cached-profile";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
+import { findEquippedRewardLabels } from "@/lib/repositories/server/rewards.repository";
+
+export type MemberProfileView = UserRow & {
+  equippedTitle: string | null;
+  equippedFrame: string | null;
+};
 
 export async function getMyProfileAction() {
   const supabase = createClient();
@@ -19,7 +25,7 @@ export async function getMyProfileAction() {
 /** 已登入時讀取其他會員完整 profile（冒險團血盟詳情 Modal 等） */
 export async function getMemberProfileByIdAction(
   targetUserId: string,
-): Promise<UserRow | null> {
+): Promise<MemberProfileView | null> {
   const supabase = createClient();
   const {
     data: { user },
@@ -28,7 +34,11 @@ export async function getMemberProfileByIdAction(
     return null;
   }
   try {
-    return await findProfileById(targetUserId);
+    const profile = await findProfileById(targetUserId);
+    if (!profile) return null;
+    const { equippedTitle, equippedFrame } =
+      await findEquippedRewardLabels(targetUserId);
+    return { ...profile, equippedTitle, equippedFrame };
   } catch (e) {
     console.error("getMemberProfileByIdAction:", e);
     return null;

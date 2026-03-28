@@ -60,10 +60,18 @@ import {
 import {
   findAllPools,
   findAllItemsByPoolId,
+  findPoolByType,
   updatePrizeItem,
   togglePrizeItem,
   findPrizeLogs,
   updatePool,
+  countPrizeLogsByPoolId,
+  countPrizeLogsByItemId,
+  insertPrizePool,
+  deletePrizePoolById,
+  insertPrizeItem,
+  deletePrizeItemById,
+  findPrizeItemById,
 } from "@/lib/repositories/server/prize.repository";
 import { DEFAULT_MODERATOR_PERMISSIONS } from "@/lib/constants/admin-permissions";
 import type {
@@ -1675,13 +1683,59 @@ export async function getRecentCoinTransactionsAction(): Promise<
   }
 }
 
+const PRIZE_ITEM_REWARD_TYPES = [
+  "coins",
+  "exp",
+  "title",
+  "avatar_frame",
+  "broadcast",
+] as const;
+type PrizeItemRewardType = (typeof PRIZE_ITEM_REWARD_TYPES)[number];
+
+function validatePrizeItemRewardFields(input: {
+  reward_type: string;
+  label: string;
+  weight: number;
+  min_value: number | null;
+  max_value: number | null;
+}): ActionResult<void> {
+  if (
+    !PRIZE_ITEM_REWARD_TYPES.includes(input.reward_type as PrizeItemRewardType)
+  ) {
+    return { ok: false, error: "reward_type 不合法" };
+  }
+  const w = Math.floor(Number(input.weight));
+  if (!Number.isFinite(w) || w < 1) {
+    return { ok: false, error: "權重須為 ≥1 的整數" };
+  }
+  const label = input.label.trim();
+  if (!label) {
+    return { ok: false, error: "標籤不可為空" };
+  }
+  if (input.reward_type === "coins" || input.reward_type === "exp") {
+    if (input.min_value == null || input.max_value == null) {
+      return { ok: false, error: "coins／exp 類必須填寫 min 與 max" };
+    }
+    if (input.min_value > input.max_value) {
+      return { ok: false, error: "min 不可大於 max" };
+    }
+  }
+  return { ok: true, data: undefined };
+}
+
 export async function getPrizePoolsAction(): Promise<
-  ActionResult<PrizePoolRow[]>
+  ActionResult<Array<PrizePoolRow & { hasPrizeLogs: boolean }>>
 > {
   try {
     await requireRole(["master"]);
     const rows = await findAllPools();
-    return { ok: true, data: rows };
+    const withFlags = await Promise.all(
+      rows.map(async (p) => ({
+        ...p,
+        hasPrizeLogs: (await countPrizeLogsByPoolId(p.id)) > 0,
+      })),
+    );
+    return { ok: true, data: withFlags };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
   }
@@ -1689,11 +1743,124 @@ export async function getPrizePoolsAction(): Promise<
 
 export async function getPrizeItemsAction(
   poolId: string,
-): Promise<ActionResult<PrizeItemRow[]>> {
+): Promise<ActionResult<Array<PrizeItemRow & { hasPrizeLogs: boolean }>>> {
   try {
     await requireRole(["master"]);
     const rows = await findAllItemsByPoolId(poolId);
-    return { ok: true, data: rows };
+    const withFlags = await Promise.all(
+      rows.map(async (it) => ({
+        ...it,
+        hasPrizeLogs: (await countPrizeLogsByItemId(it.id)) > 0,
+      })),
+    );
+    return { ok: true, data: withFlags };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function createPrizePoolAction(data: {
+  pool_type: string;
+  label: string;
+  description?: string | null;
+}): Promise<ActionResult<PrizePoolRow>> {
+  try {
+    await requireRole(["master"]);
+    const poolType = data.pool_type.trim();
+    const label = data.label.trim();
+    if (!poolType) return { ok: false, error: "pool_type 不可為空" };
+    if (!label) return { ok: false, error: "顯示名稱不可為空" };
+    const dup = await findPoolByType(poolType);
+    if (dup) return { ok: false, error: "pool_type 已存在" };
+    const desc =
+      data.description == null || data.description === ""
+        ? null
+        : String(data.description).trim() || null;
+    const row = await insertPrizePool({
+      pool_type: poolType,
+      label,
+      description: desc,
+      is_active: true,
+    });
+    revalidatePath("/admin/prizes");
+    return { ok: true, data: row };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function deletePrizePoolAction(
+  poolId: string,
+): Promise<ActionResult<void>> {
+  try {
+    await requireRole(["master"]);
+    const n = await countPrizeLogsByPoolId(poolId);
+    if (n > 0) {
+      return { ok: false, error: "已有抽獎紀錄，僅可停用" };
+    }
+    await deletePrizePoolById(poolId);
+    revalidatePath("/admin/prizes");
+    return { ok: true, data: undefined };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function createPrizeItemAction(
+  poolId: string,
+  data: {
+    reward_type: string;
+    label: string;
+    min_value?: number | null;
+    max_value?: number | null;
+    weight: number;
+  },
+): Promise<ActionResult<PrizeItemRow>> {
+  try {
+    await requireRole(["master"]);
+    const rt = data.reward_type.trim();
+    const minV =
+      data.min_value === undefined ? null : data.min_value;
+    const maxV =
+      data.max_value === undefined ? null : data.max_value;
+    const v = validatePrizeItemRewardFields({
+      reward_type: rt,
+      label: data.label,
+      weight: data.weight,
+      min_value: minV,
+      max_value: maxV,
+    });
+    if (!v.ok) return v;
+    const row = await insertPrizeItem({
+      pool_id: poolId,
+      reward_type: rt,
+      label: data.label.trim(),
+      weight: Math.floor(Number(data.weight)),
+      min_value:
+        rt === "coins" || rt === "exp" ? minV : null,
+      max_value:
+        rt === "coins" || rt === "exp" ? maxV : null,
+      is_active: true,
+    });
+    revalidatePath("/admin/prizes");
+    return { ok: true, data: row };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function deletePrizeItemAction(
+  itemId: string,
+): Promise<ActionResult<void>> {
+  try {
+    await requireRole(["master"]);
+    const n = await countPrizeLogsByItemId(itemId);
+    if (n > 0) {
+      return { ok: false, error: "已有抽獎紀錄，無法刪除" };
+    }
+    await deletePrizeItemById(itemId);
+    revalidatePath("/admin/prizes");
+    return { ok: true, data: undefined };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
   }
@@ -1704,40 +1871,45 @@ export async function updatePrizeItemAction(
   data: {
     label?: string;
     weight?: number;
+    reward_type?: string;
     min_value?: number | null;
     max_value?: number | null;
   },
 ): Promise<ActionResult<void>> {
   try {
     await requireRole(["master"]);
-    const patch: {
-      label?: string;
-      weight?: number;
-      min_value?: number | null;
-      max_value?: number | null;
-    } = {};
-    if (data.weight !== undefined) {
-      const w = Math.floor(Number(data.weight));
-      if (!Number.isFinite(w) || w < 1) {
-        return { ok: false, error: "權重須為 ≥1 的整數" };
-      }
-      patch.weight = w;
+    const existing = await findPrizeItemById(id);
+    if (!existing) return { ok: false, error: "找不到獎項" };
+
+    const reward_type = (data.reward_type ?? existing.reward_type).trim();
+    const label = (data.label !== undefined ? data.label : existing.label).trim();
+    const weight = data.weight !== undefined ? data.weight : existing.weight;
+    let min_value =
+      data.min_value !== undefined ? data.min_value : existing.min_value;
+    let max_value =
+      data.max_value !== undefined ? data.max_value : existing.max_value;
+
+    if (reward_type !== "coins" && reward_type !== "exp") {
+      min_value = null;
+      max_value = null;
     }
-    if (data.label !== undefined) {
-      const t = data.label.trim();
-      if (!t) return { ok: false, error: "標籤不可為空" };
-      patch.label = t;
-    }
-    if (data.min_value !== undefined) patch.min_value = data.min_value;
-    if (data.max_value !== undefined) patch.max_value = data.max_value;
-    if (
-      patch.min_value != null &&
-      patch.max_value != null &&
-      patch.min_value > patch.max_value
-    ) {
-      return { ok: false, error: "min 不可大於 max" };
-    }
-    await updatePrizeItem(id, patch);
+
+    const v = validatePrizeItemRewardFields({
+      reward_type,
+      label,
+      weight,
+      min_value,
+      max_value,
+    });
+    if (!v.ok) return v;
+
+    await updatePrizeItem(id, {
+      reward_type,
+      label,
+      weight: Math.floor(Number(weight)),
+      min_value,
+      max_value,
+    });
     revalidatePath("/admin/prizes");
     return { ok: true, data: undefined };
   } catch (e: unknown) {

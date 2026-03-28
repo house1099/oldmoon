@@ -46,13 +46,20 @@ import { useSWRConfig } from "swr";
 import { SWR_KEYS } from "@/lib/swr/keys";
 import { useMyProfile } from "@/hooks/useMyProfile";
 import LeaderToolsSheet from "@/components/modals/LeaderToolsSheet";
+import {
+  getMemberProfileByIdAction,
+  type MemberProfileView,
+} from "@/services/profile.action";
 
 function tagLabel(slug: string): string {
   return INTEREST_TAG_OPTIONS.find((o) => o.value === slug)?.label ?? slug;
 }
 
 export type UserDetailModalProps = {
-  user: UserRow;
+  user: UserRow & {
+    equippedTitle?: string | null;
+    equippedFrame?: string | null;
+  };
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /**
@@ -86,13 +93,28 @@ export function UserDetailModal({
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [chatOpening, setChatOpening] = useState(false);
   const [moodOpen, setMoodOpen] = useState(false);
+  const [resolvedProfile, setResolvedProfile] =
+    useState<MemberProfileView | null>(null);
 
   useEffect(() => {
     if (!open) {
+      setResolvedProfile(null);
       setShowChat(false);
       setConversationId(null);
       return;
     }
+    setResolvedProfile(null);
+    let cancelled = false;
+    void getMemberProfileByIdAction(user.id).then((p) => {
+      if (!cancelled && p) setResolvedProfile(p);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, user.id]);
+
+  useEffect(() => {
+    if (!open) return;
     setSocialLoading(true);
     let cancelled = false;
     void getModalSocialStatusAction(user.id).then((status) => {
@@ -105,51 +127,56 @@ export function UserDetailModal({
     };
   }, [open, user.id]);
 
-  const isMoodActive = user.mood_at
-    ? Date.now() - new Date(user.mood_at).getTime() < 24 * 60 * 60 * 1000
+  const u = resolvedProfile ?? user;
+
+  const isMoodActive = u.mood_at
+    ? Date.now() - new Date(u.mood_at).getTime() < 24 * 60 * 60 * 1000
     : false;
 
   const { isLiked, isMutualLike, allianceStatus, allianceId } = socialStatus;
 
   const showInstagram =
-    Boolean(user.instagram_handle?.trim()) &&
-    (user.ig_public === true || allianceStatus === "accepted");
+    Boolean(u.instagram_handle?.trim()) &&
+    (u.ig_public === true || allianceStatus === "accepted");
 
-  const genderLabel = resolveLegacyLabel(user.gender, GENDER_OPTIONS);
+  const genderLabel = resolveLegacyLabel(u.gender, GENDER_OPTIONS);
   const regionLabel = resolveLegacyLabel(
-    user.region,
+    u.region,
     REGION_OPTIONS,
     LEGACY_REGION_MAP,
   );
-  const offlineLabel = resolveOfflineOkLabel(user.offline_ok);
+  const offlineLabel = resolveOfflineOkLabel(u.offline_ok);
   const { crown: roleCrown, nameClass: roleNameClass } = getRoleDisplay(
-    user.role,
+    u.role,
   );
 
   const levelIdx = Math.min(
-    Math.max(user.level, 1),
+    Math.max(u.level, 1),
     LEVEL_TIERS.length,
   );
   const levelTitle = LEVEL_TIERS[levelIdx - 1]?.title ?? "見習冒險者";
-  const moodText = user.mood?.trim() ?? "";
+  const moodText = u.mood?.trim() ?? "";
   const moodTooLong = moodText.length > 15;
   const moodPreview = moodTooLong ? `${moodText.slice(0, 15)}...` : moodText;
-  const moodTime = user.mood_at
+  const moodTime = u.mood_at
     ? new Intl.DateTimeFormat("zh-TW", {
         timeZone: "Asia/Taipei",
         month: "2-digit",
         day: "2-digit",
         hour: "2-digit",
         minute: "2-digit",
-      }).format(new Date(user.mood_at))
+      }).format(new Date(u.mood_at))
     : "";
+
+  const equippedTitle = u.equippedTitle?.trim() || null;
+  const equippedFrame = u.equippedFrame?.trim() || null;
 
   const isCurrentUserMaster = myProfile?.role === "master";
 
   const likeLoading = likePending;
 
   function openInstagram() {
-    const igUrl = instagramProfileUrlFromHandle(user.instagram_handle ?? "");
+    const igUrl = instagramProfileUrlFromHandle(u.instagram_handle ?? "");
     if (igUrl) {
       window.open(igUrl, "_blank", "noopener,noreferrer");
     }
@@ -347,7 +374,7 @@ export function UserDetailModal({
             stackAboveChatZ == null && "z-[810]",
           )}
         >
-          <DialogTitle className="sr-only">{user.nickname} 的冒險者資料</DialogTitle>
+          <DialogTitle className="sr-only">{u.nickname} 的冒險者資料</DialogTitle>
 
           <div className="relative flex-shrink-0 overflow-visible bg-gradient-to-b from-zinc-900/80 to-zinc-950 px-5 pb-5 pt-6">
             <button
@@ -362,16 +389,20 @@ export function UserDetailModal({
             <div className="flex items-start gap-5 pr-2">
               <div className="relative shrink-0 overflow-visible">
                 <MasterAvatarShell
-                  role={user.role}
+                  role={u.role}
                   size={88}
-                  src={user.avatar_url}
-                  nickname={user.nickname}
-                  avatarClassName="ring-2 ring-zinc-700/50"
+                  src={u.avatar_url}
+                  nickname={u.nickname}
+                  avatarClassName={cn(
+                    "ring-2 ring-zinc-700/50",
+                    equippedFrame === "星辰之框" &&
+                      "ring-yellow-300 shadow-[0_0_12px_rgba(253,224,71,0.6)]",
+                  )}
                 >
                   <span
                     className={cn(
                       "absolute bottom-1 right-1 z-[15] h-3.5 w-3.5 rounded-full border-2 border-zinc-950",
-                      user.activity_status === "active"
+                      u.activity_status === "active"
                         ? "bg-emerald-500"
                         : "bg-zinc-600",
                     )}
@@ -389,11 +420,21 @@ export function UserDetailModal({
                       roleNameClass,
                     )}
                   >
-                    {user.nickname}
+                    {u.nickname}
                   </h2>
+                  {equippedTitle ? (
+                    <span
+                      className="max-w-[10rem] truncate rounded-full bg-violet-600/60 px-2 py-0.5 text-xs text-violet-200"
+                      title={equippedTitle}
+                    >
+                      {equippedTitle.length > 8
+                        ? `${equippedTitle.slice(0, 8)}…`
+                        : equippedTitle}
+                    </span>
+                  ) : null}
                 </div>
                 <div className="flex items-center gap-2">
-                  <LevelBadge level={user.level} />
+                  <LevelBadge level={u.level} />
                   <span className="text-xs text-zinc-500">{levelTitle}</span>
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-4">
@@ -410,7 +451,7 @@ export function UserDetailModal({
                     {offlineLabel}
                   </span>
                 </div>
-                {user.activity_status === "resting" ? (
+                {u.activity_status === "resting" ? (
                   <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-zinc-800/80 px-2 py-0.5 text-[10px] text-zinc-500">
                     💤 休息中
                   </span>
@@ -418,7 +459,7 @@ export function UserDetailModal({
               </div>
             </div>
 
-            {isMoodActive && user.mood ? (
+            {isMoodActive && u.mood ? (
               <div className="mt-3 flex items-start gap-2 rounded-2xl border border-violet-500/20 bg-violet-950/40 px-3 py-2.5">
                 <span className="shrink-0 text-sm text-violet-400">✨</span>
                 <div>
@@ -443,41 +484,41 @@ export function UserDetailModal({
           </div>
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
-            {user.bio_village?.trim() ? (
+            {u.bio_village?.trim() ? (
               <div>
                 <p className="mb-1.5 text-[10px] font-medium text-violet-400">
                   🏡 興趣自白
                 </p>
                 <p className="text-sm leading-relaxed text-zinc-300">
-                  {user.bio_village}
+                  {u.bio_village}
                 </p>
               </div>
             ) : null}
 
-            {user.bio_market?.trim() ? (
+            {u.bio_market?.trim() ? (
               <div>
                 <p className="mb-1.5 text-[10px] font-medium text-amber-400">
                   ⚔️ 技能自白
                 </p>
                 <p className="text-sm leading-relaxed text-zinc-300">
-                  {user.bio_market}
+                  {u.bio_market}
                 </p>
               </div>
             ) : null}
 
-            {!user.bio_village?.trim() && !user.bio_market?.trim() ? (
+            {!u.bio_village?.trim() && !u.bio_market?.trim() ? (
               <p className="text-sm italic text-zinc-600">
                 這位冒險者尚未留下自白。
               </p>
             ) : null}
 
-            {(user.interests ?? []).length > 0 ? (
+            {(u.interests ?? []).length > 0 ? (
               <div>
                 <p className="mb-2 text-[10px] font-medium text-violet-400">
                   🏡 興趣村莊
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {(user.interests ?? []).map((tag) => (
+                  {(u.interests ?? []).map((tag) => (
                     <span
                       key={tag}
                       className="rounded-full border border-violet-700/30 bg-violet-950/60 px-3 py-1 text-xs text-violet-300"
@@ -489,17 +530,17 @@ export function UserDetailModal({
               </div>
             ) : null}
 
-            {((user.skills_offer ?? []).length > 0 ||
-              (user.skills_want ?? []).length > 0) && (
+            {((u.skills_offer ?? []).length > 0 ||
+              (u.skills_want ?? []).length > 0) && (
               <div className="space-y-2.5">
                 <p className="text-[10px] font-medium text-amber-400">
                   ⚔️ 技能市集
                 </p>
-                {(user.skills_offer ?? []).length > 0 ? (
+                {(u.skills_offer ?? []).length > 0 ? (
                   <div>
                     <p className="mb-1.5 text-[10px] text-amber-500">我能教</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {(user.skills_offer ?? []).map((tag) => (
+                      {(u.skills_offer ?? []).map((tag) => (
                         <span
                           key={tag}
                           className="rounded-full border border-amber-700/30 bg-amber-950/50 px-3 py-1 text-xs text-amber-300"
@@ -510,11 +551,11 @@ export function UserDetailModal({
                     </div>
                   </div>
                 ) : null}
-                {(user.skills_want ?? []).length > 0 ? (
+                {(u.skills_want ?? []).length > 0 ? (
                   <div>
                     <p className="mb-1.5 text-[10px] text-sky-500">我想學</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {(user.skills_want ?? []).map((tag) => (
+                      {(u.skills_want ?? []).map((tag) => (
                         <span
                           key={tag}
                           className="rounded-full border border-sky-700/30 bg-sky-950/50 px-3 py-1 text-xs text-sky-300"
@@ -538,7 +579,7 @@ export function UserDetailModal({
                     </p>
                     <p className="text-sm text-zinc-200">
                       @
-                      {user.instagram_handle
+                      {u.instagram_handle
                         ?.trim()
                         .replace(/^@+/, "") ?? ""}
                     </p>
@@ -562,20 +603,20 @@ export function UserDetailModal({
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-amber-600 to-emerald-500"
                       style={{
-                        width: `${user.reputation_score ?? 100}%`,
+                        width: `${u.reputation_score ?? 100}%`,
                       }}
                     />
                   </div>
                   <span
                     className={cn(
                       "text-xs font-medium",
-                      (user.reputation_score ?? 100) < 30
+                      (u.reputation_score ?? 100) < 30
                         ? "text-red-400"
                         : "text-zinc-300",
                     )}
                   >
-                    {user.reputation_score ?? 100}
-                    {(user.reputation_score ?? 100) < 30 ? (
+                    {u.reputation_score ?? 100}
+                    {(u.reputation_score ?? 100) < 30 ? (
                       <span className="ml-1">⚠️</span>
                     ) : null}
                   </span>

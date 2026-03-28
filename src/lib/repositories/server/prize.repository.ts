@@ -7,7 +7,9 @@ export type PrizeLogRow = Database["public"]["Tables"]["prize_logs"]["Row"];
 type PrizeLogInsert = Database["public"]["Tables"]["prize_logs"]["Insert"];
 type UserRewardInsert = Database["public"]["Tables"]["user_rewards"]["Insert"];
 type PrizePoolUpdate = Database["public"]["Tables"]["prize_pools"]["Update"];
+type PrizePoolInsert = Database["public"]["Tables"]["prize_pools"]["Insert"];
 type PrizeItemUpdate = Database["public"]["Tables"]["prize_items"]["Update"];
+type PrizeItemInsert = Database["public"]["Tables"]["prize_items"]["Insert"];
 
 export async function findPoolByType(
   poolType: string,
@@ -36,6 +38,64 @@ export async function findActiveItemsByPoolId(
   return (data ?? []) as PrizeItemRow[];
 }
 
+export async function countPrizeLogsByPoolId(poolId: string): Promise<number> {
+  const admin = createAdminClient();
+  const { count, error } = await admin
+    .from("prize_logs")
+    .select("*", { count: "exact", head: true })
+    .eq("pool_id", poolId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function countPrizeLogsByItemId(itemId: string): Promise<number> {
+  const admin = createAdminClient();
+  const { count, error } = await admin
+    .from("prize_logs")
+    .select("*", { count: "exact", head: true })
+    .eq("item_id", itemId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function insertPrizePool(
+  data: Omit<PrizePoolInsert, "id" | "created_at">,
+): Promise<PrizePoolRow> {
+  const admin = createAdminClient();
+  const { data: row, error } = await admin
+    .from("prize_pools")
+    .insert(data)
+    .select()
+    .single();
+  if (error) throw error;
+  return row as PrizePoolRow;
+}
+
+export async function deletePrizePoolById(poolId: string): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin.from("prize_pools").delete().eq("id", poolId);
+  if (error) throw error;
+}
+
+export async function insertPrizeItem(
+  data: Omit<PrizeItemInsert, "id" | "created_at">,
+): Promise<PrizeItemRow> {
+  const admin = createAdminClient();
+  const { data: row, error } = await admin
+    .from("prize_items")
+    .insert(data)
+    .select()
+    .single();
+  if (error) throw error;
+  return row as PrizeItemRow;
+}
+
+export async function deletePrizeItemById(itemId: string): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin.from("prize_items").delete().eq("id", itemId);
+  if (error) throw error;
+}
+
 export async function findAllPools(): Promise<PrizePoolRow[]> {
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -44,6 +104,19 @@ export async function findAllPools(): Promise<PrizePoolRow[]> {
     .order("created_at", { ascending: true });
   if (error) throw error;
   return (data ?? []) as PrizePoolRow[];
+}
+
+export async function findPrizeItemById(
+  id: string,
+): Promise<PrizeItemRow | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("prize_items")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as PrizeItemRow) ?? null;
 }
 
 export async function findAllItemsByPoolId(

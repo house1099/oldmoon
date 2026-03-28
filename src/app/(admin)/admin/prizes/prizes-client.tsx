@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import type { PrizePoolRow, PrizeItemRow } from "@/types/database.types";
 import {
   getPrizePoolsAction,
@@ -11,10 +11,43 @@ import {
   togglePrizeItemAction,
   togglePrizePoolAction,
   getPrizeLogsAction,
+  createPrizePoolAction,
+  deletePrizePoolAction,
+  createPrizeItemAction,
+  deletePrizeItemAction,
 } from "@/services/admin.action";
 import type { PrizeLogWithUser } from "@/lib/repositories/server/prize.repository";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 
 type Tab = "items" | "logs";
+
+type PoolRow = PrizePoolRow & { hasPrizeLogs: boolean };
+type ItemRow = PrizeItemRow & { hasPrizeLogs: boolean };
+
+const REWARD_TYPE_OPTIONS = [
+  { value: "coins", label: "探險幣 coins" },
+  { value: "exp", label: "經驗值 exp" },
+  { value: "title", label: "稱號 title" },
+  { value: "avatar_frame", label: "頭像框 avatar_frame" },
+  { value: "broadcast", label: "廣播券 broadcast" },
+] as const;
 
 function fmtTaipei(iso: string) {
   return new Intl.DateTimeFormat("zh-TW", {
@@ -28,23 +61,6 @@ function fmtTaipei(iso: string) {
   }).format(new Date(iso));
 }
 
-function rewardBadgeClass(type: string) {
-  switch (type) {
-    case "coins":
-      return "bg-amber-100 text-amber-900";
-    case "exp":
-      return "bg-emerald-100 text-emerald-900";
-    case "title":
-      return "bg-violet-100 text-violet-900";
-    case "avatar_frame":
-      return "bg-blue-100 text-blue-900";
-    case "broadcast":
-      return "bg-orange-100 text-orange-900";
-    default:
-      return "bg-zinc-100 text-zinc-800";
-  }
-}
-
 type DraftItem = Pick<
   PrizeItemRow,
   "id" | "label" | "weight" | "min_value" | "max_value" | "reward_type" | "is_active"
@@ -52,9 +68,9 @@ type DraftItem = Pick<
 
 export default function AdminPrizesClient() {
   const [tab, setTab] = useState<Tab>("items");
-  const [pools, setPools] = useState<PrizePoolRow[]>([]);
+  const [pools, setPools] = useState<PoolRow[]>([]);
   const [selectedPoolId, setSelectedPoolId] = useState<string | null>(null);
-  const [items, setItems] = useState<PrizeItemRow[]>([]);
+  const [items, setItems] = useState<ItemRow[]>([]);
   const [drafts, setDrafts] = useState<Record<string, DraftItem>>({});
   const [loadingPools, setLoadingPools] = useState(true);
   const [loadingItems, setLoadingItems] = useState(false);
@@ -62,6 +78,22 @@ export default function AdminPrizesClient() {
   const [logsPoolType, setLogsPoolType] = useState<string>("");
   const [logsPage, setLogsPage] = useState(1);
   const [logs, setLogs] = useState<PrizeLogWithUser[]>([]);
+
+  const [createPoolOpen, setCreatePoolOpen] = useState(false);
+  const [newPoolType, setNewPoolType] = useState("");
+  const [newPoolLabel, setNewPoolLabel] = useState("");
+  const [newPoolDesc, setNewPoolDesc] = useState("");
+  const [creatingPool, setCreatingPool] = useState(false);
+
+  const [deletePoolId, setDeletePoolId] = useState<string | null>(null);
+
+  const [createItemOpen, setCreateItemOpen] = useState(false);
+  const [newItemType, setNewItemType] = useState<string>("coins");
+  const [newItemLabel, setNewItemLabel] = useState("");
+  const [newItemWeight, setNewItemWeight] = useState("10");
+  const [newItemMin, setNewItemMin] = useState("");
+  const [newItemMax, setNewItemMax] = useState("");
+  const [creatingItem, setCreatingItem] = useState(false);
 
   const loadPools = useCallback(async () => {
     setLoadingPools(true);
@@ -136,20 +168,25 @@ export default function AdminPrizesClient() {
   async function saveAllWeights() {
     if (!selectedPoolId) return;
     setSavingAll(true);
-    const results = await Promise.all(
+    const results = await Promise.allSettled(
       items.map((it) => {
         const d = drafts[it.id];
-        if (!d) return Promise.resolve({ ok: true as const, data: undefined });
+        if (!d) return Promise.resolve({ ok: true as const });
         return updatePrizeItemAction(it.id, {
           label: d.label,
           weight: d.weight,
           min_value: d.min_value,
           max_value: d.max_value,
+          reward_type: d.reward_type,
         });
       }),
     );
     setSavingAll(false);
-    const failed = results.filter((r) => !r.ok);
+    const failed = results.filter((r) => {
+      if (r.status === "rejected") return true;
+      const v = r.value as { ok?: boolean } | undefined;
+      return Boolean(v && "ok" in v && v.ok === false);
+    });
     if (failed.length > 0) {
       toast.error("部分獎項儲存失敗");
     } else {
@@ -157,6 +194,72 @@ export default function AdminPrizesClient() {
     }
     await loadItems(selectedPoolId);
   }
+
+  async function submitCreatePool() {
+    setCreatingPool(true);
+    try {
+      const r = await createPrizePoolAction({
+        pool_type: newPoolType,
+        label: newPoolLabel,
+        description: newPoolDesc || null,
+      });
+      if (!r.ok) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success("已建立獎池");
+      setCreatePoolOpen(false);
+      setNewPoolType("");
+      setNewPoolLabel("");
+      setNewPoolDesc("");
+      await loadPools();
+      setSelectedPoolId(r.data.id);
+    } finally {
+      setCreatingPool(false);
+    }
+  }
+
+  async function submitCreateItem() {
+    if (!selectedPoolId) return;
+    const w = parseInt(newItemWeight, 10);
+    const minV =
+      newItemType === "coins" || newItemType === "exp"
+        ? newItemMin === ""
+          ? null
+          : parseInt(newItemMin, 10)
+        : null;
+    const maxV =
+      newItemType === "coins" || newItemType === "exp"
+        ? newItemMax === ""
+          ? null
+          : parseInt(newItemMax, 10)
+        : null;
+    setCreatingItem(true);
+    try {
+      const r = await createPrizeItemAction(selectedPoolId, {
+        reward_type: newItemType,
+        label: newItemLabel,
+        weight: Number.isFinite(w) ? w : 1,
+        min_value: minV,
+        max_value: maxV,
+      });
+      if (!r.ok) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success("已新增獎項");
+      setCreateItemOpen(false);
+      setNewItemLabel("");
+      setNewItemWeight("10");
+      setNewItemMin("");
+      setNewItemMax("");
+      await loadItems(selectedPoolId);
+    } finally {
+      setCreatingItem(false);
+    }
+  }
+
+  const selectedPool = pools.find((p) => p.id === selectedPoolId);
 
   return (
     <div>
@@ -186,10 +289,20 @@ export default function AdminPrizesClient() {
 
       {tab === "items" ? (
         <div className="flex flex-col gap-6 lg:flex-row">
-          <aside className="lg:w-56 shrink-0 space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              獎池
-            </p>
+          <aside className="lg:w-64 shrink-0 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                獎池
+              </p>
+              <button
+                type="button"
+                onClick={() => setCreatePoolOpen(true)}
+                className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2 py-1 text-xs font-medium text-violet-800 hover:bg-violet-100"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                建立新獎池
+              </button>
+            </div>
             {loadingPools ? (
               <div className="flex items-center gap-2 text-gray-500">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -236,6 +349,39 @@ export default function AdminPrizesClient() {
                         />
                         啟用
                       </label>
+                      <div className="mt-2 border-t border-gray-100 pt-2">
+                        {p.hasPrizeLogs ? (
+                          p.is_active ? (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const r = await togglePrizePoolAction(p.id, false);
+                                if (!r.ok) {
+                                  toast.error(r.error);
+                                  return;
+                                }
+                                toast.success("已停用獎池");
+                                await loadPools();
+                              }}
+                              className="text-xs font-medium text-amber-700 hover:underline"
+                            >
+                              停用
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-gray-500">
+                              已有抽獎紀錄，無法刪除
+                            </span>
+                          )
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setDeletePoolId(p.id)}
+                            className="text-xs font-medium text-rose-600 hover:underline"
+                          >
+                            刪除獎池
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </li>
                 ))}
@@ -244,6 +390,18 @@ export default function AdminPrizesClient() {
           </aside>
 
           <div className="min-w-0 flex-1 space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={!selectedPoolId}
+                onClick={() => setCreateItemOpen(true)}
+                className="inline-flex items-center gap-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" />
+                新增獎項
+              </button>
+            </div>
+
             {loadingItems ? (
               <div className="flex items-center gap-2 text-gray-500">
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -265,11 +423,35 @@ export default function AdminPrizesClient() {
                         className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
                       >
                         <div className="mb-3 flex flex-wrap items-center gap-2">
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${rewardBadgeClass(d.reward_type)}`}
+                          <select
+                            value={d.reward_type}
+                            onChange={(e) =>
+                              setDrafts((prev) => ({
+                                ...prev,
+                                [it.id]: {
+                                  ...d,
+                                  reward_type: e.target.value,
+                                  min_value:
+                                    e.target.value === "coins" ||
+                                    e.target.value === "exp"
+                                      ? d.min_value
+                                      : null,
+                                  max_value:
+                                    e.target.value === "coins" ||
+                                    e.target.value === "exp"
+                                      ? d.max_value
+                                      : null,
+                                },
+                              }))
+                            }
+                            className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-medium"
                           >
-                            {d.reward_type}
-                          </span>
+                            {REWARD_TYPE_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </select>
                           <input
                             type="text"
                             value={d.label}
@@ -298,12 +480,42 @@ export default function AdminPrizesClient() {
                                   ...prev,
                                   [it.id]: { ...d, is_active: e.target.checked },
                                 }));
-                                if (selectedPoolId) await loadItems(selectedPoolId);
+                                if (selectedPoolId)
+                                  await loadItems(selectedPoolId);
                               }}
                               className="rounded border-gray-300"
                             />
                             啟用
                           </label>
+                          <button
+                            type="button"
+                            disabled={it.hasPrizeLogs}
+                            title={
+                              it.hasPrizeLogs
+                                ? "已有抽獎紀錄，無法刪除"
+                                : undefined
+                            }
+                            onClick={async () => {
+                              if (it.hasPrizeLogs) return;
+                              if (
+                                !window.confirm(
+                                  "確定刪除此獎項？此操作無法復原。",
+                                )
+                              )
+                                return;
+                              const r = await deletePrizeItemAction(it.id);
+                              if (!r.ok) {
+                                toast.error(r.error);
+                                return;
+                              }
+                              toast.success("已刪除獎項");
+                              if (selectedPoolId)
+                                await loadItems(selectedPoolId);
+                            }}
+                            className="ml-auto text-xs text-rose-600 hover:underline disabled:cursor-not-allowed disabled:text-gray-400 disabled:no-underline"
+                          >
+                            刪除
+                          </button>
                         </div>
                         <div className="flex flex-wrap items-end gap-3">
                           <div>
@@ -479,6 +691,166 @@ export default function AdminPrizesClient() {
           </div>
         </div>
       )}
+
+      <Dialog open={createPoolOpen} onOpenChange={setCreatePoolOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>建立新獎池</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="text-xs text-gray-500">pool_type（英文唯一）</label>
+              <input
+                value={newPoolType}
+                onChange={(e) => setNewPoolType(e.target.value)}
+                placeholder="例：spring_2026"
+                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500">顯示名稱（中文）</label>
+              <input
+                value={newPoolLabel}
+                onChange={(e) => setNewPoolLabel(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500">說明（選填）</label>
+              <textarea
+                value={newPoolDesc}
+                onChange={(e) => setNewPoolDesc(e.target.value)}
+                rows={2}
+                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreatePoolOpen(false)}>
+              取消
+            </Button>
+            <Button
+              disabled={creatingPool}
+              onClick={() => void submitCreatePool()}
+            >
+              {creatingPool ? "建立中…" : "建立"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={createItemOpen} onOpenChange={setCreateItemOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>新增獎項 {selectedPool ? `— ${selectedPool.label}` : ""}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="text-xs text-gray-500">reward_type</label>
+              <select
+                value={newItemType}
+                onChange={(e) => setNewItemType(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+              >
+                {REWARD_TYPE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500">標籤</label>
+              <input
+                value={newItemLabel}
+                onChange={(e) => setNewItemLabel(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500">權重（≥1）</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={newItemWeight}
+                onChange={(e) =>
+                  setNewItemWeight(e.target.value.replace(/\D/g, "") || "1")
+                }
+                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+              />
+            </div>
+            {(newItemType === "coins" || newItemType === "exp") && (
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500">min</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={newItemMin}
+                    onChange={(e) => setNewItemMin(e.target.value.replace(/\D/g, ""))}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500">max</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={newItemMax}
+                    onChange={(e) => setNewItemMax(e.target.value.replace(/\D/g, ""))}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateItemOpen(false)}>
+              取消
+            </Button>
+            <Button
+              disabled={creatingItem}
+              onClick={() => void submitCreateItem()}
+            >
+              {creatingItem ? "新增中…" : "新增"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={deletePoolId != null}
+        onOpenChange={(o) => !o && setDeletePoolId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定刪除此獎池？</AlertDialogTitle>
+            <AlertDialogDescription>
+              將一併刪除池內所有獎項。若已有抽獎紀錄請改為「停用」。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!deletePoolId) return;
+                const id = deletePoolId;
+                setDeletePoolId(null);
+                const r = await deletePrizePoolAction(id);
+                if (!r.ok) {
+                  toast.error(r.error);
+                  return;
+                }
+                toast.success("已刪除獎池");
+                await loadPools();
+                setSelectedPoolId((prev) => (prev === id ? null : prev));
+              }}
+            >
+              刪除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

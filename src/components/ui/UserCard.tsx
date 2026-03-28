@@ -26,7 +26,7 @@ function tagLabel(slug: string): string {
 }
 
 export type UserCardProps = {
-  user: UserRow;
+  user: UserRow & { equippedTitle?: string | null };
   className?: string;
   /** 技能市集：命定師徒時顯示光暈與標籤 */
   perfectMatch?: boolean;
@@ -137,6 +137,16 @@ export function UserCard({
               >
                 {user.nickname}
               </span>
+              {user.equippedTitle?.trim() ? (
+                <span
+                  className="max-w-[5.5rem] truncate rounded-full bg-violet-600/60 px-2 py-0.5 text-[10px] leading-none text-violet-200"
+                  title={user.equippedTitle.trim()}
+                >
+                  {user.equippedTitle.trim().length > 8
+                    ? `${user.equippedTitle.trim().slice(0, 8)}…`
+                    : user.equippedTitle.trim()}
+                </span>
+              ) : null}
               <LevelBadge level={user.level} />
               {user.activity_status === "resting" ? (
                 <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] leading-none text-zinc-500">

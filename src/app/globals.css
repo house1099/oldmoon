@@ -314,6 +314,21 @@
 }
 
 /* UserCard：等級外框特效（LevelCardEffect） */
+@keyframes broadcast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.broadcast-slide-in {
+  animation: broadcast-slide-in 0.3s ease-out both;
+}
+
 @keyframes fade-up-particle {
   0% {
     transform: translateY(0);

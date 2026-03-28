@@ -68,6 +68,16 @@ import { getActiveAnnouncementsAction } from "@/services/announcement.action";
 import { getHomeAdsAction } from "@/services/advertisement.action";
 import { recordAdClickAction } from "@/services/advertisement.action";
 import type { AnnouncementRow, AdvertisementRow } from "@/types/database.types";
+import { useMyProfile } from "@/hooks/useMyProfile";
+import {
+  getMyRewardsAction,
+  equipRewardAction,
+  unequipRewardAction,
+  useBroadcastAction as submitBroadcastAction,
+  type ActiveBroadcastDto,
+  type MyRewardsPayload,
+} from "@/services/rewards.action";
+import { Textarea } from "@/components/ui/textarea";
 
 const IOS_TEXTAREA_CLASS =
   "w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-base text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none";
@@ -204,6 +214,78 @@ function AnnouncementClampedPreview({
   );
 }
 
+function BroadcastBannerCarousel({ items }: { items: ActiveBroadcastDto[] }) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (items.length <= 1) return;
+    const id = window.setInterval(() => {
+      setIndex((i) => (i + 1) % items.length);
+    }, 4000);
+    return () => window.clearInterval(id);
+  }, [items.length]);
+
+  useEffect(() => {
+    if (items.length === 0) return;
+    setIndex((i) => Math.min(i, items.length - 1));
+  }, [items.length]);
+
+  if (items.length === 0) return null;
+
+  if (items.length === 1) {
+    const b = items[0];
+    return (
+      <section aria-label="公會廣播" className="broadcast-slide-in w-full">
+        <div className="w-full rounded-2xl border border-amber-400/40 bg-amber-950/60 px-4 py-2">
+          <p className="flex flex-wrap items-center gap-2 text-sm text-amber-100">
+            <span aria-hidden>📢</span>
+            <span className="font-bold text-amber-200">{b.nickname}</span>
+            <span className="min-w-0 break-words text-amber-50/95">{b.message}</span>
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section aria-label="公會廣播" className="broadcast-slide-in w-full">
+      <div className="relative min-h-[2.75rem] w-full overflow-hidden rounded-2xl border border-amber-400/40 bg-amber-950/60">
+        {items.map((it, i) => (
+          <div
+            key={it.id}
+            className={cn(
+              "px-4 py-2 transition-opacity duration-500",
+              i === index
+                ? "relative z-10 opacity-100"
+                : "pointer-events-none absolute inset-0 opacity-0",
+            )}
+          >
+            <p className="flex flex-wrap items-center gap-2 text-sm text-amber-100">
+              <span aria-hidden>📢</span>
+              <span className="font-bold text-amber-200">{it.nickname}</span>
+              <span className="min-w-0 break-words text-amber-50/95">{it.message}</span>
+            </p>
+          </div>
+        ))}
+      </div>
+      <div
+        className="pointer-events-none mt-1.5 flex justify-center gap-1.5"
+        aria-hidden
+      >
+        {items.map((it, i) => (
+          <span
+            key={it.id}
+            className={cn(
+              "h-1.5 w-1.5 rounded-full",
+              i === index ? "bg-amber-300" : "bg-amber-300/35",
+            )}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function HomeBannerCarousel({ ads }: { ads: AdvertisementRow[] }) {
   const [index, setIndex] = useState(0);
 
@@ -285,11 +367,14 @@ function HomeBannerCarousel({ ads }: { ads: AdvertisementRow[] }) {
 export function GuildProfileHome({
   profile,
   moodMax,
+  activeBroadcasts,
 }: {
   profile: UserRow;
   moodMax: number;
+  activeBroadcasts: ActiveBroadcastDto[];
 }) {
   const router = useRouter();
+  const { mutate: mutateProfile } = useMyProfile();
   const totalExpSafe = normalizeTotalExp(profile.total_exp);
   const levelSafe = normalizeLevel(profile.level);
   const tier = getLevelTierByExp(totalExpSafe);
@@ -350,6 +435,11 @@ export function GuildProfileHome({
   const [currentStreak, setCurrentStreak] = useState(0);
   const [lastClaimAt, setLastClaimAt] = useState<string | null>(null);
   const [streakBreakHours, setStreakBreakHours] = useState<number | null>(null);
+  const [rewardsLoading, setRewardsLoading] = useState(false);
+  const [rewardsData, setRewardsData] = useState<MyRewardsPayload | null>(null);
+  const [broadcastDialogOpen, setBroadcastDialogOpen] = useState(false);
+  const [broadcastDraft, setBroadcastDraft] = useState("");
+  const [broadcastSending, setBroadcastSending] = useState(false);
 
   const streakUi = useMemo(() => {
     const s = currentStreak;
@@ -388,6 +478,20 @@ export function GuildProfileHome({
     getActiveAnnouncementsAction().then(setAnnouncements).catch(() => {});
     getHomeAdsAction().then(setHomeAds).catch(() => {});
   }, []);
+
+  const loadRewards = useCallback(() => {
+    setRewardsLoading(true);
+    void getMyRewardsAction()
+      .then((r) => {
+        setRewardsData(r);
+      })
+      .catch(() => setRewardsData(null))
+      .finally(() => setRewardsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    loadRewards();
+  }, [loadRewards, profile.id, profile.updated_at]);
 
   const refreshStreak = useCallback(() => {
     void getMyStreakAction().then((r) => {
@@ -782,12 +886,26 @@ export function GuildProfileHome({
   const bannerAds = homeAds.filter((ad) => ad.position === "banner");
   const cardAds = homeAds.filter((ad) => ad.position === "card");
 
+  const equippedHomeTitle = rewardsData?.titles.find((t) => t.is_equipped)?.label;
+  const equippedHomeFrame = rewardsData?.avatarFrames.find((f) => f.is_equipped)
+    ?.label;
+
+  const titleCapsuleText = (raw: string) => {
+    const t = raw.trim();
+    if (t.length <= 8) return t;
+    return `${t.slice(0, 8)}…`;
+  };
+
   return (
     <main className="flex w-full flex-col gap-6">
       {bannerAds.length > 0 ? (
         <section aria-label="贊助橫幅">
           <HomeBannerCarousel ads={bannerAds} />
         </section>
+      ) : null}
+
+      {activeBroadcasts.length > 0 ? (
+        <BroadcastBannerCarousel items={activeBroadcasts} />
       ) : null}
 
       {announcements.length > 0 && (
@@ -930,6 +1048,8 @@ export function GuildProfileHome({
           <div
             className={cn(
               "relative z-0 mx-auto rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
+              equippedHomeFrame === "星辰之框" &&
+                "ring-2 ring-yellow-300 shadow-[0_0_12px_rgba(253,224,71,0.6)]",
               profile.role === "master" ? "overflow-visible" : "overflow-hidden",
               uploading || cropOpen
                 ? "cursor-not-allowed opacity-80"
@@ -989,6 +1109,16 @@ export function GuildProfileHome({
             <p className="font-serif text-xl tracking-wide text-zinc-100 sm:text-2xl">
               {profile.nickname}
             </p>
+            {equippedHomeTitle ? (
+              <p className="flex justify-center">
+                <span
+                  className="max-w-[90%] truncate rounded-full bg-violet-600/60 px-2 py-0.5 text-[10px] text-violet-200"
+                  title={equippedHomeTitle}
+                >
+                  {titleCapsuleText(equippedHomeTitle)}
+                </span>
+              </p>
+            ) : null}
             <div className="flex flex-wrap items-center justify-center gap-2.5 text-sm">
               <span
                 className="inline-flex items-center gap-1.5 rounded-full border border-violet-400/35 bg-gradient-to-r from-violet-950/80 to-zinc-900/90 px-3 py-1 text-xs font-semibold tabular-nums tracking-wide text-violet-100 shadow-md shadow-violet-950/40"
@@ -1357,8 +1487,251 @@ export function GuildProfileHome({
               ) : null}
             </div>
           </AccordionSection>
+
+          <AccordionSection
+            id="rewards"
+            title="🎁 我的獎勵"
+            openSection={openSection}
+            setOpenSection={setOpenSection}
+          >
+            {rewardsLoading ? (
+              <div className="space-y-3 animate-pulse">
+                <div className="h-8 rounded-lg bg-zinc-800/80" />
+                <div className="h-8 rounded-lg bg-zinc-800/80" />
+                <div className="h-10 rounded-lg bg-zinc-800/80" />
+              </div>
+            ) : rewardsData ? (
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-violet-300/90">稱號</p>
+                  {rewardsData.titles.length === 0 ? (
+                    <p className="text-xs text-zinc-500">尚未持有稱號</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {rewardsData.titles.map((t) => (
+                        <li
+                          key={t.id}
+                          className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-zinc-900/40 px-3 py-2"
+                        >
+                          <span className="min-w-0 truncate text-sm text-zinc-200">
+                            {t.label}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (t.is_equipped) {
+                                const r = await unequipRewardAction(t.id);
+                                if (!r.ok) {
+                                  toast.error(r.error);
+                                  return;
+                                }
+                              } else {
+                                const r = await equipRewardAction(t.id, "title");
+                                if (!r.ok) {
+                                  toast.error(r.error);
+                                  return;
+                                }
+                              }
+                              toast.success(t.is_equipped ? "已卸下稱號" : "已裝備稱號");
+                              await mutateProfile();
+                              loadRewards();
+                              router.refresh();
+                            }}
+                            className={cn(
+                              "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                              t.is_equipped
+                                ? "bg-violet-600/80 text-white"
+                                : "bg-zinc-700/60 text-zinc-200 hover:bg-zinc-600/70",
+                            )}
+                          >
+                            {t.is_equipped ? "已裝備 ✓" : "裝備"}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-sky-300/90">頭像框</p>
+                  {rewardsData.avatarFrames.length === 0 ? (
+                    <p className="text-xs text-zinc-500">尚未持有頭像框</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {rewardsData.avatarFrames.map((f) => (
+                        <li
+                          key={f.id}
+                          className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-zinc-900/40 px-3 py-2"
+                        >
+                          <span className="min-w-0 truncate text-sm text-zinc-200">
+                            {f.label}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (f.is_equipped) {
+                                const r = await unequipRewardAction(f.id);
+                                if (!r.ok) {
+                                  toast.error(r.error);
+                                  return;
+                                }
+                              } else {
+                                const r = await equipRewardAction(
+                                  f.id,
+                                  "avatar_frame",
+                                );
+                                if (!r.ok) {
+                                  toast.error(r.error);
+                                  return;
+                                }
+                              }
+                              toast.success(
+                                f.is_equipped ? "已卸下頭像框" : "已裝備頭像框",
+                              );
+                              await mutateProfile();
+                              loadRewards();
+                              router.refresh();
+                            }}
+                            className={cn(
+                              "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                              f.is_equipped
+                                ? "bg-violet-600/80 text-white"
+                                : "bg-zinc-700/60 text-zinc-200 hover:bg-zinc-600/70",
+                            )}
+                          >
+                            {f.is_equipped ? "已裝備 ✓" : "裝備"}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-amber-300/90">
+                    廣播大聲公
+                  </p>
+                  <p className="text-sm text-zinc-300">
+                    持有 {rewardsData.broadcasts.length} 張廣播券
+                    {rewardsData.broadcastUnusedCount > 0
+                      ? `（未使用 ${rewardsData.broadcastUnusedCount}）`
+                      : ""}
+                  </p>
+                  {rewardsData.broadcasts.length === 0 ? (
+                    <p className="text-xs text-zinc-500">
+                      完成七日連續報到可獲得廣播券
+                    </p>
+                  ) : rewardsData.broadcastUnusedCount > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBroadcastDraft("");
+                        setBroadcastDialogOpen(true);
+                      }}
+                      className="rounded-full bg-amber-600/80 px-4 py-2 text-xs font-medium text-amber-50 hover:bg-amber-500/80"
+                    >
+                      使用廣播券
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-zinc-500">無法載入獎勵</p>
+            )}
+          </AccordionSection>
         </div>
       </section>
+
+      <Dialog open={broadcastDialogOpen} onOpenChange={setBroadcastDialogOpen}>
+        <DialogContent className="max-w-md border-zinc-700 bg-zinc-950 text-zinc-100">
+          <DialogHeader>
+            <DialogTitle>使用廣播券</DialogTitle>
+            <DialogDescription className="text-zinc-500">
+              訊息將在首頁顯示約 24 小時（1〜30 字）
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Textarea
+              value={broadcastDraft}
+              onChange={(e) =>
+                setBroadcastDraft(e.target.value.slice(0, 30))
+              }
+              onFocus={handleIosTextareaFocus}
+              placeholder="輸入廣播內容…"
+              rows={3}
+              className={cn(IOS_TEXTAREA_CLASS, "min-h-[5rem]")}
+            />
+            <div className="flex justify-end text-xs text-zinc-500">
+              {broadcastDraft.trim().length}/30
+            </div>
+            <div>
+              <p className="mb-1 text-[10px] font-medium text-amber-400/90">
+                預覽
+              </p>
+              <div className="rounded-2xl border border-amber-400/40 bg-amber-950/60 px-4 py-2">
+                <p className="flex flex-wrap items-center gap-2 text-sm text-amber-100">
+                  <span aria-hidden>📢</span>
+                  <span className="font-bold text-amber-200">
+                    {profile.nickname}
+                  </span>
+                  <span className="min-w-0 break-words text-amber-50/95">
+                    {broadcastDraft.trim() || "（預覽）"}
+                  </span>
+                </p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-zinc-400"
+              onClick={() => setBroadcastDialogOpen(false)}
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                broadcastSending ||
+                broadcastDraft.trim().length < 1 ||
+                broadcastDraft.trim().length > 30
+              }
+              onClick={async () => {
+                const unused = rewardsData?.broadcasts.find(
+                  (b) => b.used_at == null,
+                );
+                if (!unused) {
+                  toast.error("沒有可用的廣播券");
+                  return;
+                }
+                setBroadcastSending(true);
+                try {
+                  const r = await submitBroadcastAction(
+                    unused.id,
+                    broadcastDraft,
+                  );
+                  if (!r.ok) {
+                    toast.error(r.error);
+                    return;
+                  }
+                  toast.success(
+                    "📢 廣播已發送！將在首頁顯示 24 小時",
+                  );
+                  setBroadcastDialogOpen(false);
+                  setBroadcastDraft("");
+                  loadRewards();
+                  router.refresh();
+                } finally {
+                  setBroadcastSending(false);
+                }
+              }}
+            >
+              {broadcastSending ? "送出中…" : "確認送出"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <nav className="flex w-full flex-col gap-0" aria-label="個人頁操作">
         <button
