@@ -1,114 +1,119 @@
-# 月老事務所：傳奇公會 V2.0 — HANDOFF（主檔）
+# 傳奇公會 HANDOFF.md
 
-與 Vibe Coder／架構師同步用。**新對話請先讀本檔與根目錄 `.cursorrules`。** 細節見子檔，避免一次載入過長上下文。
+> 每次開新視窗請先讀本檔與 `.cursorrules`
 
-## 子檔讀取說明
+## 🌕 目前開發階段
 
-| 檔案 | 何時讀 |
-|------|--------|
-| **`HANDOFF.md`**（本檔） | **每次任務必讀** — 階段、禁則、SSOT 摘要、檔案索引、最近完成、下一步 |
-| **`HANDOFF_DB.md`** | 查表結構、欄位 SSOT、遷移、RLS、DDL 補丁 |
-| **`HANDOFF_FEATURES.md`** | 查功能 ✅/🔲、已知 bug、視覺待辦、Wave 摘要 |
-| **`HANDOFF_HISTORY.md`** | **通常不讀** — 逐日任務長文與舊版完整敘事 |
+**Phase 2 — 社交核心進行中**：Phase 2.1 村莊＋市集已接線；**下一個優先** Phase 2.2 收尾 — 雲端 **RLS**、型別對齊、私訊／血盟壓測與 UX；註冊名冊兩步＋`/register/interests`→`/register/skills`、五步指示器、**`/profile/edit-tags`** 已接線。
 
-**任務完成後**：僅更新本檔 **「最近完成」** 與 **「下一步待辦」**；若涉 DB／功能里程碑，將**詳細紀錄**寫入對應子檔。
+## 🏛️ 五層架構核心規範
 
----
+Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4（Hook/SWR）→ Layer 5（UI）
 
-## 目前開發階段（一句）
+- UI 絕對不直連 Supabase
+- 寫入必須經 Layer 3 → Layer 2
+- 經驗值欄位唯一 SSOT：`total_exp`
 
-**Phase 2 — 社交核心進行中**：Phase 2.1 村莊＋市集已接線；**優先 Phase 2.2 收尾** — 雲端 **RLS**、型別對齊、私訊／血盟壓測與 UX 打磨；註冊 **名冊兩步＋`/register/interests`→`/register/skills`**、五步指示器、**`/profile/edit-tags`** 已接線。
+**路徑速記**：L1 `src/lib/supabase/`；L2 `src/lib/repositories/server/*.repository.ts`；L3 `src/services/*.action.ts`；L4 `src/hooks/`、`src/lib/swr/`；L5 `src/components/`、`src/app/`。**台灣日界** `src/lib/utils/date.ts` 之 `taipeiCalendarDateKey()`；簽到可否以 `users.last_checkin_at`（24h 滾動）為 SSOT。**頭像**僅 Cloudinary（見 `.cursorrules`），禁止 `supabase.storage` 上傳頭像。
 
----
+## 🗄️ DB SSOT 關鍵欄位
 
-## 五層架構 — 核心禁則
+- `total_exp`（經驗值，由 `exp_logs` trigger 累加）
+- `last_checkin_at`（簽到冷卻 SSOT）
+- `instagram_handle`（IG 帳號 SSOT）
+- `bio_village` / `bio_market`（自白欄位）
+- `inventory_slots`（背包格數，預設 16）
+- `users.status`（`pending` / `active` / `suspended` / `banned`）
 
-**禁止跨層**：UI（Layer 5）不得直連 DB／`createClient()` 查寫；僅 Layer 2 Repository 使用資料庫 client；業務在 Layer 3；快取／SWR／常數在 Layer 4。
+**補充**：`likes` 無 `id`；`alliances` 用 `user_a`／`user_b`／`initiated_by`；通知 `type`、`from_user_id`、`message`、`is_read`。更細 SSOT／遷移／RLS 見 `HANDOFF_DB.md`（深查時再開）。
 
-| 層 | 職責摘要 |
-|--|----------|
-| L1 | `src/lib/supabase/` — client／server／admin |
-| L2 | `src/lib/repositories/server/*.repository.ts` |
-| L3 | `src/services/*.action.ts`、`*service.ts` |
-| L4 | `src/hooks/`、`src/lib/swr/`、`src/lib/utils/date.ts`、`matching.ts`、常數／Zod |
-| L5 | `src/components/`、`src/app/` |
+## 📁 關鍵檔案索引
 
-**日曆與時間**：全系統台灣日界 **`src/lib/utils/date.ts`** 之 **`taipeiCalendarDateKey()`**（`Asia/Taipei` → `YYYY-MM-DD`）。**嚴禁**在 Action／Repository 用 `toISOString().slice(0,10)` 當台灣日界。**簽到可否**以 **`users.last_checkin_at`**（24h 滾動）為 SSOT，**不是**曆日鍵。
-
-**頭像**：僅 **Cloudinary** 管線（見 `.cursorrules`），禁止 `supabase.storage` 上傳頭像。
-
----
-
-## DB SSOT 關鍵欄位（完整表見 `HANDOFF_DB.md`）
-
-- **經驗**：`total_exp`（勿用 `exp`）
-- **IG**：`instagram_handle`（勿用 `ig_handle`）
-- **自白**：`bio_village`／`bio_market`；註冊 insert 不帶 `bio`
-- **簽到冷卻**：`last_checkin_at`；`exp_logs.unique_key` = `daily_checkin:{userId}:{timestamp}`
-- **按讚**：`likes.from_user`／`to_user`（**無 `id`**，`insertLike` 不 `.select()`）
-- **血盟**：`alliances`（`user_a`／`user_b`／`initiated_by`）；勿建 `user_alliances`
-- **通知**：`type`、`from_user_id`、`message`、`is_read`（boolean）
-
----
-
-## 關鍵檔案索引（查程式）
-
-| 主題 | 路徑 |
-|------|------|
-| 守衛／Session | `src/middleware.ts`；`deriveAuthStatus` 僅 `findProfileById`（Edge 不可用 `unstable_cache`）；`getCachedProfile` 供 RSC |
-| Auth UI／註冊 | `(auth)/login|register|register/profile`；`registration-step-indicator.tsx`；`TermsModal`／`terms.ts` |
-| OAuth／健康檢查 | `src/app/auth/callback/route.ts`；`src/app/api/ping/route.ts` |
-| 個人／他人 profile | `profile.action.ts`；`profile-update.action.ts`；`adventurer-profile.action.ts` |
-| IG 申請審核 | `ig-request.action.ts`；`ig-request.repository.ts`；`/register/pending` |
-| 簽到／連簽／盲盒 | `daily-checkin.action.ts`；`streak.repository.ts`；`prize-engine.ts`；`user.repository` `updateLastCheckinAt`／`restoreActivityOnCheckin` |
-| 獎勵／廣播／改名卡 | `rewards.action.ts`；`rewards.repository.ts`；`system-settings` 跑馬燈 |
-| 商城 | `shop.action.ts`；`shop.repository.ts`；`(app)/shop`；`(admin)/admin/shop` |
-| 財務（master） | `/admin/coins`；`coins-admin-client.tsx`；`getAdminCoinStatsAction` 等 |
-| 探索 | `explore/page.tsx`；`ExploreClient.tsx`；`village.service.ts`；`market.service.ts` |
-| 配對分數 | `matching.ts`；`role-display.ts` |
-| 血盟／社交 | `alliance.action.ts`；`alliance.repository.ts`；`social.action.ts`（含 `getModalSocialStatusAction`） |
-| 私訊／檢舉 | `chat.action.ts`；`chat.repository.ts`；`ChatModal.tsx`；`useChat.ts` |
-| 通知／信件 | `notification.action.ts`；`notification.repository.ts`；`guild/page.tsx` `MailBox` |
-| 酒館 | `tavern.action.ts`；`tavern.repository.ts`；`TavernMarquee.tsx`；`useTavern.ts` |
-| 後台 | `(admin)/layout.tsx`；`admin-shell.tsx`；`admin.action.ts`；`admin.repository.ts`；`admin-permissions.ts` |
-| 邀請碼 | `invitation.repository.ts`；`invitation.action.ts`；`admin.action` 邀請相關 |
-| 公告／廣告 | `announcement.*`；`advertisement.*`；`admin` 發布 |
-| 首頁 UI | `page.tsx`／`home-page-client.tsx`；`guild-profile-home.tsx`；`FloatingToolbar.tsx` |
-| 版面／導航 | `Navbar.tsx`；`app-shell-motion.tsx`；`(app)/layout.tsx` |
-| 列表卡／Modal | `UserCard.tsx`；`UserCardSkeleton.tsx`；`UserDetailModal.tsx`；`LevelBadge`／`LevelCardEffect` |
-| 頭像 | `Avatar.tsx`；`cloudinary.ts`；`cropImage.ts` |
-| 型別 | `src/types/database.types.ts` |
-| SWR Keys | `src/lib/swr/keys.ts` |
-| 等級門檻 | `src/lib/constants/levels.ts` |
-| 標籤 SSOT | `src/lib/constants/tags.ts` |
+- 守衛／Session：`src/middleware.ts`；`deriveAuthStatus`、`getCachedProfile`
+- Auth／註冊：`(auth)/login|register|register/profile`；`registration-step-indicator.tsx`；`TermsModal`／`terms.ts`
+- OAuth／健康：`src/app/auth/callback/route.ts`；`src/app/api/ping/route.ts`
+- Profile：`profile.action.ts`；`profile-update.action.ts`；`adventurer-profile.action.ts`
+- IG 審核：`ig-request.action.ts`；`ig-request.repository.ts`；`/register/pending`
+- 簽到／連簽／盲盒：`daily-checkin.action.ts`；`streak.repository.ts`；`prize-engine.ts`；`user.repository`
+- 獎勵／廣播／改名：`rewards.action.ts`；`rewards.repository.ts`；`system-settings`
+- 商城：`shop.action.ts`；`shop.repository.ts`；`(app)/shop`；`(admin)/admin/shop`
+- 財務 master：`/admin/coins`；`coins-admin-client.tsx`；`getAdminCoinStatsAction` 等
+- 探索：`explore/page.tsx`；`ExploreClient.tsx`；`village.service.ts`；`market.service.ts`
+- 配對：`matching.ts`；`role-display.ts`
+- 血盟／社交：`alliance.action.ts`；`alliance.repository.ts`；`social.action.ts`
+- 私訊／檢舉：`chat.action.ts`；`chat.repository.ts`；`ChatModal.tsx`；`useChat.ts`
+- 通知／信件：`notification.action.ts`；`notification.repository.ts`；`guild/page.tsx` `MailBox`
+- 酒館：`tavern.action.ts`；`tavern.repository.ts`；`TavernMarquee.tsx`；`useTavern.ts`
+- 後台：`(admin)/layout.tsx`；`admin-shell.tsx`；`admin.action.ts`；`admin.repository.ts`；`admin-permissions.ts`
+- 邀請碼：`invitation.repository.ts`；`invitation.action.ts`
+- 公告／廣告：`announcement.*`；`advertisement.*`
+- 首頁：`page.tsx`／`home-page-client.tsx`；`guild-profile-home.tsx`；`FloatingToolbar.tsx`
+- 版面：`Navbar.tsx`；`app-shell-motion.tsx`；`(app)/layout.tsx`
+- 卡片／Modal：`UserCard.tsx`；`UserDetailModal.tsx`；`LevelBadge`／`LevelCardEffect`
+- 頭像：`Avatar.tsx`；`cloudinary.ts`；`cropImage.ts`
+- 型別：`src/types/database.types.ts`；SWR：`src/lib/swr/keys.ts`；等級：`src/lib/constants/levels.ts`；標籤：`src/lib/constants/tags.ts`
 
 **舊路由**：`/village`、`/market` → `/explore`；`/alliances`、`/inbox` → `/guild`。
 
----
+## 🗄️ 資料庫表清單
 
-## 最近完成（最後 3 次任務摘要）
+- `users` — 會員主檔（暱稱、等級、`total_exp`、自白、標籤、幣、狀態等）
+- `exp_logs` — 經驗變動日誌（觸發器累加 `total_exp`）
+- `likes` — 有緣分（`from_user`／`to_user`，無單列 `id`）
+- `alliances` — 雙人血盟與狀態
+- `conversations` — 私訊對話（成對 `user_a`／`user_b`）
+- `chat_messages` — 私訊訊息
+- `messages` — 舊式一對一訊息（若仍存在則並存至完全遷移）
+- `blocks` — 封鎖
+- `reports` — 檢舉
+- `notifications` — 信件／站內通知
+- `tavern_messages` — 酒館公開訊息
+- `tavern_bans` — 酒館禁言（含 `expires_at`）
+- `admin_actions` — 後台操作稽核（含 `action_label`）
+- `moderator_permissions` — 版主細項權限
+- `system_settings` — 平台鍵值設定（標籤上限、跑馬燈、等級門檻等）
+- `announcements` — 公告
+- `advertisements` — 廣告素材
+- `ad_clicks` — 廣告點擊紀錄
+- `ig_change_requests` — IG 變更申請
+- `invitation_codes` — 邀請碼
+- `invitation_code_uses` — 邀請碼使用紀錄
+- `coin_transactions` — 幣種流水
+- `topup_orders` — 儲值訂單
+- `login_streaks` — 連簽狀態（與 `last_checkin_at` 冷卻分離）
+- `streak_reward_settings` — 七日簽到獎勵設定
+- `prize_pools` — 獎池
+- `prize_items` — 獎項與加權（含 `effect_key`）
+- `prize_logs` — 抽獎紀錄
+- `user_rewards` — 使用者道具／稱號／框（關聯 `prize_items`）
+- `broadcasts` — 廣播大聲公
+- `shop_items` — 商城商品
+- `shop_orders` — 商城訂單
+- `shop_daily_limits` — 商城每日限購
 
-1. **2026-03-29 — 商城 Bug 修復與補強**：`/admin/coins` 財務頁恢復（與商城分離）；改名卡剩餘張數、`consumeRenameCardAction`；廣播券消耗與失敗還原；盲盒 `findPoolByType` 修復、購買失敗自動退款；特賣／劃線價顯示規則；`shop_items.image_url` 與 Cloudinary；購買數量 Dialog；跑馬燈／輪播特效與 `system_settings`；裝備 Sheet safe-area。
-2. **2026-03-28 — 商城 Wave 1**：`shop_items`／`shop_orders`／`shop_daily_limits`；`purchaseItemAction` 全流程；`/admin/shop` master CRUD；前台 Tab 雙幣別；SKU 唯一。
-3. **2026-03-28 — Wave 3 七日獎勵／工具列／裝備**：`streak_reward_settings`；`FloatingToolbar`；首頁七格 UI；裝備背包；`claimDailyCheckin` 讀 DB 獎勵；另含系統資訊載入 Bug 修復包（`user_rewards`／`prize_items` 批次合併）、後台 Sidebar／moderator 權限與 middleware 對齊。
+## ✅ 最近完成（最新 3 次任務）
 
-（更長敘事見 **`HANDOFF_HISTORY.md`**。）
+1. **2026-03-29 — HANDOFF 雙檔架構**：主檔改為精簡結構（階段、五層、SSOT、檔案索引、表清單、最近完成／問題／待辦）；`.cursorrules` 新增雙檔讀寫規範；歷史只追加於 `HANDOFF_HISTORY.md`。
+2. **2026-03-29 — 商城 Bug 修復與補強**：`/admin/coins` 財務頁恢復；改名卡／廣播券消耗與失敗還原；盲盒 `findPoolByType`、購買失敗退款；特賣／劃線價；`shop_items.image_url`、購買數量 Dialog；跑馬燈／輪播與 `system_settings`；裝備 Sheet safe-area。
+3. **2026-03-28 — 商城 Wave 1**：`shop_items`／`shop_orders`／`shop_daily_limits`；`purchaseItemAction`；`/admin/shop` CRUD；前台雙幣 Tab；SKU 唯一。
 
----
+## ⚠️ 目前已知問題
 
-## 下一步待辦（優先順序）
+- `database.types.ts` 手動維護，雲端 schema 變更後須同步。
+- 觸發器／函式若仍引用舊欄位 `exp` 而非 `total_exp` 需修正。
+- 雲端若缺 `loot_box` 獎池需補種子（見遷移 `20260329130000_shop_image_marquee_loot_box.sql`／MCP）。
+- `alliances`／私訊／`likes` 等 **RLS** 與 production 測試仍待補強。
+- `/admin/users` 篩選 `ig_pending` 完整列表邏輯待 Layer 2 擴充（見歷史紀錄）。
 
-1. **Phase 2.2／雲端**：`alliances`、私訊、`likes` 等 **RLS** 與 production 測試；Schema 與 **`database.types.ts`** 對齊。
-2. **產品／UX**：`/explore` 篩選與技能供需編輯；登入心跳 **`last_seen_at`**。
-3. **維運**：雲端缺 **`loot_box` 獎池** 時補種子；重大 DDL 後 **Reload schema**。
+## 🔲 下一步待辦
 
----
+1. **Phase 2.2／雲端**：`alliances`、私訊、`likes` 等 RLS 與 production 測試；Schema 與 `database.types.ts` 對齊。
+2. **產品／UX**：`/explore` 篩選與技能供需編輯；登入心跳 `last_seen_at`。
+3. **維運**：雲端缺獎池時補種子；重大 DDL 後 Reload schema。
+4. **功能規劃深查**：模組 ✅/🔲、視覺待辦見 `HANDOFF_FEATURES.md`。
 
-## 新視窗 30 秒啟動
+## 📚 子檔案說明
 
-1. 讀 **`.cursorrules`**（禁則、回報格式、Git、頭像）。
-2. 讀本檔 **階段 → SSOT → 檔案索引 → 下一步**。
-3. 實作：**寫入只經 L3→L2**；EXP 僅 **`total_exp`**。
-4. 戰場：**`/explore`**、**`/guild`**、**`/shop`**、後台 **`/admin/*`**。
-
-**Git**：`main` 持續整合上述模組；目錄搬遷時同步更新 HANDOFF 與 `.cursorrules`。
+- `HANDOFF_HISTORY.md`：所有歷史任務完整紀錄（**不主動讀取**）
+- `HANDOFF_DB.md`：遷移、RLS、DDL 補丁、欄位細節（深查 DB 時）
+- `HANDOFF_FEATURES.md`：功能完成度、Wave 摘要、視覺待辦（查產品狀態時）

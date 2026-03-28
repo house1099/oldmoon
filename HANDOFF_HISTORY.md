@@ -747,3 +747,32 @@ Phase 4 — 市集搜尋快取
 - **`/admin/exp`**：等級範圍改 **`type="text"`** 數字過濾＋送出前 **1–10／min≤max** **`toast` 驗證**（見先前批次）。
 
 *最後更新：2026-03-26 — **管理員後台 Wave 1**、**邀請碼／EXP／發布中心**、**過場 `fixed` 全視窗**、**後台淺色語意／Sheet safe-area**、**儀表板導航**；併 **首頁 tsParticles 背景**、**`last_message_sender_id`**、**`useUnreadChatCount`**、**Navbar 未讀**、2026-03-25 **冒險團私訊 UX** 等。*
+
+---
+
+[2026-03-29] — HANDOFF 雙檔架構與主檔精簡
+
+完成項目
+
+- 依指定區塊重寫 **`HANDOFF.md`**：標題「傳奇公會 HANDOFF.md」、五層架構、DB SSOT、關鍵檔案索引（一行一項）、**資料庫表清單**（`public` 主要表＋一行用途）、**最近完成**（僅保留最新 3 次）、**目前已知問題**、**下一步待辦**、子檔說明（**`HANDOFF_HISTORY.md` 不主動讀取**）。
+- 主檔「最近完成」輪轉：原第 4 條摘要改由本條歸檔（完整 Wave 3 長文仍見本檔上方「Wave 3 — 動態七日獎勵…」等區塊）。
+- **`.cursorrules`**：在任務規範區新增 **「HANDOFF 雙檔更新規範」**（讀取規則、每次任務完成後 **`HANDOFF.md` + `HANDOFF_HISTORY.md`** 更新要點、HISTORY 追加格式）；**「新對話與 HANDOFF 同步」**改為對齊主檔與該規範。讀取規則中：**DB 深查**可再讀 **`HANDOFF_DB.md`**；**功能完成度／Wave** 可讀 **`HANDOFF_FEATURES.md`**（與既有子檔並存）。
+
+主檔已移出之「最近完成」摘要（歸檔）
+
+- **2026-03-28 — Wave 3 七日獎勵／工具列／裝備**：`streak_reward_settings`；`FloatingToolbar`；首頁七格 UI；裝備背包；`claimDailyCheckin` 讀 DB 獎勵；另含 `user_rewards`／`prize_items` 批次合併修復、後台 Sidebar／moderator 權限與 middleware 對齊。
+
+資料庫異動
+
+- 無（僅文件與規範）。
+
+需要注意
+
+- 主檔須維持 **≤300 行**；每次任務後依規範更新「最近完成」並將第 4 條起下放到本檔。
+- 預設不主動讀 **`HANDOFF_HISTORY.md`**；使用者明確要求查歷史時再讀。
+
+Git
+
+chore: establish HANDOFF dual-file architecture for context efficiency
+
+（SHA 請以 `git log -1 --oneline` 查閱；同一次提交內無法寫入與自身一致的 hash。）
