@@ -37,18 +37,18 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 - 簽到／連簽／盲盒：`daily-checkin.action.ts`；`streak.repository.ts`；`prize-engine.ts`；`user.repository`
 - 獎勵／廣播／改名：`rewards.action.ts`；`rewards.repository.ts`；`system-settings`
 - 商城：`shop.action.ts`；`shop.repository.ts`；`(app)/shop`；`(admin)/admin/shop`
-- 財務 master：`/admin/coins`；`coins-admin-client.tsx`；`getAdminCoinStatsAction` 等
+- 財務 master：`/admin/coins`（雙 Tab：`coins-admin-client.tsx`）；`adjustCoinsAction`／`getAdminCoinLedgerAction`；L2 `findCoinTransactionsWithFilters`
 - 探索：`explore/page.tsx`；`ExploreClient.tsx`；`village.service.ts`；`market.service.ts`
 - 配對：`matching.ts`；`role-display.ts`
 - 血盟／社交：`alliance.action.ts`；`alliance.repository.ts`；`social.action.ts`
 - 私訊／檢舉：`chat.action.ts`；`chat.repository.ts`；`ChatModal.tsx`；`useChat.ts`
 - 通知／信件：`notification.action.ts`；`notification.repository.ts`；`guild/page.tsx` `MailBox`
-- 酒館：`tavern.action.ts`；`tavern.repository.ts`；`TavernMarquee.tsx`；`useTavern.ts`
+- 酒館／廣播橫幅：`tavern.action.ts`；`tavern.repository.ts`；`TavernMarquee.tsx`（全站固定廣播）；`app-broadcast-chrome.tsx`；`useTavern.ts`
 - 後台：`(admin)/layout.tsx`；`admin-shell.tsx`；`admin.action.ts`；`admin.repository.ts`；`admin-permissions.ts`
 - 邀請碼：`invitation.repository.ts`；`invitation.action.ts`
 - 公告／廣告：`announcement.*`；`advertisement.*`
 - 首頁：`page.tsx`／`home-page-client.tsx`；`guild-profile-home.tsx`；`FloatingToolbar.tsx`
-- 版面：`Navbar.tsx`；`app-shell-motion.tsx`；`(app)/layout.tsx`
+- 版面：`Navbar.tsx`；`app-shell-motion.tsx`（`broadcastExtraTopPx`）；`app-broadcast-chrome.tsx`；`(app)/layout.tsx`
 - 卡片／Modal：`UserCard.tsx`；`UserDetailModal.tsx`；`LevelBadge`／`LevelCardEffect`
 - 頭像：`Avatar.tsx`；`cloudinary.ts`；`cropImage.ts`
 - 型別：`src/types/database.types.ts`；SWR：`src/lib/swr/keys.ts`；等級：`src/lib/constants/levels.ts`；標籤：`src/lib/constants/tags.ts`
@@ -93,13 +93,14 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## ✅ 最近完成（最新 3 次任務）
 
-1. **2026-03-29 — HANDOFF 雙檔架構**：主檔改為精簡結構（階段、五層、SSOT、檔案索引、表清單、最近完成／問題／待辦）；`.cursorrules` 新增雙檔讀寫規範；歷史只追加於 `HANDOFF_HISTORY.md`。
-2. **2026-03-29 — 商城 Bug 修復與補強**：`/admin/coins` 財務頁恢復；改名卡／廣播券消耗與失敗還原；盲盒 `findPoolByType`、購買失敗退款；特賣／劃線價；`shop_items.image_url`、購買數量 Dialog；跑馬燈／輪播與 `system_settings`；裝備 Sheet safe-area。
-3. **2026-03-28 — 商城 Wave 1**：`shop_items`／`shop_orders`／`shop_daily_limits`；`purchaseItemAction`；`/admin/shop` CRUD；前台雙幣 Tab；SKU 唯一。
+1. **2026-03-29 — 金幣後台＋背包＋廣播／酒館位置對調**：`/admin/coins` 雙 Tab（調整探險幣／純金、`admin_adjust` 流水、`getAdminCoinLedgerAction`）；裝備背包依 `reward_type` 區分裝備／使用（改名、廣播、釣具提示）；`getMyRewardsAction` 僅列出未用廣播券／改名卡；全站固定頂部廣播橫幅、首頁內容區酒館跑馬燈；`updateMyProfile({ nickname })`。
+2. **2026-03-29 — HANDOFF 雙檔架構**：主檔精簡；`.cursorrules` 雙檔規範；歷史追加於 `HANDOFF_HISTORY.md`。
+3. **2026-03-29 — 商城 Bug 修復與補強**：盲盒／商城退款與 UI；跑馬燈設定；裝備 Sheet safe-area 等。
 
 ## ⚠️ 目前已知問題
 
 - `database.types.ts` 手動維護，雲端 schema 變更後須同步。
+- 若雲端 `coin_transactions.source` 有 **CHECK／enum** 未含 **`admin_adjust`**，後台調整幣會寫入失敗，需補 DDL 與型別。
 - 觸發器／函式若仍引用舊欄位 `exp` 而非 `total_exp` 需修正。
 - 雲端若缺 `loot_box` 獎池需補種子（見遷移 `20260329130000_shop_image_marquee_loot_box.sql`／MCP）。
 - `alliances`／私訊／`likes` 等 **RLS** 與 production 測試仍待補強。

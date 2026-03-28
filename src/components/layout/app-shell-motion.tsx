@@ -24,7 +24,14 @@ const splashBg: CSSProperties = {
   backgroundSize: "100% 200%",
 };
 
-export function AppShellMotion({ children }: { children: React.ReactNode }) {
+export function AppShellMotion({
+  children,
+  broadcastExtraTopPx = 0,
+}: {
+  children: React.ReactNode;
+  /** 固定頂部廣播橫幅額外高度（px），無廣播時為 0 */
+  broadcastExtraTopPx?: number;
+}) {
   const pathname = usePathname();
   const [stage, setStage] = useState<SplitStage>("idle");
 
@@ -53,11 +60,21 @@ export function AppShellMotion({ children }: { children: React.ReactNode }) {
   const transitionMs =
     stage === "closing" ? CLOSE_MS : stage === "opening" ? OPEN_MS : 0;
 
+  const topPadExpr =
+    broadcastExtraTopPx > 0
+      ? `calc(2rem + ${broadcastExtraTopPx}px + env(safe-area-inset-top, 0px))`
+      : "calc(2rem + env(safe-area-inset-top, 0px))";
+
   return (
     <>
       <div
-        className="dark min-h-[100dvh] bg-[radial-gradient(ellipse_100%_55%_at_50%_0%,rgba(88,28,135,0.38),#020617_52%)] text-foreground pt-[calc(2rem+env(safe-area-inset-top,0px))]"
-        style={{ "--nav-reserve": NAV_BOTTOM_RESERVE } as CSSProperties}
+        className="dark min-h-[100dvh] bg-[radial-gradient(ellipse_100%_55%_at_50%_0%,rgba(88,28,135,0.38),#020617_52%)] text-foreground"
+        style={
+          {
+            "--nav-reserve": NAV_BOTTOM_RESERVE,
+            paddingTop: topPadExpr,
+          } as CSSProperties
+        }
       >
         <div className="relative min-h-[100dvh] pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]">
           {/* pb 預留區填色，避免切頁時透出外層 radial 藍帶 */}

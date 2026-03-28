@@ -1,7 +1,6 @@
-import { AppShellMotion } from "@/components/layout/app-shell-motion";
+import { AppBroadcastChrome } from "@/components/layout/app-broadcast-chrome";
 import { FloatingToolbarProvider } from "@/components/layout/FloatingToolbar";
 import { Navbar } from "@/components/layout/Navbar";
-import { TavernMarquee } from "@/components/tavern/TavernMarquee";
 import { GuildTabProvider } from "@/contexts/guild-tab-context";
 import SWRProvider from "@/lib/swr/provider";
 import { getMessageLimitsAction } from "@/services/system-settings.action";
@@ -16,8 +15,7 @@ export default async function AppGroupLayout({
     <SWRProvider>
       <GuildTabProvider>
         <FloatingToolbarProvider messageMaxLength={tavernMax}>
-          <TavernMarquee />
-          <AppShellMotion>{children}</AppShellMotion>
+          <AppBroadcastChrome>{children}</AppBroadcastChrome>
           <Navbar />
         </FloatingToolbarProvider>
       </GuildTabProvider>

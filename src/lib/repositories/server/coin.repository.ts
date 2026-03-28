@@ -255,6 +255,118 @@ export async function findCoinTransactions(
   };
 }
 
+const LEDGER_PAGE_SIZE = 100;
+
+export type CoinLedgerTxCategory =
+  | "all"
+  | "checkin"
+  | "purchase"
+  | "admin"
+  | "convert"
+  | "consume";
+
+function sourcesForLedgerCategory(
+  category: CoinLedgerTxCategory,
+): CoinTransactionRow["source"][] | null {
+  switch (category) {
+    case "all":
+      return null;
+    case "checkin":
+      return ["checkin"];
+    case "purchase":
+      return ["shop_purchase", "topup", "refund"];
+    case "admin":
+      return ["admin_grant", "admin_deduct", "admin_adjust"];
+    case "convert":
+      return ["convert_in", "convert_out"];
+    case "consume":
+      return ["loot_box"];
+    default:
+      return null;
+  }
+}
+
+export type FindCoinTransactionsFilters = {
+  /** 暱稱關鍵字；空白＝不限用戶 */
+  userSearch?: string;
+  coinType?: "premium" | "free" | "all";
+  txCategory?: CoinLedgerTxCategory;
+  page?: number;
+};
+
+/**
+ * 後台金流列表：依用戶暱稱、幣種、交易類型篩選；依 created_at DESC；含暱稱。
+ */
+export async function findCoinTransactionsWithFilters(
+  filters: FindCoinTransactionsFilters,
+): Promise<{
+  rows: (CoinTransactionRow & { user_nickname: string })[];
+  total: number;
+}> {
+  const admin = createAdminClient();
+  const page = Math.max(1, filters.page ?? 1);
+  const from = (page - 1) * LEDGER_PAGE_SIZE;
+  const to = from + LEDGER_PAGE_SIZE - 1;
+
+  let userIds: string[] | null = null;
+  const search = filters.userSearch?.trim();
+  if (search) {
+    const { data: matched, error: muErr } = await admin
+      .from("users")
+      .select("id")
+      .ilike("nickname", `%${search}%`);
+    if (muErr) throw muErr;
+    userIds = (matched ?? []).map((u) => u.id as string);
+    if (userIds.length === 0) {
+      return { rows: [], total: 0 };
+    }
+  }
+
+  let q = admin
+    .from("coin_transactions")
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (userIds) {
+    q = q.in("user_id", userIds);
+  }
+
+  if (filters.coinType && filters.coinType !== "all") {
+    q = q.eq("coin_type", filters.coinType);
+  }
+
+  const src = sourcesForLedgerCategory(filters.txCategory ?? "all");
+  if (src && src.length > 0) {
+    q = q.in("source", src);
+  }
+
+  const { data, error, count } = await q;
+  if (error) throw error;
+  const transactions = (data ?? []) as CoinTransactionRow[];
+  if (transactions.length === 0) {
+    return { rows: [], total: count ?? 0 };
+  }
+
+  const uids = Array.from(new Set(transactions.map((r) => r.user_id)));
+  const { data: users, error: uErr } = await admin
+    .from("users")
+    .select("id, nickname")
+    .in("id", uids);
+  if (uErr) throw uErr;
+  const nickMap = new Map(
+    (users ?? []).map((u) => [u.id as string, (u.nickname as string) ?? "（未知）"]),
+  );
+
+  return {
+    rows: transactions.map((row) => ({
+      ...row,
+      user_nickname: nickMap.get(row.user_id) ?? "（未知）",
+    })),
+    total: count ?? 0,
+  };
+}
+
 export async function getCoinStats(): Promise<{
   totalPremiumCoins: number;
   totalFreeCoins: number;

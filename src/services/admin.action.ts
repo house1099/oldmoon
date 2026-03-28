@@ -56,6 +56,8 @@ import {
   getCoinStats,
   findUsersWithCoins,
   findCoinTransactions,
+  findCoinTransactionsWithFilters,
+  type FindCoinTransactionsFilters,
 } from "@/lib/repositories/server/coin.repository";
 import {
   findAllPools,
@@ -1498,28 +1500,22 @@ export async function adminAdjustCoinsAction(params: {
   coinType: "premium" | "free";
   amount: number;
   note: string;
-  pin: string;
 }): Promise<ActionResult> {
   try {
     const { user, profile: operator } = await requireRole(["master"]);
     const { target } = await checkOperationPermission(user.id, params.userId);
     const note = params.note?.trim();
     if (!note) return { ok: false, error: "請填寫原因" };
-    const pin = params.pin?.trim();
-    if (!/^\d{4}$/.test(pin)) return { ok: false, error: "請輸入四位數密碼" };
 
-    const stored = await findSystemSettingByKey("coin_admin_pin");
-    if (!stored || pin !== stored) {
-      return { ok: false, error: "密碼錯誤" };
+    if (!Number.isFinite(params.amount) || params.amount === 0) {
+      return { ok: false, error: "調整數量須為非 0 整數" };
     }
 
-    const source =
-      params.amount >= 0 ? "admin_grant" : "admin_deduct";
     const result = await creditCoins({
       userId: params.userId,
       coinType: params.coinType,
       amount: params.amount,
-      source,
+      source: "admin_adjust",
       note,
       operatorId: user.id,
     });
@@ -1624,6 +1620,20 @@ export async function getAdminUsersWithCoinsAction(params: {
   try {
     await requireRole(["master", "moderator"]);
     const data = await findUsersWithCoins(params);
+    return { ok: true, data };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function getAdminCoinLedgerAction(
+  filters: FindCoinTransactionsFilters,
+): Promise<
+  ActionResult<Awaited<ReturnType<typeof findCoinTransactionsWithFilters>>>
+> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const data = await findCoinTransactionsWithFilters(filters);
     return { ok: true, data };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };

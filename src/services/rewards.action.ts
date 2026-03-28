@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidateTag, unstable_cache } from "next/cache";
 import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
+import { updateMyProfile } from "@/services/profile-update.action";
+import { nicknameSchema } from "@/lib/validation/nickname";
 import {
   findMyRewards,
   equipReward,
@@ -47,10 +49,15 @@ export async function getMyRewardsAction(): Promise<MyRewardsPayload | null> {
     } = await supabase.auth.getUser();
     if (!user) return null;
 
-    const [rows, profile] = await Promise.all([
+    const [rawRows, profile] = await Promise.all([
       findMyRewards(user.id),
       findProfileById(user.id),
     ]);
+    const rows = rawRows.filter((r) => {
+      if (r.reward_type === "broadcast" && r.used_at != null) return false;
+      if (r.reward_type === "rename_card" && r.used_at != null) return false;
+      return true;
+    });
     const titles = rows.filter((r) => r.reward_type === "title");
     const avatarFrames = rows.filter((r) => r.reward_type === "avatar_frame");
     const cardFrames = rows.filter((r) => r.reward_type === "card_frame");
@@ -179,12 +186,9 @@ export async function useBroadcastAction(
 
 export async function consumeRenameCardAction(
   newNickname: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { nicknameSchema } = await import("@/lib/validation/nickname");
-  const { updateProfile } = await import(
-    "@/lib/repositories/server/user.repository"
-  );
-
+): Promise<
+  { ok: true; newNickname: string } | { ok: false; error: string }
+> {
   const supabase = createClient();
   const {
     data: { user },
@@ -198,13 +202,20 @@ export async function consumeRenameCardAction(
 
   const parsed = nicknameSchema.safeParse(newNickname);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "暱稱格式錯誤" };
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "暱稱格式錯誤",
+    };
   }
 
-  await updateProfile(user.id, { nickname: parsed.data });
+  const upd = await updateMyProfile({ nickname: parsed.data });
+  if (!upd.ok) {
+    return { ok: false, error: upd.error };
+  }
+
   await markUserRewardConsumed(card.id);
   revalidateTag(profileCacheTag(user.id));
-  return { ok: true };
+  return { ok: true, newNickname: parsed.data };
 }
 
 export async function getActiveBroadcastsAction(): Promise<ActiveBroadcastDto[]> {

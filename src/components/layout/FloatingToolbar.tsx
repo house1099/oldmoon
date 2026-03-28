@@ -29,12 +29,25 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useMyProfile } from "@/hooks/useMyProfile";
 import {
   getMyRewardsAction,
   equipRewardAction,
   unequipRewardAction,
+  useBroadcastAction as submitBroadcastAction,
+  consumeRenameCardAction,
   type MyRewardsPayload,
 } from "@/services/rewards.action";
 import type { UserRewardWithEffect } from "@/lib/repositories/server/rewards.repository";
@@ -78,6 +91,24 @@ function rewardAccent(rewardType: string): {
         emoji: "📢",
         border: "border-amber-500/45",
         bg: "bg-amber-950/40",
+      };
+    case "rename_card":
+      return {
+        emoji: "✏️",
+        border: "border-violet-500/45",
+        bg: "bg-violet-950/40",
+      };
+    case "fishing_bait":
+      return {
+        emoji: "🪱",
+        border: "border-lime-500/40",
+        bg: "bg-lime-950/35",
+      };
+    case "fishing_rod":
+      return {
+        emoji: "🎣",
+        border: "border-sky-500/40",
+        bg: "bg-sky-950/35",
       };
     default:
       return {
@@ -128,6 +159,22 @@ function buildStacks(rows: UserRewardWithEffect[]): RewardStack[] {
   return stacks;
 }
 
+function stackActionHint(stack: RewardStack): string {
+  const rt = stack.rewardType;
+  if (
+    rt === "broadcast" ||
+    rt === "rename_card" ||
+    rt === "fishing_bait" ||
+    rt === "fishing_rod"
+  ) {
+    return "使用";
+  }
+  if (rt === "title" || rt === "avatar_frame" || rt === "card_frame") {
+    return stack.rows.some((r) => r.is_equipped) ? "已裝備 ✓" : "裝備";
+  }
+  return "";
+}
+
 function FloatingToolbarInner({
   messageMaxLength,
   openEquipRef,
@@ -136,6 +183,7 @@ function FloatingToolbarInner({
   openEquipRef: React.MutableRefObject<(() => void) | null>;
 }) {
   const router = useRouter();
+  const { profile, mutate: mutateProfile } = useMyProfile();
   const guildCtx = useGuildTabContext();
   const [expanded, setExpanded] = useState(false);
   const [tavernOpen, setTavernOpen] = useState(false);
@@ -148,6 +196,17 @@ function FloatingToolbarInner({
   const [rewardsPayload, setRewardsPayload] = useState<MyRewardsPayload | null>(
     null,
   );
+
+  const [broadcastDialogOpen, setBroadcastDialogOpen] = useState(false);
+  const [broadcastDraft, setBroadcastDraft] = useState("");
+  const [broadcastSending, setBroadcastSending] = useState(false);
+  const [broadcastStack, setBroadcastStack] = useState<RewardStack | null>(
+    null,
+  );
+
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renameSaving, setRenameSaving] = useState(false);
 
   useEffect(() => {
     openEquipRef.current = () => setEquipOpen(true);
@@ -199,14 +258,35 @@ function FloatingToolbarInner({
 
   const handleStackEquip = async (stack: RewardStack) => {
     const rt = stack.rewardType;
+
     if (rt === "broadcast") {
-      toast.info("廣播券請於首頁「系統資訊」使用");
+      const unused = stack.rows.find((r) => r.used_at == null);
+      if (!unused) {
+        toast.error("沒有可用的廣播券");
+        return;
+      }
+      setBroadcastStack(stack);
+      setBroadcastDraft("");
+      setBroadcastDialogOpen(true);
       return;
     }
+
+    if (rt === "rename_card") {
+      setRenameDraft("");
+      setRenameDialogOpen(true);
+      return;
+    }
+
+    if (rt === "fishing_bait" || rt === "fishing_rod") {
+      toast.info("請前往釣魚頁面使用（釣魚系統尚未開放）");
+      return;
+    }
+
     if (rt !== "title" && rt !== "avatar_frame" && rt !== "card_frame") {
       toast.info("此道具暫不支援裝備");
       return;
     }
+
     const equipped = stack.rows.find((r) => r.is_equipped);
     if (equipped) {
       const r = await unequipRewardAction(equipped.id);
@@ -350,6 +430,154 @@ function FloatingToolbarInner({
         maxLength={messageMaxLength}
       />
 
+      <Dialog
+        open={broadcastDialogOpen}
+        onOpenChange={(o) => {
+          setBroadcastDialogOpen(o);
+          if (!o) setBroadcastStack(null);
+        }}
+      >
+        <DialogContent className="max-w-md border-zinc-700 bg-zinc-950 text-zinc-100">
+          <DialogHeader>
+            <DialogTitle>使用廣播券</DialogTitle>
+            <DialogDescription className="text-zinc-500">
+              訊息將顯示於畫面頂部約 24 小時（1〜30 字）
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Textarea
+              value={broadcastDraft}
+              onChange={(e) => setBroadcastDraft(e.target.value.slice(0, 30))}
+              placeholder="輸入廣播內容…"
+              rows={3}
+              className="min-h-[5rem] border-zinc-700 bg-zinc-900/80 text-zinc-100"
+            />
+            <div className="flex justify-end text-xs text-zinc-500">
+              {broadcastDraft.trim().length}/30
+            </div>
+            <div className="rounded-2xl border border-amber-400/40 bg-amber-950/60 px-4 py-2">
+              <p className="flex flex-wrap items-center gap-2 text-sm text-amber-100">
+                <span aria-hidden>📢</span>
+                <span className="font-bold text-amber-200">
+                  {profile?.nickname ?? "你"}
+                </span>
+                <span className="min-w-0 break-words text-amber-50/95">
+                  {broadcastDraft.trim() || "（預覽）"}
+                </span>
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-zinc-400"
+              onClick={() => setBroadcastDialogOpen(false)}
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              disabled={
+                broadcastSending ||
+                broadcastDraft.trim().length < 1 ||
+                broadcastDraft.trim().length > 30
+              }
+              onClick={async () => {
+                const unused = broadcastStack?.rows.find(
+                  (b) => b.reward_type === "broadcast" && b.used_at == null,
+                );
+                if (!unused) {
+                  toast.error("沒有可用的廣播券");
+                  return;
+                }
+                setBroadcastSending(true);
+                try {
+                  const r = await submitBroadcastAction(
+                    unused.id,
+                    broadcastDraft,
+                  );
+                  if (!r.ok) {
+                    toast.error(r.error);
+                    return;
+                  }
+                  toast.success("📢 廣播已發送！將在頂部橫幅顯示約 24 小時");
+                  setBroadcastDialogOpen(false);
+                  setBroadcastStack(null);
+                  setBroadcastDraft("");
+                  const p = await getMyRewardsAction();
+                  setRewardsPayload(p);
+                  router.refresh();
+                } finally {
+                  setBroadcastSending(false);
+                }
+              }}
+            >
+              {broadcastSending ? "送出中…" : "確認送出"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent className="max-w-md border-zinc-700 bg-zinc-950 text-zinc-100">
+          <DialogHeader>
+            <DialogTitle>使用改名卡</DialogTitle>
+            <DialogDescription className="text-zinc-500">
+              確認後將消耗一張改名卡
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={renameDraft}
+              onChange={(e) => setRenameDraft(e.target.value.slice(0, 32))}
+              placeholder="新暱稱（1〜32 字）"
+              maxLength={32}
+              className="w-full rounded-xl border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100"
+            />
+            <p className="text-xs text-zinc-500">{renameDraft.length} / 32</p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-zinc-400"
+              onClick={() => setRenameDialogOpen(false)}
+              disabled={renameSaving}
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              disabled={renameSaving || !renameDraft.trim()}
+              onClick={async () => {
+                setRenameSaving(true);
+                try {
+                  const r = await consumeRenameCardAction(renameDraft.trim());
+                  if (!r.ok) {
+                    toast.error(r.error);
+                    return;
+                  }
+                  toast.success(`✅ 暱稱已更新為 ${r.newNickname}`);
+                  setRenameDialogOpen(false);
+                  setRenameDraft("");
+                  setEquipOpen(false);
+                  void mutateProfile();
+                  const p = await getMyRewardsAction();
+                  setRewardsPayload(p);
+                  router.refresh();
+                } finally {
+                  setRenameSaving(false);
+                }
+              }}
+            >
+              {renameSaving ? "處理中…" : "確認"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Sheet open={equipOpen} onOpenChange={setEquipOpen}>
         <SheetContent
           side="right"
@@ -412,6 +640,7 @@ function FloatingToolbarInner({
                     );
                   }
                   const vis = rewardAccent(stack.rewardType);
+                  const actionHint = stackActionHint(stack);
                   const fxKey =
                     stack.rewardType === "avatar_frame" ||
                     stack.rewardType === "card_frame"
@@ -423,7 +652,7 @@ function FloatingToolbarInner({
                       type="button"
                       onClick={() => void handleStackEquip(stack)}
                       className={cn(
-                        "relative flex h-16 flex-col items-center justify-center gap-0.5 rounded-xl border px-0.5 py-1 text-center transition-colors hover:brightness-110",
+                        "relative flex min-h-16 flex-col items-center justify-center gap-0.5 rounded-xl border px-0.5 py-1 text-center transition-colors hover:brightness-110",
                         vis.border,
                         vis.bg,
                         rewardEffectClassName(fxKey ?? undefined),
@@ -432,9 +661,14 @@ function FloatingToolbarInner({
                       <span className="text-base leading-none" aria-hidden>
                         {vis.emoji}
                       </span>
-                      <span className="line-clamp-2 w-full text-[9px] leading-tight text-zinc-200">
+                      <span className="line-clamp-2 max-h-[1.5rem] w-full text-[9px] leading-tight text-zinc-200">
                         {stack.label}
                       </span>
+                      {actionHint ? (
+                        <span className="line-clamp-1 w-full text-[8px] leading-none text-zinc-400">
+                          {actionHint}
+                        </span>
+                      ) : null}
                       {stack.count > 1 ? (
                         <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-zinc-950/90 px-1 text-[10px] font-bold text-violet-200 ring-1 ring-violet-500/40">
                           {stack.count > 9 ? "9+" : stack.count}

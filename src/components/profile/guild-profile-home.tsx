@@ -66,6 +66,7 @@ import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { cn } from "@/lib/utils";
 import { rewardEffectClassName } from "@/lib/utils/reward-effects";
 import { getMoodCountdown, isMoodActive } from "@/lib/utils/mood";
+import { useTavern } from "@/hooks/useTavern";
 import { getMarqueeSettingsAction } from "@/services/system-settings.action";
 import { getActiveAnnouncementsAction } from "@/services/announcement.action";
 import { getHomeAdsAction } from "@/services/advertisement.action";
@@ -76,7 +77,6 @@ import {
   getMyRewardsAction,
   useBroadcastAction as submitBroadcastAction,
   consumeRenameCardAction,
-  type ActiveBroadcastDto,
   type MyRewardsPayload,
 } from "@/services/rewards.action";
 import { Textarea } from "@/components/ui/textarea";
@@ -235,93 +235,52 @@ function AnnouncementClampedPreview({
   );
 }
 
-function broadcastCopyClass(effect: string): string {
-  const e = effect.trim();
-  if (e === "pulse") return "animate-pulse text-amber-300";
-  if (e === "rainbow") return "animate-rainbow-text text-amber-300";
-  return "text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]";
-}
-
-function BroadcastBannerCarousel({ items }: { items: ActiveBroadcastDto[] }) {
-  const [index, setIndex] = useState(0);
-  const [rotateMs, setRotateMs] = useState(10_000);
-  const [broadcastEffect, setBroadcastEffect] = useState("glow");
+function HomeTavernMarqueeBanner() {
+  const { messages } = useTavern();
+  const [speedSeconds, setSpeedSeconds] = useState(20);
 
   useEffect(() => {
     void getMarqueeSettingsAction()
       .then((s) => {
-        setRotateMs(Math.max(1000, s.speedSeconds * 1000));
-        setBroadcastEffect(s.broadcastEffect?.trim() || "glow");
+        const sec =
+          Number.isFinite(s.speedSeconds) && s.speedSeconds >= 1
+            ? s.speedSeconds
+            : 10;
+        setSpeedSeconds(sec);
       })
       .catch(() => {});
   }, []);
 
-  const msgClass = broadcastCopyClass(broadcastEffect);
+  const text = useMemo(() => {
+    const latest = messages.slice(-5);
+    if (latest.length === 0) return "";
+    return latest
+      .map((m) => `${m.user.nickname}：${m.content}　　`)
+      .join("");
+  }, [messages]);
 
-  useEffect(() => {
-    if (items.length <= 1) return;
-    const id = window.setInterval(() => {
-      setIndex((i) => (i + 1) % items.length);
-    }, rotateMs);
-    return () => window.clearInterval(id);
-  }, [items.length, rotateMs]);
-
-  useEffect(() => {
-    if (items.length === 0) return;
-    setIndex((i) => Math.min(i, items.length - 1));
-  }, [items.length]);
-
-  if (items.length === 0) return null;
-
-  if (items.length === 1) {
-    const b = items[0];
-    return (
-      <section aria-label="公會廣播" className="broadcast-slide-in w-full">
-        <div className="w-full rounded-2xl border border-amber-400/40 bg-amber-950/60 px-4 py-2">
-          <p className="flex flex-wrap items-center gap-2 text-sm text-amber-100">
-            <span aria-hidden>📢</span>
-            <span className={cn("font-bold", msgClass)}>{b.nickname}</span>
-            <span className={cn("min-w-0 break-words", msgClass)}>{b.message}</span>
-          </p>
-        </div>
-      </section>
-    );
-  }
+  if (!text) return null;
 
   return (
-    <section aria-label="公會廣播" className="broadcast-slide-in w-full">
-      <div className="relative min-h-[2.75rem] w-full overflow-hidden rounded-2xl border border-amber-400/40 bg-amber-950/60">
-        {items.map((it, i) => (
+    <section
+      aria-label="酒館訊息"
+      className="w-full overflow-hidden border-b border-zinc-700/30 bg-zinc-900/60"
+    >
+      <div className="flex min-h-9 items-stretch">
+        <span
+          className="flex shrink-0 items-center px-3 text-xs text-zinc-400"
+          aria-hidden
+        >
+          🍺
+        </span>
+        <div className="relative min-w-0 flex-1 overflow-hidden py-2 pr-2">
           <div
-            key={it.id}
-            className={cn(
-              "px-4 py-2 transition-opacity duration-500",
-              i === index
-                ? "relative z-10 opacity-100"
-                : "pointer-events-none absolute inset-0 opacity-0",
-            )}
+            className="animate-marquee inline-block whitespace-nowrap text-xs text-zinc-100 will-change-transform"
+            style={{ animationDuration: `${speedSeconds}s` }}
           >
-            <p className="flex flex-wrap items-center gap-2 text-sm text-amber-100">
-              <span aria-hidden>📢</span>
-              <span className={cn("font-bold", msgClass)}>{it.nickname}</span>
-              <span className={cn("min-w-0 break-words", msgClass)}>{it.message}</span>
-            </p>
+            {text}
           </div>
-        ))}
-      </div>
-      <div
-        className="pointer-events-none mt-1.5 flex justify-center gap-1.5"
-        aria-hidden
-      >
-        {items.map((it, i) => (
-          <span
-            key={it.id}
-            className={cn(
-              "h-1.5 w-1.5 rounded-full",
-              i === index ? "bg-amber-300" : "bg-amber-300/35",
-            )}
-          />
-        ))}
+        </div>
       </div>
     </section>
   );
@@ -408,11 +367,9 @@ function HomeBannerCarousel({ ads }: { ads: AdvertisementRow[] }) {
 export function GuildProfileHome({
   profile,
   moodMax,
-  activeBroadcasts,
 }: {
   profile: UserRow;
   moodMax: number;
-  activeBroadcasts: ActiveBroadcastDto[];
 }) {
   const router = useRouter();
   const openEquipmentSheet = useOpenEquipmentSheet();
@@ -964,9 +921,7 @@ export function GuildProfileHome({
         </section>
       ) : null}
 
-      {activeBroadcasts.length > 0 ? (
-        <BroadcastBannerCarousel items={activeBroadcasts} />
-      ) : null}
+      <HomeTavernMarqueeBanner />
 
       {announcements.length > 0 && (
         <div className="space-y-3">
@@ -1600,9 +1555,9 @@ export function GuildProfileHome({
                   <div className="flex items-start justify-between gap-2">
                     <span className="shrink-0 text-zinc-500">廣播大聲公</span>
                     <span className="min-w-0 text-right">
-                      {rewardsData.broadcasts.length === 0 ? (
-                        <span className="text-zinc-500">尚無廣播券</span>
-                      ) : rewardsData.broadcastUnusedCount > 0 ? (
+                      {rewardsData.broadcastUnusedCount === 0 ? (
+                        <span className="text-zinc-500">尚無可用廣播券</span>
+                      ) : (
                         <button
                           type="button"
                           onClick={() => {
@@ -1611,12 +1566,8 @@ export function GuildProfileHome({
                           }}
                           className="text-left text-violet-300 underline decoration-violet-500/50 underline-offset-2 hover:text-violet-200"
                         >
-                          持有 {rewardsData.broadcasts.length} 張（點此使用）
+                          持有 {rewardsData.broadcastUnusedCount} 張（點此使用）
                         </button>
-                      ) : (
-                        <span className="text-zinc-400">
-                          持有 {rewardsData.broadcasts.length} 張（已全數使用）
-                        </span>
                       )}
                     </span>
                   </div>
@@ -1642,7 +1593,7 @@ export function GuildProfileHome({
           <DialogHeader>
             <DialogTitle>使用廣播券</DialogTitle>
             <DialogDescription className="text-zinc-500">
-              訊息將在首頁顯示約 24 小時（1〜30 字）
+              訊息將在畫面頂部顯示約 24 小時（1〜30 字）
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -1712,7 +1663,7 @@ export function GuildProfileHome({
                     return;
                   }
                   toast.success(
-                    "📢 廣播已發送！將在首頁顯示 24 小時",
+                    "📢 廣播已發送！將在畫面頂部顯示約 24 小時",
                   );
                   setBroadcastDialogOpen(false);
                   setBroadcastDraft("");
@@ -2191,7 +2142,7 @@ export function GuildProfileHome({
                   toast.error(res.error);
                   return;
                 }
-                toast.success("✅ 暱稱已更新");
+                toast.success(`✅ 暱稱已更新為 ${res.newNickname}`);
                 setRenameDialogOpen(false);
                 setEditOpen(false);
                 mutateProfile();

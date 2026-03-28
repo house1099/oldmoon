@@ -8,6 +8,7 @@ import {
   type UserUpdate,
 } from "@/lib/repositories/server/user.repository";
 import { instagramHandleSchema } from "@/lib/validation/instagram-handle";
+import { nicknameSchema } from "@/lib/validation/nickname";
 import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
 import { findSystemSettingByKey } from "@/lib/repositories/server/invitation.repository";
 
@@ -41,6 +42,8 @@ export async function updateMyProfile(input: {
   bio?: string;
   bio_village?: string;
   bio_market?: string;
+  /** 改名卡等情境；經 nicknameSchema（含不雅字過濾） */
+  nickname?: string;
   ig_public?: boolean;
   instagram_handle?: string | null;
   mood?: string;
@@ -56,6 +59,7 @@ export async function updateMyProfile(input: {
     input.bio === undefined &&
     input.bio_village === undefined &&
     input.bio_market === undefined &&
+    input.nickname === undefined &&
     input.ig_public === undefined &&
     input.instagram_handle === undefined &&
     input.mood === undefined &&
@@ -93,6 +97,16 @@ export async function updateMyProfile(input: {
   if (input.bio_market !== undefined) {
     const t = input.bio_market.trim();
     patch.bio_market = t.length > 0 ? t : null;
+  }
+  if (input.nickname !== undefined) {
+    const parsed = nicknameSchema.safeParse(input.nickname);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        error: parsed.error.issues[0]?.message ?? "暱稱格式錯誤",
+      };
+    }
+    patch.nickname = parsed.data;
   }
   if (input.ig_public !== undefined) {
     patch.ig_public = input.ig_public;

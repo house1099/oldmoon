@@ -776,3 +776,46 @@ Git
 chore: establish HANDOFF dual-file architecture for context efficiency
 
 （SHA 請以 `git log -1 --oneline` 查閱；同一次提交內無法寫入與自身一致的 hash。）
+
+---
+
+[2026-03-29] — 金幣後台完整金流、改名卡／廣播券背包、廣播與酒館跑馬燈對調
+
+完成項目
+
+1. **後台 `/admin/coins`（`coins-admin-client.tsx` + `page.tsx` 註解）**
+   - **Tab「金幣調整」**：暱稱搜尋列表選用戶；顯示探險幣／純金餘額；幣種、數量（`type="text"` 正則）、原因（必填）；呼叫 **`adjustCoinsAction`**（即 **`adminAdjustCoinsAction`**）。
+   - **Tab「金流紀錄」**：用戶暱稱（可空白）、幣種、交易類型篩選；列表台北時間、暱稱、類型／幣種 badge、正綠負紅、說明；每頁最多 100 筆分頁。
+2. **Layer 3 `adminAdjustCoinsAction`**
+   - **`requireRole(['master'])`**；正負數皆可；**`creditCoins`** 防止餘額負數；**`coin_transactions.source` 統一為 `admin_adjust`**（型別已寫入 **`database.types.ts`**）；**`admin_actions`**、**`notifyUserMailboxSilent`** 保留。
+   - **移除四位數金幣 PIN**（與本次規格對齊；若需復活可再接回 `coin_admin_pin`）。
+3. **Layer 2 `findCoinTransactionsWithFilters`**（`coin.repository.ts`）
+   - 依暱稱搜尋（解析為 `user_id`）、`coin_type`、`txCategory`（對應多個 `source`）；**`created_at DESC`**；回傳列含 **`user_nickname`**。
+   - Layer 3 **`getAdminCoinLedgerAction`**（master／moderator 可讀）。
+4. **改名卡／廣播券背包（`getMyRewardsAction`）**
+   - **`broadcast`／`rename_card`** 僅 **`used_at IS NULL`** 列入 **`broadcasts`** 與 **`allRewards`**；張數以未使用為準；用盡後格子消失。
+5. **`consumeRenameCardAction`**
+   - 最早一張未用卡；**`nicknameSchema`**（含不雅字）+ **`updateMyProfile({ nickname })`**；**`markUserRewardConsumed`**；**`revalidateTag(profileCacheTag)`**；回傳 **`{ ok: true, newNickname }`**。
+6. **`updateMyProfile`**（`profile-update.action.ts`）支援 **`nickname`**。
+7. **`FloatingToolbar` 裝備背包**
+   - 裝備類：**裝備／已裝備 ✓**；**廣播**開 Dialog → **`submitBroadcastAction`**；**改名卡**開 Dialog → **`consumeRenameCardAction`** + **`mutateProfile` SWR** + 關 Sheet；**釣餌／釣竿** toast 前往釣魚頁。
+8. **廣播 vs 酒館位置**
+   - **`TavernMarquee`**：僅 **`getActiveBroadcastsAction`**；固定頂 **`z-[45]`**、**`bg-amber-950/80`**、輪播、**`broadcastEffect`**；無廣播不占版。
+   - **`AppBroadcastChrome`** + **`AppShellMotion.broadcastExtraTopPx`**：有廣播時內容區額外 **36px**。
+   - **`guild-profile-home`**：**`HomeTavernMarqueeBanner`**（**`useTavern`** 最新 5 則、CSS 跑馬燈）；移除首頁內嵌廣播輪播；**`page.tsx`／`home-page-client`** 不再傳 **`activeBroadcasts`**。
+9. **商城流水標籤**：**`admin_adjust`** →「管理調整」。
+
+資料庫異動
+
+- 無新增遷移檔。程式使用 **`source = 'admin_adjust'`**；若雲端對 **`coin_transactions.source`** 有 **CHECK／enum** 限制，需手動補 **🗄️ DDL** 納入 **`admin_adjust`**。
+
+需要注意
+
+- 後台金幣調整已不再驗證 **`coin_admin_pin`**。
+- 首頁頂部 padding 與固定廣播並存時，依 **`2rem + safe-area + 36px`** 計算（見 **`app-shell-motion.tsx`**）。
+
+Git
+
+fix: coins admin + rename card + broadcast consumed + marquee swap
+
+（提交後以 `git log -1 --oneline` 查 hash。）

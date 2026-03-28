@@ -1,3 +1,4 @@
+/** 金幣後台 UI（雙 Tab：調整／金流）見 `coins-admin-client.tsx`。 */
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { findProfileById } from "@/lib/repositories/server/user.repository";

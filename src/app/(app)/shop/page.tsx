@@ -31,6 +31,7 @@ const SOURCE_LABEL: Record<CoinTransactionRow["source"], string> = {
   loot_box: "公會盲盒",
   admin_grant: "管理贈與",
   admin_deduct: "管理扣除",
+  admin_adjust: "管理調整",
   shop_purchase: "商城消費",
   refund: "退款",
   convert_in: "兌換入帳",
