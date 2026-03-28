@@ -816,6 +816,4 @@ chore: establish HANDOFF dual-file architecture for context efficiency
 
 Git
 
-fix: coins admin + rename card + broadcast consumed + marquee swap
-
-（提交後以 `git log -1 --oneline` 查 hash。）
+358c6c7 fix: coins admin + rename card + broadcast consumed + marquee swap
