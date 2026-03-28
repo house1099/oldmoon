@@ -861,4 +861,4 @@ Git
 
 Git
 
-（見 `git log -1 --oneline`。）
+41dbeb2 feat: marquee/broadcast separate styles + admin settings
