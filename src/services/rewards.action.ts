@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidateTag, unstable_cache } from "next/cache";
 import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
 import type { UserRewardRow } from "@/types/database.types";
+import { findProfileById } from "@/lib/repositories/server/user.repository";
 import {
   findMyRewards,
   equipReward,
@@ -18,8 +19,13 @@ import {
 export type MyRewardsPayload = {
   titles: UserRewardRow[];
   avatarFrames: UserRewardRow[];
+  cardFrames: UserRewardRow[];
   broadcasts: UserRewardRow[];
   broadcastUnusedCount: number;
+  /** 背包開放格數（總格 48） */
+  inventorySlots: number;
+  /** 全部持有道具（背包堆疊用） */
+  allRewards: UserRewardRow[];
 };
 
 export type ActiveBroadcastDto = {
@@ -36,17 +42,28 @@ export async function getMyRewardsAction(): Promise<MyRewardsPayload | null> {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const rows = await findMyRewards(user.id);
+  const [rows, profile] = await Promise.all([
+    findMyRewards(user.id),
+    findProfileById(user.id),
+  ]);
   const titles = rows.filter((r) => r.reward_type === "title");
   const avatarFrames = rows.filter((r) => r.reward_type === "avatar_frame");
+  const cardFrames = rows.filter((r) => r.reward_type === "card_frame");
   const broadcasts = rows.filter((r) => r.reward_type === "broadcast");
   const broadcastUnusedCount = broadcasts.filter((r) => r.used_at == null).length;
+  const inventorySlots =
+    profile && typeof profile.inventory_slots === "number"
+      ? Math.min(48, Math.max(0, profile.inventory_slots))
+      : 16;
 
   return {
     titles,
     avatarFrames,
+    cardFrames,
     broadcasts,
     broadcastUnusedCount,
+    inventorySlots,
+    allRewards: rows,
   };
 }
 

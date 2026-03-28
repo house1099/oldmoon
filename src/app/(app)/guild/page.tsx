@@ -108,6 +108,11 @@ export default function GuildPage() {
     return () => guildTabCtx?.setGuildSubTab(null);
   }, [tab, guildTabCtx]);
 
+  useEffect(() => {
+    const next = guildTabCtx?.takePendingGuildSubTab();
+    if (next) setTab(next);
+  }, [guildTabCtx, guildTabCtx?.guildNavTick, guildTabCtx?.takePendingGuildSubTab]);
+
   const { data: pendingData } = useSWR(
     SWR_KEYS.pendingAlliances,
     () => getPendingRequestsAction(),

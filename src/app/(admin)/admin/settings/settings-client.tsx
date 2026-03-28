@@ -7,6 +7,8 @@ import { Loader2 } from "lucide-react";
 import {
   getSystemSettingsAction,
   updateSystemSettingAction,
+  getStreakRewardSettingsAdminAction,
+  updateStreakRewardAction,
 } from "@/services/admin.action";
 
 type SettingsMap = Record<string, string>;
@@ -31,10 +33,21 @@ function normalizeBoolean(value: string | undefined, fallback: string) {
   return raw === "true";
 }
 
+type StreakFormRow = {
+  day: number;
+  exp: string;
+  coins: string;
+  coinsMax: string;
+  specialLabel: string;
+};
+
 export default function AdminSettingsClient({ isMaster }: { isMaster: boolean }) {
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<SettingsMap>({});
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [streakRows, setStreakRows] = useState<StreakFormRow[]>([]);
+  const [streakLoading, setStreakLoading] = useState(false);
+  const [streakSaving, setStreakSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,6 +72,65 @@ export default function AdminSettingsClient({ isMaster }: { isMaster: boolean })
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!isMaster) return;
+    let cancelled = false;
+    void (async () => {
+      setStreakLoading(true);
+      const res = await getStreakRewardSettingsAdminAction();
+      if (cancelled) return;
+      if (!res.ok) {
+        toast.error(res.error || "讀取七日獎勵失敗");
+        setStreakLoading(false);
+        return;
+      }
+      setStreakRows(
+        res.data.map((r) => ({
+          day: r.day,
+          exp: String(r.exp),
+          coins: String(r.coins),
+          coinsMax: r.coinsMax == null ? "" : String(r.coinsMax),
+          specialLabel: r.specialLabel ?? "",
+        })),
+      );
+      setStreakLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isMaster]);
+
+  const saveAllStreakRewards = async () => {
+    setStreakSaving(true);
+    try {
+      for (const row of streakRows) {
+        const exp = Number(row.exp);
+        const coins = Number(row.coins);
+        const maxRaw = row.coinsMax.trim();
+        const coins_max =
+          maxRaw === "" ? null : Number(maxRaw);
+        const res = await updateStreakRewardAction(row.day, {
+          exp,
+          coins,
+          coins_max,
+          special_label:
+            row.day === 7
+              ? "公會盲盒"
+              : row.specialLabel.trim() === ""
+                ? null
+                : row.specialLabel.trim(),
+        });
+        if (!res.ok) {
+          toast.error(res.error || `第 ${row.day} 天儲存失敗`);
+          return;
+        }
+      }
+      toast.success("七日報到獎勵已更新");
+    } finally {
+      setStreakSaving(false);
+    }
+  };
 
   const saveSetting = async (key: string, value: string) => {
     setSavingKey(key);
@@ -138,10 +210,10 @@ export default function AdminSettingsClient({ isMaster }: { isMaster: boolean })
         </div>
       </section>
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 space-y-3">
-        <h2 className="text-base font-semibold text-gray-900">簽到探險幣</h2>
+      <section className="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
+        <h2 className="text-base font-semibold text-gray-900">簽到與盲盒</h2>
         <p className="text-sm text-gray-500">
-          簽到探險幣已改為連續報到固定獎勵制，請至「獎池管理」調整盲盒獎勵內容。
+          每日 EXP／探險幣可由下方「七日報到獎勵」調整；第 7 天盲盒內容請至獎池管理。
         </p>
         {isMaster ? (
           <Link
@@ -152,6 +224,125 @@ export default function AdminSettingsClient({ isMaster }: { isMaster: boolean })
           </Link>
         ) : null}
       </section>
+
+      {isMaster ? (
+        <section className="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
+          <h2 className="text-base font-semibold text-gray-900">
+            七日報到獎勵設定
+          </h2>
+          {streakLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+            </div>
+          ) : (
+            <>
+              <div className="space-y-3">
+                {streakRows.map((row) => (
+                  <div
+                    key={row.day}
+                    className="rounded-xl border border-gray-100 bg-gray-50/60 px-4 py-3 space-y-2"
+                  >
+                    <p className="text-sm font-medium text-gray-800">
+                      Day {row.day}
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                      <label className="block text-xs text-gray-600">
+                        EXP
+                        <input
+                          type="number"
+                          min={0}
+                          value={row.exp}
+                          onChange={(e) =>
+                            setStreakRows((prev) =>
+                              prev.map((r) =>
+                                r.day === row.day
+                                  ? { ...r, exp: e.target.value }
+                                  : r,
+                              ),
+                            )
+                          }
+                          className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                        />
+                      </label>
+                      <label className="block text-xs text-gray-600">
+                        探險幣
+                        <input
+                          type="number"
+                          min={0}
+                          value={row.coins}
+                          onChange={(e) =>
+                            setStreakRows((prev) =>
+                              prev.map((r) =>
+                                r.day === row.day
+                                  ? { ...r, coins: e.target.value }
+                                  : r,
+                              ),
+                            )
+                          }
+                          className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                        />
+                      </label>
+                      <label className="block text-xs text-gray-600">
+                        幣最大值（可空＝固定）
+                        <input
+                          type="number"
+                          min={0}
+                          value={row.coinsMax}
+                          onChange={(e) =>
+                            setStreakRows((prev) =>
+                              prev.map((r) =>
+                                r.day === row.day
+                                  ? { ...r, coinsMax: e.target.value }
+                                  : r,
+                              ),
+                            )
+                          }
+                          className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                        />
+                      </label>
+                      <label className="block text-xs text-gray-600">
+                        特殊獎勵說明
+                        {row.day === 7 ? (
+                          <input
+                            type="text"
+                            readOnly
+                            value="公會盲盒"
+                            className="mt-1 w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-700"
+                          />
+                        ) : (
+                          <input
+                            type="text"
+                            value={row.specialLabel}
+                            onChange={(e) =>
+                              setStreakRows((prev) =>
+                                prev.map((r) =>
+                                  r.day === row.day
+                                    ? { ...r, specialLabel: e.target.value }
+                                    : r,
+                                ),
+                              )
+                            }
+                            placeholder="選填"
+                            className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                          />
+                        )}
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                disabled={streakSaving || streakRows.length === 0}
+                onClick={() => void saveAllStreakRewards()}
+                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-60"
+              >
+                {streakSaving ? "儲存中…" : "儲存所有獎勵設定"}
+              </button>
+            </>
+          )}
+        </section>
+      ) : null}
 
       <section className="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
         <h2 className="text-base font-semibold text-gray-900">等級門檻調整（僅 master）</h2>

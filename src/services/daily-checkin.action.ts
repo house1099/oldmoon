@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import {
   DuplicateExpRewardError,
@@ -15,6 +15,10 @@ import {
 } from "@/lib/repositories/server/user.repository";
 import { creditCoins } from "@/lib/repositories/server/coin.repository";
 import { findStreakByUserId, upsertStreak } from "@/lib/repositories/server/streak.repository";
+import {
+  findAllStreakRewards,
+  findStreakRewardByDay,
+} from "@/lib/repositories/server/streak-rewards.repository";
 import { drawFromPool, type DrawResult } from "@/services/prize-engine";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
 
@@ -70,6 +74,38 @@ function remainFromLastCheckin(lastCheckinMs: number): {
   };
 }
 
+export type StreakRewardDay = {
+  day: number;
+  exp: number;
+  coins: number;
+  coinsMax: number | null;
+  specialReward: string | null;
+  specialLabel: string | null;
+};
+
+export async function getStreakRewardSettingsAction(): Promise<StreakRewardDay[]> {
+  const cached = unstable_cache(
+    async () => {
+      const rows = await findAllStreakRewards();
+      return rows.map((r) => ({
+        day: r.day,
+        exp: r.exp,
+        coins: r.coins,
+        coinsMax: r.coins_max,
+        specialReward: r.special_reward,
+        specialLabel: r.special_label,
+      }));
+    },
+    ["streak-reward-settings-v1"],
+    { revalidate: 300, tags: ["streak_rewards"] },
+  );
+  return cached();
+}
+
+function randomIntInclusive(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 export type ClaimDailyCheckinResult =
   | {
       ok: true;
@@ -86,25 +122,57 @@ export type ClaimDailyCheckinResult =
       remainMins?: number;
     };
 
-function resolveCheckinRewards(streakDay: number): {
+/** `newStreak % 7`：0 代表週期第 7 天，對應 DB `day = 7`。 */
+function resolveCheckinRewardsFallback(streakMod: number): {
   exp: number;
   coins: number;
   triggerLootBox: boolean;
 } {
-  if (streakDay === 0) {
+  if (streakMod === 0) {
     return { exp: 5, coins: 10, triggerLootBox: true };
   }
-  if (streakDay === 1 || streakDay === 2) {
+  if (streakMod === 1 || streakMod === 2) {
     return { exp: 1, coins: 1, triggerLootBox: false };
   }
-  if (streakDay === 3 || streakDay === 4) {
+  if (streakMod === 3 || streakMod === 4) {
     const coins = Math.random() < 0.5 ? 2 : 3;
     return { exp: 2, coins, triggerLootBox: false };
   }
-  if (streakDay === 5 || streakDay === 6) {
+  if (streakMod === 5 || streakMod === 6) {
     return { exp: 3, coins: 5, triggerLootBox: false };
   }
   return { exp: 1, coins: 1, triggerLootBox: false };
+}
+
+async function resolveCheckinRewardsForStreakMod(streakMod: number): Promise<{
+  exp: number;
+  coins: number;
+  triggerLootBox: boolean;
+}> {
+  const dbDay = streakMod === 0 ? 7 : streakMod;
+  const fallback = resolveCheckinRewardsFallback(streakMod);
+  try {
+    const row = await findStreakRewardByDay(dbDay);
+    if (!row) return fallback;
+
+    const exp = Number.isFinite(row.exp) ? row.exp : fallback.exp;
+    let coins = Number.isFinite(row.coins) ? row.coins : fallback.coins;
+    if (
+      row.coins_max != null &&
+      Number.isFinite(row.coins_max) &&
+      row.coins_max > coins
+    ) {
+      coins = randomIntInclusive(coins, row.coins_max);
+    }
+
+    const triggerLootBox =
+      row.special_reward === "loot_box" ||
+      (row.special_reward == null && fallback.triggerLootBox);
+
+    return { exp, coins, triggerLootBox };
+  } catch {
+    return fallback;
+  }
 }
 
 /**
@@ -158,9 +226,9 @@ export async function claimDailyCheckin(): Promise<ClaimDailyCheckinResult> {
     newStreak = prevStreak + 1;
   }
 
-  const streakDay = newStreak % 7;
+  const streakMod = newStreak % 7;
   const { exp: expEarned, coins: coinsEarned, triggerLootBox } =
-    resolveCheckinRewards(streakDay);
+    await resolveCheckinRewardsForStreakMod(streakMod);
 
   const unique_key = `daily_checkin:${user.id}:${now}`;
 
@@ -259,7 +327,7 @@ export async function claimDailyCheckin(): Promise<ClaimDailyCheckinResult> {
   revalidatePath("/");
   return {
     ok: true,
-    streakDay: streakDay === 0 ? 7 : streakDay,
+    streakDay: streakMod === 0 ? 7 : streakMod,
     currentStreak: newStreak,
     expEarned,
     coinsEarned,

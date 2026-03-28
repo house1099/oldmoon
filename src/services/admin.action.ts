@@ -73,6 +73,11 @@ import {
   deletePrizeItemById,
   findPrizeItemById,
 } from "@/lib/repositories/server/prize.repository";
+import {
+  findAllStreakRewards,
+  updateStreakRewardRow,
+} from "@/lib/repositories/server/streak-rewards.repository";
+import type { StreakRewardDay } from "@/services/daily-checkin.action";
 import { DEFAULT_MODERATOR_PERMISSIONS } from "@/lib/constants/admin-permissions";
 import type {
   UserRow,
@@ -1688,6 +1693,7 @@ const PRIZE_ITEM_REWARD_TYPES = [
   "exp",
   "title",
   "avatar_frame",
+  "card_frame",
   "broadcast",
 ] as const;
 type PrizeItemRewardType = (typeof PRIZE_ITEM_REWARD_TYPES)[number];
@@ -1960,6 +1966,68 @@ export async function getPrizeLogsAction(params?: {
       offset,
     });
     return { ok: true, data: rows };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+// ─── Streak reward settings (master) ───
+
+export async function getStreakRewardSettingsAdminAction(): Promise<
+  ActionResult<StreakRewardDay[]>
+> {
+  try {
+    await requireRole(["master"]);
+    const rows = await findAllStreakRewards();
+    const data: StreakRewardDay[] = rows.map((r) => ({
+      day: r.day,
+      exp: r.exp,
+      coins: r.coins,
+      coinsMax: r.coins_max,
+      specialReward: r.special_reward,
+      specialLabel: r.special_label,
+    }));
+    return { ok: true, data };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function updateStreakRewardAction(
+  day: number,
+  patch: {
+    exp: number;
+    coins: number;
+    coins_max: number | null;
+    special_label: string | null;
+  },
+): Promise<ActionResult<{ success: true }>> {
+  try {
+    await requireRole(["master"]);
+    if (!Number.isFinite(day) || day < 1 || day > 7) {
+      return { ok: false, error: "day 須為 1〜7" };
+    }
+    if (!Number.isFinite(patch.exp) || patch.exp < 0) {
+      return { ok: false, error: "EXP 須為非負整數" };
+    }
+    if (!Number.isFinite(patch.coins) || patch.coins < 0) {
+      return { ok: false, error: "探險幣須為非負整數" };
+    }
+    if (
+      patch.coins_max != null &&
+      (!Number.isFinite(patch.coins_max) || patch.coins_max < patch.coins)
+    ) {
+      return { ok: false, error: "最大值須 ≥ 探險幣或留空" };
+    }
+    await updateStreakRewardRow(day, {
+      exp: Math.floor(patch.exp),
+      coins: Math.floor(patch.coins),
+      coins_max: patch.coins_max == null ? null : Math.floor(patch.coins_max),
+      special_label: patch.special_label,
+    });
+    revalidateTag("streak_rewards");
+    revalidatePath("/admin/settings");
+    return { ok: true, data: { success: true } };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
   }

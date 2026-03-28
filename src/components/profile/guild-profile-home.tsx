@@ -17,8 +17,10 @@ import { DAILY_CHECKIN_ALREADY_CLAIMED } from "@/lib/constants/daily-checkin";
 import {
   claimDailyCheckin,
   getMyStreakAction,
+  getStreakRewardSettingsAction,
   type ClaimDailyCheckinResult,
   type DrawResult,
+  type StreakRewardDay,
 } from "@/services/daily-checkin.action";
 import {
   getMyRecentExpLogsAction,
@@ -71,13 +73,12 @@ import type { AnnouncementRow, AdvertisementRow } from "@/types/database.types";
 import { useMyProfile } from "@/hooks/useMyProfile";
 import {
   getMyRewardsAction,
-  equipRewardAction,
-  unequipRewardAction,
   useBroadcastAction as submitBroadcastAction,
   type ActiveBroadcastDto,
   type MyRewardsPayload,
 } from "@/services/rewards.action";
 import { Textarea } from "@/components/ui/textarea";
+import { useOpenEquipmentSheet } from "@/components/layout/FloatingToolbar";
 
 const IOS_TEXTAREA_CLASS =
   "w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-base text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none";
@@ -110,12 +111,30 @@ function normalizeLevel(v: UserRow["level"]): number {
 
 const STREAK_BREAK_MS = 48 * 60 * 60 * 1000;
 
-function dayRewardHint(cellIndex: number): string {
-  const d = cellIndex + 1;
-  if (d <= 2) return "+1 EXP · +1 幣";
-  if (d <= 4) return "+2 EXP · +2〜3 幣";
-  if (d <= 6) return "+3 EXP · +5 幣";
-  return "+5 EXP · +10 幣 · 盲盒";
+const DEFAULT_STREAK_REWARDS: StreakRewardDay[] = [
+  { day: 1, exp: 1, coins: 1, coinsMax: null, specialReward: null, specialLabel: null },
+  { day: 2, exp: 1, coins: 1, coinsMax: null, specialReward: null, specialLabel: null },
+  { day: 3, exp: 2, coins: 2, coinsMax: 3, specialReward: null, specialLabel: null },
+  { day: 4, exp: 2, coins: 2, coinsMax: 3, specialReward: null, specialLabel: null },
+  { day: 5, exp: 3, coins: 5, coinsMax: null, specialReward: null, specialLabel: null },
+  { day: 6, exp: 3, coins: 5, coinsMax: null, specialReward: null, specialLabel: null },
+  {
+    day: 7,
+    exp: 5,
+    coins: 10,
+    coinsMax: null,
+    specialReward: "loot_box",
+    specialLabel: "公會盲盒",
+  },
+];
+
+function streakRewardForDay(
+  day: number,
+  settings: StreakRewardDay[] | null,
+): StreakRewardDay {
+  const fromApi = settings?.find((r) => r.day === day);
+  if (fromApi) return fromApi;
+  return DEFAULT_STREAK_REWARDS[day - 1] ?? DEFAULT_STREAK_REWARDS[0]!;
 }
 
 /** 必須為模組層元件：若在父元件內宣告，每次 render 型別參考變更會整段 remount，textarea 失焦、行動鍵盤會收起。 */
@@ -374,6 +393,7 @@ export function GuildProfileHome({
   activeBroadcasts: ActiveBroadcastDto[];
 }) {
   const router = useRouter();
+  const openEquipmentSheet = useOpenEquipmentSheet();
   const { mutate: mutateProfile } = useMyProfile();
   const totalExpSafe = normalizeTotalExp(profile.total_exp);
   const levelSafe = normalizeLevel(profile.level);
@@ -437,6 +457,9 @@ export function GuildProfileHome({
   const [streakBreakHours, setStreakBreakHours] = useState<number | null>(null);
   const [rewardsLoading, setRewardsLoading] = useState(false);
   const [rewardsData, setRewardsData] = useState<MyRewardsPayload | null>(null);
+  const [streakRewardSettings, setStreakRewardSettings] = useState<
+    StreakRewardDay[] | null
+  >(null);
   const [broadcastDialogOpen, setBroadcastDialogOpen] = useState(false);
   const [broadcastDraft, setBroadcastDraft] = useState("");
   const [broadcastSending, setBroadcastSending] = useState(false);
@@ -492,6 +515,12 @@ export function GuildProfileHome({
   useEffect(() => {
     loadRewards();
   }, [loadRewards, profile.id, profile.updated_at]);
+
+  useEffect(() => {
+    void getStreakRewardSettingsAction()
+      .then((rows) => setStreakRewardSettings(rows))
+      .catch(() => setStreakRewardSettings(null));
+  }, []);
 
   const refreshStreak = useCallback(() => {
     void getMyStreakAction().then((r) => {
@@ -1489,8 +1518,8 @@ export function GuildProfileHome({
           </AccordionSection>
 
           <AccordionSection
-            id="rewards"
-            title="🎁 我的獎勵"
+            id="system-info"
+            title="⚙️ 系統資訊"
             openSection={openSection}
             setOpenSection={setOpenSection}
           >
@@ -1501,142 +1530,77 @@ export function GuildProfileHome({
                 <div className="h-10 rounded-lg bg-zinc-800/80" />
               </div>
             ) : rewardsData ? (
-              <div className="space-y-5">
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-violet-300/90">稱號</p>
-                  {rewardsData.titles.length === 0 ? (
-                    <p className="text-xs text-zinc-500">尚未持有稱號</p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {rewardsData.titles.map((t) => (
-                        <li
-                          key={t.id}
-                          className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-zinc-900/40 px-3 py-2"
+              <div className="space-y-3 text-sm">
+                {(
+                  [
+                    {
+                      label: "頭像框",
+                      equipped: rewardsData.avatarFrames.find((r) => r.is_equipped),
+                    },
+                    {
+                      label: "卡片外框",
+                      equipped: rewardsData.cardFrames.find((r) => r.is_equipped),
+                    },
+                    {
+                      label: "稱號",
+                      equipped: rewardsData.titles.find((r) => r.is_equipped),
+                    },
+                  ] as const
+                ).map((row) => (
+                  <div
+                    key={row.label}
+                    className="flex items-start justify-between gap-2 border-b border-white/5 pb-2 last:border-0"
+                  >
+                    <span className="shrink-0 text-zinc-500">{row.label}</span>
+                    <span className="min-w-0 text-right">
+                      {row.equipped ? (
+                        <span className="text-violet-300">
+                          已裝備：{row.equipped.label}
+                          <span className="text-violet-400"> ✦</span>
+                        </span>
+                      ) : (
+                        <span className="text-zinc-500">未裝備：—</span>
+                      )}
+                    </span>
+                  </div>
+                ))}
+
+                <div className="flex flex-col gap-1 border-b border-white/5 pb-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="shrink-0 text-zinc-500">廣播大聲公</span>
+                    <span className="min-w-0 text-right">
+                      {rewardsData.broadcasts.length === 0 ? (
+                        <span className="text-zinc-500">尚無廣播券</span>
+                      ) : rewardsData.broadcastUnusedCount > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBroadcastDraft("");
+                            setBroadcastDialogOpen(true);
+                          }}
+                          className="text-left text-violet-300 underline decoration-violet-500/50 underline-offset-2 hover:text-violet-200"
                         >
-                          <span className="min-w-0 truncate text-sm text-zinc-200">
-                            {t.label}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (t.is_equipped) {
-                                const r = await unequipRewardAction(t.id);
-                                if (!r.ok) {
-                                  toast.error(r.error);
-                                  return;
-                                }
-                              } else {
-                                const r = await equipRewardAction(t.id, "title");
-                                if (!r.ok) {
-                                  toast.error(r.error);
-                                  return;
-                                }
-                              }
-                              toast.success(t.is_equipped ? "已卸下稱號" : "已裝備稱號");
-                              await mutateProfile();
-                              loadRewards();
-                              router.refresh();
-                            }}
-                            className={cn(
-                              "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                              t.is_equipped
-                                ? "bg-violet-600/80 text-white"
-                                : "bg-zinc-700/60 text-zinc-200 hover:bg-zinc-600/70",
-                            )}
-                          >
-                            {t.is_equipped ? "已裝備 ✓" : "裝備"}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                          持有 {rewardsData.broadcasts.length} 張（點此使用）
+                        </button>
+                      ) : (
+                        <span className="text-zinc-400">
+                          持有 {rewardsData.broadcasts.length} 張（已全數使用）
+                        </span>
+                      )}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-sky-300/90">頭像框</p>
-                  {rewardsData.avatarFrames.length === 0 ? (
-                    <p className="text-xs text-zinc-500">尚未持有頭像框</p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {rewardsData.avatarFrames.map((f) => (
-                        <li
-                          key={f.id}
-                          className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-zinc-900/40 px-3 py-2"
-                        >
-                          <span className="min-w-0 truncate text-sm text-zinc-200">
-                            {f.label}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (f.is_equipped) {
-                                const r = await unequipRewardAction(f.id);
-                                if (!r.ok) {
-                                  toast.error(r.error);
-                                  return;
-                                }
-                              } else {
-                                const r = await equipRewardAction(
-                                  f.id,
-                                  "avatar_frame",
-                                );
-                                if (!r.ok) {
-                                  toast.error(r.error);
-                                  return;
-                                }
-                              }
-                              toast.success(
-                                f.is_equipped ? "已卸下頭像框" : "已裝備頭像框",
-                              );
-                              await mutateProfile();
-                              loadRewards();
-                              router.refresh();
-                            }}
-                            className={cn(
-                              "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                              f.is_equipped
-                                ? "bg-violet-600/80 text-white"
-                                : "bg-zinc-700/60 text-zinc-200 hover:bg-zinc-600/70",
-                            )}
-                          >
-                            {f.is_equipped ? "已裝備 ✓" : "裝備"}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-amber-300/90">
-                    廣播大聲公
-                  </p>
-                  <p className="text-sm text-zinc-300">
-                    持有 {rewardsData.broadcasts.length} 張廣播券
-                    {rewardsData.broadcastUnusedCount > 0
-                      ? `（未使用 ${rewardsData.broadcastUnusedCount}）`
-                      : ""}
-                  </p>
-                  {rewardsData.broadcasts.length === 0 ? (
-                    <p className="text-xs text-zinc-500">
-                      完成七日連續報到可獲得廣播券
-                    </p>
-                  ) : rewardsData.broadcastUnusedCount > 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setBroadcastDraft("");
-                        setBroadcastDialogOpen(true);
-                      }}
-                      className="rounded-full bg-amber-600/80 px-4 py-2 text-xs font-medium text-amber-50 hover:bg-amber-500/80"
-                    >
-                      使用廣播券
-                    </button>
-                  ) : null}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => openEquipmentSheet()}
+                  className="w-full pt-1 text-left text-xs text-violet-400/90 underline decoration-violet-500/40 underline-offset-4 hover:text-violet-300"
+                >
+                  前往裝備背包管理道具 →
+                </button>
               </div>
             ) : (
-              <p className="text-xs text-zinc-500">無法載入獎勵</p>
+              <p className="text-xs text-zinc-500">無法載入狀態</p>
             )}
           </AccordionSection>
         </div>
@@ -1721,6 +1685,7 @@ export function GuildProfileHome({
                   setBroadcastDialogOpen(false);
                   setBroadcastDraft("");
                   loadRewards();
+                  await mutateProfile();
                   router.refresh();
                 } finally {
                   setBroadcastSending(false);
@@ -1787,49 +1752,63 @@ export function GuildProfileHome({
               </span>
             ) : null}
           </p>
-          <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+          <div className="grid grid-cols-7 gap-1.5">
             {Array.from({ length: 7 }, (_, index) => {
+              const dayNum = index + 1;
+              const rw = streakRewardForDay(dayNum, streakRewardSettings);
+              const completedDay = streakUi.completedInCycle;
               const done =
-                !streakUi.allMuted && index < streakUi.completedInCycle;
-              const isToday =
-                !streakUi.allMuted &&
+                completedDay > 0 && dayNum <= completedDay;
+              const isTodayToSign =
+                !checkinDone &&
                 streakUi.todayIdx >= 0 &&
                 index === streakUi.todayIdx;
-              const isDay7 = index === 6;
+              const future = !done && !isTodayToSign;
+              const isDay7 = dayNum === 7;
+              const coinsLine =
+                rw.coinsMax != null && rw.coinsMax > rw.coins
+                  ? `${rw.coins}~${rw.coinsMax}幣`
+                  : `+${rw.coins}幣`;
+
               return (
                 <div
                   key={index}
                   className={cn(
-                    "flex min-h-[4.5rem] flex-col items-center justify-center gap-0.5 rounded-2xl border px-0.5 py-2 text-center transition-colors sm:min-h-[5rem]",
-                    streakUi.allMuted && "bg-zinc-800/40 border-zinc-700/30",
-                    !streakUi.allMuted && done && "bg-violet-600/80 border-violet-400/40",
-                    !streakUi.allMuted &&
-                      !done &&
-                      !isToday &&
-                      "bg-zinc-800/40 border-zinc-700/30",
-                    isToday &&
-                      "ring-2 ring-violet-400 animate-pulse border-violet-400/50 bg-violet-950/50",
+                    "mx-auto flex h-14 w-10 shrink-0 select-none flex-col items-center justify-between rounded-xl border px-0.5 py-1 text-center transition-colors",
+                    done && "border-violet-400/40 bg-violet-600/80",
+                    !done &&
+                      isTodayToSign &&
+                      "animate-pulse border-violet-400/50 bg-violet-950/50 ring-2 ring-violet-400",
+                    future && "border-zinc-700/30 bg-zinc-800/40",
                   )}
                 >
-                  <span className="text-[10px] font-semibold text-zinc-400">
-                    D{index + 1}
+                  <span className="text-[9px] leading-none text-zinc-500">
+                    Day {dayNum}
                   </span>
-                  <span className="text-lg leading-none">
+                  <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0 leading-tight">
+                    <span className="block max-w-full truncate text-[10px] text-violet-300">
+                      +{rw.exp}EXP
+                    </span>
+                    <span className="block max-w-full truncate text-[10px] text-amber-300">
+                      {coinsLine}
+                    </span>
+                    {isDay7 ? (
+                      <span className="max-w-full truncate text-[9px] text-amber-200/90">
+                        {rw.specialLabel ?? "公會盲盒"}
+                      </span>
+                    ) : null}
+                  </div>
+                  <span className="text-sm leading-none" aria-hidden>
                     {isDay7
                       ? done
                         ? "🎁"
                         : "👑"
                       : done
                         ? "✓"
-                        : isToday
+                        : isTodayToSign
                           ? "·"
                           : ""}
                   </span>
-                  {isToday && !checkinDone ? (
-                    <span className="hidden px-0.5 text-[9px] leading-tight text-violet-200/80 sm:block">
-                      {dayRewardHint(index)}
-                    </span>
-                  ) : null}
                 </div>
               );
             })}

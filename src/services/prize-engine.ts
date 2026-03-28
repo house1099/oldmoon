@@ -85,6 +85,7 @@ export async function drawFromPool(
   } else if (
     item.reward_type === "title" ||
     item.reward_type === "avatar_frame" ||
+    item.reward_type === "card_frame" ||
     item.reward_type === "broadcast"
   ) {
     await insertUserReward({

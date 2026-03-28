@@ -46,6 +46,7 @@ const REWARD_TYPE_OPTIONS = [
   { value: "exp", label: "經驗值 exp" },
   { value: "title", label: "稱號 title" },
   { value: "avatar_frame", label: "頭像框 avatar_frame" },
+  { value: "card_frame", label: "卡片外框 card_frame" },
   { value: "broadcast", label: "廣播券 broadcast" },
 ] as const;
 

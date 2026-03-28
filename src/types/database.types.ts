@@ -2,7 +2,7 @@
  * 與 Supabase `public` schema 對齊的型別（手動維護，請在雲端 Schema 變更後同步更新）。
  * 表：users, exp_logs, likes, alliances（雙人血盟）, conversations, chat_messages, blocks, reports, messages, notifications, ig_change_requests,
  *     admin_actions, moderator_permissions, system_settings, advertisements, ad_clicks, invitation_codes, invitation_code_uses, announcements,
- *     tavern_messages, tavern_bans, login_streaks, prize_pools, prize_items, prize_logs, user_rewards, broadcasts
+ *     tavern_messages, tavern_bans, login_streaks, streak_reward_settings, prize_pools, prize_items, prize_logs, user_rewards, broadcasts
  */
 
 export type Json =
@@ -85,6 +85,8 @@ export interface Database {
           premium_coins: number;
           /** 免費幣（≥0） */
           free_coins: number;
+          /** 裝備背包開放格數（總格固定 48，其餘為鎖定） */
+          inventory_slots: number;
           created_at: string;
           updated_at: string;
         };
@@ -124,6 +126,7 @@ export interface Database {
           last_checkin_at?: string | null;
           premium_coins?: number;
           free_coins?: number;
+          inventory_slots?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -163,7 +166,38 @@ export interface Database {
           last_checkin_at?: string | null;
           premium_coins?: number;
           free_coins?: number;
+          inventory_slots?: number;
           created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      streak_reward_settings: {
+        Row: {
+          day: number;
+          exp: number;
+          coins: number;
+          coins_max: number | null;
+          special_reward: string | null;
+          special_label: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          day: number;
+          exp?: number;
+          coins?: number;
+          coins_max?: number | null;
+          special_reward?: string | null;
+          special_label?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          day?: number;
+          exp?: number;
+          coins?: number;
+          coins_max?: number | null;
+          special_reward?: string | null;
+          special_label?: string | null;
           updated_at?: string;
         };
         Relationships: [];
