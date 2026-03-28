@@ -55,10 +55,14 @@ export async function drawFromPool(
   let value: number | undefined;
 
   if (item.reward_type === "coins") {
-    if (item.min_value == null || item.max_value == null) {
-      throw new Error("coins 獎項需設定 min/max");
+    if (item.min_value == null) {
+      throw new Error("coins 獎項需設定 min");
     }
-    value = randomIntInclusive(item.min_value, item.max_value);
+    if (item.max_value == null) {
+      value = item.min_value;
+    } else {
+      value = randomIntInclusive(item.min_value, item.max_value);
+    }
     const coinResult = await creditCoins({
       userId,
       coinType: "free",
@@ -70,10 +74,14 @@ export async function drawFromPool(
       value = 0;
     }
   } else if (item.reward_type === "exp") {
-    if (item.min_value == null || item.max_value == null) {
-      throw new Error("exp 獎項需設定 min/max");
+    if (item.min_value == null) {
+      throw new Error("exp 獎項需設定 min");
     }
-    value = randomIntInclusive(item.min_value, item.max_value);
+    if (item.max_value == null) {
+      value = item.min_value;
+    } else {
+      value = randomIntInclusive(item.min_value, item.max_value);
+    }
     const unique_key = `prize_${poolType}:${userId}:${item.id}:${Date.now()}`;
     await insertExpLog({
       user_id: userId,

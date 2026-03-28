@@ -3,7 +3,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidateTag, unstable_cache } from "next/cache";
 import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
-import type { UserRewardRow } from "@/types/database.types";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
 import {
   findMyRewards,
@@ -14,18 +13,19 @@ import {
   insertBroadcast,
   findActiveBroadcasts,
   findUserRewardById,
+  type UserRewardWithEffect,
 } from "@/lib/repositories/server/rewards.repository";
 
 export type MyRewardsPayload = {
-  titles: UserRewardRow[];
-  avatarFrames: UserRewardRow[];
-  cardFrames: UserRewardRow[];
-  broadcasts: UserRewardRow[];
+  titles: UserRewardWithEffect[];
+  avatarFrames: UserRewardWithEffect[];
+  cardFrames: UserRewardWithEffect[];
+  broadcasts: UserRewardWithEffect[];
   broadcastUnusedCount: number;
   /** 背包開放格數（總格 48） */
   inventorySlots: number;
   /** 全部持有道具（背包堆疊用） */
-  allRewards: UserRewardRow[];
+  allRewards: UserRewardWithEffect[];
 };
 
 export type ActiveBroadcastDto = {

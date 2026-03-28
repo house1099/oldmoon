@@ -1719,10 +1719,13 @@ function validatePrizeItemRewardFields(input: {
     return { ok: false, error: "標籤不可為空" };
   }
   if (input.reward_type === "coins" || input.reward_type === "exp") {
-    if (input.min_value == null || input.max_value == null) {
-      return { ok: false, error: "coins／exp 類必須填寫 min 與 max" };
+    if (input.min_value == null) {
+      return { ok: false, error: "coins／exp 類必須填寫 min" };
     }
-    if (input.min_value > input.max_value) {
+    if (
+      input.max_value != null &&
+      input.min_value > input.max_value
+    ) {
       return { ok: false, error: "min 不可大於 max" };
     }
   }
@@ -1820,6 +1823,7 @@ export async function createPrizeItemAction(
     min_value?: number | null;
     max_value?: number | null;
     weight: number;
+    effect_key?: string | null;
   },
 ): Promise<ActionResult<PrizeItemRow>> {
   try {
@@ -1837,6 +1841,9 @@ export async function createPrizeItemAction(
       max_value: maxV,
     });
     if (!v.ok) return v;
+    const effectKeyRaw = data.effect_key?.trim() || null;
+    const effect_key =
+      rt === "avatar_frame" || rt === "card_frame" ? effectKeyRaw : null;
     const row = await insertPrizeItem({
       pool_id: poolId,
       reward_type: rt,
@@ -1846,6 +1853,7 @@ export async function createPrizeItemAction(
         rt === "coins" || rt === "exp" ? minV : null,
       max_value:
         rt === "coins" || rt === "exp" ? maxV : null,
+      effect_key,
       is_active: true,
     });
     revalidatePath("/admin/prizes");
@@ -1880,6 +1888,7 @@ export async function updatePrizeItemAction(
     reward_type?: string;
     min_value?: number | null;
     max_value?: number | null;
+    effect_key?: string | null;
   },
 ): Promise<ActionResult<void>> {
   try {
@@ -1894,10 +1903,17 @@ export async function updatePrizeItemAction(
       data.min_value !== undefined ? data.min_value : existing.min_value;
     let max_value =
       data.max_value !== undefined ? data.max_value : existing.max_value;
+    let effect_key =
+      data.effect_key !== undefined
+        ? data.effect_key?.trim() || null
+        : existing.effect_key ?? null;
 
     if (reward_type !== "coins" && reward_type !== "exp") {
       min_value = null;
       max_value = null;
+    }
+    if (reward_type !== "avatar_frame" && reward_type !== "card_frame") {
+      effect_key = null;
     }
 
     const v = validatePrizeItemRewardFields({
@@ -1915,6 +1931,7 @@ export async function updatePrizeItemAction(
       weight: Math.floor(Number(weight)),
       min_value,
       max_value,
+      effect_key,
     });
     revalidatePath("/admin/prizes");
     return { ok: true, data: undefined };

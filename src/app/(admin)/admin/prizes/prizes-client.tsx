@@ -64,7 +64,14 @@ function fmtTaipei(iso: string) {
 
 type DraftItem = Pick<
   PrizeItemRow,
-  "id" | "label" | "weight" | "min_value" | "max_value" | "reward_type" | "is_active"
+  | "id"
+  | "label"
+  | "weight"
+  | "min_value"
+  | "max_value"
+  | "reward_type"
+  | "is_active"
+  | "effect_key"
 >;
 
 export default function AdminPrizesClient() {
@@ -94,7 +101,9 @@ export default function AdminPrizesClient() {
   const [newItemWeight, setNewItemWeight] = useState("10");
   const [newItemMin, setNewItemMin] = useState("");
   const [newItemMax, setNewItemMax] = useState("");
+  const [newItemEffectKey, setNewItemEffectKey] = useState("");
   const [creatingItem, setCreatingItem] = useState(false);
+  const [prizeTypeHelpOpen, setPrizeTypeHelpOpen] = useState(false);
 
   const loadPools = useCallback(async () => {
     setLoadingPools(true);
@@ -130,6 +139,7 @@ export default function AdminPrizesClient() {
         max_value: it.max_value,
         reward_type: it.reward_type,
         is_active: it.is_active,
+        effect_key: it.effect_key ?? null,
       };
     }
     setDrafts(d);
@@ -179,6 +189,7 @@ export default function AdminPrizesClient() {
           min_value: d.min_value,
           max_value: d.max_value,
           reward_type: d.reward_type,
+          effect_key: d.effect_key ?? null,
         });
       }),
     );
@@ -243,6 +254,10 @@ export default function AdminPrizesClient() {
         weight: Number.isFinite(w) ? w : 1,
         min_value: minV,
         max_value: maxV,
+        effect_key:
+          newItemType === "avatar_frame" || newItemType === "card_frame"
+            ? newItemEffectKey.trim() || null
+            : null,
       });
       if (!r.ok) {
         toast.error(r.error);
@@ -254,6 +269,7 @@ export default function AdminPrizesClient() {
       setNewItemWeight("10");
       setNewItemMin("");
       setNewItemMax("");
+      setNewItemEffectKey("");
       await loadItems(selectedPoolId);
     } finally {
       setCreatingItem(false);
@@ -442,6 +458,11 @@ export default function AdminPrizesClient() {
                                     e.target.value === "exp"
                                       ? d.max_value
                                       : null,
+                                  effect_key:
+                                    e.target.value === "avatar_frame" ||
+                                    e.target.value === "card_frame"
+                                      ? d.effect_key
+                                      : null,
                                 },
                               }))
                             }
@@ -526,7 +547,7 @@ export default function AdminPrizesClient() {
                               inputMode="numeric"
                               value={String(d.weight)}
                               onChange={(e) => {
-                                const v = e.target.value.replace(/\D/g, "");
+                                const v = e.target.value.replace(/[^0-9]/g, "");
                                 setDrafts((prev) => ({
                                   ...prev,
                                   [it.id]: {
@@ -537,6 +558,9 @@ export default function AdminPrizesClient() {
                               }}
                               className="mt-0.5 w-20 rounded-lg border border-gray-200 px-2 py-1 text-sm"
                             />
+                            <p className="mt-0.5 max-w-[14rem] text-[10px] text-gray-500">
+                              數字越大機率越高（建議 1–100）
+                            </p>
                           </div>
                           <div className="text-sm text-violet-700">
                             機率約 <strong>{pct}%</strong>
@@ -553,7 +577,10 @@ export default function AdminPrizesClient() {
                                     d.min_value == null ? "" : String(d.min_value)
                                   }
                                   onChange={(e) => {
-                                    const v = e.target.value.replace(/-/g, "");
+                                    const v = e.target.value.replace(
+                                      /[^0-9]/g,
+                                      "",
+                                    );
                                     setDrafts((prev) => ({
                                       ...prev,
                                       [it.id]: {
@@ -565,6 +592,9 @@ export default function AdminPrizesClient() {
                                   }}
                                   className="mt-0.5 w-16 rounded-lg border border-gray-200 px-2 py-1 text-sm"
                                 />
+                                <p className="mt-0.5 text-[10px] text-gray-500">
+                                  最小獲得數量
+                                </p>
                               </div>
                               <div>
                                 <label className="text-xs text-gray-500">max</label>
@@ -575,7 +605,10 @@ export default function AdminPrizesClient() {
                                     d.max_value == null ? "" : String(d.max_value)
                                   }
                                   onChange={(e) => {
-                                    const v = e.target.value.replace(/-/g, "");
+                                    const v = e.target.value.replace(
+                                      /[^0-9]/g,
+                                      "",
+                                    );
                                     setDrafts((prev) => ({
                                       ...prev,
                                       [it.id]: {
@@ -587,8 +620,41 @@ export default function AdminPrizesClient() {
                                   }}
                                   className="mt-0.5 w-16 rounded-lg border border-gray-200 px-2 py-1 text-sm"
                                 />
+                                <p className="mt-0.5 text-[10px] text-gray-500">
+                                  最大獲得數量（空白=固定值）
+                                </p>
                               </div>
                             </>
+                          )}
+                          {(d.reward_type === "avatar_frame" ||
+                            d.reward_type === "card_frame") && (
+                            <div className="w-full min-w-[12rem] max-w-md">
+                              <label className="text-xs text-gray-500">
+                                特效代碼（effect_key）
+                              </label>
+                              <input
+                                type="text"
+                                value={d.effect_key ?? ""}
+                                onChange={(e) =>
+                                  setDrafts((prev) => ({
+                                    ...prev,
+                                    [it.id]: {
+                                      ...d,
+                                      effect_key:
+                                        e.target.value.trim() === ""
+                                          ? null
+                                          : e.target.value.trim(),
+                                    },
+                                  }))
+                                }
+                                placeholder="如：star_frame、rainbow_frame"
+                                className="mt-0.5 w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
+                              />
+                              <p className="mt-0.5 text-[10px] text-gray-500">
+                                此代碼需對應前端已實作的 CSS
+                                特效，未實作的代碼不會有視覺效果
+                              </p>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -746,6 +812,36 @@ export default function AdminPrizesClient() {
             <DialogTitle>新增獎項 {selectedPool ? `— ${selectedPool.label}` : ""}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
+            <div className="rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2">
+              <button
+                type="button"
+                onClick={() => setPrizeTypeHelpOpen((o) => !o)}
+                className="text-xs text-violet-700 hover:underline"
+              >
+                ？ 查看類型說明
+              </button>
+              {prizeTypeHelpOpen ? (
+                <div className="mt-2 space-y-1.5 text-xs text-zinc-400">
+                  <p className="font-medium text-zinc-500">獎項類型說明：</p>
+                  <p>
+                    探險幣（coins）：填寫 min/max 範圍，用戶獲得隨機數量
+                  </p>
+                  <p>
+                    經驗值（exp）：填寫 min/max 範圍，直接加到 total_exp
+                  </p>
+                  <p>稱號（title）：填寫標籤名稱，用戶可在裝備背包裝備</p>
+                  <p>
+                    頭像框（avatar_frame）：需填特效代碼，套用到頭像外圈
+                  </p>
+                  <p>
+                    卡片外框（card_frame）：需填特效代碼，套用到用戶卡片
+                  </p>
+                  <p>
+                    廣播券（broadcast）：用戶可發送全站廣播，有效 24 小時
+                  </p>
+                </div>
+              ) : null}
+            </div>
             <div>
               <label className="text-xs text-gray-500">reward_type</label>
               <select
@@ -763,6 +859,7 @@ export default function AdminPrizesClient() {
             <div>
               <label className="text-xs text-gray-500">標籤</label>
               <input
+                type="text"
                 value={newItemLabel}
                 onChange={(e) => setNewItemLabel(e.target.value)}
                 className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
@@ -775,10 +872,13 @@ export default function AdminPrizesClient() {
                 inputMode="numeric"
                 value={newItemWeight}
                 onChange={(e) =>
-                  setNewItemWeight(e.target.value.replace(/\D/g, "") || "1")
+                  setNewItemWeight(e.target.value.replace(/[^0-9]/g, "") || "1")
                 }
                 className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
               />
+              <p className="mt-0.5 text-[10px] text-gray-500">
+                數字越大機率越高（建議 1–100）
+              </p>
             </div>
             {(newItemType === "coins" || newItemType === "exp") && (
               <div className="flex gap-2">
@@ -788,9 +888,14 @@ export default function AdminPrizesClient() {
                     type="text"
                     inputMode="numeric"
                     value={newItemMin}
-                    onChange={(e) => setNewItemMin(e.target.value.replace(/\D/g, ""))}
+                    onChange={(e) =>
+                      setNewItemMin(e.target.value.replace(/[^0-9]/g, ""))
+                    }
                     className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                   />
+                  <p className="mt-0.5 text-[10px] text-gray-500">
+                    最小獲得數量
+                  </p>
                 </div>
                 <div className="flex-1">
                   <label className="text-xs text-gray-500">max</label>
@@ -798,10 +903,34 @@ export default function AdminPrizesClient() {
                     type="text"
                     inputMode="numeric"
                     value={newItemMax}
-                    onChange={(e) => setNewItemMax(e.target.value.replace(/\D/g, ""))}
+                    onChange={(e) =>
+                      setNewItemMax(e.target.value.replace(/[^0-9]/g, ""))
+                    }
                     className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                   />
+                  <p className="mt-0.5 text-[10px] text-gray-500">
+                    最大獲得數量（空白=固定值）
+                  </p>
                 </div>
+              </div>
+            )}
+            {(newItemType === "avatar_frame" ||
+              newItemType === "card_frame") && (
+              <div>
+                <label className="text-xs text-gray-500">
+                  特效代碼（effect_key）
+                </label>
+                <input
+                  type="text"
+                  value={newItemEffectKey}
+                  onChange={(e) => setNewItemEffectKey(e.target.value)}
+                  placeholder="如：star_frame、rainbow_frame"
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                />
+                <p className="mt-0.5 text-[10px] text-gray-500">
+                  此代碼需對應前端已實作的 CSS
+                  特效，未實作的代碼不會有視覺效果；可留空（留空=無特效，只顯示名稱）
+                </p>
               </div>
             )}
           </div>

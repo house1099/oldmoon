@@ -40,6 +40,7 @@ import {
 import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
 import { LevelBadge } from "@/components/ui/LevelBadge";
 import { cn } from "@/lib/utils";
+import { rewardEffectClassName } from "@/lib/utils/reward-effects";
 import { getRoleDisplay } from "@/lib/utils/role-display";
 import { instagramProfileUrlFromHandle } from "@/lib/utils/instagram";
 import { useSWRConfig } from "swr";
@@ -59,6 +60,8 @@ export type UserDetailModalProps = {
   user: UserRow & {
     equippedTitle?: string | null;
     equippedFrame?: string | null;
+    equippedAvatarFrameEffectKey?: string | null;
+    equippedCardFrameEffectKey?: string | null;
   };
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -169,7 +172,6 @@ export function UserDetailModal({
     : "";
 
   const equippedTitle = u.equippedTitle?.trim() || null;
-  const equippedFrame = u.equippedFrame?.trim() || null;
 
   const isCurrentUserMaster = myProfile?.role === "master";
 
@@ -372,6 +374,7 @@ export function UserDetailModal({
           className={cn(
             "flex max-h-[88vh] min-h-0 w-full max-w-sm flex-col gap-0 overflow-visible rounded-3xl border border-zinc-800/60 bg-zinc-950 p-0",
             stackAboveChatZ == null && "z-[810]",
+            rewardEffectClassName(u.equippedCardFrameEffectKey),
           )}
         >
           <DialogTitle className="sr-only">{u.nickname} 的冒險者資料</DialogTitle>
@@ -395,8 +398,7 @@ export function UserDetailModal({
                   nickname={u.nickname}
                   avatarClassName={cn(
                     "ring-2 ring-zinc-700/50",
-                    equippedFrame === "星辰之框" &&
-                      "ring-yellow-300 shadow-[0_0_12px_rgba(253,224,71,0.6)]",
+                    rewardEffectClassName(u.equippedAvatarFrameEffectKey),
                   )}
                 >
                   <span

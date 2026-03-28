@@ -192,17 +192,23 @@ export default function AdminSettingsClient({ isMaster }: { isMaster: boolean })
                     {normalizeBoolean(rawValue, field.fallback) ? "啟用" : "停用"}
                   </label>
                 ) : (
-                  <input
-                    type="number"
-                    value={rawValue}
-                    onChange={(e) =>
-                      setSettings((prev) => ({
-                        ...prev,
-                        [field.key]: e.target.value,
-                      }))
-                    }
-                    className="mt-2 w-full max-w-xs rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                  />
+                  <div className="mt-2 max-w-xs">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={rawValue}
+                      onChange={(e) =>
+                        setSettings((prev) => ({
+                          ...prev,
+                          [field.key]: e.target.value.replace(/[^0-9]/g, ""),
+                        }))
+                      }
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                    />
+                    <p className="mt-1 text-[10px] text-gray-500">
+                      請填 0 以上的整數（依業務合理範圍設定，例如字數上限 1–500）
+                    </p>
+                  </div>
                 )}
               </div>
             );
@@ -249,56 +255,83 @@ export default function AdminSettingsClient({ isMaster }: { isMaster: boolean })
                       <label className="block text-xs text-gray-600">
                         EXP
                         <input
-                          type="number"
-                          min={0}
+                          type="text"
+                          inputMode="numeric"
                           value={row.exp}
                           onChange={(e) =>
                             setStreakRows((prev) =>
                               prev.map((r) =>
                                 r.day === row.day
-                                  ? { ...r, exp: e.target.value }
+                                  ? {
+                                      ...r,
+                                      exp: e.target.value.replace(
+                                        /[^0-9]/g,
+                                        "",
+                                      ),
+                                    }
                                   : r,
                               ),
                             )
                           }
                           className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                         />
+                        <span className="mt-0.5 block text-[10px] text-gray-500">
+                          0 以上整數
+                        </span>
                       </label>
                       <label className="block text-xs text-gray-600">
                         探險幣
                         <input
-                          type="number"
-                          min={0}
+                          type="text"
+                          inputMode="numeric"
                           value={row.coins}
                           onChange={(e) =>
                             setStreakRows((prev) =>
                               prev.map((r) =>
                                 r.day === row.day
-                                  ? { ...r, coins: e.target.value }
+                                  ? {
+                                      ...r,
+                                      coins: e.target.value.replace(
+                                        /[^0-9]/g,
+                                        "",
+                                      ),
+                                    }
                                   : r,
                               ),
                             )
                           }
                           className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                         />
+                        <span className="mt-0.5 block text-[10px] text-gray-500">
+                          0 以上整數
+                        </span>
                       </label>
                       <label className="block text-xs text-gray-600">
                         幣最大值（可空＝固定）
                         <input
-                          type="number"
-                          min={0}
+                          type="text"
+                          inputMode="numeric"
                           value={row.coinsMax}
                           onChange={(e) =>
                             setStreakRows((prev) =>
                               prev.map((r) =>
                                 r.day === row.day
-                                  ? { ...r, coinsMax: e.target.value }
+                                  ? {
+                                      ...r,
+                                      coinsMax: e.target.value.replace(
+                                        /[^0-9]/g,
+                                        "",
+                                      ),
+                                    }
                                   : r,
                               ),
                             )
                           }
                           className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                         />
+                        <span className="mt-0.5 block text-[10px] text-gray-500">
+                          空白=固定幣數；有值則隨機介於幣與此上限
+                        </span>
                       </label>
                       <label className="block text-xs text-gray-600">
                         特殊獎勵說明
@@ -359,12 +392,13 @@ export default function AdminSettingsClient({ isMaster }: { isMaster: boolean })
                 <p className="text-sm text-gray-700">Lv.{level} EXP 門檻</p>
                 <div className="mt-2 flex items-center gap-2">
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     value={settings[key] ?? String((level - 1) * 100)}
                     onChange={(e) =>
                       setSettings((prev) => ({
                         ...prev,
-                        [key]: e.target.value,
+                        [key]: e.target.value.replace(/[^0-9]/g, ""),
                       }))
                     }
                     className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
@@ -378,6 +412,9 @@ export default function AdminSettingsClient({ isMaster }: { isMaster: boolean })
                     {savingKey === key ? "儲存中..." : "儲存"}
                   </button>
                 </div>
+                <p className="mt-1 text-[10px] text-gray-500">
+                  0 以上整數（累積 EXP 門檻）
+                </p>
               </div>
             );
           })}

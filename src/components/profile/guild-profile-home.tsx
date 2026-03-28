@@ -64,6 +64,7 @@ import {
 import { LEVEL_MIN_EXP_BY_LEVEL, getLevelTierByExp } from "@/lib/constants/levels";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { cn } from "@/lib/utils";
+import { rewardEffectClassName } from "@/lib/utils/reward-effects";
 import { getMoodCountdown, isMoodActive } from "@/lib/utils/mood";
 import { getActiveAnnouncementsAction } from "@/services/announcement.action";
 import { getHomeAdsAction } from "@/services/advertisement.action";
@@ -915,8 +916,12 @@ export function GuildProfileHome({
   const cardAds = homeAds.filter((ad) => ad.position === "card");
 
   const equippedHomeTitle = rewardsData?.titles.find((t) => t.is_equipped)?.label;
-  const equippedHomeFrame = rewardsData?.avatarFrames.find((f) => f.is_equipped)
-    ?.label;
+  const equippedHomeAvatarEffectKey = rewardsData?.avatarFrames.find(
+    (f) => f.is_equipped,
+  )?.effect_key;
+  const equippedHomeCardEffectKey = rewardsData?.cardFrames.find(
+    (f) => f.is_equipped,
+  )?.effect_key;
 
   const titleCapsuleText = (raw: string) => {
     const t = raw.trim();
@@ -1056,6 +1061,7 @@ export function GuildProfileHome({
         className={cn(
           "glass-panel relative p-6 sm:p-8",
           profile.role === "master" && "!overflow-visible",
+          rewardEffectClassName(equippedHomeCardEffectKey),
         )}
       >
         <div
@@ -1076,8 +1082,7 @@ export function GuildProfileHome({
           <div
             className={cn(
               "relative z-0 mx-auto rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
-              equippedHomeFrame === "星辰之框" &&
-                "ring-2 ring-yellow-300 shadow-[0_0_12px_rgba(253,224,71,0.6)]",
+              rewardEffectClassName(equippedHomeAvatarEffectKey),
               profile.role === "master" ? "overflow-visible" : "overflow-hidden",
               uploading || cropOpen
                 ? "cursor-not-allowed opacity-80"
@@ -1734,7 +1739,7 @@ export function GuildProfileHome({
 
         <div className="glass-panel mb-3 rounded-2xl p-4">
           <p className="mb-3 text-sm font-semibold text-zinc-300">
-            ⚔️ 七日報到進度
+            ⚔️ 七日連續簽到
             {currentStreak > 0 ? (
               <span className="ml-2 text-xs font-normal text-zinc-500">
                 連續 {currentStreak} 天
@@ -1760,7 +1765,6 @@ export function GuildProfileHome({
                   : `+${rw.coins}幣`;
 
               const isDay7Done = isDay7 && done;
-              const isDay7Pending = isDay7 && !done;
 
               return (
                 <div
@@ -1785,25 +1789,28 @@ export function GuildProfileHome({
                         "border-zinc-700/30 bg-zinc-800/40",
                     )}
                   >
-                    {isDay7Pending ? (
+                    {isDay7 ? (
                       <span
-                        className="absolute -right-1 -top-1 text-xs leading-none"
+                        className="absolute -right-1 -top-1 text-sm leading-none"
                         aria-hidden
                       >
-                        👑
+                        🎁
                       </span>
                     ) : null}
 
                     {isDay7Done ? (
                       <>
-                        <span className="text-[9px] text-amber-100">
+                        <span className="text-[9px] text-violet-200">
                           +{rw.exp}EXP
                         </span>
-                        <span className="text-base leading-none" aria-hidden>
+                        <span className="text-3xl leading-none" aria-hidden>
                           🎁
                         </span>
-                        <span className="text-[9px] text-amber-200">
+                        <span className="text-[9px] text-amber-300">
                           {coinsLine}
+                        </span>
+                        <span className="mt-auto text-[8px] text-amber-400">
+                          盲盒
                         </span>
                       </>
                     ) : done ? (
@@ -1819,18 +1826,39 @@ export function GuildProfileHome({
                         </span>
                       </>
                     ) : isTodayToSign ? (
+                      isDay7 ? (
+                        <>
+                          <span className="text-[9px] text-violet-200">
+                            +{rw.exp}EXP
+                          </span>
+                          <span className="text-[9px] text-amber-300">
+                            {coinsLine}
+                          </span>
+                          <span className="mt-auto text-[8px] text-amber-400">
+                            盲盒
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-[9px] font-medium text-violet-100">
+                            +{rw.exp}EXP
+                          </span>
+                          <span className="text-[9px] font-medium text-amber-200">
+                            {coinsLine}
+                          </span>
+                        </>
+                      )
+                    ) : isDay7 ? (
                       <>
-                        <span className="text-[9px] font-medium text-violet-100">
+                        <span className="text-[9px] text-zinc-600">
                           +{rw.exp}EXP
                         </span>
-                        <span className="text-[9px] font-medium text-amber-200">
+                        <span className="text-[9px] text-zinc-600">
                           {coinsLine}
                         </span>
-                        {isDay7 ? (
-                          <span className="text-[8px] text-amber-300">
-                            🎁盲盒
-                          </span>
-                        ) : null}
+                        <span className="mt-auto text-[8px] text-zinc-600">
+                          盲盒
+                        </span>
                       </>
                     ) : (
                       <>
@@ -1840,11 +1868,6 @@ export function GuildProfileHome({
                         <span className="text-[9px] text-zinc-600">
                           {coinsLine}
                         </span>
-                        {isDay7 ? (
-                          <span className="text-[8px] text-zinc-600">
-                            🎁盲盒
-                          </span>
-                        ) : null}
                       </>
                     )}
                   </div>

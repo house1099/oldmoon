@@ -5,6 +5,11 @@
 @tailwind utilities;
 
 @layer components {
+  /** 獎項 effect_key：與 prize_items.effect_key 對應（例 star_frame） */
+  .effect-star_frame {
+    @apply ring-2 ring-yellow-300 shadow-[0_0_12px_rgba(253,224,71,0.6)];
+  }
+
   /** 公會深色毛玻璃面板（登入／個人頁區塊等） */
   .glass-panel {
     @apply overflow-hidden rounded-3xl border border-white/10 bg-zinc-950/80 text-zinc-100 shadow-2xl backdrop-blur-xl;

@@ -1160,6 +1160,7 @@ export interface Database {
           max_value: number | null;
           weight: number;
           is_active: boolean;
+          effect_key: string | null;
           created_at: string;
         };
         Insert: {
@@ -1171,6 +1172,7 @@ export interface Database {
           max_value?: number | null;
           weight?: number;
           is_active?: boolean;
+          effect_key?: string | null;
           created_at?: string;
         };
         Update: {
@@ -1180,6 +1182,7 @@ export interface Database {
           max_value?: number | null;
           weight?: number;
           is_active?: boolean;
+          effect_key?: string | null;
         };
         Relationships: [
           {

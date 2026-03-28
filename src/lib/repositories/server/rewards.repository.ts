@@ -4,15 +4,35 @@ import type { Database, UserRewardRow } from "@/types/database.types";
 type UserRewardUpdate = Database["public"]["Tables"]["user_rewards"]["Update"];
 type BroadcastInsert = Database["public"]["Tables"]["broadcasts"]["Insert"];
 
-export async function findMyRewards(userId: string): Promise<UserRewardRow[]> {
+export type UserRewardWithEffect = UserRewardRow & {
+  effect_key: string | null;
+};
+
+type UserRewardJoined = UserRewardRow & {
+  prize_items: { effect_key: string | null } | null;
+};
+
+function flattenUserReward(row: UserRewardJoined): UserRewardWithEffect {
+  const { prize_items: pi, ...rest } = row;
+  return {
+    ...(rest as UserRewardRow),
+    effect_key: pi?.effect_key ?? null,
+  };
+}
+
+export async function findMyRewards(
+  userId: string,
+): Promise<UserRewardWithEffect[]> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("user_rewards")
-    .select("*")
+    .select(
+      `*, prize_items!user_rewards_item_ref_id_fkey ( effect_key )`,
+    )
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []) as UserRewardRow[];
+  return (data ?? []).map((r) => flattenUserReward(r as UserRewardJoined));
 }
 
 export async function findUserRewardById(
@@ -125,22 +145,43 @@ export async function findActiveBroadcasts(): Promise<ActiveBroadcastRow[]> {
 export async function findEquippedRewardLabels(userId: string): Promise<{
   equippedTitle: string | null;
   equippedFrame: string | null;
+  equippedAvatarFrameEffectKey: string | null;
+  equippedCardFrameEffectKey: string | null;
 }> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("user_rewards")
-    .select("reward_type, label")
+    .select(
+      `reward_type, label, prize_items!user_rewards_item_ref_id_fkey ( effect_key )`,
+    )
     .eq("user_id", userId)
     .eq("is_equipped", true)
-    .in("reward_type", ["title", "avatar_frame"]);
+    .in("reward_type", ["title", "avatar_frame", "card_frame"]);
   if (error) throw error;
   let equippedTitle: string | null = null;
   let equippedFrame: string | null = null;
+  let equippedAvatarFrameEffectKey: string | null = null;
+  let equippedCardFrameEffectKey: string | null = null;
   for (const row of data ?? []) {
     const rt = row.reward_type as string;
     const lb = (row.label as string)?.trim() || null;
+    const joined = row as {
+      prize_items?: { effect_key: string | null } | null;
+    };
+    const ek = joined.prize_items?.effect_key?.trim() || null;
     if (rt === "title" && lb) equippedTitle = lb;
-    if (rt === "avatar_frame" && lb) equippedFrame = lb;
+    if (rt === "avatar_frame" && lb) {
+      equippedFrame = lb;
+      equippedAvatarFrameEffectKey = ek;
+    }
+    if (rt === "card_frame" && lb) {
+      equippedCardFrameEffectKey = ek;
+    }
   }
-  return { equippedTitle, equippedFrame };
+  return {
+    equippedTitle,
+    equippedFrame,
+    equippedAvatarFrameEffectKey,
+    equippedCardFrameEffectKey,
+  };
 }

@@ -37,7 +37,8 @@ import {
   unequipRewardAction,
   type MyRewardsPayload,
 } from "@/services/rewards.action";
-import type { UserRewardRow } from "@/types/database.types";
+import type { UserRewardWithEffect } from "@/lib/repositories/server/rewards.repository";
+import { rewardEffectClassName } from "@/lib/utils/reward-effects";
 
 const TOTAL_INVENTORY_SLOTS = 48;
 
@@ -92,11 +93,11 @@ type RewardStack = {
   rewardType: string;
   label: string;
   count: number;
-  rows: UserRewardRow[];
+  rows: UserRewardWithEffect[];
 };
 
-function buildStacks(rows: UserRewardRow[]): RewardStack[] {
-  const map = new Map<string, UserRewardRow[]>();
+function buildStacks(rows: UserRewardWithEffect[]): RewardStack[] {
+  const map = new Map<string, UserRewardWithEffect[]>();
   for (const r of rows) {
     const k = `${r.reward_type}\0${r.label}`;
     const arr = map.get(k) ?? [];
@@ -411,6 +412,11 @@ function FloatingToolbarInner({
                     );
                   }
                   const vis = rewardAccent(stack.rewardType);
+                  const fxKey =
+                    stack.rewardType === "avatar_frame" ||
+                    stack.rewardType === "card_frame"
+                      ? stack.rows[0]?.effect_key
+                      : null;
                   return (
                     <button
                       key={stack.key}
@@ -420,6 +426,7 @@ function FloatingToolbarInner({
                         "relative flex h-16 flex-col items-center justify-center gap-0.5 rounded-xl border px-0.5 py-1 text-center transition-colors hover:brightness-110",
                         vis.border,
                         vis.bg,
+                        rewardEffectClassName(fxKey ?? undefined),
                       )}
                     >
                       <span className="text-base leading-none" aria-hidden>

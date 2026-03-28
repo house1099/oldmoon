@@ -9,6 +9,8 @@ import { findEquippedRewardLabels } from "@/lib/repositories/server/rewards.repo
 export type MemberProfileView = UserRow & {
   equippedTitle: string | null;
   equippedFrame: string | null;
+  equippedAvatarFrameEffectKey: string | null;
+  equippedCardFrameEffectKey: string | null;
 };
 
 export async function getMyProfileAction() {
@@ -36,9 +38,19 @@ export async function getMemberProfileByIdAction(
   try {
     const profile = await findProfileById(targetUserId);
     if (!profile) return null;
-    const { equippedTitle, equippedFrame } =
-      await findEquippedRewardLabels(targetUserId);
-    return { ...profile, equippedTitle, equippedFrame };
+    const {
+      equippedTitle,
+      equippedFrame,
+      equippedAvatarFrameEffectKey,
+      equippedCardFrameEffectKey,
+    } = await findEquippedRewardLabels(targetUserId);
+    return {
+      ...profile,
+      equippedTitle,
+      equippedFrame,
+      equippedAvatarFrameEffectKey,
+      equippedCardFrameEffectKey,
+    };
   } catch (e) {
     console.error("getMemberProfileByIdAction:", e);
     return null;
