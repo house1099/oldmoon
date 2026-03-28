@@ -89,6 +89,7 @@ export default function CoinsAdminClient() {
   const [coinType, setCoinType] = useState<"premium" | "free">("free");
   const [adjustAmount, setAdjustAmount] = useState("");
   const [adjustNote, setAdjustNote] = useState("");
+  const [adjustPin, setAdjustPin] = useState("");
   const [adjustSaving, setAdjustSaving] = useState(false);
 
   const [ledgerUserSearch, setLedgerUserSearch] = useState("");
@@ -186,12 +187,18 @@ export default function CoinsAdminClient() {
       toast.error("請填寫原因說明");
       return;
     }
+    const pin = adjustPin.trim();
+    if (!/^\d{4}$/.test(pin)) {
+      toast.error("請輸入四位數後台金幣密碼");
+      return;
+    }
     setAdjustSaving(true);
     const res = await adjustCoinsAction({
       userId: selectedUser.id,
       coinType,
       amount,
       note,
+      pin,
     });
     setAdjustSaving(false);
     if (!res.ok) {
@@ -202,6 +209,7 @@ export default function CoinsAdminClient() {
     setSelectedUser(null);
     setAdjustAmount("");
     setAdjustNote("");
+    setAdjustPin("");
     void loadStats();
     void loadUsers();
     if (tab === "ledger") void loadLedger();
@@ -328,6 +336,7 @@ export default function CoinsAdminClient() {
                             setSelectedUser(u);
                             setAdjustAmount("");
                             setAdjustNote("");
+                            setAdjustPin("");
                             setCoinType("free");
                           }}
                         >
@@ -393,7 +402,7 @@ export default function CoinsAdminClient() {
                   </div>
                 </div>
                 <p className="mt-2 text-xs text-gray-500">
-                  正數為增加、負數為扣除；扣除時若餘額不足將無法完成。
+                  正數為增加、負數為扣除；扣除時若餘額不足將無法完成；送出前須驗證四位數後台金幣密碼。
                 </p>
                 <label className="mt-3 block text-sm text-gray-700">
                   幣種
@@ -433,6 +442,20 @@ export default function CoinsAdminClient() {
                     type="text"
                     value={adjustNote}
                     onChange={(e) => setAdjustNote(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
+                  />
+                </label>
+                <label className="mt-2 block text-sm text-gray-700">
+                  四位數後台金幣密碼
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={4}
+                    value={adjustPin}
+                    onChange={(e) =>
+                      setAdjustPin(e.target.value.replace(/\D/g, "").slice(0, 4))
+                    }
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
                   />
                 </label>

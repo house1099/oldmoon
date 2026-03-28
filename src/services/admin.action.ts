@@ -1500,6 +1500,7 @@ export async function adminAdjustCoinsAction(params: {
   coinType: "premium" | "free";
   amount: number;
   note: string;
+  pin: string;
 }): Promise<ActionResult> {
   try {
     const { user, profile: operator } = await requireRole(["master"]);
@@ -1509,6 +1510,15 @@ export async function adminAdjustCoinsAction(params: {
 
     if (!Number.isFinite(params.amount) || params.amount === 0) {
       return { ok: false, error: "調整數量須為非 0 整數" };
+    }
+
+    const pin = params.pin?.trim();
+    if (!/^\d{4}$/.test(pin)) {
+      return { ok: false, error: "請輸入四位數後台金幣密碼" };
+    }
+    const stored = await findSystemSettingByKey("coin_admin_pin");
+    if (!stored || pin !== stored) {
+      return { ok: false, error: "密碼錯誤" };
     }
 
     const result = await creditCoins({

@@ -817,3 +817,20 @@ chore: establish HANDOFF dual-file architecture for context efficiency
 Git
 
 358c6c7 fix: coins admin + rename card + broadcast consumed + marquee swap
+
+---
+
+[2026-03-29] — 後台金幣調整恢復 PIN
+
+完成項目
+
+- **`adminAdjustCoinsAction`**：參數 **`pin`**；驗證四位數並比對 **`system_settings`** 鍵 **`coin_admin_pin`**。
+- **`coins-admin-client.tsx`**：調整 Dialog **`type="password"`** 四位數輸入（數字過濾）、送出前與成功後清空。
+
+資料庫異動
+
+- 無。
+
+Git
+
+（見 `git log -1 --oneline`。）
