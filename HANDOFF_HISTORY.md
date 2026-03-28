@@ -833,4 +833,4 @@ Git
 
 Git
 
-（見 `git log -1 --oneline`。）
+130816e fix(admin): restore coin adjust PIN (coin_admin_pin)
