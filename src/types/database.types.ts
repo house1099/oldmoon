@@ -2,7 +2,8 @@
  * 與 Supabase `public` schema 對齊的型別（手動維護，請在雲端 Schema 變更後同步更新）。
  * 表：users, exp_logs, likes, alliances（雙人血盟）, conversations, chat_messages, blocks, reports, messages, notifications, ig_change_requests,
  *     admin_actions, moderator_permissions, system_settings, advertisements, ad_clicks, invitation_codes, invitation_code_uses, announcements,
- *     tavern_messages, tavern_bans, login_streaks, streak_reward_settings, prize_pools, prize_items, prize_logs, user_rewards, broadcasts
+ *     tavern_messages, tavern_bans, login_streaks, streak_reward_settings, prize_pools, prize_items, prize_logs, user_rewards, broadcasts,
+ *     shop_items, shop_orders, shop_daily_limits
  */
 
 export type Json =
@@ -1321,6 +1322,153 @@ export interface Database {
           },
         ];
       };
+      shop_items: {
+        Row: {
+          id: string;
+          sku: string;
+          name: string;
+          description: string | null;
+          item_type: string;
+          effect_key: string | null;
+          currency_type: string;
+          price: number;
+          original_price: number | null;
+          stock: number | null;
+          daily_limit: number | null;
+          sale_start_at: string | null;
+          sale_end_at: string | null;
+          is_active: boolean;
+          sort_order: number;
+          metadata: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          sku: string;
+          name: string;
+          description?: string | null;
+          item_type: string;
+          effect_key?: string | null;
+          currency_type: string;
+          price?: number;
+          original_price?: number | null;
+          stock?: number | null;
+          daily_limit?: number | null;
+          sale_start_at?: string | null;
+          sale_end_at?: string | null;
+          is_active?: boolean;
+          sort_order?: number;
+          metadata?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          sku?: string;
+          name?: string;
+          description?: string | null;
+          item_type?: string;
+          effect_key?: string | null;
+          currency_type?: string;
+          price?: number;
+          original_price?: number | null;
+          stock?: number | null;
+          daily_limit?: number | null;
+          sale_start_at?: string | null;
+          sale_end_at?: string | null;
+          is_active?: boolean;
+          sort_order?: number;
+          metadata?: Json | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      shop_orders: {
+        Row: {
+          id: string;
+          user_id: string;
+          item_id: string;
+          sku: string;
+          quantity: number;
+          unit_price: number;
+          currency_type: string;
+          total_price: number;
+          status: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          item_id: string;
+          sku: string;
+          quantity?: number;
+          unit_price: number;
+          currency_type: string;
+          total_price: number;
+          status?: string;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          item_id?: string;
+          sku?: string;
+          quantity?: number;
+          unit_price?: number;
+          currency_type?: string;
+          total_price?: number;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "shop_orders_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "shop_orders_item_id_fkey";
+            columns: ["item_id"];
+            referencedRelation: "shop_items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      shop_daily_limits: {
+        Row: {
+          id: string;
+          user_id: string;
+          item_id: string;
+          date_key: string;
+          quantity: number;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          item_id: string;
+          date_key: string;
+          quantity?: number;
+        };
+        Update: {
+          user_id?: string;
+          item_id?: string;
+          date_key?: string;
+          quantity?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "shop_daily_limits_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "shop_daily_limits_item_id_fkey";
+            columns: ["item_id"];
+            referencedRelation: "shop_items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       topup_orders: {
         Row: {
           id: string;
@@ -1415,6 +1563,10 @@ export type BroadcastRow = PublicTables["broadcasts"]["Row"];
 
 export type TavernMessageRow = PublicTables["tavern_messages"]["Row"];
 export type TavernBanRow = PublicTables["tavern_bans"]["Row"];
+
+export type ShopItemRow = PublicTables["shop_items"]["Row"];
+export type ShopOrderRow = PublicTables["shop_orders"]["Row"];
+export type ShopDailyLimitRow = PublicTables["shop_daily_limits"]["Row"];
 
 export type TavernMessageDto = TavernMessageRow & {
   user: {

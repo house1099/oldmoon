@@ -94,6 +94,7 @@ import type {
   AdminActionRow,
   PrizePoolRow,
   PrizeItemRow,
+  Json,
 } from "@/types/database.types";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
 import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
@@ -2044,6 +2045,172 @@ export async function updateStreakRewardAction(
     });
     revalidateTag("streak_rewards");
     revalidatePath("/admin/settings");
+    return { ok: true, data: { success: true } };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+// ───────────── 商城管理（master only） ─────────────
+
+import {
+  findAllShopItems,
+  findShopItemBySku,
+  insertShopItem,
+  updateShopItem as repoUpdateShopItem,
+  deleteShopItem as repoDeleteShopItem,
+  hasShopOrders,
+  type ShopItemRow,
+} from "@/lib/repositories/server/shop.repository";
+
+export async function getShopItemsAdminAction(): Promise<
+  ActionResult<ShopItemRow[]>
+> {
+  try {
+    await requireRole(["master"]);
+    const items = await findAllShopItems();
+    return { ok: true, data: items };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function createShopItemAction(data: {
+  sku: string;
+  name: string;
+  description?: string | null;
+  item_type: string;
+  effect_key?: string | null;
+  currency_type: string;
+  price: number;
+  original_price?: number | null;
+  stock?: number | null;
+  daily_limit?: number | null;
+  sale_start_at?: string | null;
+  sale_end_at?: string | null;
+  is_active: boolean;
+  sort_order: number;
+  metadata?: Record<string, unknown> | null;
+}): Promise<ActionResult<ShopItemRow>> {
+  try {
+    await requireRole(["master"]);
+    if (!data.sku || !/^[A-Z0-9_]+$/.test(data.sku)) {
+      return { ok: false, error: "SKU 必須為英文大寫、數字、底線" };
+    }
+    if (data.price < 0) {
+      return { ok: false, error: "售價不可為負數" };
+    }
+    if (data.daily_limit != null && data.daily_limit < 1) {
+      return { ok: false, error: "每日限購須 ≥ 1" };
+    }
+    const existing = await findShopItemBySku(data.sku);
+    if (existing) {
+      return { ok: false, error: "SKU 已存在" };
+    }
+    const item = await insertShopItem({
+      sku: data.sku,
+      name: data.name,
+      description: data.description ?? null,
+      item_type: data.item_type,
+      effect_key: data.effect_key ?? null,
+      currency_type: data.currency_type,
+      price: data.price,
+      original_price: data.original_price ?? null,
+      stock: data.stock ?? null,
+      daily_limit: data.daily_limit ?? null,
+      sale_start_at: data.sale_start_at ?? null,
+      sale_end_at: data.sale_end_at ?? null,
+      is_active: data.is_active,
+      sort_order: data.sort_order,
+      metadata: (data.metadata as Json) ?? null,
+    });
+    revalidateTag("shop_items");
+    return { ok: true, data: item };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function updateShopItemAction(
+  id: string,
+  data: {
+    sku?: string;
+    name?: string;
+    description?: string | null;
+    item_type?: string;
+    effect_key?: string | null;
+    currency_type?: string;
+    price?: number;
+    original_price?: number | null;
+    stock?: number | null;
+    daily_limit?: number | null;
+    sale_start_at?: string | null;
+    sale_end_at?: string | null;
+    is_active?: boolean;
+    sort_order?: number;
+    metadata?: Record<string, unknown> | null;
+  },
+): Promise<ActionResult<ShopItemRow>> {
+  try {
+    await requireRole(["master"]);
+    if (data.sku != null && !/^[A-Z0-9_]+$/.test(data.sku)) {
+      return { ok: false, error: "SKU 必須為英文大寫、數字、底線" };
+    }
+    if (data.price != null && data.price < 0) {
+      return { ok: false, error: "售價不可為負數" };
+    }
+    if (data.daily_limit != null && data.daily_limit < 1) {
+      return { ok: false, error: "每日限購須 ≥ 1" };
+    }
+    if (data.sku != null) {
+      const existing = await findShopItemBySku(data.sku);
+      if (existing && existing.id !== id) {
+        return { ok: false, error: "SKU 已被其他商品使用" };
+      }
+    }
+    const updatePayload: Record<string, unknown> = { ...data };
+    if (data.metadata !== undefined) {
+      updatePayload.metadata = data.metadata as Json ?? null;
+    }
+    const item = await repoUpdateShopItem(
+      id,
+      updatePayload as Parameters<typeof repoUpdateShopItem>[1],
+    );
+    revalidateTag("shop_items");
+    return { ok: true, data: item };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function toggleShopItemAction(
+  id: string,
+  is_active: boolean,
+): Promise<ActionResult<{ success: boolean }>> {
+  try {
+    await requireRole(["master"]);
+    await repoUpdateShopItem(id, { is_active });
+    revalidateTag("shop_items");
+    return { ok: true, data: { success: true } };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function deleteShopItemAction(
+  id: string,
+): Promise<ActionResult<{ success: boolean }>> {
+  try {
+    await requireRole(["master"]);
+    const hasOrders = await hasShopOrders(id);
+    if (hasOrders) {
+      return {
+        ok: false,
+        error: "此商品已有購買紀錄，只能停用不可刪除",
+      };
+    }
+    await repoDeleteShopItem(id);
+    revalidateTag("shop_items");
     return { ok: true, data: { success: true } };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };

@@ -26,6 +26,21 @@
 - [x] **Phase 2.1（核心已交付）**：探索 **Tab「興趣村莊」** 同縣市＋**性向雙向篩選**＋**`master`／`moderator` 置頂**→**興趣分數**→**等級**排序、列表卡僅興趣（最多 3 +N）；**Tab「技能市集」** 全台＋**Perfect Match（命定師徒）**→**互補／同好分數**→**等級**、**`getMarketUsersAction`** 搜尋；入口 **`/explore`**（**Server** 預載村莊；**`ExploreClient`** 以 **`useSWR`** 綁村莊／市集 **Server Action**；**tab 以 `hidden` 切換不重打列表**）；**`village.service`** **`unstable_cache` 30s**、**`market.service`** 基礎列表 **60s**、**`getCachedMySkills`（60s，`profileCacheTag`）** 避免每次搜尋重查自己技能、**關鍵字篩選在列表快取回傳後**；舊 **`/village`**／**`/market`** → **`redirect('/explore')`**；Layer 2 **`findVillageUsers`**／**`findMarketUsers`**；Layer 4 **`matching.ts`**。可持續打磨 UX／RLS。
 - [ ] **Phase 2.2（進行中）**：**Likes** 已接線；**雙人血盟**（**`public.alliances`**：`user_a`／`user_b`／`initiated_by`）UI 與 Layer 2／3 已接線；詳情 Modal 血盟四態＋IG 解鎖；**`/guild`** 血盟列表與 tab 徽章；**RLS** 可後補。
 
+### 商城系統 Wave 1 — 核心架構（2026-03-28）
+
+1. **🗄️ 三張表**：**`shop_items`**（商品主表：SKU 唯一代號、item_type、currency_type `free_coins`/`premium_coins`、price、限時特賣窗口、每日限購、metadata jsonb）、**`shop_orders`**（購買紀錄）、**`shop_daily_limits`**（每日限購追蹤，UNIQUE `user_id, item_id, date_key`）。種子商品 6 筆。
+2. **商城分兩軌**：**free_coins**（探險幣）／**premium_coins**（純金），前台 **`/shop`** 同頁 Tab（Pill 膠囊）切換，商品列表 `grid-cols-2`；商品卡含類型 emoji、特賣倒數、劃線原價、每日限購提示、餘額不足按鈕 disabled。
+3. **`purchaseItemAction`**（Layer 3 `shop.action.ts`）完整購買流程：`auth.getUser()` → 商品存在＋上架＋未過期 → 每日限購 → 餘額檢查 → 扣款（`creditCoins`）→ 發放道具（`dispatchItemToUser`：依 `item_type` 分派至 `insertUserReward`／`updateProfile` 背包擴充／`drawFromPool` 盲盒／`insertExpLog` EXP加成／`creditCoins` 幣包）→ 寫 `shop_orders` → 更新每日限購 → `revalidateTag('shop_items')` → 信件通知。**扣款與發放在同一 try/catch 內**。
+4. **後台 `/admin/shop`**（**master only**）：商品 CRUD 表格（桌面 table＋手機 card），新增／編輯 Dialog（SKU 正則過濾、售價與排序 `type="text"` 正則數字輸入、metadata JSON textarea、item_type 下拉中文對照、幣種下拉、effect_key 僅裝備類顯示、datetime-local 特賣時段、Switch 上架）。刪除前檢查 `shop_orders`，有紀錄只能停用。
+5. **所有商品有唯一 SKU 代號**（`UNIQUE` 約束，後台建立時以 `[A-Z0-9_]` 正則驗證）。
+6. **改名卡功能接線**：購買 `rename_card` 商品後寫入 `user_rewards`（`reward_type: 'rename_card'`）；**帳號設定頁**（`guild-profile-home.tsx`）偵測有可用改名卡時顯示「✏️ 使用改名卡」按鈕，點擊開 Dialog 輸入新暱稱（`adventurerNicknameSchema` 驗證），確認後 `consumeRenameCardAction`（`rewards.action.ts`）消耗改名卡並更新 `users.nickname`。
+7. **釣魚系統預留**：`fishing_bait`／`fishing_rod` 道具類型已建立於 `shop_items.item_type`，購買後存入 `user_rewards`，前端暫無使用邏輯。
+8. **商城商品特殊規則**：限時特賣（`sale_start_at`/`sale_end_at`，前台倒數計時顯示）、每日限購（`daily_limit`，以 `shop_daily_limits` + `taipeiCalendarDateKey` 追蹤）、庫存（`stock`，目前保留未強制檢查）。
+9. **Sidebar**：`admin-shell.tsx` **🛍️ 商城管理** 位於獎池管理之後（`show: isMaster`）。**Middleware** `/admin/shop` 已設 master only。
+10. **Layer 2**：`shop.repository.ts`（`findActiveShopItems`、`findShopItemById`、`findShopItemBySku`、`findAllShopItems`、`insertShopItem`、`updateShopItem`、`deleteShopItem`、`hasShopOrders`、`insertShopOrder`、`getDailyPurchaseCount`、`upsertDailyLimit`、`findMyOrders`）。
+11. **`database.types.ts`**：已補 `shop_items`、`shop_orders`、`shop_daily_limits` Row/Insert/Update 型別。
+12. **前台 `/shop`**：保留原有錢包（探險幣兌換純金、金幣紀錄）功能，上方新增商城 Tab 切換與商品 grid。
+
 ### Wave 3 — 動態七日獎勵、浮動工具列、裝備背包與系統資訊（2026-03-28）
 
 1. **`streak_reward_settings` 表**：七日簽到 **EXP／幣／幣上限／特殊獎勵** 由 DB 設定；**`users.inventory_slots`**（預設 **16**，背包總格 **48**，其餘鎖定）。雲端已用 Supabase MCP 建表／補欄；**`database.types.ts`** 已對齊。
@@ -275,7 +290,9 @@
 | 私訊／封鎖／檢舉（Layer 2） | **`src/lib/repositories/server/chat.repository.ts`**（**`conversations`**、**`chat_messages`**、**`blocks`**、**`reports`**；見 🗄️ 與 **`database.types.ts`**） |
 | 私訊／封鎖／檢舉（Layer 3） | **`chat.action.ts`** — 上列＋**`getUnreadChatConversationsCountAction`**、**`ConversationListItemDto`**（**`hasUnreadFromPartner`**）；**新訊息不再 `insertNotification`**（僅導航／聊天列表提示） |
 | 通知（Layer 3） | **`src/services/notification.action.ts`** — **`getMyNotificationsAction`**（**≤50** 筆、發送者 **`in` 批量查**；**無** **`unstable_cache`**）、**`insertMailboxNotificationAction`／`notifyUserMailboxSilent`**、**`markNotificationReadAction`**、**`markAllNotificationsReadAction`**、**`clearAllNotificationsAction`**、**`getUnreadNotificationCountAction`** |
-| 月老／商店預留 | `src/app/(app)/matchmaking/page.tsx`、`src/app/(app)/shop/page.tsx`（**即將開放**） |
+| 月老預留 | `src/app/(app)/matchmaking/page.tsx` |
+| 商城 | **`src/app/(app)/shop/page.tsx`**（前台完整商城：Tab 切換探險幣／純金、商品 grid、購買 AlertDialog、錢包兌換＋紀錄）；**`src/services/shop.action.ts`**（`getShopItemsAction`、`purchaseItemAction`、`getMyOrdersAction`）；**`src/lib/repositories/server/shop.repository.ts`**（Layer 2 CRUD）；後台 **`/admin/shop`**（`shop-admin-client.tsx`） |
+| 改名卡 | **`consumeRenameCardAction`**（**`rewards.action.ts`**）：驗證暱稱 + `updateProfile` + 標記 `used_at` |
 | 舊路由轉址 | **`/village`**、**`/market`** → **`/explore`**；**`/alliances`**、**`/inbox`** → **`/guild`** |
 | 使用者詳情 Modal | **`UserDetailModal.tsx`**：**永遠顯示完整自白／興趣／技能**（可捲動區）；**IG** 僅在 **`instagram_handle` 有值** 且（**`ig_public === true`** 或 **血盟 `accepted`**）時顯示；**「開啟」** 外連（**`instagram.ts`** strip **`@`**）；頂部 **今日心情**（**`mood` + `mood_at` 24h 內**）、**`activity_status`** 角標；關閉 **`ChatModal`** 時 **`mutate`** **`conversations`／`unreadChatConversations`**；**master** 信譽條（**<30** **⚠️**）＋**`LeaderToolsSheet`**；自訂關閉鈕（**`showCloseButton={false}`**）；層級 **`z-[800]`／`z-[810]`**；從 **`ChatModal`** 點對方訊息頭像可再開詳情（**`dynamic` 載入**避免與 **`ChatModal`** 循環依賴） |
 | 領袖快捷面板 | **`src/components/modals/LeaderToolsSheet.tsx`**（僅 **master** 可見；**`createPortal` → `body`**；右側滑出 **`w-80`**，**`z-[940]`／`z-[950]`**） |

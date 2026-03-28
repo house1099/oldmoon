@@ -151,6 +151,45 @@ export async function useBroadcastAction(
   return { ok: true };
 }
 
+export async function consumeRenameCardAction(
+  rewardId: string,
+  newNickname: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { adventurerNicknameSchema } = await import(
+    "@/lib/validation/nickname"
+  );
+  const { updateProfile } = await import(
+    "@/lib/repositories/server/user.repository"
+  );
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "未登入" };
+
+  const row = await findUserRewardById(rewardId);
+  if (!row || row.user_id !== user.id) {
+    return { ok: false, error: "找不到改名卡" };
+  }
+  if (row.reward_type !== "rename_card") {
+    return { ok: false, error: "此道具不是改名卡" };
+  }
+  if (row.used_at != null) {
+    return { ok: false, error: "此改名卡已使用" };
+  }
+
+  const parsed = adventurerNicknameSchema.safeParse(newNickname);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "暱稱格式錯誤" };
+  }
+
+  await updateProfile(user.id, { nickname: parsed.data });
+  await markBroadcastUsed(rewardId);
+  revalidateTag(profileCacheTag(user.id));
+  return { ok: true };
+}
+
 export async function getActiveBroadcastsAction(): Promise<ActiveBroadcastDto[]> {
   const cached = unstable_cache(
     async () => {

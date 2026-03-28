@@ -74,6 +74,7 @@ import { useMyProfile } from "@/hooks/useMyProfile";
 import {
   getMyRewardsAction,
   useBroadcastAction as submitBroadcastAction,
+  consumeRenameCardAction,
   type ActiveBroadcastDto,
   type MyRewardsPayload,
 } from "@/services/rewards.action";
@@ -463,6 +464,9 @@ export function GuildProfileHome({
   const [broadcastDialogOpen, setBroadcastDialogOpen] = useState(false);
   const [broadcastDraft, setBroadcastDraft] = useState("");
   const [broadcastSending, setBroadcastSending] = useState(false);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renameSaving, setRenameSaving] = useState(false);
 
   const streakUi = useMemo(() => {
     const s = currentStreak;
@@ -922,6 +926,10 @@ export function GuildProfileHome({
   const equippedHomeCardEffectKey = rewardsData?.cardFrames.find(
     (f) => f.is_equipped,
   )?.effect_key;
+
+  const availableRenameCard = rewardsData?.allRewards.find(
+    (r) => r.reward_type === "rename_card" && r.used_at == null,
+  );
 
   const titleCapsuleText = (raw: string) => {
     const t = raw.trim();
@@ -2087,6 +2095,25 @@ export function GuildProfileHome({
             </div>
           </div>
 
+          {availableRenameCard && (
+            <div className="border-t border-white/10 px-4 py-3">
+              <p className="text-sm font-medium text-white mb-2">✏️ 改名卡</p>
+              <p className="text-xs text-zinc-500 mb-2">
+                你擁有可用的改名卡，點擊按鈕更改暱稱。
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setRenameDraft("");
+                  setRenameDialogOpen(true);
+                }}
+                className="w-full rounded-full bg-violet-600/80 py-2 text-sm text-white transition hover:bg-violet-500/80 active:scale-95"
+              >
+                ✏️ 使用改名卡
+              </button>
+            </div>
+          )}
+
           <DialogFooter className="flex justify-center border-t border-white/10 bg-black/20 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
             <Button
               type="button"
@@ -2097,6 +2124,66 @@ export function GuildProfileHome({
               關閉
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Card Dialog */}
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent className="max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-2xl border border-violet-500/30 bg-zinc-950/90 p-0 text-center shadow-[0_0_28px_rgba(139,92,246,0.2)] backdrop-blur-xl sm:max-w-md">
+          <DialogHeader className="border-b border-white/10 px-4 pb-3 pt-4">
+            <DialogTitle className="text-zinc-100">✏️ 使用改名卡</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              輸入新暱稱，確認後將消耗一張改名卡。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-4 py-4 space-y-3">
+            <input
+              type="text"
+              value={renameDraft}
+              onChange={(e) => setRenameDraft(e.target.value)}
+              placeholder="新暱稱（1~32 字）"
+              maxLength={32}
+              className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-base text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
+            />
+            <p className="text-xs text-zinc-500">{renameDraft.length} / 32</p>
+          </div>
+          <div className="flex gap-2 border-t border-white/10 px-4 py-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1 border-white/15 text-zinc-100"
+              onClick={() => setRenameDialogOpen(false)}
+              disabled={renameSaving}
+            >
+              取消
+            </Button>
+            <LoadingButton
+              className="flex-1 bg-violet-600 text-white hover:bg-violet-500"
+              loading={renameSaving}
+              loadingText="處理中…"
+              disabled={!renameDraft.trim()}
+              onClick={async () => {
+                if (!availableRenameCard) return;
+                setRenameSaving(true);
+                const res = await consumeRenameCardAction(
+                  availableRenameCard.id,
+                  renameDraft.trim(),
+                );
+                setRenameSaving(false);
+                if (!res.ok) {
+                  toast.error(res.error);
+                  return;
+                }
+                toast.success("暱稱已更新！");
+                setRenameDialogOpen(false);
+                setEditOpen(false);
+                mutateProfile();
+                loadRewards();
+              }}
+            >
+              確認改名
+            </LoadingButton>
+          </div>
         </DialogContent>
       </Dialog>
 
