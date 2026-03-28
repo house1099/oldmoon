@@ -150,6 +150,9 @@ export async function middleware(request: NextRequest) {
     if (role !== "master" && role !== "moderator") {
       return NextResponse.redirect(homeUrl);
     }
+    if (pathname.startsWith("/admin/shop") && role !== "master") {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    }
     if (pathname.startsWith("/admin/coins") && role !== "master") {
       return NextResponse.redirect(new URL("/admin", request.url));
     }
@@ -159,11 +162,19 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith("/admin/prizes") && role !== "master") {
       return NextResponse.redirect(new URL("/admin", request.url));
     }
-    const moderatorAllowed = ["/admin", "/admin/users", "/admin/invitations", "/admin/exp", "/admin/publish", "/admin/reports"];
-    if (
-      role === "moderator" &&
-      !moderatorAllowed.includes(pathname)
-    ) {
+    const moderatorAllowedPrefixes = [
+      "/admin/users",
+      "/admin/invitations",
+      "/admin/exp",
+      "/admin/publish",
+      "/admin/reports",
+    ];
+    const moderatorCanAccess =
+      pathname === "/admin" ||
+      moderatorAllowedPrefixes.some(
+        (p) => pathname === p || pathname.startsWith(`${p}/`),
+      );
+    if (role === "moderator" && !moderatorCanAccess) {
       return NextResponse.redirect(new URL("/admin", request.url));
     }
     return response;

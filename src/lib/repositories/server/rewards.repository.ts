@@ -8,16 +8,11 @@ export type UserRewardWithEffect = UserRewardRow & {
   effect_key: string | null;
 };
 
-type UserRewardJoined = UserRewardRow & {
-  prize_items: { effect_key: string | null } | null;
-};
+/** 相容舊庫曾用 reward_ref_id；effect_key 僅在 prize_items */
+type RawUserRewardRow = UserRewardRow & { reward_ref_id?: string | null };
 
-function flattenUserReward(row: UserRewardJoined): UserRewardWithEffect {
-  const { prize_items: pi, ...rest } = row;
-  return {
-    ...(rest as UserRewardRow),
-    effect_key: pi?.effect_key ?? null,
-  };
+function prizeItemRefId(row: RawUserRewardRow): string | null {
+  return row.item_ref_id ?? row.reward_ref_id ?? null;
 }
 
 export async function findMyRewards(
@@ -26,13 +21,41 @@ export async function findMyRewards(
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("user_rewards")
-    .select(
-      `*, prize_items!user_rewards_item_ref_id_fkey ( effect_key )`,
-    )
+    .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []).map((r) => flattenUserReward(r as UserRewardJoined));
+  const rows = (data ?? []) as RawUserRewardRow[];
+
+  const itemIds = Array.from(
+    new Set(rows.map(prizeItemRefId).filter((id): id is string => Boolean(id))),
+  );
+  const effectByItemId = new Map<string, string | null>();
+  if (itemIds.length > 0) {
+    const { data: items, error: itemErr } = await admin
+      .from("prize_items")
+      .select("id, effect_key")
+      .in("id", itemIds);
+    if (itemErr) throw itemErr;
+    for (const it of items ?? []) {
+      effectByItemId.set(it.id as string, (it.effect_key as string | null) ?? null);
+    }
+  }
+
+  return rows.map((row) => {
+    const refId = prizeItemRefId(row);
+    return {
+      id: row.id,
+      user_id: row.user_id,
+      reward_type: row.reward_type,
+      item_ref_id: refId,
+      label: row.label,
+      is_equipped: row.is_equipped,
+      used_at: row.used_at,
+      created_at: row.created_at,
+      effect_key: refId ? (effectByItemId.get(refId) ?? null) : null,
+    };
+  });
 }
 
 export async function findUserRewardById(
@@ -151,24 +174,41 @@ export async function findEquippedRewardLabels(userId: string): Promise<{
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("user_rewards")
-    .select(
-      `reward_type, label, prize_items!user_rewards_item_ref_id_fkey ( effect_key )`,
-    )
+    .select("*")
     .eq("user_id", userId)
     .eq("is_equipped", true)
     .in("reward_type", ["title", "avatar_frame", "card_frame"]);
   if (error) throw error;
+  const list = (data ?? []) as RawUserRewardRow[];
+
+  const itemIds = Array.from(
+    new Set(
+      list.map(prizeItemRefId).filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const effectByItemId = new Map<string, string | null>();
+  if (itemIds.length > 0) {
+    const { data: items, error: itemErr } = await admin
+      .from("prize_items")
+      .select("id, effect_key")
+      .in("id", itemIds);
+    if (itemErr) throw itemErr;
+    for (const it of items ?? []) {
+      effectByItemId.set(it.id as string, (it.effect_key as string | null) ?? null);
+    }
+  }
+
   let equippedTitle: string | null = null;
   let equippedFrame: string | null = null;
   let equippedAvatarFrameEffectKey: string | null = null;
   let equippedCardFrameEffectKey: string | null = null;
-  for (const row of data ?? []) {
-    const rt = row.reward_type as string;
-    const lb = (row.label as string)?.trim() || null;
-    const joined = row as {
-      prize_items?: { effect_key: string | null } | null;
-    };
-    const ek = joined.prize_items?.effect_key?.trim() || null;
+  for (const row of list) {
+    const rt = row.reward_type;
+    const lb = row.label?.trim() || null;
+    const refId = prizeItemRefId(row);
+    const ek = refId
+      ? effectByItemId.get(refId)?.trim() || null
+      : null;
     if (rt === "title" && lb) equippedTitle = lb;
     if (rt === "avatar_frame" && lb) {
       equippedFrame = lb;

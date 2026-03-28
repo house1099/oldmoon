@@ -1559,11 +1559,11 @@ export function GuildProfileHome({
                     <span className="min-w-0 text-right">
                       {row.equipped ? (
                         <span className="text-violet-300">
-                          已裝備：{row.equipped.label}
+                          {row.equipped.label}
                           <span className="text-violet-400"> ✦</span>
                         </span>
                       ) : (
-                        <span className="text-zinc-500">未裝備：—</span>
+                        <span className="text-zinc-500">—</span>
                       )}
                     </span>
                   </div>

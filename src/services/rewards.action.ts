@@ -36,35 +36,40 @@ export type ActiveBroadcastDto = {
 };
 
 export async function getMyRewardsAction(): Promise<MyRewardsPayload | null> {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  try {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return null;
 
-  const [rows, profile] = await Promise.all([
-    findMyRewards(user.id),
-    findProfileById(user.id),
-  ]);
-  const titles = rows.filter((r) => r.reward_type === "title");
-  const avatarFrames = rows.filter((r) => r.reward_type === "avatar_frame");
-  const cardFrames = rows.filter((r) => r.reward_type === "card_frame");
-  const broadcasts = rows.filter((r) => r.reward_type === "broadcast");
-  const broadcastUnusedCount = broadcasts.filter((r) => r.used_at == null).length;
-  const inventorySlots =
-    profile && typeof profile.inventory_slots === "number"
-      ? Math.min(48, Math.max(0, profile.inventory_slots))
-      : 16;
+    const [rows, profile] = await Promise.all([
+      findMyRewards(user.id),
+      findProfileById(user.id),
+    ]);
+    const titles = rows.filter((r) => r.reward_type === "title");
+    const avatarFrames = rows.filter((r) => r.reward_type === "avatar_frame");
+    const cardFrames = rows.filter((r) => r.reward_type === "card_frame");
+    const broadcasts = rows.filter((r) => r.reward_type === "broadcast");
+    const broadcastUnusedCount = broadcasts.filter((r) => r.used_at == null).length;
+    const inventorySlots =
+      profile && typeof profile.inventory_slots === "number"
+        ? Math.min(48, Math.max(0, profile.inventory_slots))
+        : 16;
 
-  return {
-    titles,
-    avatarFrames,
-    cardFrames,
-    broadcasts,
-    broadcastUnusedCount,
-    inventorySlots,
-    allRewards: rows,
-  };
+    return {
+      titles,
+      avatarFrames,
+      cardFrames,
+      broadcasts,
+      broadcastUnusedCount,
+      inventorySlots,
+      allRewards: rows,
+    };
+  } catch (error) {
+    console.error("getMyRewardsAction 失敗:", JSON.stringify(error, null, 2));
+    return null;
+  }
 }
 
 export async function equipRewardAction(

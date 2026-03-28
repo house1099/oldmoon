@@ -39,6 +39,22 @@
 
 **UI 極簡升級（同日補記）**：七日報到區塊與浮動工具列對齊 **Apple／Instagram 式**留白與層次；主工具列以 **圖示＋通知狀態** 為主、子項 **膠囊標籤與圖示分離**。
 
+### Bug 修復包（2026-03-28）— 系統資訊載入＋後台權限對齊
+
+1. **`getMyRewardsAction`／系統資訊「無法載入狀態」**  
+   - **根因**：雲端 **`user_rewards`** 曾為 **`reward_ref_id` → `loot_box_rewards`**，與應用層 **`item_ref_id` → `prize_items`**（**`effect_key`**）不一致；PostgREST 以不存在之 **`user_rewards_item_ref_id_fkey`** 嵌入會失敗。  
+   - **程式**：**`rewards.repository.ts`** 之 **`findMyRewards`／`findEquippedRewardLabels`** 改為 **`user_rewards` 全欄查詢**後**批次**讀 **`prize_items(id, effect_key)`** 合併（並相容執行期若仍見 **`reward_ref_id`** 之列）；**`getMyRewardsAction`** 外層 **`try/catch`**，**`catch`** 時 **`console.error('getMyRewardsAction 失敗:', JSON.stringify(error, null, 2))`** 並回傳 **`null`**。  
+   - **DB**：**`supabase/migrations/20260328203000_user_rewards_item_ref_prize_items.sql`**（若存在 **`reward_ref_id`** 則 rename 為 **`item_ref_id`** 並將 FK 改為 **`prize_items`**）；雲端已以 **Supabase MCP `apply_migration`** 套用。  
+   - **UI**：**`guild-profile-home.tsx`** 系統資訊裝備列 — 有裝備顯示**名稱**，無裝備顯示 **「—」**。
+
+2. **後台 Sidebar 10 項／細化權限 9 欄位／moderator 顯示**  
+   - **`moderator_permissions` 欄位**（與 **`admin-permissions.ts`**／授權 UI checkbox 一致）：**`can_review_users`**（審核用戶 → **`/admin/users`**）、**`can_grant_exp`／`can_deduct_exp`**（**`/admin/exp`**）、**`can_handle_reports`**（**`/admin/reports`**）、**`can_manage_events`**（預留）、**`can_manage_announcements`／`can_manage_ads`**（**`/admin/publish`**）、**`can_manage_invitations`**（**`/admin/invitations`**）、**`can_view_analytics`**（儀表板統計；Sidebar **儀表板** 連結仍對所有 **staff** 顯示，細部統計可於頁內再依權限收斂）。  
+   - **`admin-shell.tsx`** 導覽順序與 **`show`**：**儀表板**（永遠）→ **用戶**（**`can_review_users`**）→ **檢舉**（**`can_handle_reports`**）→ **邀請碼**（**`can_manage_invitations`**）→ **EXP**（**grant／deduct**）→ **獎池**（**master only**）→ **發布中心**（**announcements／ads**）→ **商城管理 `/admin/shop`**（**master only**）→ **系統設定** → **授權管理**。**master only** 項目不列入 moderator 細化權限 checkbox。Sidebar **不再**列出 **操作記錄**（**`/admin/audit`** 路由仍保留，可直接輸入網址；**master** 專用）。
+
+3. **`middleware` `moderatorAllowed` 同步**  
+   - **moderator** 可進入 **`/admin`** 及前綴 **`/admin/users`／`invitations`／`exp`／`publish`／`reports`**（**`pathname === prefix` 或 `pathname.startsWith(prefix + '/')`**，避免子路徑被誤擋）。  
+   - **`/admin/shop`** 與 **`/admin/coins`**（redirect）僅 **master**；與 **獎池／roles／settings／audit** 相同層級保護。
+
 ### 前台 Bug 修復紀錄（2026-03-26）
 
 1. **`UserDetailModal` IG 區塊**：顯示條件 SSOT — 僅在 **`instagram_handle` 有值** 且（**`ig_public === true`** 或 **血盟 `allianceStatus === 'accepted'`**）時渲染；**`ig_public === false` 且非血盟**時不顯示 IG。
@@ -77,11 +93,11 @@
 - **簽到**：**`claimDailyCheckin`** 依 **`login_streaks`** 判斷 **48h 斷簽**／連續；**EXP／探險幣**讀 **`streak_reward_settings`**（缺列 **fallback** 舊表；**`coins_max`** 時隨機幣）；**`special_reward === 'loot_box'`**（或 fallback 第 7 天）觸發 **`drawFromPool('loot_box')`**，並 **`notifyUserMailboxSilent`**。**`getMyStreakAction`**、**`getStreakRewardSettingsAction`** 供首頁讀 streak／七格文案。
 - **首頁**：**`guild-profile-home.tsx`** — 七格進度、紫系報到鈕、斷簽前 **4h** 橘色警示、成功 Dialog（**Day X／7**、EXP／幣、盲盒 **rotateY** 翻面）。
 - **`/admin/prizes`** 獎池管理改為 **master only**，sidebar 對 **moderator** 隱藏。
-- **後台**：**`/admin/prizes`**：**`middleware`** **`pathname.startsWith('/admin/prizes')`** 非 **master** 導向 **`/admin`**；**`moderatorAllowed`** 不含獎池路徑；**`/admin/prizes/page.tsx`**（RSC）非 **master** **`redirect('/admin')`**；**`admin.action`** 獎池六支 action 皆 **`requireRole(['master'])`**；**`AdminShell`** **🎰 獎池管理** **`show: isMaster`**（與 **coins／roles／settings** 同級）。**`coin_transactions.source`** 型別含 **`loot_box`**（**`/admin/coins`**、**`/shop`** 來源標籤已補）。**`/admin/settings`** 不再顯示簽到幣 min/max 與權重格子，改連結至獎池管理。
+- **後台**：**`/admin/prizes`**：**`middleware`** **`pathname.startsWith('/admin/prizes')`** 非 **master** 導向 **`/admin`**；**moderator** 前綴白名單不含獎池；**`/admin/prizes/page.tsx`**（RSC）非 **master** **`redirect('/admin')`**；**`admin.action`** 獎池六支 action 皆 **`requireRole(['master'])`**；**`AdminShell`** **🎰 獎池管理** **`show: isMaster`**（與 **商城／roles／settings** 同級）。**`coin_transactions.source`** 型別含 **`loot_box`**（**`/admin/shop`**（原金幣後台）、**`/shop`** 來源標籤已補；**`/admin/coins`** 僅 **redirect → `/admin/shop`**）。**`/admin/settings`** 不再顯示簽到幣 min/max 與權重格子，改連結至獎池管理。
 
 ### Wave 2 — 獎池完整 CRUD、前台獎勵與廣播大聲公（2026-03-28）
 
-- **`prize_items.effect_key`**（**`text` nullable**）：後台為 **頭像框／卡片外框** 獎項設定 CSS 特效識別碼；前端以 **`rewardEffectClassName()`**（**`src/lib/utils/reward-effects.ts`**）對應 **`globals.css`** 的 **`.effect-{effect_key}`**（僅允許 `[a-z0-9_-]+`）。**留空**＝無特效，僅顯示名稱。**`user_rewards`** 透過 **`item_ref_id` → `prize_items`** 於 **`findMyRewards`／`findEquippedRewardLabels`** 帶出 **`effect_key`**。**「星辰之框」** 雲端 **`effect_key = 'star_frame'`**（與 **`.effect-star_frame`** 一致）。遷移檔 **`supabase/migrations/20260328190000_prize_items_effect_key.sql`**。
+- **`prize_items.effect_key`**（**`text` nullable**）：後台為 **頭像框／卡片外框** 獎項設定 CSS 特效識別碼；前端以 **`rewardEffectClassName()`**（**`src/lib/utils/reward-effects.ts`**）對應 **`globals.css`** 的 **`.effect-{effect_key}`**（僅允許 `[a-z0-9_-]+`）。**留空**＝無特效，僅顯示名稱。**`user_rewards`** 以 **`item_ref_id` → `prize_items`**（**`effect_key` 不在 `user_rewards`**）；**`findMyRewards`／`findEquippedRewardLabels`** 以**批次查詢 `prize_items`** 合併 **`effect_key`**（見上方 **Bug 修復包**）。**「星辰之框」** 雲端 **`effect_key = 'star_frame'`**（與 **`.effect-star_frame`** 一致）。遷移檔 **`supabase/migrations/20260328190000_prize_items_effect_key.sql`**。
 - **🗄️ `broadcasts`**：**`user_id`**、**`reward_ref_id`** → **`user_rewards`**、**`message`**、**`expires_at`**（預設 **now()+24h**）、**`created_at`**。雲端已用 MCP 建表；遷移檔 **`supabase/migrations/20260328180000_broadcasts.sql`**。
 - **Layer 2**：**`rewards.repository.ts`** — **`findMyRewards`**、**`equipReward`／`unequipReward`／`unequipAllOfType`**、**`markBroadcastUsed`**、**`insertBroadcast`**、**`findActiveBroadcasts`**（**JOIN** **`users.nickname`**，最多 **5** 則）、**`findEquippedRewardLabels`**（**Modal** 用）。**`prize.repository`** 補 **log 計數**、**獎池／獎項 insert/delete**、**`findPrizeItemById`**。
 - **Layer 3**：**`rewards.action.ts`** — **`getMyRewardsAction`**（**titles／avatarFrames／cardFrames／broadcasts**、**`broadcastUnusedCount`、`inventorySlots`、`allRewards`**）、**`equipRewardAction`／`unequipRewardAction`**（**`revalidateTag(profileCacheTag)`**）、**`useBroadcastAction`**（訊息 **1〜30** 字、**`revalidateTag('broadcasts')`**）、**`getActiveBroadcastsAction`**（**`unstable_cache` 60s** **`tags: ['broadcasts']`**）。**`admin.action`**：**`createPrizePoolAction`／`deletePrizePoolAction`／`createPrizeItemAction`／`deletePrizeItemAction`**，**`updatePrizeItemAction`** 含 **reward_type**（含 **`card_frame`**）與 **coins/exp** 驗證；**`getPrizePoolsAction`／`getPrizeItemsAction`** 附 **`hasPrizeLogs`**；**`getStreakRewardSettingsAdminAction`／`updateStreakRewardAction`**。**`getMemberProfileByIdAction`** 回傳 **`equippedTitle`／`equippedFrame`**（僅 Modal 路徑查 **user_rewards**，列表不 JOIN）。
