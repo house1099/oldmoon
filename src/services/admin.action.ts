@@ -2263,14 +2263,14 @@ export async function getShopLocalImageOptionsAction(): Promise<
   try {
     await requireRole(["master"]);
 
-    async function listPublicImages(folder: string): Promise<string[]> {
+    const listPublicImages = async (folder: string): Promise<string[]> => {
       const dir = path.join(process.cwd(), "public", folder);
       const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
       return entries
         .filter((entry) => entry.isFile() && /\.(png|jpe?g|webp|gif|svg)$/i.test(entry.name))
         .map((entry) => `/${folder}/${entry.name}`)
         .sort((a, b) => a.localeCompare(b));
-    }
+    };
 
     const [frames, items] = await Promise.all([
       listPublicImages("frames"),
