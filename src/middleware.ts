@@ -1,6 +1,14 @@
 /**
  * 路由守衛（Edge）：略過 `/_next`、`/static`、`/api/*`、常見靜態副檔名；
  * 其餘依 Session／Profile／`users.status` 導向 `/login`、`/register/profile` 或封禁登出。
+ *
+ * --- Google OAuth 邀請碼除錯（對照 HANDOFF / 支援流程）---
+ * 1) `auth.users.raw_user_meta_data->>'invite_code'` 若有值 → JWT 視為「已填邀請碼」，不會再導向 `/register/invite`。
+ * 2) `public.users` 若已有該 `id` 列 → `deriveAuthStatus` 為 authenticated／pending，不會進 needs_profile 分支。
+ * 3) 本檔邏輯等價於：needs_profile 且無 `user.user_metadata.invite_code`（非空字串）→ 受保護路徑導向 `/register/invite`；
+ *    有 invite_code → 僅允許 onboarding 路徑，否則導向 `/register/profile`。
+ * 4) `config.matcher` 必含 `/register/invite`，否則該路徑不會跑本 middleware（已列入）。
+ * 5) 清除測試用 metadata：`UPDATE auth.users SET raw_user_meta_data = raw_user_meta_data - 'invite_code' WHERE email = '…';` 後登出重登。
  */
 import { createServerClient } from "@supabase/ssr";
 import type { NextRequest } from "next/server";

@@ -901,3 +901,28 @@ Git
 Git
 
 3e1839b fix: Google OAuth missing invite code flow
+
+---
+
+[2026-03-29] — Debug：Google 登入邀請碼頁未出現（查核 Step 1–6）
+
+完成項目
+
+- 以 Supabase MCP **`execute_sql`**（專案「冒險者公會」）抽樣：`auth.users` 與 `auth.identities`（`provider = 'google'`）LEFT JOIN **`public.users`**，比對 **`raw_user_meta_data` 是否含 `invite_code`** 與是否已有 profile。
+- 核對 **`src/app/(auth)/register/invite/page.tsx`** 存在。
+- 核對 **`middleware.ts`**：`inviteCodeFromUserMetadata` + `needs_profile` 時無 invite → **`NextResponse.redirect(inviteUrl)`**（受保護路徑與 `/login`／`/register` 等）；有 invite → **`isRegisterOnboardingPath`** 外導向 **`/register/profile`**；**`/register/profile`** 無 invite → **`/register/invite`**。
+- 核對 **`config.matcher`** 含 **`/register/invite`**。
+- **`middleware.ts` 檔首** 追加與上列 Step 對照之除錯註解（不變更執行邏輯）。
+
+資料庫異動
+
+- 無（僅 SELECT 查詢；未對使用者執行 UPDATE 清除 `invite_code`，避免誤改他人帳號）。
+
+需要注意
+
+- Step 1／5／6 若以「你的 Google 信箱」為條件，請在本機 Dashboard 或 MCP 自行替換 email 執行；代理僅能提供抽樣模式說明。
+- 若 **`public.users` 已有列** 或 **metadata 已有 `invite_code`**，行為符合設計，不會顯示邀請碼頁。
+
+Git
+
+fix: debug Google invite code flow
