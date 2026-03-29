@@ -42,6 +42,10 @@ import {
   MASTER_AVATAR_FRAME_OVERLAY_PERCENT,
   MASTER_AVATAR_INNER_PHOTO_DIAMETER_SCALE,
 } from "@/lib/constants/master-avatar-frame";
+import {
+  SHOP_CARD_FRAME_PREVIEW_HEIGHT_PX,
+  SHOP_CARD_FRAME_PREVIEW_WIDTH_PX,
+} from "@/lib/constants/shop-card-frame-preview";
 import { cn } from "@/lib/utils";
 
 /** 後台頭像框預覽槽位邊長（px），對應 `h-20 w-20` */
@@ -204,7 +208,11 @@ export default function ShopAdminClient() {
   const [imageUploading, setImageUploading] = useState(false);
   const [imageMode, setImageMode] = useState<"local" | "cloudinary">("local");
   const [imagePreviewError, setImagePreviewError] = useState(false);
-  const [localFrames, setLocalFrames] = useState<string[]>([]);
+  const [localFrameBuckets, setLocalFrameBuckets] = useState<{
+    root: string[];
+    avatars: string[];
+    cards: string[];
+  }>({ root: [], avatars: [], cards: [] });
   const [localItems, setLocalItems] = useState<string[]>([]);
   const shopImageInputRef = useRef<HTMLInputElement>(null);
   const framePreviewDragRef = useRef<{
@@ -231,7 +239,11 @@ export default function ShopAdminClient() {
     void (async () => {
       const res = await getShopLocalImageOptionsAction();
       if (!res.ok) return;
-      setLocalFrames(res.data.frames);
+      setLocalFrameBuckets({
+        root: res.data.framesRoot,
+        avatars: res.data.framesAvatars,
+        cards: res.data.framesCards,
+      });
       setLocalItems(res.data.items);
     })();
   }, [dialogOpen, imageMode]);
@@ -258,7 +270,25 @@ export default function ShopAdminClient() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  const localImageOptions = FRAME_ITEM_TYPES.has(form.item_type) ? localFrames : localItems;
+  const localImageOptions = useMemo(() => {
+    if (form.item_type === "avatar_frame") {
+      return Array.from(
+        new Set([...localFrameBuckets.avatars, ...localFrameBuckets.root]),
+      ).sort((a, b) => a.localeCompare(b));
+    }
+    if (form.item_type === "card_frame") {
+      return Array.from(
+        new Set([...localFrameBuckets.cards, ...localFrameBuckets.root]),
+      ).sort((a, b) => a.localeCompare(b));
+    }
+    return localItems;
+  }, [
+    form.item_type,
+    localFrameBuckets.avatars,
+    localFrameBuckets.cards,
+    localFrameBuckets.root,
+    localItems,
+  ]);
 
   const oxMax = SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS;
   const framePreviewLayout: ShopFrameLayout = useMemo(
@@ -672,11 +702,55 @@ export default function ShopAdminClient() {
                         className="block w-full rounded-lg border border-gray-300 px-3 py-2"
                       >
                         <option value="">從資料夾直接選圖（最穩定）</option>
-                        {localImageOptions.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
+                        {form.item_type === "avatar_frame" ? (
+                          <>
+                            {localFrameBuckets.avatars.length > 0 ? (
+                              <optgroup label="frames/avatars/（頭像框建議）">
+                                {localFrameBuckets.avatars.map((opt) => (
+                                  <option key={opt} value={opt}>
+                                    {opt}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ) : null}
+                            {localFrameBuckets.root.length > 0 ? (
+                              <optgroup label="frames/ 根目錄（legacy）">
+                                {localFrameBuckets.root.map((opt) => (
+                                  <option key={opt} value={opt}>
+                                    {opt}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ) : null}
+                          </>
+                        ) : form.item_type === "card_frame" ? (
+                          <>
+                            {localFrameBuckets.cards.length > 0 ? (
+                              <optgroup label="frames/cards/（卡框建議）">
+                                {localFrameBuckets.cards.map((opt) => (
+                                  <option key={opt} value={opt}>
+                                    {opt}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ) : null}
+                            {localFrameBuckets.root.length > 0 ? (
+                              <optgroup label="frames/ 根目錄（legacy）">
+                                {localFrameBuckets.root.map((opt) => (
+                                  <option key={opt} value={opt}>
+                                    {opt}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ) : null}
+                          </>
+                        ) : (
+                          localImageOptions.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))
+                        )}
                       </select>
                       <button
                         type="button"
@@ -687,7 +761,11 @@ export default function ShopAdminClient() {
                               toast.error(res.error);
                               return;
                             }
-                            setLocalFrames(res.data.frames);
+                            setLocalFrameBuckets({
+                              root: res.data.framesRoot,
+                              avatars: res.data.framesAvatars,
+                              cards: res.data.framesCards,
+                            });
                             setLocalItems(res.data.items);
                             toast.success("已重新讀取圖片清單");
                           })();
@@ -708,9 +786,11 @@ export default function ShopAdminClient() {
                       className="block w-full rounded-lg border border-gray-300 px-3 py-2"
                     />
                     <p className="mt-1 text-xs text-gray-500">
-                      {FRAME_ITEM_TYPES.has(form.item_type)
-                        ? "頭像框/卡框請放 public/frames，建議直接用上方下拉選。"
-                        : "一般商品請放 public/items，建議直接用上方下拉選。"}
+                      {form.item_type === "avatar_frame"
+                        ? "頭像框建議放 public/frames/avatars/（或 legacy：frames 根目錄）。路徑與 item_type 分開管理，查詢以資料庫欄位為準，不會混淆。"
+                        : form.item_type === "card_frame"
+                          ? "卡框建議放 public/frames/cards/（或 legacy：frames 根目錄）。與頭像框分資料夾僅為資產整理，image_url 仍為完整路徑字串。"
+                          : "一般商品請放 public/items，建議直接用上方下拉選。"}
                     </p>
                   </div>
                   <div className="h-20 w-20 rounded-xl border border-gray-200 bg-gray-50">
@@ -811,7 +891,12 @@ export default function ShopAdminClient() {
                       。拖曳／滑桿作用在框圖層（水平／垂直各 ±{SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS}%）。
                     </>
                   ) : (
-                    <>卡片外框預覽（圓角矩形槽位）；拖曳／滑桿作用在框圖層。</>
+                    <>
+                      卡片外框預覽槽與個資彈窗（UserDetailModal）外殼比例一致（約{" "}
+                      {SHOP_CARD_FRAME_PREVIEW_WIDTH_PX}×
+                      {SHOP_CARD_FRAME_PREVIEW_HEIGHT_PX}
+                      px、rounded-3xl）。探索列表 UserCard 的紫色光暈為等級特效（LevelCardEffect），非此商品圖。
+                    </>
                   )}
                 </p>
                 <div
@@ -823,7 +908,7 @@ export default function ShopAdminClient() {
                           form.effect_key?.trim() && `effect-${form.effect_key.trim()}`,
                         )
                       : cn(
-                          "relative mx-auto h-28 w-20 touch-none overflow-hidden rounded-xl bg-zinc-700 select-none",
+                          "relative mx-auto touch-none select-none overflow-hidden rounded-3xl bg-zinc-700",
                           form.effect_key?.trim() && `effect-${form.effect_key.trim()}`,
                         )
                   }
@@ -833,7 +918,12 @@ export default function ShopAdminClient() {
                           width: AVATAR_FRAME_PREVIEW_SLOT_PX,
                           height: AVATAR_FRAME_PREVIEW_SLOT_PX,
                         }
-                      : undefined
+                      : form.item_type === "card_frame"
+                        ? {
+                            width: SHOP_CARD_FRAME_PREVIEW_WIDTH_PX,
+                            height: SHOP_CARD_FRAME_PREVIEW_HEIGHT_PX,
+                          }
+                        : undefined
                   }
                   onPointerDown={(e) => {
                     if (!form.image_url.trim()) return;
@@ -907,13 +997,13 @@ export default function ShopAdminClient() {
                     </>
                   ) : (
                     <>
-                      <div className="absolute inset-[18%] rounded-lg bg-zinc-500" />
+                      <div className="absolute inset-[7%] rounded-2xl bg-zinc-600/75" />
                       {form.image_url.trim() ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={form.image_url.trim()}
                           alt=""
-                          className="pointer-events-none absolute inset-0 h-full w-full object-contain"
+                          className="pointer-events-none absolute inset-0 z-[1] h-full w-full object-contain"
                           style={framePreviewStyle}
                         />
                       ) : null}

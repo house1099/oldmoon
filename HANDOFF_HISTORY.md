@@ -1112,3 +1112,23 @@ Git
 Git
 
 c680b2a feat: shop item policies (gift/delete/resell), japan-01 avatar frame, coin shop_resell；47deec9 docs: handoff entry for shop policies and japan-01
+
+---
+
+[2026-03-30] — 後台卡框預覽對齊個資彈窗、frames 子目錄分頭像／卡框
+
+完成項目
+
+- **釐清**：探索 **UserCard** 的紫色／青色光暈為 **LevelCardEffect**（依等級），**不是** `shop_items` 的 **card_frame** 圖檔；商城卡框主要套在 **UserDetailModal** 外殼（**effect_key → CSS class**）。
+- **shop-admin-client.tsx**：卡片外框預覽改為 **rounded-3xl**、固定 **276×456px**（**shop-card-frame-preview.ts**），與個資彈窗比例一致；說明文案已註明與 **LevelCardEffect** 之區別；內層占位與框圖 **z-index** 微調。
+- **getShopLocalImageOptionsAction**：回傳 **framesRoot／framesAvatars／framesCards／items**；**frames/** 根目錄僅列檔案（不含子資料夾內檔）。
+- **後台下拉**：頭像框優先 **/frames/avatars/**、卡框優先 **/frames/cards/**，**legacy** 仍列 **/frames/*.png**。
+- **public/frames/avatars/、public/frames/cards/**：新增 **.gitkeep**；**README.md** 更新目錄約定。
+
+資料庫異動
+
+- **無**。查詢仍依 **shop_items.item_type** 與 **image_url 完整路徑**；分資料夾僅資產整理，不影響 SQL。
+
+Git
+
+（待補本次 commit）

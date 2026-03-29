@@ -2290,8 +2290,18 @@ export async function deleteShopItemAction(
   }
 }
 
+export type ShopLocalImageOptions = {
+  /** `public/frames/` 根目錄檔案（不含子資料夾），legacy 相容 */
+  framesRoot: string[];
+  /** `public/frames/avatars/` 頭像框專用 */
+  framesAvatars: string[];
+  /** `public/frames/cards/` 卡片外框專用 */
+  framesCards: string[];
+  items: string[];
+};
+
 export async function getShopLocalImageOptionsAction(): Promise<
-  ActionResult<{ frames: string[]; items: string[] }>
+  ActionResult<ShopLocalImageOptions>
 > {
   try {
     await requireRole(["master"]);
@@ -2305,11 +2315,45 @@ export async function getShopLocalImageOptionsAction(): Promise<
         .sort((a, b) => a.localeCompare(b));
     };
 
-    const [frames, items] = await Promise.all([
-      listPublicImages("frames"),
+    const listPublicImagesNested = async (
+      ...segments: string[]
+    ): Promise<string[]> => {
+      const dir = path.join(process.cwd(), "public", ...segments);
+      const prefix = `/${segments.join("/")}`;
+      const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+      return entries
+        .filter(
+          (entry) =>
+            entry.isFile() &&
+            /\.(png|jpe?g|webp|gif|svg)$/i.test(entry.name),
+        )
+        .map((entry) => `${prefix}/${entry.name}`)
+        .sort((a, b) => a.localeCompare(b));
+    };
+
+    const listFramesRootFilesOnly = async (): Promise<string[]> => {
+      const dir = path.join(process.cwd(), "public", "frames");
+      const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+      return entries
+        .filter(
+          (entry) =>
+            entry.isFile() &&
+            /\.(png|jpe?g|webp|gif|svg)$/i.test(entry.name),
+        )
+        .map((entry) => `/frames/${entry.name}`)
+        .sort((a, b) => a.localeCompare(b));
+    };
+
+    const [framesRoot, framesAvatars, framesCards, items] = await Promise.all([
+      listFramesRootFilesOnly(),
+      listPublicImagesNested("frames", "avatars"),
+      listPublicImagesNested("frames", "cards"),
       listPublicImages("items"),
     ]);
-    return { ok: true, data: { frames, items } };
+    return {
+      ok: true,
+      data: { framesRoot, framesAvatars, framesCards, items },
+    };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
   }
