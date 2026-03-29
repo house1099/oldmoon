@@ -1054,4 +1054,4 @@ e4f81a2 feat: shop frame_layout for avatar frames + tiger PNG post-process
 
 Git
 
-feat: unify shop avatar frame ornament layout for all roles（推送後以 `git log -1 --oneline` 核對 SHA）
+396143a feat: unify shop avatar frame ornament layout for all roles
