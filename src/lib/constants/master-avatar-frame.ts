@@ -9,7 +9,7 @@ export const MASTER_AVATAR_FRAME_OVERLAY_PERCENT = 160;
 export const MASTER_AVATAR_HOLE_TO_FRAME_ASSET_RATIO = 0.65;
 
 /**
- * 領袖：圓形照片直徑 = `layoutSize * 此值`，使臉緣對齊金框素材透明洞內緣（與商城框同層 160% 時一併對齊）。
+ * 裝備商城頭像框時：圓形照片直徑 = `layoutSize * 此值`，使臉緣對齊 160% 框圖透明洞內緣。
  * = (MASTER_AVATAR_FRAME_OVERLAY_PERCENT / 100) * MASTER_AVATAR_HOLE_TO_FRAME_ASSET_RATIO
  * 例：`size=120` → 內圓約 **125px**（1.04×）。
  */

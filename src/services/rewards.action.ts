@@ -6,6 +6,7 @@ import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
 import { updateMyProfile } from "@/services/profile-update.action";
 import { nicknameSchema } from "@/lib/validation/nickname";
+import { findAllianceBetween } from "@/lib/repositories/server/alliance.repository";
 import {
   findMyRewards,
   equipReward,
@@ -18,6 +19,8 @@ import {
   findEarliestUnusedRenameCard,
   findActiveBroadcasts,
   findUserRewardById,
+  deleteUserRewardForOwner,
+  transferUserRewardToUser,
   type UserRewardWithEffect,
 } from "@/lib/repositories/server/rewards.repository";
 
@@ -43,6 +46,12 @@ export type ActiveBroadcastDto = {
   expiresAt: string;
   userId: string;
 };
+
+const GIFTABLE_REWARD_TYPES = new Set([
+  "avatar_frame",
+  "card_frame",
+  "title",
+]);
 
 export async function getMyRewardsAction(): Promise<MyRewardsPayload | null> {
   try {
@@ -267,5 +276,77 @@ export async function expireBroadcastAction(
 
   await expireBroadcast(broadcastId);
   revalidateTag("broadcasts");
+  return { ok: true };
+}
+
+export async function deleteUserRewardAction(
+  rewardId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "未登入" };
+
+  const row = await findUserRewardById(rewardId);
+  if (!row || row.user_id !== user.id) {
+    return { ok: false, error: "找不到道具" };
+  }
+  if (!GIFTABLE_REWARD_TYPES.has(row.reward_type)) {
+    return { ok: false, error: "此類型道具無法刪除" };
+  }
+  if (row.is_equipped) {
+    return { ok: false, error: "請先卸下再刪除" };
+  }
+
+  try {
+    const ok = await deleteUserRewardForOwner(rewardId, user.id);
+    if (!ok) {
+      return { ok: false, error: "刪除失敗" };
+    }
+  } catch (e) {
+    console.error("deleteUserRewardAction:", e);
+    return { ok: false, error: "刪除失敗，請稍後再試" };
+  }
+  revalidateTag(profileCacheTag(user.id));
+  return { ok: true };
+}
+
+export async function giftUserRewardToAlliancePartnerAction(
+  rewardId: string,
+  partnerUserId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "未登入" };
+  if (user.id === partnerUserId) {
+    return { ok: false, error: "無法贈送給自己" };
+  }
+
+  const row = await findUserRewardById(rewardId);
+  if (!row || row.user_id !== user.id) {
+    return { ok: false, error: "找不到道具" };
+  }
+  if (!GIFTABLE_REWARD_TYPES.has(row.reward_type)) {
+    return { ok: false, error: "此類型道具無法贈送" };
+  }
+  if (row.is_equipped) {
+    return { ok: false, error: "請先卸下再贈送" };
+  }
+
+  try {
+    const alliance = await findAllianceBetween(user.id, partnerUserId);
+    if (!alliance || alliance.status !== "accepted") {
+      return { ok: false, error: "僅能贈送給已成立的血盟夥伴" };
+    }
+    await transferUserRewardToUser(rewardId, user.id, partnerUserId);
+  } catch (e) {
+    console.error("giftUserRewardToAlliancePartnerAction:", e);
+    return { ok: false, error: "贈送失敗，請稍後再試" };
+  }
+  revalidateTag(profileCacheTag(user.id));
+  revalidateTag(profileCacheTag(partnerUserId));
   return { ok: true };
 }

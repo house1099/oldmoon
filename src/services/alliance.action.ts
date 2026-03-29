@@ -272,6 +272,39 @@ export async function getPendingRequestsAction(): Promise<
   }
 }
 
+export type AlliancePartnerGiftDto = {
+  id: string;
+  nickname: string;
+  avatar_url: string | null;
+};
+
+/** 已成立血盟夥伴（贈與裝備類道具用） */
+export async function getMyAlliancePartnersForGiftAction(): Promise<
+  { ok: true; partners: AlliancePartnerGiftDto[] } | { ok: false; error: string }
+> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, error: "請先登入" };
+  }
+  try {
+    const rows = await findAcceptedAlliancesWithPartners(user.id);
+    return {
+      ok: true,
+      partners: rows.map((r) => ({
+        id: r.partner.id,
+        nickname: r.partner.nickname,
+        avatar_url: r.partner.avatar_url,
+      })),
+    };
+  } catch (error) {
+    console.error("getMyAlliancePartnersForGiftAction:", error);
+    return { ok: false, error: "無法讀取血盟名單" };
+  }
+}
+
 async function notifyAllianceRequest(
   fromUserId: string,
   toUserId: string,

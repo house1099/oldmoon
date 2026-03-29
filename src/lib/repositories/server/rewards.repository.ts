@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { insertUserReward } from "@/lib/repositories/server/prize.repository";
 import type { Database, UserRewardRow } from "@/types/database.types";
 import {
   parseShopFrameLayoutFromMetadata,
@@ -6,6 +7,7 @@ import {
 } from "@/lib/utils/avatar-frame-layout";
 
 type UserRewardUpdate = Database["public"]["Tables"]["user_rewards"]["Update"];
+type UserRewardInsert = Database["public"]["Tables"]["user_rewards"]["Insert"];
 type BroadcastInsert = Database["public"]["Tables"]["broadcasts"]["Insert"];
 
 export type UserRewardWithEffect = UserRewardRow & {
@@ -368,4 +370,45 @@ export async function findEquippedRewardLabels(userId: string): Promise<{
     equippedCardFrameEffectKey,
     equippedCardFrameImageUrl,
   };
+}
+
+export async function deleteUserRewardForOwner(
+  rewardId: string,
+  ownerUserId: string,
+): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("user_rewards")
+    .delete()
+    .eq("id", rewardId)
+    .eq("user_id", ownerUserId)
+    .select("id");
+  if (error) throw error;
+  return Array.isArray(data) && data.length > 0;
+}
+
+/** 複製一筆獎勵給對方後刪除來源列；呼叫端須已驗證身分與血盟 */
+export async function transferUserRewardToUser(
+  rewardId: string,
+  fromUserId: string,
+  toUserId: string,
+): Promise<void> {
+  const row = await findUserRewardById(rewardId);
+  if (!row || row.user_id !== fromUserId) {
+    throw new Error("USER_REWARD_NOT_FOUND");
+  }
+  const raw = row as RawUserRewardRow;
+  const payload: Omit<UserRewardInsert, "id" | "created_at"> = {
+    user_id: toUserId,
+    reward_type: row.reward_type,
+    item_ref_id: prizeItemRefId(raw),
+    shop_item_id: row.shop_item_id,
+    label: row.label,
+    is_equipped: false,
+    used_at: null,
+  };
+  await insertUserReward(payload);
+  const admin = createAdminClient();
+  const { error } = await admin.from("user_rewards").delete().eq("id", rewardId);
+  if (error) throw error;
 }

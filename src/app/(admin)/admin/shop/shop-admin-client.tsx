@@ -34,6 +34,7 @@ import { uploadAvatarToCloudinary } from "@/lib/utils/cloudinary";
 import {
   DEFAULT_SHOP_FRAME_LAYOUT,
   parseShopFrameLayoutFromMetadata,
+  SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS,
   shopFrameLayoutStyle,
   type ShopFrameLayout,
 } from "@/lib/utils/avatar-frame-layout";
@@ -235,13 +236,14 @@ export default function ShopAdminClient() {
 
   const localImageOptions = FRAME_ITEM_TYPES.has(form.item_type) ? localFrames : localItems;
 
+  const oxMax = SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS;
   const framePreviewLayout: ShopFrameLayout = useMemo(
     () => ({
-      offsetXPercent: clamp(parseLayoutField(form.frame_offset_x, 0), -40, 40),
-      offsetYPercent: clamp(parseLayoutField(form.frame_offset_y, 0), -40, 40),
+      offsetXPercent: clamp(parseLayoutField(form.frame_offset_x, 0), -oxMax, oxMax),
+      offsetYPercent: clamp(parseLayoutField(form.frame_offset_y, 0), -oxMax, oxMax),
       scalePercent: clamp(parseLayoutField(form.frame_scale, 100), 50, 200),
     }),
-    [form.frame_offset_x, form.frame_offset_y, form.frame_scale],
+    [form.frame_offset_x, form.frame_offset_y, form.frame_scale, oxMax],
   );
   const framePreviewStyle = shopFrameLayoutStyle(framePreviewLayout);
 
@@ -251,13 +253,14 @@ export default function ShopAdminClient() {
     const el = framePreviewBoxRef.current;
     const box = el ? Math.min(el.clientWidth, el.clientHeight) : 80;
     const sens = 45 / Math.max(box, 1);
+    const lim = SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS;
     setForm((prev) => ({
       ...prev,
       frame_offset_x: String(
-        clamp(parseLayoutField(prev.frame_offset_x, 0) + dxPx * sens, -40, 40),
+        clamp(parseLayoutField(prev.frame_offset_x, 0) + dxPx * sens, -lim, lim),
       ),
       frame_offset_y: String(
-        clamp(parseLayoutField(prev.frame_offset_y, 0) + dyPx * sens, -40, 40),
+        clamp(parseLayoutField(prev.frame_offset_y, 0) + dyPx * sens, -lim, lim),
       ),
     }));
   }
@@ -295,8 +298,9 @@ export default function ShopAdminClient() {
     }
 
     if (FRAME_ITEM_TYPES.has(form.item_type)) {
-      const ox = clamp(parseLayoutField(form.frame_offset_x, 0), -40, 40);
-      const oy = clamp(parseLayoutField(form.frame_offset_y, 0), -40, 40);
+      const lim = SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS;
+      const ox = clamp(parseLayoutField(form.frame_offset_x, 0), -lim, lim);
+      const oy = clamp(parseLayoutField(form.frame_offset_y, 0), -lim, lim);
       const sc = clamp(parseLayoutField(form.frame_scale, 100), 50, 200);
       const layout: ShopFrameLayout = {
         offsetXPercent: ox,
@@ -762,7 +766,7 @@ export default function ShopAdminClient() {
                       </span>
                       、框圖{" "}
                       <span className="font-mono">{MASTER_AVATAR_FRAME_OVERLAY_PERCENT}%</span>
-                      （全會員；領袖另疊鑽石金框）。拖曳／滑桿作用在框圖層。
+                      。拖曳／滑桿作用在框圖層（水平／垂直各 ±{SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS}%）。
                     </>
                   ) : (
                     <>卡片外框預覽（圓角矩形槽位）；拖曳／滑桿作用在框圖層。</>
@@ -882,10 +886,14 @@ export default function ShopAdminClient() {
                     水平偏移 %
                     <input
                       type="range"
-                      min={-40}
-                      max={40}
+                      min={-SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS}
+                      max={SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS}
                       step={0.5}
-                      value={clamp(parseLayoutField(form.frame_offset_x, 0), -40, 40)}
+                      value={clamp(
+                        parseLayoutField(form.frame_offset_x, 0),
+                        -SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS,
+                        SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS,
+                      )}
                       onChange={(e) =>
                         setField("frame_offset_x", e.target.value)
                       }
@@ -902,10 +910,14 @@ export default function ShopAdminClient() {
                     垂直偏移 %
                     <input
                       type="range"
-                      min={-40}
-                      max={40}
+                      min={-SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS}
+                      max={SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS}
                       step={0.5}
-                      value={clamp(parseLayoutField(form.frame_offset_y, 0), -40, 40)}
+                      value={clamp(
+                        parseLayoutField(form.frame_offset_y, 0),
+                        -SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS,
+                        SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS,
+                      )}
                       onChange={(e) =>
                         setField("frame_offset_y", e.target.value)
                       }

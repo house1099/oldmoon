@@ -11,9 +11,8 @@ import {
   type ShopFrameLayout,
 } from "@/lib/utils/avatar-frame-layout";
 
-const MASTER_FRAME_SRC = "/frames/master-avatar-frame.png";
-
 export type MasterAvatarShellProps = {
+  /** 保留相容舊呼叫端；頭像外框僅依裝備之商城框，不再依角色自動疊加 */
   role?: string | null;
   size: number;
   src?: string | null;
@@ -28,11 +27,10 @@ export type MasterAvatarShellProps = {
 
 /**
  * 外層版面錨點為 **size×size**。
- * - **無**商城頭像框且**非**領袖：一般圓形頭貼 **size**。
- * - **有**商城頭像框 **或** **領袖**（鑽石金框）：與金框素材同一套幾何——臉圓直徑 **size×MASTER_AVATAR_INNER_PHOTO_DIAMETER_SCALE**；商城框 **MASTER_AVATAR_FRAME_OVERLAY_PERCENT%** 置中；領袖再加金框 PNG 於最上層。
+ * - **無**商城頭像框：一般圓形頭貼 **size**。
+ * - **有**商城頭像框：臉圓直徑 **size×MASTER_AVATAR_INNER_PHOTO_DIAMETER_SCALE**；框圖 **MASTER_AVATAR_FRAME_OVERLAY_PERCENT%** 置中（含 `frameLayout`）。
  */
 export function MasterAvatarShell({
-  role,
   size,
   src,
   nickname,
@@ -43,9 +41,8 @@ export function MasterAvatarShell({
   frameLayout,
   children,
 }: MasterAvatarShellProps) {
-  const isMaster = role === "master";
   const shopFrameSrc = frameImageUrl?.trim() || null;
-  const useOrnamentLayout = Boolean(shopFrameSrc) || isMaster;
+  const useOrnamentLayout = Boolean(shopFrameSrc);
 
   const innerPhotoSize = useOrnamentLayout
     ? Math.max(1, Math.round(size * MASTER_AVATAR_INNER_PHOTO_DIAMETER_SCALE))
@@ -105,19 +102,6 @@ export function MasterAvatarShell({
               width: `${framePct}%`,
               height: `${framePct}%`,
               ...shopOverlayStyle,
-            }}
-          />
-        ) : null}
-
-        {isMaster ? (
-          // eslint-disable-next-line @next/next/no-img-element -- 本地鑽石金框
-          <img
-            src={MASTER_FRAME_SRC}
-            alt="Master Frame"
-            className="pointer-events-none absolute top-1/2 left-1/2 z-20 max-w-none -translate-x-1/2 -translate-y-1/2 object-contain select-none"
-            style={{
-              width: `${framePct}%`,
-              height: `${framePct}%`,
             }}
           />
         ) : null}

@@ -44,6 +44,10 @@ import useSWR from "swr";
 import { cn } from "@/lib/utils";
 import { useMyProfile } from "@/hooks/useMyProfile";
 import {
+  getMyAlliancePartnersForGiftAction,
+  type AlliancePartnerGiftDto,
+} from "@/services/alliance.action";
+import {
   getMyRewardsAction,
   equipRewardAction,
   unequipRewardAction,
@@ -51,6 +55,8 @@ import {
   expireBroadcastAction,
   useBroadcastAction as submitBroadcastAction,
   consumeRenameCardAction,
+  deleteUserRewardAction,
+  giftUserRewardToAlliancePartnerAction,
   type ActiveBroadcastDto,
   type MyRewardsPayload,
 } from "@/services/rewards.action";
@@ -140,6 +146,15 @@ type RewardStack = {
   count: number;
   rows: UserRewardWithEffect[];
 };
+
+/** 與 `rewards.action` 之 `GIFTABLE_REWARD_TYPES` 一致（可長按贈送／刪除） */
+const MANAGEABLE_REWARD_TYPES = new Set([
+  "avatar_frame",
+  "card_frame",
+  "title",
+]);
+
+const INVENTORY_LONGPRESS_MS = 550;
 
 function buildStacks(rows: UserRewardWithEffect[]): RewardStack[] {
   const map = new Map<string, UserRewardWithEffect[]>();
@@ -248,6 +263,30 @@ function FloatingToolbarInner({
   const [expireTarget, setExpireTarget] = useState<ActiveBroadcastDto | null>(null);
   const [expiring, setExpiring] = useState(false);
 
+  const [stackMenuOpen, setStackMenuOpen] = useState(false);
+  const [stackMenuTarget, setStackMenuTarget] = useState<RewardStack | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{
+    step: 1 | 2;
+    rowId: string;
+    label: string;
+  } | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [giftPickerOpen, setGiftPickerOpen] = useState(false);
+  const [giftPartners, setGiftPartners] = useState<AlliancePartnerGiftDto[]>([]);
+  const [pendingGift, setPendingGift] = useState<{
+    rowId: string;
+    label: string;
+  } | null>(null);
+  const [giftDialog, setGiftDialog] = useState<{
+    step: 1 | 2;
+    rowId: string;
+    itemLabel: string;
+    partner: AlliancePartnerGiftDto;
+  } | null>(null);
+  const [giftBusy, setGiftBusy] = useState(false);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFiredRef = useRef(false);
+
   const { data: activeBroadcasts = [], mutate: mutateActiveBroadcasts } = useSWR(
     profile?.role === "master" ? "floating-toolbar-active-broadcasts" : null,
     () => getActiveBroadcastsAction(),
@@ -355,6 +394,55 @@ function FloatingToolbarInner({
     setRewardsPayload(p);
     router.refresh();
   };
+
+  function clearLongPressTimer() {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }
+
+  function pickUnequippedRow(stack: RewardStack) {
+    return stack.rows.find((r) => !r.is_equipped) ?? null;
+  }
+
+  function tryOpenStackMenu(stack: RewardStack) {
+    if (!MANAGEABLE_REWARD_TYPES.has(stack.rewardType)) return;
+    const row = pickUnequippedRow(stack);
+    if (!row) {
+      toast.error("請先卸下道具才能贈送或刪除");
+      return;
+    }
+    setStackMenuTarget(stack);
+    setStackMenuOpen(true);
+  }
+
+  async function beginGiftFromMenu() {
+    setStackMenuOpen(false);
+    if (!stackMenuTarget) return;
+    const row = pickUnequippedRow(stackMenuTarget);
+    if (!row) return;
+    const res = await getMyAlliancePartnersForGiftAction();
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    if (res.partners.length === 0) {
+      toast.message("尚無已成立的血盟夥伴");
+      return;
+    }
+    setPendingGift({ rowId: row.id, label: stackMenuTarget.label });
+    setGiftPartners(res.partners);
+    setGiftPickerOpen(true);
+  }
+
+  function beginDeleteFromMenu() {
+    setStackMenuOpen(false);
+    if (!stackMenuTarget) return;
+    const row = pickUnequippedRow(stackMenuTarget);
+    if (!row) return;
+    setDeleteDialog({ step: 1, rowId: row.id, label: stackMenuTarget.label });
+  }
 
   const subButtons = [
     {
@@ -714,11 +802,33 @@ function FloatingToolbarInner({
                     stack.rewardType === "card_frame"
                       ? stack.rows[0]?.effect_key
                       : null;
+                  const canLongPressManage = MANAGEABLE_REWARD_TYPES.has(
+                    stack.rewardType,
+                  );
                   return (
                     <button
                       key={stack.key}
                       type="button"
-                      onClick={() => void handleStackEquip(stack)}
+                      onPointerDown={(e) => {
+                        if (!canLongPressManage || e.button !== 0) return;
+                        longPressFiredRef.current = false;
+                        clearLongPressTimer();
+                        longPressTimerRef.current = setTimeout(() => {
+                          longPressTimerRef.current = null;
+                          longPressFiredRef.current = true;
+                          tryOpenStackMenu(stack);
+                        }, INVENTORY_LONGPRESS_MS);
+                      }}
+                      onPointerUp={clearLongPressTimer}
+                      onPointerCancel={clearLongPressTimer}
+                      onPointerLeave={clearLongPressTimer}
+                      onClick={() => {
+                        if (longPressFiredRef.current) {
+                          longPressFiredRef.current = false;
+                          return;
+                        }
+                        void handleStackEquip(stack);
+                      }}
                       className={cn(
                         "relative flex min-h-16 flex-col items-center justify-center gap-0.5 rounded-xl border px-0.5 py-1 text-center transition-colors hover:brightness-110",
                         vis.border,
@@ -764,9 +874,247 @@ function FloatingToolbarInner({
                 })}
               </div>
             )}
+            <p className="mt-3 text-center text-[10px] text-zinc-500">
+              頭像框／卡片外框／稱號：長按格位可贈送血盟或刪除（須先卸下）
+            </p>
           </div>
         </SheetContent>
       </Sheet>
+
+      <Dialog
+        open={stackMenuOpen}
+        onOpenChange={(open) => {
+          setStackMenuOpen(open);
+          if (!open) setStackMenuTarget(null);
+        }}
+      >
+        <DialogContent className="border-zinc-700 bg-zinc-950 text-zinc-100 sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-100">道具操作</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              {stackMenuTarget?.label ?? ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 pt-2">
+            <Button
+              type="button"
+              className="w-full bg-violet-600 hover:bg-violet-500"
+              onClick={() => void beginGiftFromMenu()}
+            >
+              贈送（血盟夥伴）
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="w-full"
+              onClick={() => beginDeleteFromMenu()}
+            >
+              刪除道具
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-zinc-600 bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
+              onClick={() => setStackMenuOpen(false)}
+            >
+              取消
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Sheet
+        open={giftPickerOpen}
+        onOpenChange={(o) => {
+          setGiftPickerOpen(o);
+          if (!o) setPendingGift(null);
+        }}
+      >
+        <SheetContent
+          side="right"
+          className="z-[70] flex w-[min(100vw,22rem)] flex-col border-l border-zinc-800 bg-zinc-950 px-0 pb-0 pt-[max(1.5rem,env(safe-area-inset-top,0px))] text-zinc-100"
+        >
+          <SheetHeader className="space-y-1 border-b border-zinc-800/80 px-4 pb-4 pt-0 text-left">
+            <SheetTitle className="text-lg text-zinc-100">贈與對象</SheetTitle>
+            <p className="text-xs font-normal text-zinc-400">
+              僅限已成立的血盟夥伴；對方將收到一筆相同道具
+            </p>
+          </SheetHeader>
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-3">
+            <div className="space-y-2">
+              {giftPartners.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2.5 text-left transition-colors hover:bg-zinc-800/90"
+                  onClick={() => {
+                    if (!pendingGift) return;
+                    setGiftDialog({
+                      step: 1,
+                      rowId: pendingGift.rowId,
+                      itemLabel: pendingGift.label,
+                      partner: p,
+                    });
+                    setPendingGift(null);
+                    setGiftPickerOpen(false);
+                  }}
+                >
+                  {p.avatar_url?.trim() ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={toThumbImageUrl(p.avatar_url, 64, 64)}
+                      alt=""
+                      className="h-10 w-10 shrink-0 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-sm text-zinc-400">
+                      {(p.nickname || "?")[0]?.toUpperCase() ?? "?"}
+                    </span>
+                  )}
+                  <span className="min-w-0 truncate text-sm font-medium text-zinc-100">
+                    {p.nickname}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <AlertDialog
+        open={deleteDialog !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteDialog(null);
+        }}
+      >
+        <AlertDialogContent className="border-zinc-700 bg-zinc-950 text-zinc-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {deleteDialog?.step === 1 ? "確定刪除道具？" : "再次確認刪除"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              {deleteDialog?.step === 1
+                ? `「${deleteDialog.label}」將從背包移除。請再次於下一步確認。`
+                : `刪除後無法復原。確定要刪除「${deleteDialog?.label ?? ""}」？`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              variant="outline"
+              className="border-zinc-700 bg-zinc-900 text-zinc-200"
+              disabled={deleteBusy}
+            >
+              取消
+            </AlertDialogCancel>
+            {deleteDialog?.step === 1 ? (
+              <AlertDialogAction
+                className="bg-amber-600 text-white hover:bg-amber-500"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setDeleteDialog((d) => (d ? { ...d, step: 2 } : null));
+                }}
+              >
+                下一步
+              </AlertDialogAction>
+            ) : (
+              <AlertDialogAction
+                className="bg-red-600 text-white hover:bg-red-500"
+                disabled={deleteBusy}
+                onClick={async (e) => {
+                  e.preventDefault();
+                  if (!deleteDialog || deleteBusy) return;
+                  setDeleteBusy(true);
+                  try {
+                    const r = await deleteUserRewardAction(deleteDialog.rowId);
+                    if (!r.ok) {
+                      toast.error(r.error);
+                      return;
+                    }
+                    toast.success("已刪除道具");
+                    setDeleteDialog(null);
+                    const p = await getMyRewardsAction();
+                    setRewardsPayload(p);
+                    router.refresh();
+                  } finally {
+                    setDeleteBusy(false);
+                  }
+                }}
+              >
+                {deleteBusy ? "刪除中…" : "確定刪除"}
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={giftDialog !== null}
+        onOpenChange={(open) => {
+          if (!open) setGiftDialog(null);
+        }}
+      >
+        <AlertDialogContent className="border-zinc-700 bg-zinc-950 text-zinc-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {giftDialog?.step === 1 ? "確定贈送？" : "再次確認贈送"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              {giftDialog?.step === 1
+                ? `將「${giftDialog.itemLabel}」贈送給 ${giftDialog.partner.nickname}？下一步為最終確認。`
+                : `道具將從你的背包移除並轉給 ${giftDialog?.partner.nickname ?? ""}，無法復原。`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              variant="outline"
+              className="border-zinc-700 bg-zinc-900 text-zinc-200"
+              disabled={giftBusy}
+            >
+              取消
+            </AlertDialogCancel>
+            {giftDialog?.step === 1 ? (
+              <AlertDialogAction
+                className="bg-violet-600 text-white hover:bg-violet-500"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setGiftDialog((g) => (g ? { ...g, step: 2 } : null));
+                }}
+              >
+                下一步
+              </AlertDialogAction>
+            ) : (
+              <AlertDialogAction
+                className="bg-violet-600 text-white hover:bg-violet-500"
+                disabled={giftBusy}
+                onClick={async (e) => {
+                  e.preventDefault();
+                  if (!giftDialog || giftBusy) return;
+                  setGiftBusy(true);
+                  try {
+                    const r = await giftUserRewardToAlliancePartnerAction(
+                      giftDialog.rowId,
+                      giftDialog.partner.id,
+                    );
+                    if (!r.ok) {
+                      toast.error(r.error);
+                      return;
+                    }
+                    toast.success(`已贈送給 ${giftDialog.partner.nickname}`);
+                    setGiftDialog(null);
+                    const p = await getMyRewardsAction();
+                    setRewardsPayload(p);
+                    router.refresh();
+                  } finally {
+                    setGiftBusy(false);
+                  }
+                }}
+              >
+                {giftBusy ? "贈送中…" : "確定贈送"}
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Sheet open={broadcastManageOpen} onOpenChange={setBroadcastManageOpen}>
         <SheetContent
