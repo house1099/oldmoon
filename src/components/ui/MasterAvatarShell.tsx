@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import Avatar, { MASTER_AVATAR_FRAME_OVERLAY_PERCENT } from "@/components/ui/Avatar";
 import { cn } from "@/lib/utils";
+import type { ShopFrameLayout } from "@/lib/utils/avatar-frame-layout";
 
 const MASTER_FRAME_SRC = "/frames/master-avatar-frame.png";
 
@@ -15,6 +16,7 @@ export type MasterAvatarShellProps = {
   avatarClassName?: string;
   frameImageUrl?: string | null;
   frameEffectKey?: string | null;
+  frameLayout?: ShopFrameLayout | null;
   children?: ReactNode;
 };
 
@@ -31,6 +33,7 @@ export function MasterAvatarShell({
   avatarClassName,
   frameImageUrl,
   frameEffectKey,
+  frameLayout,
   children,
 }: MasterAvatarShellProps) {
   const isMaster = role === "master";
@@ -45,6 +48,7 @@ export function MasterAvatarShell({
           nickname={nickname}
           frameImageUrl={frameImageUrl}
           frameEffectKey={frameEffectKey}
+          frameLayout={frameLayout}
           className={avatarClassName}
         />
         {children}
@@ -70,6 +74,7 @@ export function MasterAvatarShell({
             nickname={nickname}
             frameImageUrl={frameImageUrl}
             frameEffectKey={frameEffectKey}
+            frameLayout={frameLayout}
             className={cn("h-full w-full border-0 bg-transparent", avatarClassName)}
           />
         </div>

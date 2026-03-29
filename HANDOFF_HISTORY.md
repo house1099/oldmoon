@@ -995,3 +995,35 @@ feat: self-delete tavern message + broadcast expire by master
 Git
 
 fc3b3a6 feat: static asset architecture + frame PNG overlay + effect preview
+
+---
+
+[2026-03-30] — 商城頭像框對齊（frame_layout）＋後台拖曳／滑桿＋老虎框 PNG 後製
+
+完成項目
+
+- **資料契約**：`shop_items.metadata` 使用 **`frame_layout`**：`offsetXPercent`、`offsetYPercent`、`scalePercent`（解析時相容舊鍵 **`avatar_frame_layout`**）。
+- **共用工具**：新增 **`src/lib/utils/avatar-frame-layout.ts`**（`parseShopFrameLayoutFromMetadata`、`shopFrameLayoutStyle`）。
+- **Layer 2 `rewards.repository.ts`**：
+  - **`findMyRewards`**：`shop_items` 併查 **`metadata`**，每筆回傳 **`frame_layout`**（僅商城來源有值；`prize_items` 無 metadata 則為 `null`）。
+  - **`findEquippedRewardLabels`**：併查 shop **`metadata`**，回傳 **`equippedAvatarFrameLayout`**（頭像框來自商城時）。
+- **Layer 3 `profile.action.ts`**：**`MemberProfileView`** 擴充 **`equippedAvatarFrameLayout`**。
+- **UI**：**`Avatar`** 框圖 **`style`** 套用 `translate` + `scale`；**`MasterAvatarShell`** 傳 **`frameLayout`**；**`UserCard`**／**`UserDetailModal`**／**`guild-profile-home`**（大頭＋裝備框圖 URL）接線。
+- **後台 `/admin/shop`（`shop-admin-client.tsx`）**：
+  - 頭像框／卡框「特效預覽」外層改 **`overflow-hidden`**，與前台圓形裁切一致。
+  - **水平／垂直／縮放**滑桿與數字輸入、**預覽區 pointer 拖曳**微調、一鍵重設。
+  - 儲存時合併 **`frame_layout`** 至 metadata；非框類商品儲存時自 metadata **移除** `frame_layout`／`avatar_frame_layout`；表單「進階 JSON」區不顯示這兩鍵（避免雙編輯），儲存仍會寫回。
+- **靜態資產**：**`scripts/process-tiger-avatar-frame.py`**（眼區挖除偏黑像素、去掉半透明暗毛邊）；**`public/frames/tiger-frame.png`** 已執行後製覆寫。
+
+資料庫異動
+
+- 無新增 migration。僅 **`shop_items.metadata` JSON** 內容約定擴充（既有 jsonb 欄位）。
+
+需要注意
+
+- 探索列表 **`UserCard`** 若後端未帶 **`equippedAvatarFrameLayout`**，對齊為預設 0／0／100%；裝備資料完整時與個人檔一致。
+- 老虎腳本眼區為經驗比例矩形，若未來換構圖需改 **`process-tiger-avatar-frame.py`** 內座標或改用手動遮罩。
+
+Git
+
+283531b feat: shop frame_layout for avatar frames + tiger PNG post-process

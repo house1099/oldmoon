@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,12 @@ import {
 } from "@/services/admin.action";
 import type { ShopItemRow } from "@/lib/repositories/server/shop.repository";
 import { uploadAvatarToCloudinary } from "@/lib/utils/cloudinary";
+import {
+  DEFAULT_SHOP_FRAME_LAYOUT,
+  parseShopFrameLayoutFromMetadata,
+  shopFrameLayoutStyle,
+  type ShopFrameLayout,
+} from "@/lib/utils/avatar-frame-layout";
 
 const ITEM_TYPE_LABELS: Record<string, string> = {
   avatar_frame: "頭像框",
@@ -59,6 +65,22 @@ const CURRENCY_LABELS: Record<string, string> = {
 const EFFECT_KEY_TYPES = new Set(["avatar_frame", "card_frame", "title"]);
 const FRAME_ITEM_TYPES = new Set(["avatar_frame", "card_frame"]);
 
+function stripFrameLayoutKeys(meta: Record<string, unknown>) {
+  const m = { ...meta };
+  delete m.frame_layout;
+  delete m.avatar_frame_layout;
+  return m;
+}
+
+function clamp(n: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, n));
+}
+
+function parseLayoutField(raw: string, fallback: number): number {
+  const n = parseFloat(raw.replace(",", "."));
+  return Number.isFinite(n) ? n : fallback;
+}
+
 type FormData = {
   sku: string;
   name: string;
@@ -75,6 +97,10 @@ type FormData = {
   is_active: boolean;
   metadata: string;
   image_url: string;
+  /** 頭像框／卡框對齊（寫入 metadata.frame_layout） */
+  frame_offset_x: string;
+  frame_offset_y: string;
+  frame_scale: string;
 };
 
 const EMPTY_FORM: FormData = {
@@ -93,9 +119,19 @@ const EMPTY_FORM: FormData = {
   is_active: false,
   metadata: "",
   image_url: "",
+  frame_offset_x: "0",
+  frame_offset_y: "0",
+  frame_scale: "100",
 };
 
 function itemToForm(item: ShopItemRow): FormData {
+  const rawMeta =
+    item.metadata && typeof item.metadata === "object" && !Array.isArray(item.metadata)
+      ? { ...(item.metadata as Record<string, unknown>) }
+      : {};
+  const layout =
+    parseShopFrameLayoutFromMetadata(rawMeta) ?? DEFAULT_SHOP_FRAME_LAYOUT;
+  const metaForTextarea = stripFrameLayoutKeys(rawMeta);
   return {
     sku: item.sku,
     name: item.name,
@@ -114,8 +150,13 @@ function itemToForm(item: ShopItemRow): FormData {
       : "",
     sort_order: String(item.sort_order),
     is_active: item.is_active,
-    metadata: item.metadata ? JSON.stringify(item.metadata, null, 2) : "",
+    metadata: Object.keys(metaForTextarea).length
+      ? JSON.stringify(metaForTextarea, null, 2)
+      : "",
     image_url: item.image_url?.trim() ?? "",
+    frame_offset_x: String(layout.offsetXPercent),
+    frame_offset_y: String(layout.offsetYPercent),
+    frame_scale: String(layout.scalePercent),
   };
 }
 
@@ -133,6 +174,12 @@ export default function ShopAdminClient() {
   const [localFrames, setLocalFrames] = useState<string[]>([]);
   const [localItems, setLocalItems] = useState<string[]>([]);
   const shopImageInputRef = useRef<HTMLInputElement>(null);
+  const framePreviewDragRef = useRef<{
+    active: boolean;
+    lastX: number;
+    lastY: number;
+    pointerId: number;
+  } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -180,6 +227,33 @@ export default function ShopAdminClient() {
 
   const localImageOptions = FRAME_ITEM_TYPES.has(form.item_type) ? localFrames : localItems;
 
+  const framePreviewLayout: ShopFrameLayout = useMemo(
+    () => ({
+      offsetXPercent: clamp(parseLayoutField(form.frame_offset_x, 0), -40, 40),
+      offsetYPercent: clamp(parseLayoutField(form.frame_offset_y, 0), -40, 40),
+      scalePercent: clamp(parseLayoutField(form.frame_scale, 100), 50, 200),
+    }),
+    [form.frame_offset_x, form.frame_offset_y, form.frame_scale],
+  );
+  const framePreviewStyle = shopFrameLayoutStyle(framePreviewLayout);
+
+  const framePreviewBoxRef = useRef<HTMLDivElement>(null);
+
+  function applyFrameDragDelta(dxPx: number, dyPx: number) {
+    const el = framePreviewBoxRef.current;
+    const box = el ? Math.min(el.clientWidth, el.clientHeight) : 80;
+    const sens = 45 / Math.max(box, 1);
+    setForm((prev) => ({
+      ...prev,
+      frame_offset_x: String(
+        clamp(parseLayoutField(prev.frame_offset_x, 0) + dxPx * sens, -40, 40),
+      ),
+      frame_offset_y: String(
+        clamp(parseLayoutField(prev.frame_offset_y, 0) + dyPx * sens, -40, 40),
+      ),
+    }));
+  }
+
   async function handleSave() {
     const price = parseInt(form.price, 10);
     if (!Number.isFinite(price) || price < 0) {
@@ -205,11 +279,26 @@ export default function ShopAdminClient() {
     let metadata: Record<string, unknown> | null = null;
     if (form.metadata.trim()) {
       try {
-        metadata = JSON.parse(form.metadata);
+        metadata = JSON.parse(form.metadata) as Record<string, unknown>;
       } catch {
         toast.error("進階設定 JSON 格式錯誤");
         return;
       }
+    }
+
+    if (FRAME_ITEM_TYPES.has(form.item_type)) {
+      const ox = clamp(parseLayoutField(form.frame_offset_x, 0), -40, 40);
+      const oy = clamp(parseLayoutField(form.frame_offset_y, 0), -40, 40);
+      const sc = clamp(parseLayoutField(form.frame_scale, 100), 50, 200);
+      const layout: ShopFrameLayout = {
+        offsetXPercent: ox,
+        offsetYPercent: oy,
+        scalePercent: sc,
+      };
+      metadata = { ...(metadata ?? {}), frame_layout: layout };
+    } else if (metadata != null && typeof metadata === "object" && !Array.isArray(metadata)) {
+      const m = stripFrameLayoutKeys(metadata as Record<string, unknown>);
+      metadata = Object.keys(m).length ? m : null;
     }
 
     const payload = {
@@ -654,14 +743,49 @@ export default function ShopAdminClient() {
               </label>
             )}
             {FRAME_ITEM_TYPES.has(form.item_type) ? (
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                <p className="mb-1 text-xs text-gray-600">特效預覽</p>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
+                <p className="text-xs text-gray-600">特效預覽（與頭像裁切一致：圓內 overflow hidden）</p>
                 <div
+                  ref={framePreviewBoxRef}
                   className={
                     form.item_type === "avatar_frame"
-                      ? `relative mx-auto h-20 w-20 overflow-visible rounded-full bg-zinc-700 ${form.effect_key ? `effect-${form.effect_key}` : ""}`
-                      : `relative mx-auto h-28 w-20 overflow-visible rounded-xl bg-zinc-700 ${form.effect_key ? `effect-${form.effect_key}` : ""}`
+                      ? `relative mx-auto h-20 w-20 touch-none overflow-hidden rounded-full bg-zinc-700 select-none ${form.effect_key ? `effect-${form.effect_key}` : ""}`
+                      : `relative mx-auto h-28 w-20 touch-none overflow-hidden rounded-xl bg-zinc-700 select-none ${form.effect_key ? `effect-${form.effect_key}` : ""}`
                   }
+                  onPointerDown={(e) => {
+                    if (!form.image_url.trim()) return;
+                    framePreviewDragRef.current = {
+                      active: true,
+                      lastX: e.clientX,
+                      lastY: e.clientY,
+                      pointerId: e.pointerId,
+                    };
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                  }}
+                  onPointerMove={(e) => {
+                    const d = framePreviewDragRef.current;
+                    if (!d?.active || d.pointerId !== e.pointerId) return;
+                    const dx = e.clientX - d.lastX;
+                    const dy = e.clientY - d.lastY;
+                    d.lastX = e.clientX;
+                    d.lastY = e.clientY;
+                    applyFrameDragDelta(dx, dy);
+                  }}
+                  onPointerUp={(e) => {
+                    const d = framePreviewDragRef.current;
+                    if (d?.pointerId === e.pointerId) {
+                      framePreviewDragRef.current = null;
+                      try {
+                        e.currentTarget.releasePointerCapture(e.pointerId);
+                      } catch {
+                        /* ignore */
+                      }
+                    }
+                  }}
+                  onPointerCancel={(e) => {
+                    const d = framePreviewDragRef.current;
+                    if (d?.pointerId === e.pointerId) framePreviewDragRef.current = null;
+                  }}
                 >
                   {form.item_type === "avatar_frame" ? (
                     <div className="absolute inset-[22%] rounded-full bg-zinc-500" />
@@ -674,11 +798,88 @@ export default function ShopAdminClient() {
                       src={form.image_url.trim()}
                       alt=""
                       className="pointer-events-none absolute inset-0 h-full w-full object-contain"
+                      style={framePreviewStyle}
                     />
                   ) : null}
                 </div>
+                <p className="text-center text-[10px] text-gray-400">
+                  在預覽區按住拖曳可微調左右／上下（手機可用）
+                </p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <label className="block text-[10px] text-gray-600">
+                    水平偏移 %
+                    <input
+                      type="range"
+                      min={-40}
+                      max={40}
+                      step={0.5}
+                      value={clamp(parseLayoutField(form.frame_offset_x, 0), -40, 40)}
+                      onChange={(e) =>
+                        setField("frame_offset_x", e.target.value)
+                      }
+                      className="mt-0.5 block w-full"
+                    />
+                    <input
+                      type="text"
+                      value={form.frame_offset_x}
+                      onChange={(e) => setField("frame_offset_x", e.target.value)}
+                      className="mt-0.5 w-full rounded border border-gray-200 px-1 py-0.5 text-xs"
+                    />
+                  </label>
+                  <label className="block text-[10px] text-gray-600">
+                    垂直偏移 %
+                    <input
+                      type="range"
+                      min={-40}
+                      max={40}
+                      step={0.5}
+                      value={clamp(parseLayoutField(form.frame_offset_y, 0), -40, 40)}
+                      onChange={(e) =>
+                        setField("frame_offset_y", e.target.value)
+                      }
+                      className="mt-0.5 block w-full"
+                    />
+                    <input
+                      type="text"
+                      value={form.frame_offset_y}
+                      onChange={(e) => setField("frame_offset_y", e.target.value)}
+                      className="mt-0.5 w-full rounded border border-gray-200 px-1 py-0.5 text-xs"
+                    />
+                  </label>
+                  <label className="block text-[10px] text-gray-600">
+                    縮放 %
+                    <input
+                      type="range"
+                      min={50}
+                      max={200}
+                      step={1}
+                      value={clamp(parseLayoutField(form.frame_scale, 100), 50, 200)}
+                      onChange={(e) =>
+                        setField("frame_scale", e.target.value)
+                      }
+                      className="mt-0.5 block w-full"
+                    />
+                    <input
+                      type="text"
+                      value={form.frame_scale}
+                      onChange={(e) => setField("frame_scale", e.target.value)}
+                      className="mt-0.5 w-full rounded border border-gray-200 px-1 py-0.5 text-xs"
+                    />
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  className="w-full rounded border border-gray-200 py-1 text-[10px] text-gray-500 hover:bg-white"
+                  onClick={() => {
+                    setField("frame_offset_x", "0");
+                    setField("frame_offset_y", "0");
+                    setField("frame_scale", "100");
+                  }}
+                >
+                  重設對齊（0 / 0 / 100%）
+                </button>
                 {!form.effect_key.trim() ? (
-                  <p className="mt-1 text-center text-xs text-gray-400">（無特效）</p>
+                  <p className="text-center text-xs text-gray-400">（無 CSS 特效）</p>
                 ) : null}
               </div>
             ) : null}
@@ -772,7 +973,9 @@ export default function ShopAdminClient() {
             </label>
             <label className="block">
               <span className="text-gray-700">進階設定（metadata JSON，選填）</span>
-              <span className="ml-1 text-xs text-gray-400">釣竿機率加成等</span>
+              <span className="ml-1 text-xs text-gray-400">
+                釣竿機率加成等（框類商品的對齊會另存為 frame_layout，不須手寫）
+              </span>
               <textarea
                 value={form.metadata}
                 onChange={(e) => setField("metadata", e.target.value)}

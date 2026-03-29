@@ -5,12 +5,14 @@ import { getCachedProfile } from "@/lib/supabase/get-cached-profile";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { findEquippedRewardLabels } from "@/lib/repositories/server/rewards.repository";
+import type { ShopFrameLayout } from "@/lib/utils/avatar-frame-layout";
 
 export type MemberProfileView = UserRow & {
   equippedTitle: string | null;
   equippedFrame: string | null;
   equippedAvatarFrameEffectKey: string | null;
   equippedAvatarFrameImageUrl: string | null;
+  equippedAvatarFrameLayout: ShopFrameLayout | null;
   equippedCardFrameEffectKey: string | null;
   equippedCardFrameImageUrl: string | null;
 };
@@ -45,6 +47,7 @@ export async function getMemberProfileByIdAction(
       equippedFrame,
       equippedAvatarFrameEffectKey,
       equippedAvatarFrameImageUrl,
+      equippedAvatarFrameLayout,
       equippedCardFrameEffectKey,
       equippedCardFrameImageUrl,
     } = await findEquippedRewardLabels(targetUserId);
@@ -54,6 +57,7 @@ export async function getMemberProfileByIdAction(
       equippedFrame,
       equippedAvatarFrameEffectKey,
       equippedAvatarFrameImageUrl,
+      equippedAvatarFrameLayout,
       equippedCardFrameEffectKey,
       equippedCardFrameImageUrl,
     };

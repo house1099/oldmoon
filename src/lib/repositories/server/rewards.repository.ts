@@ -1,5 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database, UserRewardRow } from "@/types/database.types";
+import {
+  parseShopFrameLayoutFromMetadata,
+  type ShopFrameLayout,
+} from "@/lib/utils/avatar-frame-layout";
 
 type UserRewardUpdate = Database["public"]["Tables"]["user_rewards"]["Update"];
 type BroadcastInsert = Database["public"]["Tables"]["broadcasts"]["Insert"];
@@ -7,6 +11,8 @@ type BroadcastInsert = Database["public"]["Tables"]["broadcasts"]["Insert"];
 export type UserRewardWithEffect = UserRewardRow & {
   effect_key: string | null;
   image_url: string | null;
+  /** 僅商城來源頭像框／卡框：來自 `shop_items.metadata.frame_layout` */
+  frame_layout: ShopFrameLayout | null;
 };
 
 /** 相容舊庫曾用 reward_ref_id；effect_key 僅在 prize_items */
@@ -53,25 +59,32 @@ export async function findMyRewards(
     ),
   );
   const imageByShopItemId = new Map<string, string | null>();
+  const layoutByShopItemId = new Map<string, ShopFrameLayout | null>();
   if (shopItemIds.length > 0) {
     const { data: shopItems, error: shopErr } = await admin
       .from("shop_items")
-      .select("id, image_url")
+      .select("id, image_url, metadata")
       .in("id", shopItemIds);
     if (shopErr) throw shopErr;
     for (const it of shopItems ?? []) {
-      imageByShopItemId.set(it.id as string, (it.image_url as string | null) ?? null);
+      const sid = it.id as string;
+      imageByShopItemId.set(sid, (it.image_url as string | null) ?? null);
+      layoutByShopItemId.set(
+        sid,
+        parseShopFrameLayoutFromMetadata(it.metadata as unknown),
+      );
     }
   }
 
   return rows.map((row) => {
     const refId = prizeItemRefId(row);
+    const sid = row.shop_item_id;
     return {
       id: row.id,
       user_id: row.user_id,
       reward_type: row.reward_type,
       item_ref_id: refId,
-      shop_item_id: row.shop_item_id,
+      shop_item_id: sid,
       label: row.label,
       is_equipped: row.is_equipped,
       used_at: row.used_at,
@@ -79,7 +92,8 @@ export async function findMyRewards(
       effect_key: refId ? (effectByItemId.get(refId) ?? null) : null,
       image_url:
         (refId ? (imageByPrizeItemId.get(refId) ?? null) : null) ??
-        (row.shop_item_id ? (imageByShopItemId.get(row.shop_item_id) ?? null) : null),
+        (sid ? (imageByShopItemId.get(sid) ?? null) : null),
+      frame_layout: sid ? (layoutByShopItemId.get(sid) ?? null) : null,
     };
   });
 }
@@ -251,6 +265,7 @@ export async function findEquippedRewardLabels(userId: string): Promise<{
   equippedFrame: string | null;
   equippedAvatarFrameEffectKey: string | null;
   equippedAvatarFrameImageUrl: string | null;
+  equippedAvatarFrameLayout: ShopFrameLayout | null;
   equippedCardFrameEffectKey: string | null;
   equippedCardFrameImageUrl: string | null;
 }> {
@@ -291,15 +306,21 @@ export async function findEquippedRewardLabels(userId: string): Promise<{
   );
   const effectByShopItemId = new Map<string, string | null>();
   const imageByShopItemId = new Map<string, string | null>();
+  const layoutByShopItemId = new Map<string, ShopFrameLayout | null>();
   if (shopItemIds.length > 0) {
     const { data: shopItems, error: shopErr } = await admin
       .from("shop_items")
-      .select("id, effect_key, image_url")
+      .select("id, effect_key, image_url, metadata")
       .in("id", shopItemIds);
     if (shopErr) throw shopErr;
     for (const it of shopItems ?? []) {
-      effectByShopItemId.set(it.id as string, (it.effect_key as string | null) ?? null);
-      imageByShopItemId.set(it.id as string, (it.image_url as string | null) ?? null);
+      const sid = it.id as string;
+      effectByShopItemId.set(sid, (it.effect_key as string | null) ?? null);
+      imageByShopItemId.set(sid, (it.image_url as string | null) ?? null);
+      layoutByShopItemId.set(
+        sid,
+        parseShopFrameLayoutFromMetadata(it.metadata as unknown),
+      );
     }
   }
 
@@ -307,6 +328,7 @@ export async function findEquippedRewardLabels(userId: string): Promise<{
   let equippedFrame: string | null = null;
   let equippedAvatarFrameEffectKey: string | null = null;
   let equippedAvatarFrameImageUrl: string | null = null;
+  let equippedAvatarFrameLayout: ShopFrameLayout | null = null;
   let equippedCardFrameEffectKey: string | null = null;
   let equippedCardFrameImageUrl: string | null = null;
   for (const row of list) {
@@ -328,6 +350,9 @@ export async function findEquippedRewardLabels(userId: string): Promise<{
       equippedFrame = lb;
       equippedAvatarFrameEffectKey = ek;
       equippedAvatarFrameImageUrl = imageUrl;
+      equippedAvatarFrameLayout = row.shop_item_id
+        ? (layoutByShopItemId.get(row.shop_item_id) ?? null)
+        : null;
     }
     if (rt === "card_frame" && lb) {
       equippedCardFrameEffectKey = ek;
@@ -339,6 +364,7 @@ export async function findEquippedRewardLabels(userId: string): Promise<{
     equippedFrame,
     equippedAvatarFrameEffectKey,
     equippedAvatarFrameImageUrl,
+    equippedAvatarFrameLayout,
     equippedCardFrameEffectKey,
     equippedCardFrameImageUrl,
   };

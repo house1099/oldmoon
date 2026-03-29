@@ -3,6 +3,10 @@
 import { useEffect } from "react";
 import Image from "next/image";
 import { FRAME_SIZE_PERCENT } from "@/lib/constants/master-avatar-frame";
+import {
+  shopFrameLayoutStyle,
+  type ShopFrameLayout,
+} from "@/lib/utils/avatar-frame-layout";
 import { rewardEffectClassName } from "@/lib/utils/reward-effects";
 
 export {
@@ -19,6 +23,8 @@ interface AvatarProps {
   size?: number;
   frameImageUrl?: string | null;
   frameEffectKey?: string | null;
+  /** 商城 `metadata.frame_layout`，用於微調框圖對齊 */
+  frameLayout?: ShopFrameLayout | null;
   className?: string;
 }
 
@@ -28,6 +34,7 @@ export default function Avatar({
   size = 48,
   frameImageUrl,
   frameEffectKey,
+  frameLayout,
   className = "",
 }: AvatarProps) {
   const trimmed = src?.trim() || null;
@@ -40,6 +47,7 @@ export default function Avatar({
 
   const frameEffectClass = rewardEffectClassName(frameEffectKey);
   const frameSrc = frameImageUrl?.trim() || null;
+  const frameTransformStyle = shopFrameLayoutStyle(frameLayout ?? null);
 
   if (trimmed) {
     const optimizedSrc = trimmed.includes("cloudinary.com")
@@ -79,6 +87,7 @@ export default function Avatar({
             src={frameSrc}
             alt=""
             className="pointer-events-none absolute inset-0 z-10 h-full w-full object-contain"
+            style={frameTransformStyle}
           />
         ) : null}
         {frameEffectClass ? (
@@ -108,6 +117,7 @@ export default function Avatar({
           src={frameSrc}
           alt=""
           className="pointer-events-none absolute inset-0 z-10 h-full w-full object-contain"
+          style={frameTransformStyle}
         />
       ) : null}
       {frameEffectClass ? (

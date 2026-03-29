@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { getRoleDisplay } from "@/lib/utils/role-display";
 import { UserDetailModal } from "@/components/modals/UserDetailModal";
 import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
+import type { ShopFrameLayout } from "@/lib/utils/avatar-frame-layout";
 import { LevelBadge } from "@/components/ui/LevelBadge";
 import { LevelCardEffect } from "@/components/ui/LevelCardEffect";
 import {
@@ -30,6 +31,7 @@ export type UserCardProps = {
     equippedTitle?: string | null;
     equippedAvatarFrameEffectKey?: string | null;
     equippedAvatarFrameImageUrl?: string | null;
+    equippedAvatarFrameLayout?: ShopFrameLayout | null;
   };
   className?: string;
   /** 技能市集：命定師徒時顯示光暈與標籤 */
@@ -115,6 +117,7 @@ export function UserCard({
               nickname={user.nickname}
               frameImageUrl={user.equippedAvatarFrameImageUrl}
               frameEffectKey={user.equippedAvatarFrameEffectKey}
+              frameLayout={user.equippedAvatarFrameLayout ?? null}
             >
               <span
                 className={cn(

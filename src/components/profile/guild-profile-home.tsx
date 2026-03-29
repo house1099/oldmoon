@@ -846,9 +846,8 @@ export function GuildProfileHome({
   const cardAds = homeAds.filter((ad) => ad.position === "card");
 
   const equippedHomeTitle = rewardsData?.titles.find((t) => t.is_equipped)?.label;
-  const equippedHomeAvatarEffectKey = rewardsData?.avatarFrames.find(
-    (f) => f.is_equipped,
-  )?.effect_key;
+  const equippedHomeAvatar = rewardsData?.avatarFrames.find((f) => f.is_equipped);
+  const equippedHomeAvatarEffectKey = equippedHomeAvatar?.effect_key;
   const equippedHomeCardEffectKey = rewardsData?.cardFrames.find(
     (f) => f.is_equipped,
   )?.effect_key;
@@ -1040,6 +1039,8 @@ export function GuildProfileHome({
               size={120}
               src={avatarUrl}
               nickname={profile?.nickname}
+              frameImageUrl={equippedHomeAvatar?.image_url ?? null}
+              frameLayout={equippedHomeAvatar?.frame_layout ?? null}
             />
 
             {uploading && (

@@ -51,6 +51,7 @@ import {
   getMemberProfileByIdAction,
   type MemberProfileView,
 } from "@/services/profile.action";
+import type { ShopFrameLayout } from "@/lib/utils/avatar-frame-layout";
 
 function tagLabel(slug: string): string {
   return INTEREST_TAG_OPTIONS.find((o) => o.value === slug)?.label ?? slug;
@@ -62,6 +63,7 @@ export type UserDetailModalProps = {
     equippedFrame?: string | null;
     equippedAvatarFrameEffectKey?: string | null;
     equippedAvatarFrameImageUrl?: string | null;
+    equippedAvatarFrameLayout?: ShopFrameLayout | null;
     equippedCardFrameEffectKey?: string | null;
     equippedCardFrameImageUrl?: string | null;
   };
@@ -400,6 +402,7 @@ export function UserDetailModal({
                   nickname={u.nickname}
                   frameImageUrl={u.equippedAvatarFrameImageUrl}
                   frameEffectKey={u.equippedAvatarFrameEffectKey}
+                  frameLayout={u.equippedAvatarFrameLayout ?? null}
                   avatarClassName="ring-2 ring-zinc-700/50"
                 >
                   <span
