@@ -36,6 +36,7 @@ import type { Area } from "react-easy-crop";
 import { Button } from "@/components/ui/button";
 import LoadingButton, { PendingLabel } from "@/components/ui/LoadingButton";
 import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
+import { ShopCardFrameOverlay } from "@/components/ui/ShopCardFrameOverlay";
 import {
   ChevronRight,
   Lock,
@@ -64,7 +65,6 @@ import {
 import { LEVEL_MIN_EXP_BY_LEVEL, getLevelTierByExp } from "@/lib/constants/levels";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { cn } from "@/lib/utils";
-import { rewardEffectClassName } from "@/lib/utils/reward-effects";
 import { getMoodCountdown, isMoodActive } from "@/lib/utils/mood";
 import { TavernMarquee } from "@/components/tavern/TavernMarquee";
 import { getActiveAnnouncementsAction } from "@/services/announcement.action";
@@ -848,9 +848,7 @@ export function GuildProfileHome({
   const equippedHomeTitle = rewardsData?.titles.find((t) => t.is_equipped)?.label;
   const equippedHomeAvatar = rewardsData?.avatarFrames.find((f) => f.is_equipped);
   const equippedHomeAvatarEffectKey = equippedHomeAvatar?.effect_key;
-  const equippedHomeCardEffectKey = rewardsData?.cardFrames.find(
-    (f) => f.is_equipped,
-  )?.effect_key;
+  const equippedHomeCard = rewardsData?.cardFrames.find((f) => f.is_equipped);
 
   const renameCardUnusedCount = rewardsData?.renameCardUnusedCount ?? 0;
 
@@ -986,12 +984,13 @@ export function GuildProfileHome({
         </Dialog>
       )}
 
-      <section
-        className={cn(
-          "glass-panel relative overflow-visible p-6 sm:p-8",
-          rewardEffectClassName(equippedHomeCardEffectKey),
-        )}
-      >
+      <section className="glass-panel relative overflow-visible p-6 sm:p-8">
+        <ShopCardFrameOverlay
+          imageUrl={equippedHomeCard?.image_url ?? null}
+          effectKey={equippedHomeCard?.effect_key ?? null}
+          layout={equippedHomeCard?.frame_layout ?? null}
+          borderRadiusClass="rounded-3xl"
+        />
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.06]"
           style={{

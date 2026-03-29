@@ -32,6 +32,9 @@ export type UserCardProps = {
     equippedAvatarFrameEffectKey?: string | null;
     equippedAvatarFrameImageUrl?: string | null;
     equippedAvatarFrameLayout?: ShopFrameLayout | null;
+    equippedCardFrameEffectKey?: string | null;
+    equippedCardFrameImageUrl?: string | null;
+    equippedCardFrameLayout?: ShopFrameLayout | null;
   };
   className?: string;
   /** 技能市集：命定師徒時顯示光暈與標籤 */
@@ -87,6 +90,9 @@ export function UserCard({
       <LevelCardEffect
         level={Number(user.level) || 1}
         role={user.role}
+        shopCardFrameImageUrl={user.equippedCardFrameImageUrl}
+        shopCardFrameEffectKey={user.equippedCardFrameEffectKey}
+        shopCardFrameLayout={user.equippedCardFrameLayout ?? null}
         className={cn("cursor-pointer overflow-visible", className)}
       >
         <div

@@ -39,8 +39,8 @@ import {
 } from "@/components/ui/dialog";
 import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
 import { LevelBadge } from "@/components/ui/LevelBadge";
+import { ShopCardFrameOverlay } from "@/components/ui/ShopCardFrameOverlay";
 import { cn } from "@/lib/utils";
-import { rewardEffectClassName } from "@/lib/utils/reward-effects";
 import { getRoleDisplay } from "@/lib/utils/role-display";
 import { instagramProfileUrlFromHandle } from "@/lib/utils/instagram";
 import { useSWRConfig } from "swr";
@@ -66,6 +66,7 @@ export type UserDetailModalProps = {
     equippedAvatarFrameLayout?: ShopFrameLayout | null;
     equippedCardFrameEffectKey?: string | null;
     equippedCardFrameImageUrl?: string | null;
+    equippedCardFrameLayout?: ShopFrameLayout | null;
   };
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -376,12 +377,17 @@ export function UserDetailModal({
               : undefined
           }
           className={cn(
-            "flex max-h-[88vh] min-h-0 w-full max-w-sm flex-col gap-0 overflow-visible rounded-3xl border border-zinc-800/60 bg-zinc-950 p-0",
+            "relative flex max-h-[88vh] min-h-0 w-full max-w-sm flex-col gap-0 overflow-visible rounded-3xl border border-zinc-800/60 bg-zinc-950 p-0",
             stackAboveChatZ == null && "z-[810]",
-            rewardEffectClassName(u.equippedCardFrameEffectKey),
           )}
         >
           <DialogTitle className="sr-only">{u.nickname} 的冒險者資料</DialogTitle>
+          <ShopCardFrameOverlay
+            imageUrl={u.equippedCardFrameImageUrl}
+            effectKey={u.equippedCardFrameEffectKey}
+            layout={u.equippedCardFrameLayout ?? null}
+            borderRadiusClass="rounded-3xl"
+          />
 
           <div className="relative flex-shrink-0 overflow-visible bg-gradient-to-b from-zinc-900/80 to-zinc-950 px-5 pb-5 pt-6">
             <button

@@ -1,5 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { findEquippedAvatarFramesByUserIds } from "@/lib/repositories/server/rewards.repository";
+import {
+  findEquippedAvatarFramesByUserIds,
+  findEquippedCardFramesByUserIds,
+} from "@/lib/repositories/server/rewards.repository";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import type {
   TavernBanRow,
@@ -34,7 +37,10 @@ export async function findTavernMessages(): Promise<TavernMessageDto[]> {
     throw usersErr;
   }
 
-  const frameMap = await findEquippedAvatarFramesByUserIds(userIds);
+  const [frameMap, cardFrameMap] = await Promise.all([
+    findEquippedAvatarFramesByUserIds(userIds),
+    findEquippedCardFramesByUserIds(userIds),
+  ]);
 
   const userMap = new Map(
     (users ?? []).map((u) => {
@@ -43,6 +49,7 @@ export async function findTavernMessages(): Promise<TavernMessageDto[]> {
         "id" | "nickname" | "avatar_url" | "level" | "role"
       >;
       const f = frameMap.get(row.id);
+      const cf = cardFrameMap.get(row.id);
       return [
         row.id,
         {
@@ -54,6 +61,9 @@ export async function findTavernMessages(): Promise<TavernMessageDto[]> {
           equippedAvatarFrameEffectKey: f?.equippedAvatarFrameEffectKey ?? null,
           equippedAvatarFrameImageUrl: f?.equippedAvatarFrameImageUrl ?? null,
           equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
+          equippedCardFrameEffectKey: cf?.equippedCardFrameEffectKey ?? null,
+          equippedCardFrameImageUrl: cf?.equippedCardFrameImageUrl ?? null,
+          equippedCardFrameLayout: cf?.equippedCardFrameLayout ?? null,
         },
       ] as const;
     }),
@@ -73,6 +83,9 @@ export async function findTavernMessages(): Promise<TavernMessageDto[]> {
           equippedAvatarFrameEffectKey: null,
           equippedAvatarFrameImageUrl: null,
           equippedAvatarFrameLayout: null,
+          equippedCardFrameEffectKey: null,
+          equippedCardFrameImageUrl: null,
+          equippedCardFrameLayout: null,
         },
       };
     }

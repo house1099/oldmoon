@@ -1622,6 +1622,13 @@ export type TavernMessageDto = TavernMessageRow & {
       offsetYPercent: number;
       scalePercent: number;
     } | null;
+    equippedCardFrameEffectKey: string | null;
+    equippedCardFrameImageUrl: string | null;
+    equippedCardFrameLayout: {
+      offsetXPercent: number;
+      offsetYPercent: number;
+      scalePercent: number;
+    } | null;
   };
 };
 

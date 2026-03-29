@@ -1132,3 +1132,26 @@ c680b2a feat: shop item policies (gift/delete/resell), japan-01 avatar frame, co
 Git
 
 32f1e4b fix: align shop card frame preview with UserDetailModal; split frame asset folders
+
+---
+
+[2026-03-30] — 商城 card_frame PNG overlay 接線
+
+完成項目
+
+- card_frame 改為 **PNG overlay** 呈現，對齊 **`LevelCardEffect`** 邊界，套用到 **`/explore`** 的 **`UserCard`**、個人首頁 **glass-panel**、**`UserDetailModal`**。
+- 新增 **`ShopCardFrameOverlay.tsx`**，沿用 **`MasterAvatarShell`** 的 160% overlay 比例與 **`shop_items.metadata.frame_layout`** 對齊邏輯。
+- **`findEquippedRewardLabels`** 補 **`equippedCardFrameLayout`**；新增 **`findEquippedCardFramesByUserIds`**，並接到 **village / market / alliance / chat / tavern** 批次資料流。
+- **`TavernMessageDto.user`**、**`MemberProfileView`**、聊天夥伴 DTO 與探索卡片 props 補齊 card frame effect / image / layout 欄位。
+
+資料庫異動
+
+- 無 DB migration。
+
+需要注意
+
+- 探索列表與部分批次來源仍受快取影響，換裝 card_frame 後可能有短暫舊資料視窗。
+
+Git
+
+- 待本次 commit

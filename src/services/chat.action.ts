@@ -14,7 +14,10 @@ import {
   submitReport,
   unblockUser,
 } from "@/lib/repositories/server/chat.repository";
-import { findEquippedAvatarFramesByUserIds } from "@/lib/repositories/server/rewards.repository";
+import {
+  findEquippedAvatarFramesByUserIds,
+  findEquippedCardFramesByUserIds,
+} from "@/lib/repositories/server/rewards.repository";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import type { ShopFrameLayout } from "@/lib/utils/avatar-frame-layout";
@@ -24,6 +27,9 @@ export type ConversationPartnerDto = UserRow & {
   equippedAvatarFrameEffectKey: string | null;
   equippedAvatarFrameImageUrl: string | null;
   equippedAvatarFrameLayout: ShopFrameLayout | null;
+  equippedCardFrameEffectKey: string | null;
+  equippedCardFrameImageUrl: string | null;
+  equippedCardFrameLayout: ShopFrameLayout | null;
 };
 
 export type ConversationListItemDto = {
@@ -141,7 +147,10 @@ export async function getMyConversationsAction(): Promise<
     const partnerIds = conversations.map((conv) =>
       conv.user_a === user.id ? conv.user_b : conv.user_a,
     );
-    const frameMap = await findEquippedAvatarFramesByUserIds(partnerIds);
+    const [frameMap, cardFrameMap] = await Promise.all([
+      findEquippedAvatarFramesByUserIds(partnerIds),
+      findEquippedCardFramesByUserIds(partnerIds),
+    ]);
 
     const enriched = await Promise.all(
       conversations.map(async (conv) => {
@@ -152,6 +161,7 @@ export async function getMyConversationsAction(): Promise<
           const base = await findProfileById(partnerId);
           if (base) {
             const f = frameMap.get(partnerId);
+            const cf = cardFrameMap.get(partnerId);
             partner = {
               ...base,
               equippedAvatarFrameEffectKey:
@@ -159,6 +169,11 @@ export async function getMyConversationsAction(): Promise<
               equippedAvatarFrameImageUrl:
                 f?.equippedAvatarFrameImageUrl ?? null,
               equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
+              equippedCardFrameEffectKey:
+                cf?.equippedCardFrameEffectKey ?? null,
+              equippedCardFrameImageUrl:
+                cf?.equippedCardFrameImageUrl ?? null,
+              equippedCardFrameLayout: cf?.equippedCardFrameLayout ?? null,
             };
           }
         } catch (err) {

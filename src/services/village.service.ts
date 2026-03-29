@@ -2,7 +2,10 @@
 
 import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { findEquippedAvatarFramesByUserIds } from "@/lib/repositories/server/rewards.repository";
+import {
+  findEquippedAvatarFramesByUserIds,
+  findEquippedCardFramesByUserIds,
+} from "@/lib/repositories/server/rewards.repository";
 import { findVillageUsers } from "@/lib/repositories/server/user.repository";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { calcInterestScore, isOrientationMatch } from "@/lib/utils/matching";
@@ -33,16 +36,22 @@ export async function getVillageUsersAction(): Promise<{
         currentUserId: user.id,
         region: me.region,
       });
-      const frameMap = await findEquippedAvatarFramesByUserIds(
-        candidates.map((u) => u.id),
-      );
+      const userIds = candidates.map((u) => u.id);
+      const [frameMap, cardFrameMap] = await Promise.all([
+        findEquippedAvatarFramesByUserIds(userIds),
+        findEquippedCardFramesByUserIds(userIds),
+      ]);
       const withFrames = candidates.map((u) => {
         const f = frameMap.get(u.id);
+        const cf = cardFrameMap.get(u.id);
         return {
           ...u,
           equippedAvatarFrameEffectKey: f?.equippedAvatarFrameEffectKey ?? null,
           equippedAvatarFrameImageUrl: f?.equippedAvatarFrameImageUrl ?? null,
           equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
+          equippedCardFrameEffectKey: cf?.equippedCardFrameEffectKey ?? null,
+          equippedCardFrameImageUrl: cf?.equippedCardFrameImageUrl ?? null,
+          equippedCardFrameLayout: cf?.equippedCardFrameLayout ?? null,
         };
       });
       const filtered = withFrames.filter((u) =>

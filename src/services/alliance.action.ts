@@ -12,7 +12,10 @@ import {
 } from "@/lib/repositories/server/alliance.repository";
 import { checkMutualLike } from "@/lib/repositories/server/like.repository";
 import { insertNotification } from "@/lib/repositories/server/notification.repository";
-import { findEquippedAvatarFramesByUserIds } from "@/lib/repositories/server/rewards.repository";
+import {
+  findEquippedAvatarFramesByUserIds,
+  findEquippedCardFramesByUserIds,
+} from "@/lib/repositories/server/rewards.repository";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
 import type { ShopFrameLayout } from "@/lib/utils/avatar-frame-layout";
 
@@ -225,6 +228,9 @@ export type MyAllianceListItem = {
     equippedAvatarFrameEffectKey: string | null;
     equippedAvatarFrameImageUrl: string | null;
     equippedAvatarFrameLayout: ShopFrameLayout | null;
+    equippedCardFrameEffectKey: string | null;
+    equippedCardFrameImageUrl: string | null;
+    equippedCardFrameLayout: ShopFrameLayout | null;
   };
 };
 
@@ -240,11 +246,14 @@ export async function getMyAlliancesAction(): Promise<MyAllianceListItem[]> {
 
   try {
     const rows = await findAcceptedAlliancesWithPartners(user.id);
-    const frameMap = await findEquippedAvatarFramesByUserIds(
-      rows.map((r) => r.partner.id),
-    );
+    const userIds = rows.map((r) => r.partner.id);
+    const [frameMap, cardFrameMap] = await Promise.all([
+      findEquippedAvatarFramesByUserIds(userIds),
+      findEquippedCardFramesByUserIds(userIds),
+    ]);
     return rows.map((r) => {
       const f = frameMap.get(r.partner.id);
+      const cf = cardFrameMap.get(r.partner.id);
       return {
         id: r.id,
         partner: {
@@ -252,6 +261,9 @@ export async function getMyAlliancesAction(): Promise<MyAllianceListItem[]> {
           equippedAvatarFrameEffectKey: f?.equippedAvatarFrameEffectKey ?? null,
           equippedAvatarFrameImageUrl: f?.equippedAvatarFrameImageUrl ?? null,
           equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
+          equippedCardFrameEffectKey: cf?.equippedCardFrameEffectKey ?? null,
+          equippedCardFrameImageUrl: cf?.equippedCardFrameImageUrl ?? null,
+          equippedCardFrameLayout: cf?.equippedCardFrameLayout ?? null,
         },
       };
     });
@@ -272,6 +284,9 @@ export type PendingAllianceRequestItem = {
     equippedAvatarFrameEffectKey: string | null;
     equippedAvatarFrameImageUrl: string | null;
     equippedAvatarFrameLayout: ShopFrameLayout | null;
+    equippedCardFrameEffectKey: string | null;
+    equippedCardFrameImageUrl: string | null;
+    equippedCardFrameLayout: ShopFrameLayout | null;
   };
 };
 
@@ -289,11 +304,14 @@ export async function getPendingRequestsAction(): Promise<
 
   try {
     const rows = await findPendingIncomingWithRequester(user.id);
-    const frameMap = await findEquippedAvatarFramesByUserIds(
-      rows.map((r) => r.requester.id),
-    );
+    const userIds = rows.map((r) => r.requester.id);
+    const [frameMap, cardFrameMap] = await Promise.all([
+      findEquippedAvatarFramesByUserIds(userIds),
+      findEquippedCardFramesByUserIds(userIds),
+    ]);
     return rows.map((r) => {
       const f = frameMap.get(r.requester.id);
+      const cf = cardFrameMap.get(r.requester.id);
       return {
         id: r.id,
         requester: {
@@ -301,6 +319,9 @@ export async function getPendingRequestsAction(): Promise<
           equippedAvatarFrameEffectKey: f?.equippedAvatarFrameEffectKey ?? null,
           equippedAvatarFrameImageUrl: f?.equippedAvatarFrameImageUrl ?? null,
           equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
+          equippedCardFrameEffectKey: cf?.equippedCardFrameEffectKey ?? null,
+          equippedCardFrameImageUrl: cf?.equippedCardFrameImageUrl ?? null,
+          equippedCardFrameLayout: cf?.equippedCardFrameLayout ?? null,
         },
       };
     });

@@ -15,6 +15,7 @@ export type MemberProfileView = UserRow & {
   equippedAvatarFrameLayout: ShopFrameLayout | null;
   equippedCardFrameEffectKey: string | null;
   equippedCardFrameImageUrl: string | null;
+  equippedCardFrameLayout: ShopFrameLayout | null;
 };
 
 export async function getMyProfileAction() {
@@ -50,6 +51,7 @@ export async function getMemberProfileByIdAction(
       equippedAvatarFrameLayout,
       equippedCardFrameEffectKey,
       equippedCardFrameImageUrl,
+      equippedCardFrameLayout,
     } = await findEquippedRewardLabels(targetUserId);
     return {
       ...profile,
@@ -60,6 +62,7 @@ export async function getMemberProfileByIdAction(
       equippedAvatarFrameLayout,
       equippedCardFrameEffectKey,
       equippedCardFrameImageUrl,
+      equippedCardFrameLayout,
     };
   } catch (e) {
     console.error("getMemberProfileByIdAction:", e);

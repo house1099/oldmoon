@@ -2,10 +2,15 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import type { ShopFrameLayout } from "@/lib/utils/avatar-frame-layout";
+import { ShopCardFrameOverlay } from "@/components/ui/ShopCardFrameOverlay";
 
 export interface LevelCardEffectProps {
   level: number;
   role?: string | null;
+  shopCardFrameImageUrl?: string | null;
+  shopCardFrameEffectKey?: string | null;
+  shopCardFrameLayout?: ShopFrameLayout | null;
   children: React.ReactNode;
   className?: string;
 }
@@ -84,6 +89,9 @@ function ParticleEffect({
 export function LevelCardEffect({
   level,
   role,
+  shopCardFrameImageUrl,
+  shopCardFrameEffectKey,
+  shopCardFrameLayout,
   children,
   className,
 }: LevelCardEffectProps) {
@@ -96,6 +104,12 @@ export function LevelCardEffect({
           "absolute inset-0 z-0 rounded-2xl pointer-events-none",
           effectClass.border,
         )}
+      />
+      <ShopCardFrameOverlay
+        imageUrl={shopCardFrameImageUrl}
+        effectKey={shopCardFrameEffectKey}
+        layout={shopCardFrameLayout ?? null}
+        borderRadiusClass="rounded-2xl"
       />
       {effectClass.particles ? (
         <ParticleEffect level={level} role={role} />

@@ -49,7 +49,7 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 - 公告／廣告：`announcement.*`；`advertisement.*`
 - 首頁：`page.tsx`／`home-page-client.tsx`；`guild-profile-home.tsx`；`FloatingToolbar.tsx`
 - 版面：`Navbar.tsx`；`app-shell-motion.tsx`（`broadcastExtraTopPx`）；`app-broadcast-chrome.tsx`；`(app)/layout.tsx`
-- 卡片／Modal：`UserCard.tsx`；`UserDetailModal.tsx`；`LevelBadge`／`LevelCardEffect`
+- 卡片／Modal：`UserCard.tsx`；`UserDetailModal.tsx`；`LevelBadge`／`LevelCardEffect`；`ShopCardFrameOverlay.tsx`
 - 頭像：`Avatar.tsx`；`cloudinary.ts`；`cropImage.ts`；頭像框對齊 **`avatar-frame-layout.ts`**（`shop_items.metadata.frame_layout`）；**`scripts/process-tiger-avatar-frame.py`**
 - 型別：`src/types/database.types.ts`；SWR：`src/lib/swr/keys.ts`；等級：`src/lib/constants/levels.ts`；標籤：`src/lib/constants/tags.ts`
 
@@ -93,9 +93,9 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## ✅ 最近完成（最新 3 次任務）
 
-1. **2026-03-30 — 裝備頭像框全站列表顯示＋個人檔外溢修正**：新增 **`findEquippedAvatarFramesByUserIds`**（`rewards.repository`），批次附掛 **`equippedAvatarFrameEffectKey`／ImageUrl／Layout`** 至 **`getVillageUsersAction`／`getMarketUsersAction`**（**`/explore`** **`UserCard`**）、**`getMyAlliancesAction`／`getPendingRequestsAction`**、**`getMyConversationsAction`**（聊天列與 **`ChatModal`** 對象／**`UserDetailModal`** 開聊）、**`findTavernMessages`**（**`TavernMessageDto.user`**）。**`guild-profile-home`** 頭像區改一律 **`overflow-visible`**（移除僅領袖可溢出），有框時暱稱區加 **`mt-5`**；**`MasterAvatarShell`** 補 **`frameEffectKey`**。**`ChatModal`** 內「我方」氣泡頭像以 **`getMyRewardsAction`**（SWR）取已裝備框。注意：村莊／市集列表仍受 **`unstable_cache`**（約 30s／60s），他裝備框後探索端可能短暫舊資料；信件通知列頭像尚未併框。
-2. **2026-03-30 — 框線偏移 ±80、移除領袖自動鑽石金框、裝備贈送／刪除**：`SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS`；領袖不再自動疊本地金框（改以上架頭像框商品）；裝備背包長按贈送血盟／刪除（雙次確認）。見 **`HANDOFF_HISTORY.md`**。
-3. **2026-03-30 — 商城頭像框統一 160% 幾何＋後台預覽**：**`MasterAvatarShell`** 僅依裝備商城框啟用裝飾版面；**`/admin/shop`** 頭像框預覽對齊前台。詳見歷史檔。
+1. **2026-03-30 — 商城 card_frame 改 PNG overlay 並接上探索／個資／個人頁**：新增 **`ShopCardFrameOverlay`**，以 **`MASTER_AVATAR_FRAME_OVERLAY_PERCENT`** + **`frame_layout`** 疊於 **`LevelCardEffect`**、**`UserDetailModal`**、**`guild-profile-home`**；移除 Modal／home 玻璃面板直接掛 **`rewardEffectClassName`** 的作法，改由疊圖元件承接圖片與特效。**`findEquippedRewardLabels`** 補 **`equippedCardFrameLayout`**，新增 **`findEquippedCardFramesByUserIds`**，並批次附掛至 **`village.service`**、**`market.service`**、**`alliance.action`**、**`chat.action`**、**`tavern.repository`** 與 **`TavernMessageDto.user`**。無 DB migration。
+2. **2026-03-30 — 裝備頭像框全站列表顯示＋個人檔外溢修正**：新增 **`findEquippedAvatarFramesByUserIds`**（`rewards.repository`），批次附掛 **`equippedAvatarFrameEffectKey`／ImageUrl／Layout`** 至 **`getVillageUsersAction`／`getMarketUsersAction`**（**`/explore`** **`UserCard`**）、**`getMyAlliancesAction`／`getPendingRequestsAction`**、**`getMyConversationsAction`**（聊天列與 **`ChatModal`** 對象／**`UserDetailModal`** 開聊）、**`findTavernMessages`**（**`TavernMessageDto.user`**）。**`guild-profile-home`** 頭像區改一律 **`overflow-visible`**（移除僅領袖可溢出），有框時暱稱區加 **`mt-5`**；**`MasterAvatarShell`** 補 **`frameEffectKey`**。**`ChatModal`** 內「我方」氣泡頭像以 **`getMyRewardsAction`**（SWR）取已裝備框。注意：村莊／市集列表仍受 **`unstable_cache`**（約 30s／60s），他裝備框後探索端可能短暫舊資料；信件通知列頭像尚未併框。
+3. **2026-03-30 — 框線偏移 ±80、移除領袖自動鑽石金框、裝備贈送／刪除**：`SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS`；領袖不再自動疊本地金框（改以上架頭像框商品）；裝備背包長按贈送血盟／刪除（雙次確認）。見 **`HANDOFF_HISTORY.md`**。
 
 ## ⚠️ 目前已知問題
 

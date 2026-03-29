@@ -4,7 +4,10 @@ import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
 import { createClient } from "@/lib/supabase/server";
-import { findEquippedAvatarFramesByUserIds } from "@/lib/repositories/server/rewards.repository";
+import {
+  findEquippedAvatarFramesByUserIds,
+  findEquippedCardFramesByUserIds,
+} from "@/lib/repositories/server/rewards.repository";
 import { findMarketUsers } from "@/lib/repositories/server/user.repository";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { calcSkillScore } from "@/lib/utils/matching";
@@ -93,16 +96,22 @@ export async function getMarketUsersAction(
   const getCachedMarketUsers = unstable_cache(
     async () => {
       const base = await findMarketUsers({ currentUserId: user.id });
-      const frameMap = await findEquippedAvatarFramesByUserIds(
-        base.map((u) => u.id),
-      );
+      const userIds = base.map((u) => u.id);
+      const [frameMap, cardFrameMap] = await Promise.all([
+        findEquippedAvatarFramesByUserIds(userIds),
+        findEquippedCardFramesByUserIds(userIds),
+      ]);
       return base.map((u) => {
         const f = frameMap.get(u.id);
+        const cf = cardFrameMap.get(u.id);
         return {
           ...u,
           equippedAvatarFrameEffectKey: f?.equippedAvatarFrameEffectKey ?? null,
           equippedAvatarFrameImageUrl: f?.equippedAvatarFrameImageUrl ?? null,
           equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
+          equippedCardFrameEffectKey: cf?.equippedCardFrameEffectKey ?? null,
+          equippedCardFrameImageUrl: cf?.equippedCardFrameImageUrl ?? null,
+          equippedCardFrameLayout: cf?.equippedCardFrameLayout ?? null,
         };
       });
     },
