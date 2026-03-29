@@ -31,7 +31,12 @@ const TX_CATEGORY_OPTIONS: { value: CoinLedgerTxCategory; label: string }[] = [
 
 function sourceToCategory(source: string): CoinLedgerTxCategory {
   if (source === "checkin") return "checkin";
-  if (source === "shop_purchase" || source === "topup" || source === "refund") {
+  if (
+    source === "shop_purchase" ||
+    source === "shop_resell" ||
+    source === "topup" ||
+    source === "refund"
+  ) {
     return "purchase";
   }
   if (

@@ -43,6 +43,7 @@ const SOURCE_LABEL: Record<CoinTransactionRow["source"], string> = {
   admin_deduct: "管理扣除",
   admin_adjust: "管理調整",
   shop_purchase: "商城消費",
+  shop_resell: "商城回收",
   refund: "退款",
   convert_in: "兌換入帳",
   convert_out: "兌換扣款",

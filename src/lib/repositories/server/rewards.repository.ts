@@ -15,6 +15,15 @@ export type UserRewardWithEffect = UserRewardRow & {
   image_url: string | null;
   /** 僅商城來源頭像框／卡框：來自 `shop_items.metadata.frame_layout` */
   frame_layout: ShopFrameLayout | null;
+  /** 以下欄位來自 `shop_items`；無 `shop_item_id` 時為 null（非商城來源） */
+  shop_allow_gift: boolean | null;
+  shop_allow_player_trade: boolean | null;
+  shop_allow_resell: boolean | null;
+  shop_resell_price: number | null;
+  shop_resell_currency_type: string | null;
+  /** 商品原幣種（回收幣種空白時與此相同） */
+  shop_currency_type: string | null;
+  shop_allow_delete: boolean | null;
 };
 
 /** 相容舊庫曾用 reward_ref_id；effect_key 僅在 prize_items */
@@ -61,26 +70,62 @@ export async function findMyRewards(
     ),
   );
   const imageByShopItemId = new Map<string, string | null>();
+  const effectByShopItemId = new Map<string, string | null>();
   const layoutByShopItemId = new Map<string, ShopFrameLayout | null>();
+  const policyByShopItemId = new Map<
+    string,
+    {
+      allow_gift: boolean;
+      allow_player_trade: boolean;
+      allow_resell: boolean;
+      resell_price: number | null;
+      resell_currency_type: string | null;
+      allow_delete: boolean;
+      currency_type: string;
+    }
+  >();
   if (shopItemIds.length > 0) {
     const { data: shopItems, error: shopErr } = await admin
       .from("shop_items")
-      .select("id, image_url, metadata")
+      .select(
+        "id, effect_key, image_url, metadata, currency_type, allow_gift, allow_player_trade, allow_resell, resell_price, resell_currency_type, allow_delete",
+      )
       .in("id", shopItemIds);
     if (shopErr) throw shopErr;
     for (const it of shopItems ?? []) {
       const sid = it.id as string;
+      const ek = (it.effect_key as string | null)?.trim() || null;
+      effectByShopItemId.set(sid, ek);
       imageByShopItemId.set(sid, (it.image_url as string | null) ?? null);
       layoutByShopItemId.set(
         sid,
         parseShopFrameLayoutFromMetadata(it.metadata as unknown),
       );
+      policyByShopItemId.set(sid, {
+        allow_gift: Boolean(it.allow_gift),
+        allow_player_trade: Boolean(it.allow_player_trade),
+        allow_resell: Boolean(it.allow_resell),
+        resell_price:
+          it.resell_price != null && Number.isFinite(Number(it.resell_price))
+            ? Number(it.resell_price)
+            : null,
+        resell_currency_type:
+          typeof it.resell_currency_type === "string" &&
+          it.resell_currency_type.trim()
+            ? it.resell_currency_type.trim()
+            : null,
+        allow_delete: it.allow_delete !== false,
+        currency_type: String(it.currency_type ?? "free_coins"),
+      });
     }
   }
 
   return rows.map((row) => {
     const refId = prizeItemRefId(row);
     const sid = row.shop_item_id;
+    const effectFromPrize = refId ? (effectByItemId.get(refId) ?? null) : null;
+    const effectFromShop = sid ? (effectByShopItemId.get(sid) ?? null) : null;
+    const pol = sid ? policyByShopItemId.get(sid) : undefined;
     return {
       id: row.id,
       user_id: row.user_id,
@@ -91,11 +136,18 @@ export async function findMyRewards(
       is_equipped: row.is_equipped,
       used_at: row.used_at,
       created_at: row.created_at,
-      effect_key: refId ? (effectByItemId.get(refId) ?? null) : null,
+      effect_key: effectFromPrize ?? effectFromShop,
       image_url:
         (refId ? (imageByPrizeItemId.get(refId) ?? null) : null) ??
         (sid ? (imageByShopItemId.get(sid) ?? null) : null),
       frame_layout: sid ? (layoutByShopItemId.get(sid) ?? null) : null,
+      shop_allow_gift: pol ? pol.allow_gift : null,
+      shop_allow_player_trade: pol ? pol.allow_player_trade : null,
+      shop_allow_resell: pol ? pol.allow_resell : null,
+      shop_resell_price: pol ? pol.resell_price : null,
+      shop_resell_currency_type: pol ? pol.resell_currency_type : null,
+      shop_currency_type: pol ? pol.currency_type : null,
+      shop_allow_delete: pol ? pol.allow_delete : null,
     };
   });
 }
@@ -482,6 +534,22 @@ export async function deleteUserRewardForOwner(
     .select("id");
   if (error) throw error;
   return Array.isArray(data) && data.length > 0;
+}
+
+export async function deleteUserRewardsForOwner(
+  rewardIds: string[],
+  ownerUserId: string,
+): Promise<number> {
+  if (rewardIds.length === 0) return 0;
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("user_rewards")
+    .delete()
+    .in("id", rewardIds)
+    .eq("user_id", ownerUserId)
+    .select("id");
+  if (error) throw error;
+  return (data ?? []).length;
 }
 
 /** 複製一筆獎勵給對方後刪除來源列；呼叫端須已驗證身分與血盟 */

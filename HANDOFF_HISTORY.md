@@ -1082,3 +1082,33 @@ Git
 Git
 
 641365c fix: show equipped avatar frames across app and profile overflow
+
+---
+
+[2026-03-30] — 商城道具政策（贈送／刪除／回賣）、背包數量操作、頭像框 japan-01 上架
+
+完成項目
+
+- **資料庫**：`shop_items` 新增 **`allow_gift`／`allow_player_trade`／`allow_resell`／`resell_price`／`resell_currency_type`／`allow_delete`**（預設贈送與刪除開、回賣關）；**`coin_transactions.source`** 約束擴充含 **`shop_resell`**（並與 TS 對齊 **`loot_box`／`admin_adjust`**）。遷移檔：`20260330120000_shop_item_player_policies.sql`、`20260330121000_coin_transactions_source_shop_resell.sql`。
+- **後台 `/admin/shop`**：表單區塊「玩家持有後」可勾選贈送、玩家買賣（預留）、刪除、回賣＋回收金額與幣種（空白＝沿用商品售價幣種）。
+- **背包（`FloatingToolbar`）**：長按可開啟之堆疊依商品政策顯示贈送／刪除／回賣；**數量**輸入；頭像框／卡框／稱號格位 **裝備中** 顯示綠底勾勾＋文案「裝備中 ✓」；贈送／刪除改 **批次** server actions。
+- **Layer 2**：**`rewards.repository`** 之 **`findMyRewards`** 併查商城 **`effect_key`／政策欄位／`currency_type`**（補齊僅商城來源時之 **`effect_key`**）；**`deleteUserRewardsForOwner`**。
+- **`rewards.action`**：**`deleteUserRewardsBatchAction`／`giftUserRewardsToAlliancePartnerBatchAction`／`resellUserRewardsBatchAction`**；無 **`shop_item_id`** 時仍僅稱號／頭像框／卡框可走贈刪（舊行為）。
+- **商城／幣種紀錄**：**`shop/page.tsx`** **`SOURCE_LABEL`** 加 **`shop_resell`**；**`coins-admin-client`** 分類含 **`shop_resell`** → 購買類。
+
+資料庫異動（雲端已執行）
+
+- **專案「冒險者公會」**（`zjaumgdypoitjhvllzen`）：已透過 Supabase MCP **`apply_migration`** 套用 **`shop_item_player_policies`**、**`coin_transactions_source_shop_resell`**；並 **`execute_sql`** **`UPSERT`** 商品 **`JAPAN_01`**（**`japan-01`**，**`/frames/japan-01.png`**，探險幣 1200、回賣 400、贈送／刪除／回賣皆開）。
+
+資產
+
+- **`public/frames/japan-01.png`**：**512×512**、**PNG 透明**（四角與中心黑底以 **flood fill，thresh≈42** 去背；若邊緣殘黑可再調後台或重匯）。
+
+需要注意
+
+- 本地 **`supabase db push`** 須含上述兩支 migration；若僅連雲端已手動套用，本地檔仍應保留以利版本一致。
+- **`allow_player_trade`** 目前僅存欄位，前端尚無玩家市集流程。
+
+Git
+
+（待補 commit hash）

@@ -2129,6 +2129,12 @@ export async function createShopItemAction(data: {
   sort_order: number;
   metadata?: Record<string, unknown> | null;
   image_url?: string | null;
+  allow_gift?: boolean;
+  allow_player_trade?: boolean;
+  allow_resell?: boolean;
+  resell_price?: number | null;
+  resell_currency_type?: string | null;
+  allow_delete?: boolean;
 }): Promise<ActionResult<ShopItemRow>> {
   try {
     await requireRole(["master"]);
@@ -2140,6 +2146,12 @@ export async function createShopItemAction(data: {
     }
     if (data.daily_limit != null && data.daily_limit < 1) {
       return { ok: false, error: "每日限購須 ≥ 1" };
+    }
+    if (data.allow_resell) {
+      const rp = data.resell_price;
+      if (rp == null || !Number.isFinite(rp) || rp < 0) {
+        return { ok: false, error: "開啟回賣時須設定回收金額（≥ 0）" };
+      }
     }
     const existing = await findShopItemBySku(data.sku);
     if (existing) {
@@ -2162,6 +2174,15 @@ export async function createShopItemAction(data: {
       sort_order: data.sort_order,
       metadata: (data.metadata as Json) ?? null,
       image_url: data.image_url ?? null,
+      allow_gift: data.allow_gift ?? true,
+      allow_player_trade: data.allow_player_trade ?? true,
+      allow_resell: data.allow_resell ?? false,
+      resell_price: data.allow_resell ? (data.resell_price ?? null) : null,
+      resell_currency_type:
+        data.allow_resell && data.resell_currency_type?.trim()
+          ? data.resell_currency_type.trim()
+          : null,
+      allow_delete: data.allow_delete ?? true,
     });
     revalidateTag("shop_items");
     return { ok: true, data: item };
@@ -2189,6 +2210,12 @@ export async function updateShopItemAction(
     sort_order?: number;
     metadata?: Record<string, unknown> | null;
     image_url?: string | null;
+    allow_gift?: boolean;
+    allow_player_trade?: boolean;
+    allow_resell?: boolean;
+    resell_price?: number | null;
+    resell_currency_type?: string | null;
+    allow_delete?: boolean;
   },
 ): Promise<ActionResult<ShopItemRow>> {
   try {
@@ -2201,6 +2228,12 @@ export async function updateShopItemAction(
     }
     if (data.daily_limit != null && data.daily_limit < 1) {
       return { ok: false, error: "每日限購須 ≥ 1" };
+    }
+    if (data.allow_resell === true) {
+      const rp = data.resell_price;
+      if (rp == null || !Number.isFinite(rp) || rp < 0) {
+        return { ok: false, error: "開啟回賣時須設定回收金額（≥ 0）" };
+      }
     }
     if (data.sku != null) {
       const existing = await findShopItemBySku(data.sku);

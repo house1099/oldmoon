@@ -106,6 +106,15 @@ type FormData = {
   is_active: boolean;
   metadata: string;
   image_url: string;
+  /** 玩家持有後：血盟贈送 */
+  allow_gift: boolean;
+  /** 預留：玩家間買賣／市集 */
+  allow_player_trade: boolean;
+  allow_resell: boolean;
+  resell_price: string;
+  /** 空白 = 與商品售價幣種相同 */
+  resell_currency_type: string;
+  allow_delete: boolean;
   /** 頭像框／卡框對齊（寫入 metadata.frame_layout） */
   frame_offset_x: string;
   frame_offset_y: string;
@@ -128,6 +137,12 @@ const EMPTY_FORM: FormData = {
   is_active: false,
   metadata: "",
   image_url: "",
+  allow_gift: true,
+  allow_player_trade: true,
+  allow_resell: false,
+  resell_price: "",
+  resell_currency_type: "",
+  allow_delete: true,
   frame_offset_x: "0",
   frame_offset_y: "0",
   frame_scale: "100",
@@ -163,6 +178,15 @@ function itemToForm(item: ShopItemRow): FormData {
       ? JSON.stringify(metaForTextarea, null, 2)
       : "",
     image_url: item.image_url?.trim() ?? "",
+    allow_gift: item.allow_gift !== false,
+    allow_player_trade: item.allow_player_trade !== false,
+    allow_resell: Boolean(item.allow_resell),
+    resell_price:
+      item.resell_price != null && Number.isFinite(Number(item.resell_price))
+        ? String(item.resell_price)
+        : "",
+    resell_currency_type: item.resell_currency_type?.trim() ?? "",
+    allow_delete: item.allow_delete !== false,
     frame_offset_x: String(layout.offsetXPercent),
     frame_offset_y: String(layout.offsetYPercent),
     frame_scale: String(layout.scalePercent),
@@ -286,6 +310,15 @@ export default function ShopAdminClient() {
       toast.error("原價須為整數或留空");
       return;
     }
+    let resellPriceNum: number | null = null;
+    if (form.allow_resell) {
+      const rp = parseInt(form.resell_price.replace(/[^0-9]/g, ""), 10);
+      if (!Number.isFinite(rp) || rp < 0) {
+        toast.error("回賣回收金額須為 ≥ 0 的整數");
+        return;
+      }
+      resellPriceNum = rp;
+    }
 
     let metadata: Record<string, unknown> | null = null;
     if (form.metadata.trim()) {
@@ -329,6 +362,15 @@ export default function ShopAdminClient() {
       sort_order: sortOrder,
       metadata,
       image_url: form.image_url.trim() || null,
+      allow_gift: form.allow_gift,
+      allow_player_trade: form.allow_player_trade,
+      allow_resell: form.allow_resell,
+      resell_price: form.allow_resell ? resellPriceNum : null,
+      resell_currency_type:
+        form.allow_resell && form.resell_currency_type.trim()
+          ? form.resell_currency_type.trim()
+          : null,
+      allow_delete: form.allow_delete,
     };
 
     setSaving(true);
@@ -1055,6 +1097,75 @@ export default function ShopAdminClient() {
               />
               <span className="text-gray-700">上架</span>
             </label>
+            <div className="rounded-lg border border-gray-200 bg-gray-50/80 p-3 space-y-2">
+              <p className="text-xs font-medium text-gray-600">
+                玩家持有後（背包贈送／刪除／回賣）
+              </p>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={form.allow_gift}
+                  onChange={(e) => setField("allow_gift", e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-violet-600"
+                />
+                <span className="text-gray-700">允許贈送（血盟夥伴）</span>
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={form.allow_player_trade}
+                  onChange={(e) => setField("allow_player_trade", e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-violet-600"
+                />
+                <span className="text-gray-700">允許玩家買賣／市集（預留）</span>
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={form.allow_delete}
+                  onChange={(e) => setField("allow_delete", e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-violet-600"
+                />
+                <span className="text-gray-700">允許從背包刪除</span>
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={form.allow_resell}
+                  onChange={(e) => setField("allow_resell", e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-violet-600"
+                />
+                <span className="text-gray-700">允許回賣給系統（回收）</span>
+              </label>
+              {form.allow_resell ? (
+                <div className="grid grid-cols-1 gap-2 pl-6 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-gray-700 text-xs">單件回收金額（≥ 0）</span>
+                    <input
+                      type="text"
+                      value={form.resell_price}
+                      onChange={(e) =>
+                        setField("resell_price", e.target.value.replace(/[^0-9]/g, ""))
+                      }
+                      className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                      placeholder="0"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-gray-700 text-xs">回收幣種</span>
+                    <select
+                      value={form.resell_currency_type}
+                      onChange={(e) => setField("resell_currency_type", e.target.value)}
+                      className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    >
+                      <option value="">與商品售價幣種相同</option>
+                      <option value="free_coins">🪙 探險幣</option>
+                      <option value="premium_coins">💎 純金</option>
+                    </select>
+                  </label>
+                </div>
+              ) : null}
+            </div>
             <label className="block">
               <span className="text-gray-700">進階設定（metadata JSON，選填）</span>
               <span className="ml-1 text-xs text-gray-400">

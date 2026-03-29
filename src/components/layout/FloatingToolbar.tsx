@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import {
   Backpack,
   Beer,
+  Check,
   Mail,
   Sparkles,
   X,
@@ -55,8 +56,9 @@ import {
   expireBroadcastAction,
   useBroadcastAction as submitBroadcastAction,
   consumeRenameCardAction,
-  deleteUserRewardAction,
-  giftUserRewardToAlliancePartnerAction,
+  deleteUserRewardsBatchAction,
+  giftUserRewardsToAlliancePartnerBatchAction,
+  resellUserRewardsBatchAction,
   type ActiveBroadcastDto,
   type MyRewardsPayload,
 } from "@/services/rewards.action";
@@ -147,14 +149,64 @@ type RewardStack = {
   rows: UserRewardWithEffect[];
 };
 
-/** 與 `rewards.action` 之 `GIFTABLE_REWARD_TYPES` 一致（可長按贈送／刪除） */
-const MANAGEABLE_REWARD_TYPES = new Set([
+/** 無商城來源時：維持原可長按之裝飾類道具 */
+const LEGACY_LONGPRESS_REWARD_TYPES = new Set([
+  "avatar_frame",
+  "card_frame",
+  "title",
+]);
+
+const EQUIPPED_BADGE_REWARD_TYPES = new Set([
   "avatar_frame",
   "card_frame",
   "title",
 ]);
 
 const INVENTORY_LONGPRESS_MS = 550;
+
+function firstUnequippedRow(stack: RewardStack): UserRewardWithEffect | null {
+  return stack.rows.find((r) => !r.is_equipped) ?? null;
+}
+
+function stackSupportsLongPress(stack: RewardStack): boolean {
+  if (!firstUnequippedRow(stack)) return false;
+  const sample = firstUnequippedRow(stack)!;
+  if (sample.shop_item_id) {
+    const canGift = sample.shop_allow_gift !== false;
+    const canDelete = sample.shop_allow_delete !== false;
+    const unit =
+      sample.shop_resell_price != null
+        ? Number(sample.shop_resell_price)
+        : NaN;
+    const canResell =
+      sample.shop_allow_resell === true &&
+      Number.isFinite(unit) &&
+      unit >= 0;
+    return canGift || canDelete || canResell;
+  }
+  return LEGACY_LONGPRESS_REWARD_TYPES.has(stack.rewardType);
+}
+
+function stackMenuMaxQty(stack: RewardStack): number {
+  return stack.rows.filter((r) => !r.is_equipped).length;
+}
+
+function pickUnequippedRowIds(stack: RewardStack, n: number): string[] {
+  const rows = stack.rows.filter((r) => !r.is_equipped);
+  const cap = rows.length;
+  if (cap === 0) return [];
+  const take = Math.min(Math.max(1, n), cap);
+  return rows.slice(0, take).map((r) => r.id);
+}
+
+function resellCurrencyLabel(r: UserRewardWithEffect): string {
+  const c = r.shop_resell_currency_type?.trim();
+  if (c === "premium_coins") return "純金";
+  if (c === "free_coins") return "探險幣";
+  const ct = r.shop_currency_type?.trim();
+  if (ct === "premium_coins") return "純金";
+  return "探險幣";
+}
 
 function buildStacks(rows: UserRewardWithEffect[]): RewardStack[] {
   const map = new Map<string, UserRewardWithEffect[]>();
@@ -199,7 +251,7 @@ function stackActionHint(stack: RewardStack): string {
     return "使用";
   }
   if (rt === "title" || rt === "avatar_frame" || rt === "card_frame") {
-    return stack.rows.some((r) => r.is_equipped) ? "已裝備 ✓" : "裝備";
+    return stack.rows.some((r) => r.is_equipped) ? "裝備中 ✓" : "裝備";
   }
   return "";
 }
@@ -265,25 +317,34 @@ function FloatingToolbarInner({
 
   const [stackMenuOpen, setStackMenuOpen] = useState(false);
   const [stackMenuTarget, setStackMenuTarget] = useState<RewardStack | null>(null);
+  const [stackMenuQty, setStackMenuQty] = useState(1);
   const [deleteDialog, setDeleteDialog] = useState<{
     step: 1 | 2;
-    rowId: string;
+    rowIds: string[];
     label: string;
   } | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [giftPickerOpen, setGiftPickerOpen] = useState(false);
   const [giftPartners, setGiftPartners] = useState<AlliancePartnerGiftDto[]>([]);
   const [pendingGift, setPendingGift] = useState<{
-    rowId: string;
+    rowIds: string[];
     label: string;
   } | null>(null);
   const [giftDialog, setGiftDialog] = useState<{
     step: 1 | 2;
-    rowId: string;
+    rowIds: string[];
     itemLabel: string;
     partner: AlliancePartnerGiftDto;
   } | null>(null);
   const [giftBusy, setGiftBusy] = useState(false);
+  const [resellDialog, setResellDialog] = useState<{
+    step: 1 | 2;
+    rowIds: string[];
+    label: string;
+    payout: number;
+    currencyLabel: string;
+  } | null>(null);
+  const [resellBusy, setResellBusy] = useState(false);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
 
@@ -402,26 +463,56 @@ function FloatingToolbarInner({
     }
   }
 
-  function pickUnequippedRow(stack: RewardStack) {
-    return stack.rows.find((r) => !r.is_equipped) ?? null;
-  }
-
   function tryOpenStackMenu(stack: RewardStack) {
-    if (!MANAGEABLE_REWARD_TYPES.has(stack.rewardType)) return;
-    const row = pickUnequippedRow(stack);
-    if (!row) {
-      toast.error("請先卸下道具才能贈送或刪除");
+    if (!stackSupportsLongPress(stack)) {
+      if (!stack.rows.some((r) => !r.is_equipped)) {
+        toast.error("請先卸下道具才能贈送、刪除或回賣");
+      } else {
+        toast.message("此道具未開放這些操作");
+      }
       return;
     }
+    setStackMenuQty(1);
     setStackMenuTarget(stack);
     setStackMenuOpen(true);
+  }
+
+  function stackMenuActions(stack: RewardStack) {
+    const sample = firstUnequippedRow(stack);
+    if (!sample) {
+      return { canGift: false, canDelete: false, canResell: false, unit: 0 };
+    }
+    if (sample.shop_item_id) {
+      const unit =
+        sample.shop_resell_price != null
+          ? Number(sample.shop_resell_price)
+          : NaN;
+      return {
+        canGift: sample.shop_allow_gift !== false,
+        canDelete: sample.shop_allow_delete !== false,
+        canResell:
+          sample.shop_allow_resell === true &&
+          Number.isFinite(unit) &&
+          unit >= 0,
+        unit: Number.isFinite(unit) ? unit : 0,
+      };
+    }
+    return {
+      canGift: true,
+      canDelete: true,
+      canResell: false,
+      unit: 0,
+    };
   }
 
   async function beginGiftFromMenu() {
     setStackMenuOpen(false);
     if (!stackMenuTarget) return;
-    const row = pickUnequippedRow(stackMenuTarget);
-    if (!row) return;
+    const rowIds = pickUnequippedRowIds(stackMenuTarget, stackMenuQty);
+    if (rowIds.length === 0) {
+      toast.error("沒有可贈送的數量");
+      return;
+    }
     const res = await getMyAlliancePartnersForGiftAction();
     if (!res.ok) {
       toast.error(res.error);
@@ -431,7 +522,7 @@ function FloatingToolbarInner({
       toast.message("尚無已成立的血盟夥伴");
       return;
     }
-    setPendingGift({ rowId: row.id, label: stackMenuTarget.label });
+    setPendingGift({ rowIds, label: stackMenuTarget.label });
     setGiftPartners(res.partners);
     setGiftPickerOpen(true);
   }
@@ -439,9 +530,34 @@ function FloatingToolbarInner({
   function beginDeleteFromMenu() {
     setStackMenuOpen(false);
     if (!stackMenuTarget) return;
-    const row = pickUnequippedRow(stackMenuTarget);
-    if (!row) return;
-    setDeleteDialog({ step: 1, rowId: row.id, label: stackMenuTarget.label });
+    const rowIds = pickUnequippedRowIds(stackMenuTarget, stackMenuQty);
+    if (rowIds.length === 0) {
+      toast.error("沒有可刪除的數量");
+      return;
+    }
+    setDeleteDialog({ step: 1, rowIds, label: stackMenuTarget.label });
+  }
+
+  function beginResellFromMenu() {
+    setStackMenuOpen(false);
+    if (!stackMenuTarget) return;
+    const sample = firstUnequippedRow(stackMenuTarget);
+    if (!sample) return;
+    const rowIds = pickUnequippedRowIds(stackMenuTarget, stackMenuQty);
+    if (rowIds.length === 0) {
+      toast.error("沒有可回賣的數量");
+      return;
+    }
+    const { canResell, unit } = stackMenuActions(stackMenuTarget);
+    if (!canResell) return;
+    const payout = unit * rowIds.length;
+    setResellDialog({
+      step: 1,
+      rowIds,
+      label: stackMenuTarget.label,
+      payout,
+      currencyLabel: resellCurrencyLabel(sample),
+    });
   }
 
   const subButtons = [
@@ -802,9 +918,10 @@ function FloatingToolbarInner({
                     stack.rewardType === "card_frame"
                       ? stack.rows[0]?.effect_key
                       : null;
-                  const canLongPressManage = MANAGEABLE_REWARD_TYPES.has(
-                    stack.rewardType,
-                  );
+                  const canLongPressManage = stackSupportsLongPress(stack);
+                  const showEquippedBadge =
+                    EQUIPPED_BADGE_REWARD_TYPES.has(stack.rewardType) &&
+                    stack.rows.some((r) => r.is_equipped);
                   return (
                     <button
                       key={stack.key}
@@ -869,13 +986,21 @@ function FloatingToolbarInner({
                           {stack.count > 9 ? "9+" : stack.count}
                         </span>
                       ) : null}
+                      {showEquippedBadge ? (
+                        <span
+                          className="absolute bottom-0.5 left-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600/95 text-white shadow-sm ring-1 ring-zinc-950"
+                          title="裝備中"
+                        >
+                          <Check className="h-2.5 w-2.5" strokeWidth={3} aria-hidden />
+                        </span>
+                      ) : null}
                     </button>
                   );
                 })}
               </div>
             )}
             <p className="mt-3 text-center text-[10px] text-zinc-500">
-              頭像框／卡片外框／稱號：長按格位可贈送血盟或刪除（須先卸下）
+              支援的道具：長按格位可贈送血盟、刪除或回賣（依商城設定；須先卸下已裝備者）
             </p>
           </div>
         </SheetContent>
@@ -895,31 +1020,80 @@ function FloatingToolbarInner({
               {stackMenuTarget?.label ?? ""}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-2 pt-2">
-            <Button
-              type="button"
-              className="w-full bg-violet-600 hover:bg-violet-500"
-              onClick={() => void beginGiftFromMenu()}
-            >
-              贈送（血盟夥伴）
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              className="w-full"
-              onClick={() => beginDeleteFromMenu()}
-            >
-              刪除道具
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="border-zinc-600 bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
-              onClick={() => setStackMenuOpen(false)}
-            >
-              取消
-            </Button>
-          </div>
+          {stackMenuTarget ? (
+            <div className="flex flex-col gap-3 pt-2">
+              {(() => {
+                const sm = stackMenuTarget;
+                const act = stackMenuActions(sm);
+                const u = firstUnequippedRow(sm);
+                const maxQ = stackMenuMaxQty(sm);
+                const previewTotal =
+                  act.canResell && u
+                    ? act.unit * Math.min(stackMenuQty, maxQ)
+                    : 0;
+                return (
+                  <>
+              <label className="flex flex-col gap-1 text-xs text-zinc-400">
+                <span>數量（未裝備者可操作最多 {maxQ} 件）</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={maxQ}
+                  value={stackMenuQty}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    if (!Number.isFinite(v)) {
+                      setStackMenuQty(1);
+                      return;
+                    }
+                    setStackMenuQty(Math.min(Math.max(1, v), Math.max(1, maxQ)));
+                  }}
+                  className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
+                />
+              </label>
+              <div className="flex flex-col gap-2">
+                {act.canGift ? (
+                  <Button
+                    type="button"
+                    className="w-full bg-violet-600 hover:bg-violet-500"
+                    onClick={() => void beginGiftFromMenu()}
+                  >
+                    贈送（血盟夥伴）
+                  </Button>
+                ) : null}
+                {act.canDelete ? (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="w-full"
+                    onClick={() => beginDeleteFromMenu()}
+                  >
+                    刪除道具
+                  </Button>
+                ) : null}
+                {act.canResell && u ? (
+                  <Button
+                    type="button"
+                    className="w-full border border-amber-500/50 bg-amber-950/50 text-amber-100 hover:bg-amber-900/50"
+                    onClick={() => beginResellFromMenu()}
+                  >
+                    回賣系統（+{previewTotal} {resellCurrencyLabel(u)}）
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-zinc-600 bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
+                  onClick={() => setStackMenuOpen(false)}
+                >
+                  取消
+                </Button>
+              </div>
+                  </>
+                );
+              })()}
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 
@@ -937,7 +1111,7 @@ function FloatingToolbarInner({
           <SheetHeader className="space-y-1 border-b border-zinc-800/80 px-4 pb-4 pt-0 text-left">
             <SheetTitle className="text-lg text-zinc-100">贈與對象</SheetTitle>
             <p className="text-xs font-normal text-zinc-400">
-              僅限已成立的血盟夥伴；對方將收到一筆相同道具
+              僅限已成立的血盟夥伴；對方將收到相同件數的道具
             </p>
           </SheetHeader>
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-3">
@@ -951,7 +1125,7 @@ function FloatingToolbarInner({
                     if (!pendingGift) return;
                     setGiftDialog({
                       step: 1,
-                      rowId: pendingGift.rowId,
+                      rowIds: pendingGift.rowIds,
                       itemLabel: pendingGift.label,
                       partner: p,
                     });
@@ -994,8 +1168,8 @@ function FloatingToolbarInner({
             </AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
               {deleteDialog?.step === 1
-                ? `「${deleteDialog.label}」將從背包移除。請再次於下一步確認。`
-                : `刪除後無法復原。確定要刪除「${deleteDialog?.label ?? ""}」？`}
+                ? `將刪除 ${deleteDialog.rowIds.length} 件「${deleteDialog.label}」。請再次於下一步確認。`
+                : `刪除後無法復原。確定刪除 ${deleteDialog?.rowIds.length ?? 0} 件「${deleteDialog?.label ?? ""}」？`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1025,12 +1199,18 @@ function FloatingToolbarInner({
                   if (!deleteDialog || deleteBusy) return;
                   setDeleteBusy(true);
                   try {
-                    const r = await deleteUserRewardAction(deleteDialog.rowId);
+                    const r = await deleteUserRewardsBatchAction(
+                      deleteDialog.rowIds,
+                    );
                     if (!r.ok) {
                       toast.error(r.error);
                       return;
                     }
-                    toast.success("已刪除道具");
+                    toast.success(
+                      deleteDialog.rowIds.length > 1
+                        ? `已刪除 ${deleteDialog.rowIds.length} 件道具`
+                        : "已刪除道具",
+                    );
                     setDeleteDialog(null);
                     const p = await getMyRewardsAction();
                     setRewardsPayload(p);
@@ -1060,7 +1240,7 @@ function FloatingToolbarInner({
             </AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
               {giftDialog?.step === 1
-                ? `將「${giftDialog.itemLabel}」贈送給 ${giftDialog.partner.nickname}？下一步為最終確認。`
+                ? `將 ${giftDialog.rowIds.length} 件「${giftDialog.itemLabel}」贈送給 ${giftDialog.partner.nickname}？下一步為最終確認。`
                 : `道具將從你的背包移除並轉給 ${giftDialog?.partner.nickname ?? ""}，無法復原。`}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1091,15 +1271,19 @@ function FloatingToolbarInner({
                   if (!giftDialog || giftBusy) return;
                   setGiftBusy(true);
                   try {
-                    const r = await giftUserRewardToAlliancePartnerAction(
-                      giftDialog.rowId,
+                    const r = await giftUserRewardsToAlliancePartnerBatchAction(
+                      giftDialog.rowIds,
                       giftDialog.partner.id,
                     );
                     if (!r.ok) {
                       toast.error(r.error);
                       return;
                     }
-                    toast.success(`已贈送給 ${giftDialog.partner.nickname}`);
+                    toast.success(
+                      giftDialog.rowIds.length > 1
+                        ? `已贈送 ${giftDialog.rowIds.length} 件給 ${giftDialog.partner.nickname}`
+                        : `已贈送給 ${giftDialog.partner.nickname}`,
+                    );
                     setGiftDialog(null);
                     const p = await getMyRewardsAction();
                     setRewardsPayload(p);
@@ -1110,6 +1294,76 @@ function FloatingToolbarInner({
                 }}
               >
                 {giftBusy ? "贈送中…" : "確定贈送"}
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={resellDialog !== null}
+        onOpenChange={(open) => {
+          if (!open) setResellDialog(null);
+        }}
+      >
+        <AlertDialogContent className="border-zinc-700 bg-zinc-950 text-zinc-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {resellDialog?.step === 1 ? "確定回賣給系統？" : "再次確認回賣"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              {resellDialog?.step === 1
+                ? `將回賣 ${resellDialog.rowIds.length} 件「${resellDialog.label}」，可獲得 ${resellDialog.payout} ${resellDialog.currencyLabel}。`
+                : `回賣後道具將自背包移除，${resellDialog?.payout ?? 0} ${resellDialog?.currencyLabel ?? ""} 將入帳。`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              variant="outline"
+              className="border-zinc-700 bg-zinc-900 text-zinc-200"
+              disabled={resellBusy}
+            >
+              取消
+            </AlertDialogCancel>
+            {resellDialog?.step === 1 ? (
+              <AlertDialogAction
+                className="bg-amber-600 text-white hover:bg-amber-500"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setResellDialog((d) => (d ? { ...d, step: 2 } : null));
+                }}
+              >
+                下一步
+              </AlertDialogAction>
+            ) : (
+              <AlertDialogAction
+                className="bg-amber-600 text-white hover:bg-amber-500"
+                disabled={resellBusy}
+                onClick={async (e) => {
+                  e.preventDefault();
+                  if (!resellDialog || resellBusy) return;
+                  setResellBusy(true);
+                  try {
+                    const r = await resellUserRewardsBatchAction(
+                      resellDialog.rowIds,
+                    );
+                    if (!r.ok) {
+                      toast.error(r.error);
+                      return;
+                    }
+                    toast.success(
+                      `已回賣，獲得 ${r.totalCredited} ${r.currencyLabel}`,
+                    );
+                    setResellDialog(null);
+                    const p = await getMyRewardsAction();
+                    setRewardsPayload(p);
+                    router.refresh();
+                  } finally {
+                    setResellBusy(false);
+                  }
+                }}
+              >
+                {resellBusy ? "處理中…" : "確定回賣"}
               </AlertDialogAction>
             )}
           </AlertDialogFooter>

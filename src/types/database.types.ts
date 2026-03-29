@@ -1037,6 +1037,7 @@ export interface Database {
             | "admin_deduct"
             | "admin_adjust"
             | "shop_purchase"
+            | "shop_resell"
             | "refund"
             | "convert_in"
             | "convert_out"
@@ -1059,6 +1060,7 @@ export interface Database {
             | "admin_deduct"
             | "admin_adjust"
             | "shop_purchase"
+            | "shop_resell"
             | "refund"
             | "convert_in"
             | "convert_out"
@@ -1080,6 +1082,7 @@ export interface Database {
             | "admin_deduct"
             | "admin_adjust"
             | "shop_purchase"
+            | "shop_resell"
             | "refund"
             | "convert_in"
             | "convert_out"
@@ -1356,6 +1359,12 @@ export interface Database {
           sort_order: number;
           metadata: Json | null;
           image_url: string | null;
+          allow_gift: boolean;
+          allow_player_trade: boolean;
+          allow_resell: boolean;
+          resell_price: number | null;
+          resell_currency_type: string | null;
+          allow_delete: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -1377,6 +1386,12 @@ export interface Database {
           sort_order?: number;
           metadata?: Json | null;
           image_url?: string | null;
+          allow_gift?: boolean;
+          allow_player_trade?: boolean;
+          allow_resell?: boolean;
+          resell_price?: number | null;
+          resell_currency_type?: string | null;
+          allow_delete?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -1397,6 +1412,12 @@ export interface Database {
           sort_order?: number;
           metadata?: Json | null;
           image_url?: string | null;
+          allow_gift?: boolean;
+          allow_player_trade?: boolean;
+          allow_resell?: boolean;
+          resell_price?: number | null;
+          resell_currency_type?: string | null;
+          allow_delete?: boolean;
           updated_at?: string;
         };
         Relationships: [];

@@ -20,9 +20,13 @@ import {
   findActiveBroadcasts,
   findUserRewardById,
   deleteUserRewardForOwner,
+  deleteUserRewardsForOwner,
   transferUserRewardToUser,
   type UserRewardWithEffect,
 } from "@/lib/repositories/server/rewards.repository";
+import { findShopItemById } from "@/lib/repositories/server/shop.repository";
+import type { UserRewardRow } from "@/types/database.types";
+import { creditCoins } from "@/lib/repositories/server/coin.repository";
 
 export type MyRewardsPayload = {
   titles: UserRewardWithEffect[];
@@ -47,11 +51,41 @@ export type ActiveBroadcastDto = {
   userId: string;
 };
 
-const GIFTABLE_REWARD_TYPES = new Set([
+const LEGACY_GIFT_DELETE_REWARD_TYPES = new Set([
   "avatar_frame",
   "card_frame",
   "title",
 ]);
+
+async function assertRewardDeletable(
+  row: UserRewardRow,
+): Promise<string | null> {
+  if (row.is_equipped) return "請先卸下再刪除";
+  if (row.shop_item_id) {
+    const shop = await findShopItemById(row.shop_item_id);
+    if (shop?.allow_delete === false) return "此道具不可刪除";
+    return null;
+  }
+  if (!LEGACY_GIFT_DELETE_REWARD_TYPES.has(row.reward_type)) {
+    return "此類型道具無法刪除";
+  }
+  return null;
+}
+
+async function assertRewardGiftable(
+  row: UserRewardRow,
+): Promise<string | null> {
+  if (row.is_equipped) return "請先卸下再贈送";
+  if (row.shop_item_id) {
+    const shop = await findShopItemById(row.shop_item_id);
+    if (shop?.allow_gift === false) return "此道具不可贈送";
+    return null;
+  }
+  if (!LEGACY_GIFT_DELETE_REWARD_TYPES.has(row.reward_type)) {
+    return "此類型道具無法贈送";
+  }
+  return null;
+}
 
 export async function getMyRewardsAction(): Promise<MyRewardsPayload | null> {
   try {
@@ -292,12 +326,8 @@ export async function deleteUserRewardAction(
   if (!row || row.user_id !== user.id) {
     return { ok: false, error: "找不到道具" };
   }
-  if (!GIFTABLE_REWARD_TYPES.has(row.reward_type)) {
-    return { ok: false, error: "此類型道具無法刪除" };
-  }
-  if (row.is_equipped) {
-    return { ok: false, error: "請先卸下再刪除" };
-  }
+  const deny = await assertRewardDeletable(row);
+  if (deny) return { ok: false, error: deny };
 
   try {
     const ok = await deleteUserRewardForOwner(rewardId, user.id);
@@ -312,8 +342,54 @@ export async function deleteUserRewardAction(
   return { ok: true };
 }
 
+export async function deleteUserRewardsBatchAction(
+  rewardIds: string[],
+): Promise<{ ok: true; deleted: number } | { ok: false; error: string }> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "未登入" };
+
+  const unique = Array.from(new Set(rewardIds.filter(Boolean)));
+  if (unique.length === 0) return { ok: false, error: "未選擇道具" };
+
+  for (const id of unique) {
+    const row = await findUserRewardById(id);
+    if (!row || row.user_id !== user.id) {
+      return { ok: false, error: "找不到道具" };
+    }
+    const deny = await assertRewardDeletable(row);
+    if (deny) return { ok: false, error: deny };
+  }
+
+  try {
+    const n = await deleteUserRewardsForOwner(unique, user.id);
+    if (n !== unique.length) {
+      return { ok: false, error: "刪除失敗" };
+    }
+  } catch (e) {
+    console.error("deleteUserRewardsBatchAction:", e);
+    return { ok: false, error: "刪除失敗，請稍後再試" };
+  }
+  revalidateTag(profileCacheTag(user.id));
+  return { ok: true, deleted: unique.length };
+}
+
 export async function giftUserRewardToAlliancePartnerAction(
   rewardId: string,
+  partnerUserId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const r = await giftUserRewardsToAlliancePartnerBatchAction(
+    [rewardId],
+    partnerUserId,
+  );
+  if (!r.ok) return r;
+  return { ok: true };
+}
+
+export async function giftUserRewardsToAlliancePartnerBatchAction(
+  rewardIds: string[],
   partnerUserId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = createClient();
@@ -325,28 +401,115 @@ export async function giftUserRewardToAlliancePartnerAction(
     return { ok: false, error: "無法贈送給自己" };
   }
 
-  const row = await findUserRewardById(rewardId);
-  if (!row || row.user_id !== user.id) {
-    return { ok: false, error: "找不到道具" };
-  }
-  if (!GIFTABLE_REWARD_TYPES.has(row.reward_type)) {
-    return { ok: false, error: "此類型道具無法贈送" };
-  }
-  if (row.is_equipped) {
-    return { ok: false, error: "請先卸下再贈送" };
-  }
+  const unique = Array.from(new Set(rewardIds.filter(Boolean)));
+  if (unique.length === 0) return { ok: false, error: "未選擇道具" };
 
   try {
     const alliance = await findAllianceBetween(user.id, partnerUserId);
     if (!alliance || alliance.status !== "accepted") {
       return { ok: false, error: "僅能贈送給已成立的血盟夥伴" };
     }
-    await transferUserRewardToUser(rewardId, user.id, partnerUserId);
   } catch (e) {
-    console.error("giftUserRewardToAlliancePartnerAction:", e);
+    console.error("giftUserRewardsToAlliancePartnerBatchAction alliance:", e);
+    return { ok: false, error: "贈送失敗，請稍後再試" };
+  }
+
+  for (const id of unique) {
+    const row = await findUserRewardById(id);
+    if (!row || row.user_id !== user.id) {
+      return { ok: false, error: "找不到道具" };
+    }
+    const deny = await assertRewardGiftable(row);
+    if (deny) return { ok: false, error: deny };
+  }
+
+  try {
+    for (const id of unique) {
+      await transferUserRewardToUser(id, user.id, partnerUserId);
+    }
+  } catch (e) {
+    console.error("giftUserRewardsToAlliancePartnerBatchAction:", e);
     return { ok: false, error: "贈送失敗，請稍後再試" };
   }
   revalidateTag(profileCacheTag(user.id));
   revalidateTag(profileCacheTag(partnerUserId));
   return { ok: true };
+}
+
+export async function resellUserRewardsBatchAction(
+  rewardIds: string[],
+): Promise<
+  | { ok: true; totalCredited: number; currencyLabel: string }
+  | { ok: false; error: string }
+> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "未登入" };
+
+  const unique = Array.from(new Set(rewardIds.filter(Boolean)));
+  if (unique.length === 0) return { ok: false, error: "未選擇道具" };
+
+  const rows: UserRewardRow[] = [];
+  for (const id of unique) {
+    const row = await findUserRewardById(id);
+    if (!row || row.user_id !== user.id) {
+      return { ok: false, error: "找不到道具" };
+    }
+    if (row.is_equipped) {
+      return { ok: false, error: "請先卸下再回賣" };
+    }
+    rows.push(row);
+  }
+
+  const sid = rows[0]!.shop_item_id;
+  if (!sid || rows.some((r) => r.shop_item_id !== sid)) {
+    return { ok: false, error: "僅能批次回賣同一商城商品" };
+  }
+
+  const shop = await findShopItemById(sid);
+  if (!shop) return { ok: false, error: "找不到商品設定" };
+  if (!shop.allow_resell) {
+    return { ok: false, error: "此道具不可回賣" };
+  }
+  const unit =
+    shop.resell_price != null && Number.isFinite(Number(shop.resell_price))
+      ? Number(shop.resell_price)
+      : null;
+  if (unit == null || unit < 0) {
+    return { ok: false, error: "此商品未設定回收金額" };
+  }
+
+  const currencyRaw =
+    shop.resell_currency_type?.trim() || shop.currency_type || "free_coins";
+  const coinType = currencyRaw === "premium_coins" ? "premium" : "free";
+  const total = unit * unique.length;
+  const currencyLabel =
+    currencyRaw === "premium_coins" ? "純金" : "探險幣";
+
+  try {
+    const n = await deleteUserRewardsForOwner(unique, user.id);
+    if (n !== unique.length) {
+      return { ok: false, error: "回賣失敗" };
+    }
+  } catch (e) {
+    console.error("resellUserRewardsBatchAction delete:", e);
+    return { ok: false, error: "回賣失敗，請稍後再試" };
+  }
+
+  const credit = await creditCoins({
+    userId: user.id,
+    coinType,
+    amount: total,
+    source: "shop_resell",
+    note: `商城回收：${shop.name} x${unique.length}`,
+  });
+  if (!credit.success) {
+    console.error("resellUserRewardsBatchAction credit:", credit.error);
+    return { ok: false, error: "發放回收金失敗，請洽管理員" };
+  }
+
+  revalidateTag(profileCacheTag(user.id));
+  return { ok: true, totalCredited: total, currencyLabel };
 }
