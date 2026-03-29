@@ -994,4 +994,4 @@ feat: self-delete tavern message + broadcast expire by master
 
 Git
 
-TBD
+fc3b3a6 feat: static asset architecture + frame PNG overlay + effect preview
