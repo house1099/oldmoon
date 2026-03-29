@@ -97,6 +97,7 @@ export function TavernModal({
   const canModerate =
     profile?.role === "master" || profile?.role === "moderator";
   const myId = profile?.id;
+  const isActionTargetMine = actionTarget?.user_id === myId;
 
   useEffect(() => {
     if (!open) return;
@@ -185,7 +186,7 @@ export function TavernModal({
 
   const startLongPress = useCallback(
     (msg: TavernMessageDto, mine: boolean) => {
-      if (!canModerate || mine) return;
+      if (!mine && !canModerate) return;
       clearLongPress();
       longPressTimer.current = setTimeout(() => {
         longPressTimer.current = null;
@@ -226,6 +227,7 @@ export function TavernModal({
           <div className="mx-auto flex max-w-lg flex-col gap-3">
             {messages.map((m) => {
               const mine = m.user_id === myId;
+              const canOpenActionMenu = mine || canModerate;
               const msgRole = getRoleDisplay(m.user.role);
               const avatarEl = (
                 <MasterAvatarShell
@@ -244,20 +246,20 @@ export function TavernModal({
                   >
                     <div className="flex min-w-0 flex-col items-end">
                       <div
-                        role={canModerate ? "button" : undefined}
-                        tabIndex={canModerate ? 0 : undefined}
+                        role={canOpenActionMenu ? "button" : undefined}
+                        tabIndex={canOpenActionMenu ? 0 : undefined}
                         className="touch-manipulation max-w-[70vw] rounded-2xl rounded-tr-sm bg-violet-700/80 px-3 py-2 text-sm text-white"
                         onPointerDown={() => startLongPress(m, mine)}
                         onPointerUp={clearLongPress}
                         onPointerLeave={clearLongPress}
                         onPointerCancel={clearLongPress}
                         onContextMenu={(e) => {
-                          if (!canModerate || mine) return;
+                          if (!canOpenActionMenu) return;
                           e.preventDefault();
                           setActionTarget(m);
                         }}
                         onKeyDown={(e) => {
-                          if (!canModerate || mine) return;
+                          if (!canOpenActionMenu) return;
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
                             setActionTarget(m);
@@ -306,20 +308,20 @@ export function TavernModal({
                       <span className="shrink-0">· Lv.{m.user.level}</span>
                     </span>
                     <div
-                      role={canModerate ? "button" : undefined}
-                      tabIndex={canModerate ? 0 : undefined}
+                      role={canOpenActionMenu ? "button" : undefined}
+                      tabIndex={canOpenActionMenu ? 0 : undefined}
                       className="touch-manipulation max-w-[70vw] rounded-2xl rounded-tl-sm bg-zinc-800/80 px-3 py-2 text-sm text-zinc-100"
                       onPointerDown={() => startLongPress(m, mine)}
                       onPointerUp={clearLongPress}
                       onPointerLeave={clearLongPress}
                       onPointerCancel={clearLongPress}
                       onContextMenu={(e) => {
-                        if (!canModerate || mine) return;
+                        if (!canOpenActionMenu) return;
                         e.preventDefault();
                         setActionTarget(m);
                       }}
                       onKeyDown={(e) => {
-                        if (!canModerate || mine) return;
+                        if (!canOpenActionMenu) return;
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
                           setActionTarget(m);
@@ -404,43 +406,49 @@ export function TavernModal({
         <div className="fixed inset-0 z-[52] flex items-end justify-center bg-black/60 p-4 sm:items-center">
           <div className="flex flex-col gap-2 rounded-2xl border border-zinc-700 bg-zinc-900 p-3">
             <p className="mb-1 text-xs text-zinc-400">
-              禁言 {actionTarget.user.nickname}
+              {isActionTargetMine
+                ? "訊息操作"
+                : `管理 ${actionTarget.user.nickname}`}
             </p>
-            {[1, 3, 24].map((hours) => (
-              <button
-                type="button"
-                key={hours}
-                onClick={() => setSelectedBanHours(hours as 1 | 3 | 24)}
-                className="py-1.5 text-left text-sm text-amber-400 transition-colors hover:text-amber-300"
-              >
-                🔇 禁言 {hours} 小時
-              </button>
-            ))}
-            {selectedBanHours ? (
-              <div className="space-y-2 rounded-xl border border-zinc-700/70 bg-zinc-800/60 p-3">
-                <input
-                  type="text"
-                  placeholder="禁言原因（必填）"
-                  value={banReason}
-                  onChange={(e) => setBanReason(e.target.value)}
-                  className="w-full rounded-xl bg-zinc-800 px-3 py-2 text-sm text-zinc-200"
-                />
-                <button
-                  type="button"
-                  onClick={() => void handleBanUser(selectedBanHours, banReason)}
-                  disabled={!banReason.trim()}
-                  className="w-full rounded-xl bg-amber-600 py-2 text-sm text-white disabled:opacity-40"
-                >
-                  確認禁言 {selectedBanHours} 小時
-                </button>
-              </div>
+            {!isActionTargetMine ? (
+              <>
+                {[1, 3, 24].map((hours) => (
+                  <button
+                    type="button"
+                    key={hours}
+                    onClick={() => setSelectedBanHours(hours as 1 | 3 | 24)}
+                    className="py-1.5 text-left text-sm text-amber-400 transition-colors hover:text-amber-300"
+                  >
+                    🔇 禁言 {hours} 小時
+                  </button>
+                ))}
+                {selectedBanHours ? (
+                  <div className="space-y-2 rounded-xl border border-zinc-700/70 bg-zinc-800/60 p-3">
+                    <input
+                      type="text"
+                      placeholder="禁言原因（必填）"
+                      value={banReason}
+                      onChange={(e) => setBanReason(e.target.value)}
+                      className="w-full rounded-xl bg-zinc-800 px-3 py-2 text-sm text-zinc-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void handleBanUser(selectedBanHours, banReason)}
+                      disabled={!banReason.trim()}
+                      className="w-full rounded-xl bg-amber-600 py-2 text-sm text-white disabled:opacity-40"
+                    >
+                      確認禁言 {selectedBanHours} 小時
+                    </button>
+                  </div>
+                ) : null}
+              </>
             ) : null}
             <button
               type="button"
               onClick={() => void handleDeleteMessage()}
               className="mt-1 border-t border-zinc-700/50 pt-2 py-1.5 text-left text-sm text-red-400 transition-colors hover:text-red-300"
             >
-              🗑️ 刪除此訊息
+              🗑️ 刪除這則訊息
             </button>
             <button
               type="button"

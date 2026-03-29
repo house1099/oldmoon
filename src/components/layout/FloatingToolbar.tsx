@@ -40,18 +40,32 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import useSWR from "swr";
 import { cn } from "@/lib/utils";
 import { useMyProfile } from "@/hooks/useMyProfile";
 import {
   getMyRewardsAction,
   equipRewardAction,
   unequipRewardAction,
+  getActiveBroadcastsAction,
+  expireBroadcastAction,
   useBroadcastAction as submitBroadcastAction,
   consumeRenameCardAction,
+  type ActiveBroadcastDto,
   type MyRewardsPayload,
 } from "@/services/rewards.action";
 import type { UserRewardWithEffect } from "@/lib/repositories/server/rewards.repository";
 import { rewardEffectClassName } from "@/lib/utils/reward-effects";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const TOTAL_INVENTORY_SLOTS = 48;
 
@@ -175,6 +189,16 @@ function stackActionHint(stack: RewardStack): string {
   return "";
 }
 
+function formatBroadcastRemaining(expiresAt: string): string {
+  const diffMs = new Date(expiresAt).getTime() - Date.now();
+  if (!Number.isFinite(diffMs) || diffMs <= 0) return "即將結束";
+  const totalMinutes = Math.ceil(diffMs / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours <= 0) return `剩餘 ${minutes} 分鐘`;
+  return `剩餘 ${hours} 小時 ${minutes} 分`;
+}
+
 function FloatingToolbarInner({
   messageMaxLength,
   openEquipRef,
@@ -207,6 +231,15 @@ function FloatingToolbarInner({
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameDraft, setRenameDraft] = useState("");
   const [renameSaving, setRenameSaving] = useState(false);
+  const [broadcastManageOpen, setBroadcastManageOpen] = useState(false);
+  const [expireTarget, setExpireTarget] = useState<ActiveBroadcastDto | null>(null);
+  const [expiring, setExpiring] = useState(false);
+
+  const { data: activeBroadcasts = [], mutate: mutateActiveBroadcasts } = useSWR(
+    profile?.role === "master" ? "floating-toolbar-active-broadcasts" : null,
+    () => getActiveBroadcastsAction(),
+    { revalidateOnFocus: true },
+  );
 
   useEffect(() => {
     openEquipRef.current = () => setEquipOpen(true);
@@ -345,6 +378,28 @@ function FloatingToolbarInner({
       icon: <Beer className="h-5 w-5 text-amber-200/95" strokeWidth={1.75} />,
       badge: "tavern" as const,
     },
+    ...(profile?.role === "master" && activeBroadcasts.length > 0
+      ? [
+          {
+            id: "broadcast-manage" as const,
+            label: "廣播管理",
+            delayMs: 0,
+            onClick: () => {
+              setExpanded(false);
+              setBroadcastManageOpen(true);
+            },
+            icon: (
+              <span
+                aria-hidden
+                className="inline-flex h-5 w-5 items-center justify-center text-sm text-red-300"
+              >
+                📢
+              </span>
+            ),
+            badge: "none" as const,
+          },
+        ]
+      : []),
   ] as const;
 
   const mainButtonHasNotice = unreadMail > 0;
@@ -682,6 +737,104 @@ function FloatingToolbarInner({
           </div>
         </SheetContent>
       </Sheet>
+
+      <Sheet open={broadcastManageOpen} onOpenChange={setBroadcastManageOpen}>
+        <SheetContent
+          side="right"
+          className="z-[70] flex w-[min(100vw,24rem)] flex-col border-l border-zinc-800 bg-zinc-950 px-0 pb-0 pt-[max(1.5rem,env(safe-area-inset-top,0px))] text-zinc-100"
+        >
+          <SheetHeader className="space-y-1 border-b border-zinc-800/80 px-4 pb-4 pt-0 text-left">
+            <SheetTitle className="text-lg text-zinc-100">📢 廣播管理</SheetTitle>
+            <p className="text-xs font-normal text-zinc-400">
+              管理目前正在顯示中的廣播
+            </p>
+          </SheetHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+            {activeBroadcasts.length === 0 ? (
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 px-3 py-4 text-center text-sm text-zinc-400">
+                目前無進行中的廣播
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {activeBroadcasts.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 space-y-1">
+                        <p className="text-xs text-amber-200">
+                          發送者：{item.nickname}
+                        </p>
+                        <p className="text-sm text-zinc-100 break-words">
+                          {item.message}
+                        </p>
+                        <p className="text-[11px] text-zinc-500">
+                          {formatBroadcastRemaining(item.expiresAt)}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setExpireTarget(item)}
+                        className="shrink-0"
+                      >
+                        下架
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <AlertDialog open={Boolean(expireTarget)} onOpenChange={(open) => {
+        if (!open) setExpireTarget(null);
+      }}>
+        <AlertDialogContent className="border-zinc-700 bg-zinc-950 text-zinc-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定下架這則廣播？</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              下架後將立即從廣播橫幅移除。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              variant="outline"
+              className="border-zinc-700 bg-zinc-900 text-zinc-200"
+              disabled={expiring}
+            >
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 text-white hover:bg-red-500"
+              disabled={expiring}
+              onClick={async () => {
+                if (!expireTarget || expiring) return;
+                setExpiring(true);
+                try {
+                  const result = await expireBroadcastAction(expireTarget.id);
+                  if (!result.ok) {
+                    toast.error(result.error);
+                    return;
+                  }
+                  toast.success("已下架廣播");
+                  setExpireTarget(null);
+                  await mutateActiveBroadcasts();
+                  router.refresh();
+                } finally {
+                  setExpiring(false);
+                }
+              }}
+            >
+              {expiring ? "下架中…" : "確定下架"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </>
   );

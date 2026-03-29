@@ -14,6 +14,7 @@ import {
   markUserRewardConsumed,
   clearUserRewardUsedAt,
   insertBroadcast,
+  expireBroadcast,
   findEarliestUnusedRenameCard,
   findActiveBroadcasts,
   findUserRewardById,
@@ -39,6 +40,8 @@ export type ActiveBroadcastDto = {
   message: string;
   nickname: string;
   createdAt: string;
+  expiresAt: string;
+  userId: string;
 };
 
 export async function getMyRewardsAction(): Promise<MyRewardsPayload | null> {
@@ -227,10 +230,42 @@ export async function getActiveBroadcastsAction(): Promise<ActiveBroadcastDto[]>
         message: r.message,
         nickname: r.nickname,
         createdAt: r.created_at,
+        expiresAt: r.expires_at,
+        userId: r.user_id,
       }));
     },
     ["active-broadcasts-v1"],
     { revalidate: 60, tags: ["broadcasts"] },
   );
   return cached();
+}
+
+export async function expireBroadcastAction(
+  broadcastId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "未登入" };
+
+  const [profile, broadcasts] = await Promise.all([
+    findProfileById(user.id),
+    findActiveBroadcasts(),
+  ]);
+  if (!profile) return { ok: false, error: "找不到用戶資料" };
+
+  const target = broadcasts.find((b) => b.id === broadcastId);
+  if (!target) return { ok: false, error: "找不到進行中的廣播" };
+
+  const isOwner = target.user_id === user.id;
+  const isModerator =
+    profile.role === "master" || profile.role === "moderator";
+  if (!isOwner && !isModerator) {
+    return { ok: false, error: "權限不足" };
+  }
+
+  await expireBroadcast(broadcastId);
+  revalidateTag("broadcasts");
+  return { ok: true };
 }

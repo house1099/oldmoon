@@ -5,6 +5,7 @@ import { findProfileById } from "@/lib/repositories/server/user.repository";
 import { insertAdminAction } from "@/lib/repositories/server/admin.repository";
 import {
   deleteTavernBan,
+  findTavernMessageById,
   deleteTavernMessage,
   findAllTavernBans,
   findTavernMessages,
@@ -180,7 +181,29 @@ export async function unbanTavernUserAction(userId: string): Promise<void> {
 export async function deleteTavernMessageAction(
   messageId: string,
 ): Promise<void> {
-  await requireRole(["master", "moderator"]);
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("未登入");
+  }
+  const [message, operator] = await Promise.all([
+    findTavernMessageById(messageId),
+    findProfileById(user.id),
+  ]);
+  if (!message) {
+    throw new Error("找不到訊息");
+  }
+  if (!operator) {
+    throw new Error("用戶不存在");
+  }
+  const isOwner = message.user_id === user.id;
+  const isModerator =
+    operator.role === "master" || operator.role === "moderator";
+  if (!isOwner && !isModerator) {
+    throw new Error("權限不足");
+  }
   await deleteTavernMessage(messageId);
 }
 

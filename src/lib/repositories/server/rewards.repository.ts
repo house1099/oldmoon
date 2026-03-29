@@ -169,6 +169,8 @@ export type ActiveBroadcastRow = {
   message: string;
   nickname: string;
   created_at: string;
+  expires_at: string;
+  user_id: string;
 };
 
 export async function findActiveBroadcasts(): Promise<ActiveBroadcastRow[]> {
@@ -176,7 +178,7 @@ export async function findActiveBroadcasts(): Promise<ActiveBroadcastRow[]> {
   const nowIso = new Date().toISOString();
   const { data: rows, error } = await admin
     .from("broadcasts")
-    .select("id, message, created_at, user_id")
+    .select("id, message, created_at, expires_at, user_id")
     .gt("expires_at", nowIso)
     .order("created_at", { ascending: false })
     .limit(5);
@@ -203,8 +205,19 @@ export async function findActiveBroadcasts(): Promise<ActiveBroadcastRow[]> {
     id: r.id as string,
     message: r.message as string,
     created_at: r.created_at as string,
+    expires_at: r.expires_at as string,
+    user_id: r.user_id as string,
     nickname: nick.get(r.user_id as string) ?? "—",
   }));
+}
+
+export async function expireBroadcast(broadcastId: string): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("broadcasts")
+    .update({ expires_at: new Date().toISOString() })
+    .eq("id", broadcastId);
+  if (error) throw error;
 }
 
 export async function findEquippedRewardLabels(userId: string): Promise<{

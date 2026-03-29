@@ -8,11 +8,24 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import {
+  expireBroadcastAction,
   getActiveBroadcastsAction,
   type ActiveBroadcastDto,
 } from "@/services/rewards.action";
 import { getMarqueeAndBroadcastSettingsAction } from "@/services/system-settings.action";
 import { cn } from "@/lib/utils";
+import { useMyProfile } from "@/hooks/useMyProfile";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 const COMPACT_H = 40;
 const REFRESH_MS = 30_000;
@@ -46,12 +59,15 @@ export function BroadcastBanner({
   initialHasBroadcast?: boolean;
   onCompactVisibleChange?: (visible: boolean) => void;
 }) {
+  const { profile } = useMyProfile();
   const [items, setItems] = useState<ActiveBroadcastDto[]>([]);
   const [style, setStyle] = useState<BroadcastStyle>("glow");
   const [speed, setSpeed] = useState(10);
   const [index, setIndex] = useState(0);
   const [mounted, setMounted] = useState(false);
   const [overlayDismissed, setOverlayDismissed] = useState(true);
+  const [confirmExpireOpen, setConfirmExpireOpen] = useState(false);
+  const [expiring, setExpiring] = useState(false);
   const prevStyleRef = useRef<string>("");
 
   useEffect(() => {
@@ -149,6 +165,7 @@ export function BroadcastBanner({
   if (items.length === 0) return null;
 
   const current = items[index]!;
+  const canExpire = profile?.role === "master";
   const showFullscreenOverlay =
     style === "fullscreen" && !overlayDismissed && mounted;
 
@@ -238,6 +255,16 @@ export function BroadcastBanner({
             🔥
           </span>
         ) : null}
+        {canExpire ? (
+          <button
+            type="button"
+            className="ml-1 shrink-0 rounded-full px-1.5 py-0.5 text-xs text-red-200 hover:bg-red-500/20 hover:text-red-100"
+            aria-label="下架這則廣播"
+            onClick={() => setConfirmExpireOpen(true)}
+          >
+            ✕
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -277,6 +304,56 @@ export function BroadcastBanner({
     <>
       {fullscreenPortal}
       {overlayDismissed || style !== "fullscreen" ? compactBar : null}
+      <AlertDialog open={confirmExpireOpen} onOpenChange={setConfirmExpireOpen}>
+        <AlertDialogContent className="border-zinc-700 bg-zinc-950 text-zinc-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定下架這則廣播？</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              下架後會立即停止顯示，紀錄仍會保留。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              variant="outline"
+              className="border-zinc-700 bg-zinc-900 text-zinc-200"
+              disabled={expiring}
+            >
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 text-white hover:bg-red-500"
+              disabled={expiring}
+              onClick={async () => {
+                if (expiring) return;
+                setExpiring(true);
+                try {
+                  const result = await expireBroadcastAction(current.id);
+                  if (!result.ok) {
+                    toast.error(result.error);
+                    return;
+                  }
+                  toast.success("已下架廣播");
+                  setConfirmExpireOpen(false);
+                  setItems((prev) => {
+                    const next = prev.filter((b) => b.id !== current.id);
+                    if (next.length === 0) {
+                      setIndex(0);
+                      return next;
+                    }
+                    setIndex((oldIdx) => Math.min(oldIdx, next.length - 1));
+                    return next;
+                  });
+                  refreshBroadcasts();
+                } finally {
+                  setExpiring(false);
+                }
+              }}
+            >
+              {expiring ? "下架中…" : "確定下架"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

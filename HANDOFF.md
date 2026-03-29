@@ -93,9 +93,9 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## ✅ 最近完成（最新 3 次任務）
 
-1. **2026-03-29 — Google 邀請碼流程與除錯查核**：**`/register/invite`** + **`saveInviteCodeToMetadataAction`**；**middleware** 依 **`user_metadata.invite_code`** 分流（等同「無 profile 且無 invite → `/register/invite`」）；Supabase MCP 抽樣確認多數 **Google、無 `invite_code`、無 `public.users` 列** 之帳號符合預期；**`middleware.ts` 檔首** 附 Step 1–6 對照註解。
-2. **2026-03-29 — 酒館／廣播設定分離與樣式**：`tavern_marquee_*`／`broadcast_*` 設定；`TavernMarquee`／`BroadcastBanner`；`/admin/settings`；`layout` 預留 **40px**。
-3. **2026-03-29 — 金幣後台＋背包＋廣播／酒館位置對調**：`/admin/coins`、裝備背包、`getMyRewardsAction`、PIN 等。
+1. **2026-03-29 — 酒館自刪＋廣播提前下架**：`TavernModal` 長按邏輯改為「本人可刪自己訊息」；`deleteTavernMessageAction` 新增「本人可刪自己／master、moderator 可刪任意」權限；`rewards.repository` + `rewards.action` 新增 `expireBroadcast`／`expireBroadcastAction`；`FloatingToolbar` 新增「📢 廣播管理」Sheet + `AlertDialog` 下架；`BroadcastBanner`（master）新增右側 ✕ 快速下架。
+2. **2026-03-29 — Google 邀請碼流程與除錯查核**：**`/register/invite`** + **`saveInviteCodeToMetadataAction`**；**middleware** 依 **`user_metadata.invite_code`** 分流（等同「無 profile 且無 invite → `/register/invite`」）；Supabase MCP 抽樣確認多數 **Google、無 `invite_code`、無 `public.users` 列** 之帳號符合預期；**`middleware.ts` 檔首** 附 Step 1–6 對照註解。
+3. **2026-03-29 — 酒館／廣播設定分離與樣式**：`tavern_marquee_*`／`broadcast_*` 設定；`TavernMarquee`／`BroadcastBanner`；`/admin/settings`；`layout` 預留 **40px**。
 
 ## ⚠️ 目前已知問題
 

@@ -206,3 +206,22 @@ export async function deleteTavernMessage(messageId: string): Promise<void> {
     throw error;
   }
 }
+
+export async function findTavernMessageById(
+  messageId: string,
+): Promise<Pick<TavernMessageRow, "id" | "user_id"> | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("tavern_messages")
+    .select("id, user_id")
+    .eq("id", messageId)
+    .maybeSingle();
+  if (error) {
+    throw error;
+  }
+  if (!data) return null;
+  return {
+    id: data.id as string,
+    user_id: data.user_id as string,
+  };
+}

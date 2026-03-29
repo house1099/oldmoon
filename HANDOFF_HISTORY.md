@@ -926,3 +926,30 @@ Git
 Git
 
 15b8b14 fix: debug Google invite code flow
+
+---
+
+[2026-03-29] — 酒館自刪訊息＋廣播提前下架（前台管理 + 橫幅快捷）
+
+完成項目
+
+- `TavernModal` 長按選單邏輯調整：所有人都能長按自己的訊息並看到「🗑️ 刪除這則訊息」；長按他人訊息則維持僅 `master` / `moderator` 可開啟管理選單。
+- `deleteTavernMessageAction` 權限改為：本人可刪自己的訊息；`master` / `moderator` 可刪任何人的訊息；其餘拒絕。
+- Layer 2 `rewards.repository.ts` 新增 `expireBroadcast(broadcastId)`，以更新 `expires_at` 立即讓廣播過期（保留資料）。
+- Layer 3 `rewards.action.ts` 新增 `expireBroadcastAction(broadcastId)`：登入檢查、角色 / 本人權限判斷、呼叫 repository、`revalidateTag('broadcasts')`。
+- `FloatingToolbar` 新增（master 且有有效廣播時顯示）「📢 廣播管理」子按鈕與管理 Sheet，列表顯示發送者、內容、剩餘時間，並可透過 `AlertDialog` 確認下架後即時刷新列表。
+- `BroadcastBanner` 新增 master 專用右側 ✕ 快速下架按鈕，點擊後 `AlertDialog` 確認並下架當前廣播；成功後切換下一則或隱藏橫幅。
+
+資料庫異動
+
+- 無新增 migration 或 schema 變更。
+- 🗄️ 以既有 `broadcasts.expires_at` 欄位執行更新，使廣播提前過期。
+
+需要注意
+
+- 廣播列表來源為「目前有效廣播」（`expires_at > now()`），下架後會自動從清單移除。
+- `expireBroadcastAction` 權限目前允許：`master` / `moderator` 下架任意廣播，或廣播本人下架自己的廣播。
+
+Git
+
+feat: self-delete tavern message + broadcast expire by master
