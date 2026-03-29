@@ -1131,4 +1131,4 @@ c680b2a feat: shop item policies (gift/delete/resell), japan-01 avatar frame, co
 
 Git
 
-（待補本次 commit）
+32f1e4b fix: align shop card frame preview with UserDetailModal; split frame asset folders
