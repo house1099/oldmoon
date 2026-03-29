@@ -2,6 +2,7 @@
 
 import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { findEquippedAvatarFramesByUserIds } from "@/lib/repositories/server/rewards.repository";
 import { findVillageUsers } from "@/lib/repositories/server/user.repository";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { calcInterestScore, isOrientationMatch } from "@/lib/utils/matching";
@@ -32,7 +33,19 @@ export async function getVillageUsersAction(): Promise<{
         currentUserId: user.id,
         region: me.region,
       });
-      const filtered = candidates.filter((u) =>
+      const frameMap = await findEquippedAvatarFramesByUserIds(
+        candidates.map((u) => u.id),
+      );
+      const withFrames = candidates.map((u) => {
+        const f = frameMap.get(u.id);
+        return {
+          ...u,
+          equippedAvatarFrameEffectKey: f?.equippedAvatarFrameEffectKey ?? null,
+          equippedAvatarFrameImageUrl: f?.equippedAvatarFrameImageUrl ?? null,
+          equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
+        };
+      });
+      const filtered = withFrames.filter((u) =>
         isOrientationMatch(
           me.gender ?? "",
           me.orientation ?? "",

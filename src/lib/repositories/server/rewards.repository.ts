@@ -372,6 +372,103 @@ export async function findEquippedRewardLabels(userId: string): Promise<{
   };
 }
 
+/** 列表／聊天／酒館等批次附掛用（與 `findEquippedRewardLabels` 商城框邏輯一致） */
+export type EquippedAvatarFrameForList = {
+  equippedAvatarFrameEffectKey: string | null;
+  equippedAvatarFrameImageUrl: string | null;
+  equippedAvatarFrameLayout: ShopFrameLayout | null;
+};
+
+/**
+ * 一次查多個使用者的已裝備商城／獎池頭像框（每人最多取一筆）。
+ */
+export async function findEquippedAvatarFramesByUserIds(
+  userIds: string[],
+): Promise<Map<string, EquippedAvatarFrameForList>> {
+  const out = new Map<string, EquippedAvatarFrameForList>();
+  if (userIds.length === 0) return out;
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("user_rewards")
+    .select("*")
+    .in("user_id", userIds)
+    .eq("reward_type", "avatar_frame")
+    .eq("is_equipped", true);
+  if (error) throw error;
+  const list = (data ?? []) as RawUserRewardRow[];
+  if (list.length === 0) return out;
+
+  const itemIds = Array.from(
+    new Set(list.map(prizeItemRefId).filter((id): id is string => Boolean(id))),
+  );
+  const effectByItemId = new Map<string, string | null>();
+  const imageByItemId = new Map<string, string | null>();
+  if (itemIds.length > 0) {
+    const { data: items, error: itemErr } = await admin
+      .from("prize_items")
+      .select("id, effect_key, image_url")
+      .in("id", itemIds);
+    if (itemErr) throw itemErr;
+    for (const it of items ?? []) {
+      effectByItemId.set(it.id as string, (it.effect_key as string | null) ?? null);
+      imageByItemId.set(it.id as string, (it.image_url as string | null) ?? null);
+    }
+  }
+
+  const shopItemIds = Array.from(
+    new Set(
+      list
+        .map((row) => row.shop_item_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const effectByShopItemId = new Map<string, string | null>();
+  const imageByShopItemId = new Map<string, string | null>();
+  const layoutByShopItemId = new Map<string, ShopFrameLayout | null>();
+  if (shopItemIds.length > 0) {
+    const { data: shopItems, error: shopErr } = await admin
+      .from("shop_items")
+      .select("id, effect_key, image_url, metadata")
+      .in("id", shopItemIds);
+    if (shopErr) throw shopErr;
+    for (const it of shopItems ?? []) {
+      const sid = it.id as string;
+      effectByShopItemId.set(sid, (it.effect_key as string | null) ?? null);
+      imageByShopItemId.set(sid, (it.image_url as string | null) ?? null);
+      layoutByShopItemId.set(
+        sid,
+        parseShopFrameLayoutFromMetadata(it.metadata as unknown),
+      );
+    }
+  }
+
+  for (const row of list) {
+    const uid = row.user_id as string;
+    if (out.has(uid)) continue;
+    const refId = prizeItemRefId(row);
+    const ek = refId
+      ? effectByItemId.get(refId)?.trim() || null
+      : row.shop_item_id
+        ? effectByShopItemId.get(row.shop_item_id)?.trim() || null
+        : null;
+    const imageUrl = refId
+      ? imageByItemId.get(refId)?.trim() || null
+      : row.shop_item_id
+        ? imageByShopItemId.get(row.shop_item_id)?.trim() || null
+        : null;
+    const layout = row.shop_item_id
+      ? (layoutByShopItemId.get(row.shop_item_id) ?? null)
+      : null;
+    out.set(uid, {
+      equippedAvatarFrameEffectKey: ek,
+      equippedAvatarFrameImageUrl: imageUrl,
+      equippedAvatarFrameLayout: layout,
+    });
+  }
+  return out;
+}
+
 export async function deleteUserRewardForOwner(
   rewardId: string,
   ownerUserId: string,

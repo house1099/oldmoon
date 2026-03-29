@@ -12,7 +12,9 @@ import {
 } from "@/lib/repositories/server/alliance.repository";
 import { checkMutualLike } from "@/lib/repositories/server/like.repository";
 import { insertNotification } from "@/lib/repositories/server/notification.repository";
+import { findEquippedAvatarFramesByUserIds } from "@/lib/repositories/server/rewards.repository";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
+import type { ShopFrameLayout } from "@/lib/utils/avatar-frame-layout";
 
 export type AllianceStatusDto = {
   id: string;
@@ -220,6 +222,9 @@ export type MyAllianceListItem = {
     avatar_url: string | null;
     instagram_handle: string | null;
     role: string;
+    equippedAvatarFrameEffectKey: string | null;
+    equippedAvatarFrameImageUrl: string | null;
+    equippedAvatarFrameLayout: ShopFrameLayout | null;
   };
 };
 
@@ -234,7 +239,22 @@ export async function getMyAlliancesAction(): Promise<MyAllianceListItem[]> {
   }
 
   try {
-    return await findAcceptedAlliancesWithPartners(user.id);
+    const rows = await findAcceptedAlliancesWithPartners(user.id);
+    const frameMap = await findEquippedAvatarFramesByUserIds(
+      rows.map((r) => r.partner.id),
+    );
+    return rows.map((r) => {
+      const f = frameMap.get(r.partner.id);
+      return {
+        id: r.id,
+        partner: {
+          ...r.partner,
+          equippedAvatarFrameEffectKey: f?.equippedAvatarFrameEffectKey ?? null,
+          equippedAvatarFrameImageUrl: f?.equippedAvatarFrameImageUrl ?? null,
+          equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
+        },
+      };
+    });
   } catch (e) {
     console.error("getMyAlliancesAction 失敗:", e);
     return [];
@@ -249,6 +269,9 @@ export type PendingAllianceRequestItem = {
     avatar_url: string | null;
     instagram_handle: string | null;
     role: string;
+    equippedAvatarFrameEffectKey: string | null;
+    equippedAvatarFrameImageUrl: string | null;
+    equippedAvatarFrameLayout: ShopFrameLayout | null;
   };
 };
 
@@ -265,7 +288,22 @@ export async function getPendingRequestsAction(): Promise<
   }
 
   try {
-    return await findPendingIncomingWithRequester(user.id);
+    const rows = await findPendingIncomingWithRequester(user.id);
+    const frameMap = await findEquippedAvatarFramesByUserIds(
+      rows.map((r) => r.requester.id),
+    );
+    return rows.map((r) => {
+      const f = frameMap.get(r.requester.id);
+      return {
+        id: r.id,
+        requester: {
+          ...r.requester,
+          equippedAvatarFrameEffectKey: f?.equippedAvatarFrameEffectKey ?? null,
+          equippedAvatarFrameImageUrl: f?.equippedAvatarFrameImageUrl ?? null,
+          equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
+        },
+      };
+    });
   } catch (error) {
     console.error("getPendingRequestsAction:", error);
     return [];

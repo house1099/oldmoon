@@ -9,16 +9,19 @@ import {
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import { toast } from "sonner";
+import useSWR from "swr";
 import { useSWRConfig } from "swr";
 import { useMessages } from "@/hooks/useChat";
 import { useMyProfile } from "@/hooks/useMyProfile";
 import { sendMessageAction, submitReportAction } from "@/services/chat.action";
 import { getMemberProfileByIdAction } from "@/services/profile.action";
+import { getMyRewardsAction } from "@/services/rewards.action";
 import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
 import { createClient } from "@/lib/supabase/client";
 import { SWR_KEYS } from "@/lib/swr/keys";
 import { cn } from "@/lib/utils";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
+import type { ShopFrameLayout } from "@/lib/utils/avatar-frame-layout";
 
 const UserDetailModal = dynamic(
   () =>
@@ -35,6 +38,9 @@ export interface ChatModalProps {
     nickname: string;
     avatar_url?: string | null;
     role?: string | null;
+    equippedAvatarFrameEffectKey?: string | null;
+    equippedAvatarFrameImageUrl?: string | null;
+    equippedAvatarFrameLayout?: ShopFrameLayout | null;
   };
   currentUserId: string;
   /**
@@ -63,6 +69,12 @@ export default function ChatModal({
   const [avatarLoadingId, setAvatarLoadingId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const { profile: myProfile } = useMyProfile();
+  const { data: myRewards } = useSWR(
+    open ? ["chat-modal-my-rewards", currentUserId] : null,
+    () => getMyRewardsAction(),
+    { revalidateOnFocus: false },
+  );
+  const myEquippedAvatar = myRewards?.avatarFrames.find((f) => f.is_equipped);
 
   /**
    * iOS Safari 會掃描整份文件中所有 input／textarea，在鍵盤上方顯示「上一個／下一個／完成」列。
@@ -191,6 +203,9 @@ export default function ChatModal({
           src={targetUser.avatar_url}
           nickname={targetUser.nickname}
           size={36}
+          frameImageUrl={targetUser.equippedAvatarFrameImageUrl ?? null}
+          frameEffectKey={targetUser.equippedAvatarFrameEffectKey ?? null}
+          frameLayout={targetUser.equippedAvatarFrameLayout ?? null}
         />
         <span className="flex-1 font-medium text-white">
           {targetUser.nickname}
@@ -242,6 +257,9 @@ export default function ChatModal({
                     src={myProfile?.avatar_url}
                     nickname={myProfile?.nickname ?? "我"}
                     size={36}
+                    frameImageUrl={myEquippedAvatar?.image_url ?? null}
+                    frameEffectKey={myEquippedAvatar?.effect_key ?? null}
+                    frameLayout={myEquippedAvatar?.frame_layout ?? null}
                   />
                 </div>
               </div>
@@ -268,6 +286,9 @@ export default function ChatModal({
                   src={targetUser.avatar_url}
                   nickname={targetUser.nickname}
                   size={36}
+                  frameImageUrl={targetUser.equippedAvatarFrameImageUrl ?? null}
+                  frameEffectKey={targetUser.equippedAvatarFrameEffectKey ?? null}
+                  frameLayout={targetUser.equippedAvatarFrameLayout ?? null}
                 />
               </button>
               {bubble}

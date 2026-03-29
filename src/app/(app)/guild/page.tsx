@@ -234,6 +234,9 @@ function AllianceList() {
                   src={r.requester.avatar_url}
                   nickname={r.requester.nickname}
                   size={40}
+                  frameImageUrl={r.requester.equippedAvatarFrameImageUrl}
+                  frameEffectKey={r.requester.equippedAvatarFrameEffectKey}
+                  frameLayout={r.requester.equippedAvatarFrameLayout ?? null}
                 />
                 <div className="min-w-0">
                   <p className="truncate text-sm">
@@ -315,6 +318,9 @@ function AllianceList() {
                   src={a.partner.avatar_url}
                   nickname={a.partner.nickname}
                   size={40}
+                  frameImageUrl={a.partner.equippedAvatarFrameImageUrl}
+                  frameEffectKey={a.partner.equippedAvatarFrameEffectKey}
+                  frameLayout={a.partner.equippedAvatarFrameLayout ?? null}
                 />
                 <div className="min-w-0">
                   <p className="text-sm">
@@ -415,6 +421,9 @@ function ChatList() {
               src={conv.partner?.avatar_url}
               nickname={conv.partner?.nickname}
               size={44}
+              frameImageUrl={conv.partner?.equippedAvatarFrameImageUrl ?? null}
+              frameEffectKey={conv.partner?.equippedAvatarFrameEffectKey ?? null}
+              frameLayout={conv.partner?.equippedAvatarFrameLayout ?? null}
             />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium">
@@ -471,6 +480,12 @@ function ChatList() {
             nickname: activeConv.partner?.nickname ?? "未知用戶",
             avatar_url: activeConv.partner?.avatar_url ?? null,
             role: activeConv.partner?.role ?? null,
+            equippedAvatarFrameEffectKey:
+              activeConv.partner?.equippedAvatarFrameEffectKey ?? null,
+            equippedAvatarFrameImageUrl:
+              activeConv.partner?.equippedAvatarFrameImageUrl ?? null,
+            equippedAvatarFrameLayout:
+              activeConv.partner?.equippedAvatarFrameLayout ?? null,
           }}
           currentUserId={currentUserId}
         />

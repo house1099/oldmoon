@@ -988,8 +988,7 @@ export function GuildProfileHome({
 
       <section
         className={cn(
-          "glass-panel relative p-6 sm:p-8",
-          profile.role === "master" && "!overflow-visible",
+          "glass-panel relative overflow-visible p-6 sm:p-8",
           rewardEffectClassName(equippedHomeCardEffectKey),
         )}
       >
@@ -1002,17 +1001,10 @@ export function GuildProfileHome({
           aria-hidden
         />
 
-        <div
-          className={cn(
-            "relative flex w-full flex-col items-center gap-5 text-center",
-            profile.role === "master" && "overflow-visible",
-          )}
-        >
+        <div className="relative flex w-full flex-col items-center gap-5 overflow-visible text-center">
           <div
             className={cn(
-              "relative z-0 mx-auto rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
-              rewardEffectClassName(equippedHomeAvatarEffectKey),
-              profile.role === "master" ? "overflow-visible" : "overflow-hidden",
+              "relative z-0 mx-auto overflow-visible rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
               uploading || cropOpen
                 ? "cursor-not-allowed opacity-80"
                 : "cursor-pointer",
@@ -1040,6 +1032,7 @@ export function GuildProfileHome({
               src={avatarUrl}
               nickname={profile?.nickname}
               frameImageUrl={equippedHomeAvatar?.image_url ?? null}
+              frameEffectKey={equippedHomeAvatarEffectKey}
               frameLayout={equippedHomeAvatar?.frame_layout ?? null}
             />
 
@@ -1067,7 +1060,7 @@ export function GuildProfileHome({
           <div
             className={cn(
               "relative z-10 w-full space-y-2",
-              profile.role === "master" && "mt-5 pt-1",
+              equippedHomeAvatar?.image_url?.trim() && "mt-5 pt-1",
             )}
           >
             <p className="font-serif text-xl tracking-wide text-zinc-100 sm:text-2xl">

@@ -4,6 +4,7 @@ import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
 import { createClient } from "@/lib/supabase/server";
+import { findEquippedAvatarFramesByUserIds } from "@/lib/repositories/server/rewards.repository";
 import { findMarketUsers } from "@/lib/repositories/server/user.repository";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { calcSkillScore } from "@/lib/utils/matching";
@@ -90,7 +91,21 @@ export async function getMarketUsersAction(
   }) as UserRow;
 
   const getCachedMarketUsers = unstable_cache(
-    async () => findMarketUsers({ currentUserId: user.id }),
+    async () => {
+      const base = await findMarketUsers({ currentUserId: user.id });
+      const frameMap = await findEquippedAvatarFramesByUserIds(
+        base.map((u) => u.id),
+      );
+      return base.map((u) => {
+        const f = frameMap.get(u.id);
+        return {
+          ...u,
+          equippedAvatarFrameEffectKey: f?.equippedAvatarFrameEffectKey ?? null,
+          equippedAvatarFrameImageUrl: f?.equippedAvatarFrameImageUrl ?? null,
+          equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
+        };
+      });
+    },
     [`market-${user.id}`],
     { revalidate: 60 },
   );

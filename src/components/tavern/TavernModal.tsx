@@ -235,6 +235,9 @@ export function TavernModal({
                   src={m.user.avatar_url}
                   nickname={m.user.nickname}
                   size={36}
+                  frameImageUrl={m.user.equippedAvatarFrameImageUrl}
+                  frameEffectKey={m.user.equippedAvatarFrameEffectKey}
+                  frameLayout={m.user.equippedAvatarFrameLayout ?? null}
                 />
               );
 

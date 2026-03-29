@@ -1055,3 +1055,30 @@ e4f81a2 feat: shop frame_layout for avatar frames + tiger PNG post-process
 Git
 
 396143a feat: unify shop avatar frame ornament layout for all roles
+
+---
+
+[2026-03-30] — 裝備頭像框：探索／血盟／聊天／酒館／個人檔顯示與 overflow 修正
+
+完成項目
+
+- **Layer 2 `rewards.repository.ts`**：新增 **`findEquippedAvatarFramesByUserIds`**（一次查多使用者 **`user_rewards`** 已裝備 **`avatar_frame`**，併查 **`prize_items`／`shop_items`** 之 **`effect_key`／`image_url`／`metadata.frame_layout`**）。
+- **`village.service.ts`／`market.service.ts`**：在 **`unstable_cache`** 內將上列三欄位併入每位候選使用者，供 **`UserCard`**（**`/explore`**）使用。
+- **`alliance.action.ts`**：**`getMyAlliancesAction`／`getPendingRequestsAction`** 回傳之 **`partner`／`requester`** 型別擴充並附掛框資料；**`guild/page.tsx`** **`MasterAvatarShell`** 傳 **`frameImageUrl`／`frameEffectKey`／`frameLayout`**。
+- **`chat.action.ts`**：**`ConversationPartnerDto`**；**`getMyConversationsAction`** 批次併框；**`guild/page.tsx`** 聊天列與 **`ChatModal` `targetUser`** 接線；**`UserDetailModal`** 開啟 **`ChatModal`** 時帶對方框欄位。
+- **`ChatModal.tsx`**：對 **`targetUser`** 顯示框；己方氣泡頭像用 **`useSWR` + `getMyRewardsAction`** 取已裝備框。
+- **`tavern.repository.ts`／`database.types.ts`**：**`TavernMessageDto.user`** 增加三框欄位並於 **`findTavernMessages`** 填入；**`TavernModal`** **`MasterAvatarShell`** 接線。
+- **`guild-profile-home.tsx`**：個人檔頭像區 **`glass-panel`／外層 flex／點擊環** 改 **`overflow-visible`**（不再僅 **`role === master`**）；有框時暱稱區 **`mt-5 pt-1`**；**`MasterAvatarShell`** 加 **`frameEffectKey`**。
+
+資料庫異動
+
+- 無（僅 DTO 與查詢併料）。
+
+需要注意
+
+- 探索村莊／市集列表快取未綁 **`revalidateTag`** 至每位使用者裝備變更，裝框後其他人在探索頁可能延遲數十秒才更新；必要時可縮短 **`revalidate`** 或於 **`equipRewardAction`** 加 **`revalidatePath('/explore')`** 等策略。
+- 信件通知列 **`fromUser`** 尚未附掛頭像框（與本則範圍外）。
+
+Git
+
+ff1ebdb fix: show equipped avatar frames across app and profile overflow

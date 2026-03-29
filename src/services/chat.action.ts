@@ -14,9 +14,17 @@ import {
   submitReport,
   unblockUser,
 } from "@/lib/repositories/server/chat.repository";
+import { findEquippedAvatarFramesByUserIds } from "@/lib/repositories/server/rewards.repository";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
+import type { ShopFrameLayout } from "@/lib/utils/avatar-frame-layout";
 import type { ChatMessageRow } from "@/types/database.types";
+
+export type ConversationPartnerDto = UserRow & {
+  equippedAvatarFrameEffectKey: string | null;
+  equippedAvatarFrameImageUrl: string | null;
+  equippedAvatarFrameLayout: ShopFrameLayout | null;
+};
 
 export type ConversationListItemDto = {
   id: string;
@@ -26,7 +34,7 @@ export type ConversationListItemDto = {
   last_message_sender_id: string | null;
   last_message_at: string;
   created_at: string;
-  partner: UserRow | null;
+  partner: ConversationPartnerDto | null;
   hasUnreadFromPartner: boolean;
 };
 
@@ -130,13 +138,29 @@ export async function getMyConversationsAction(): Promise<
       ids,
     );
 
+    const partnerIds = conversations.map((conv) =>
+      conv.user_a === user.id ? conv.user_b : conv.user_a,
+    );
+    const frameMap = await findEquippedAvatarFramesByUserIds(partnerIds);
+
     const enriched = await Promise.all(
       conversations.map(async (conv) => {
         const partnerId =
           conv.user_a === user.id ? conv.user_b : conv.user_a;
-        let partner: UserRow | null = null;
+        let partner: ConversationPartnerDto | null = null;
         try {
-          partner = await findProfileById(partnerId);
+          const base = await findProfileById(partnerId);
+          if (base) {
+            const f = frameMap.get(partnerId);
+            partner = {
+              ...base,
+              equippedAvatarFrameEffectKey:
+                f?.equippedAvatarFrameEffectKey ?? null,
+              equippedAvatarFrameImageUrl:
+                f?.equippedAvatarFrameImageUrl ?? null,
+              equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
+            };
+          }
         } catch (err) {
           console.error(
             "getMyConversationsAction: findProfileById failed",

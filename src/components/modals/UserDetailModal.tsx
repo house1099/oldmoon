@@ -766,6 +766,11 @@ export function UserDetailModal({
             nickname: user.nickname,
             avatar_url: user.avatar_url,
             role: user.role,
+            equippedAvatarFrameEffectKey:
+              user.equippedAvatarFrameEffectKey ?? null,
+            equippedAvatarFrameImageUrl:
+              user.equippedAvatarFrameImageUrl ?? null,
+            equippedAvatarFrameLayout: user.equippedAvatarFrameLayout ?? null,
           }}
           currentUserId={socialStatus.currentUserId ?? ""}
           zIndex={900}

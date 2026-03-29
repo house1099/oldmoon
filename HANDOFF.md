@@ -93,9 +93,9 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## ✅ 最近完成（最新 3 次任務）
 
-1. **2026-03-30 — 商城頭像框全角色統一「鑽石金框」幾何＋後台預覽對齊**：凡裝備商城頭像框者（不分一般／領袖）與領袖鑽石金框共用同一套版面——外層錨點 **size×size**、臉圓直徑 **size×MASTER_AVATAR_INNER_PHOTO_DIAMETER_SCALE**（約 1.04×）、商城框 PNG **MASTER_AVATAR_FRAME_OVERLAY_PERCENT（160%）** 置中；領袖僅多疊金框 PNG。**`MasterAvatarShell`** 統一負責內圓裁切、商城框與（若為領袖）金框層級；無框且非領袖仍為單一圓形 **`Avatar`**。**`/admin/shop`** 頭像框預覽改與前台相同幾何（**overflow-visible**、內圓比例、框圖 160%），拖曳／滑桿仍作用在框圖層；**`card_frame`** 維持原矩形預覽。常數與註解見 **`src/lib/constants/master-avatar-frame.ts`**；**`frame_layout` metadata**、老虎框後製等仍沿用前項任務。（metadata／`avatar-frame-layout`／老虎 PNG 等細節見 **`HANDOFF_HISTORY.md`** 同日較早條目。）
-2. **2026-03-29 — 靜態資產架構＋框架 PNG 疊加＋後台特效預覽**：建立 `public/frames|cards|items` 目錄與 README；`/admin/shop` 圖片改為本地路徑優先 + Cloudinary 選填上傳；`/admin/prizes` 新增框架圖片路徑與特效預覽；`getMyRewardsAction` / rewards repository 補 `image_url` 回查（prize_items + shop_items）；`Avatar`/`UserCard`/`UserDetailModal` 支援框架 PNG + CSS 特效同時疊加；新增 `scripts/resize-frame.py`。
-3. **2026-03-29 — 酒館自刪＋廣播提前下架**：`TavernModal` 長按邏輯改為「本人可刪自己訊息」；`deleteTavernMessageAction` 新增「本人可刪自己／master、moderator 可刪任意」權限；`rewards.repository` + `rewards.action` 新增 `expireBroadcast`／`expireBroadcastAction`；`FloatingToolbar` 新增「📢 廣播管理」Sheet + `AlertDialog` 下架；`BroadcastBanner`（master）新增右側 ✕ 快速下架。
+1. **2026-03-30 — 裝備頭像框全站列表顯示＋個人檔外溢修正**：新增 **`findEquippedAvatarFramesByUserIds`**（`rewards.repository`），批次附掛 **`equippedAvatarFrameEffectKey`／ImageUrl／Layout`** 至 **`getVillageUsersAction`／`getMarketUsersAction`**（**`/explore`** **`UserCard`**）、**`getMyAlliancesAction`／`getPendingRequestsAction`**、**`getMyConversationsAction`**（聊天列與 **`ChatModal`** 對象／**`UserDetailModal`** 開聊）、**`findTavernMessages`**（**`TavernMessageDto.user`**）。**`guild-profile-home`** 頭像區改一律 **`overflow-visible`**（移除僅領袖可溢出），有框時暱稱區加 **`mt-5`**；**`MasterAvatarShell`** 補 **`frameEffectKey`**。**`ChatModal`** 內「我方」氣泡頭像以 **`getMyRewardsAction`**（SWR）取已裝備框。注意：村莊／市集列表仍受 **`unstable_cache`**（約 30s／60s），他裝備框後探索端可能短暫舊資料；信件通知列頭像尚未併框。
+2. **2026-03-30 — 框線偏移 ±80、移除領袖自動鑽石金框、裝備贈送／刪除**：`SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS`；領袖不再自動疊本地金框（改以上架頭像框商品）；裝備背包長按贈送血盟／刪除（雙次確認）。見 **`HANDOFF_HISTORY.md`**。
+3. **2026-03-30 — 商城頭像框統一 160% 幾何＋後台預覽**：**`MasterAvatarShell`** 僅依裝備商城框啟用裝飾版面；**`/admin/shop`** 頭像框預覽對齊前台。詳見歷史檔。
 
 ## ⚠️ 目前已知問題
 

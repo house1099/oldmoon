@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { findEquippedAvatarFramesByUserIds } from "@/lib/repositories/server/rewards.repository";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import type {
   TavernBanRow,
@@ -33,12 +34,15 @@ export async function findTavernMessages(): Promise<TavernMessageDto[]> {
     throw usersErr;
   }
 
+  const frameMap = await findEquippedAvatarFramesByUserIds(userIds);
+
   const userMap = new Map(
     (users ?? []).map((u) => {
       const row = u as Pick<
         UserRow,
         "id" | "nickname" | "avatar_url" | "level" | "role"
       >;
+      const f = frameMap.get(row.id);
       return [
         row.id,
         {
@@ -47,6 +51,9 @@ export async function findTavernMessages(): Promise<TavernMessageDto[]> {
           avatar_url: row.avatar_url,
           level: row.level,
           role: row.role ?? "member",
+          equippedAvatarFrameEffectKey: f?.equippedAvatarFrameEffectKey ?? null,
+          equippedAvatarFrameImageUrl: f?.equippedAvatarFrameImageUrl ?? null,
+          equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
         },
       ] as const;
     }),
@@ -63,6 +70,9 @@ export async function findTavernMessages(): Promise<TavernMessageDto[]> {
           avatar_url: null,
           level: 1,
           role: "member",
+          equippedAvatarFrameEffectKey: null,
+          equippedAvatarFrameImageUrl: null,
+          equippedAvatarFrameLayout: null,
         },
       };
     }
