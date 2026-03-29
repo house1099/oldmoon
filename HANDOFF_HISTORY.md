@@ -1111,4 +1111,4 @@ Git
 
 Git
 
-c680b2a feat: shop item policies (gift/delete/resell), japan-01 avatar frame, coin shop_resell
+c680b2a feat: shop item policies (gift/delete/resell), japan-01 avatar frame, coin shop_resell；47deec9 docs: handoff entry for shop policies and japan-01
