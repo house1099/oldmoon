@@ -49,7 +49,7 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 - 公告／廣告：`announcement.*`；`advertisement.*`
 - 首頁：`page.tsx`／`home-page-client.tsx`；`guild-profile-home.tsx`；`FloatingToolbar.tsx`
 - 版面：`Navbar.tsx`；`app-shell-motion.tsx`（`broadcastExtraTopPx`）；`app-broadcast-chrome.tsx`；`(app)/layout.tsx`
-- 卡片／Modal：`UserCard.tsx`；`UserDetailModal.tsx`；`LevelBadge`／`LevelCardEffect`；`ShopCardFrameOverlay.tsx`
+- 卡片／Modal：`UserCard.tsx`；`UserDetailModal.tsx`；`LevelBadge`／`LevelCardEffect`；`ShopCardFrameOverlay.tsx`；卡框比例 **`CARD_FRAME_OVERLAY_PERCENT`**（`shop-card-frame-preview.ts`，與頭像框 **`MASTER_AVATAR_FRAME_OVERLAY_PERCENT`** 分離）
 - 頭像：`Avatar.tsx`；`cloudinary.ts`；`cropImage.ts`；頭像框對齊 **`avatar-frame-layout.ts`**（`shop_items.metadata.frame_layout`）；**`scripts/process-tiger-avatar-frame.py`**
 - 型別：`src/types/database.types.ts`；SWR：`src/lib/swr/keys.ts`；等級：`src/lib/constants/levels.ts`；標籤：`src/lib/constants/tags.ts`
 
@@ -93,9 +93,9 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## ✅ 最近完成（最新 3 次任務）
 
-1. **2026-03-30 — 商城 card_frame 改 PNG overlay 並接上探索／個資／個人頁**：新增 **`ShopCardFrameOverlay`**，以 **`MASTER_AVATAR_FRAME_OVERLAY_PERCENT`** + **`frame_layout`** 疊於 **`LevelCardEffect`**、**`UserDetailModal`**、**`guild-profile-home`**；移除 Modal／home 玻璃面板直接掛 **`rewardEffectClassName`** 的作法，改由疊圖元件承接圖片與特效。**`findEquippedRewardLabels`** 補 **`equippedCardFrameLayout`**，新增 **`findEquippedCardFramesByUserIds`**，並批次附掛至 **`village.service`**、**`market.service`**、**`alliance.action`**、**`chat.action`**、**`tavern.repository`** 與 **`TavernMessageDto.user`**。無 DB migration。
-2. **2026-03-30 — 裝備頭像框全站列表顯示＋個人檔外溢修正**：新增 **`findEquippedAvatarFramesByUserIds`**（`rewards.repository`），批次附掛 **`equippedAvatarFrameEffectKey`／ImageUrl／Layout`** 至 **`getVillageUsersAction`／`getMarketUsersAction`**（**`/explore`** **`UserCard`**）、**`getMyAlliancesAction`／`getPendingRequestsAction`**、**`getMyConversationsAction`**（聊天列與 **`ChatModal`** 對象／**`UserDetailModal`** 開聊）、**`findTavernMessages`**（**`TavernMessageDto.user`**）。**`guild-profile-home`** 頭像區改一律 **`overflow-visible`**（移除僅領袖可溢出），有框時暱稱區加 **`mt-5`**；**`MasterAvatarShell`** 補 **`frameEffectKey`**。**`ChatModal`** 內「我方」氣泡頭像以 **`getMyRewardsAction`**（SWR）取已裝備框。注意：村莊／市集列表仍受 **`unstable_cache`**（約 30s／60s），他裝備框後探索端可能短暫舊資料；信件通知列頭像尚未併框。
-3. **2026-03-30 — 框線偏移 ±80、移除領袖自動鑽石金框、裝備贈送／刪除**：`SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS`；領袖不再自動疊本地金框（改以上架頭像框商品）；裝備背包長按贈送血盟／刪除（雙次確認）。見 **`HANDOFF_HISTORY.md`**。
+1. **2026-03-30 — 卡框專用 `CARD_FRAME_OVERLAY_PERCENT` + 範例 PNG**：`src/lib/constants/shop-card-frame-preview.ts` 新增 **`CARD_FRAME_OVERLAY_PERCENT`**（預設 **100**，與頭像框 **`MASTER_AVATAR_FRAME_OVERLAY_PERCENT`（160）** 分離）。**`ShopCardFrameOverlay`** 改以此常數縮放框圖；後台 **`shop-admin-client`** 卡片外框預覽改與前台相同（置中、`width/height` 同百分比 + **`frame_layout`** 的 **`shopFrameLayoutStyle`**）。範例資產 **`public/frames/cards/cny-money-bag-card-frame.png`**（736×520、中心近白改透明）。仍套於 **`LevelCardEffect`（UserCard）**、**`UserDetailModal`**、**`guild-profile-home`** 三處。細部對齊可再改常數或商品 **`metadata.frame_layout.scalePercent`**（50–200）。
+2. **2026-03-30 — 商城 card_frame PNG overlay 與批次附掛**：**`ShopCardFrameOverlay`** 承接 **`card_frame`** 圖片與 **`effect_key`**（取代 Modal／home 直接掛 **`rewardEffectClassName`**）。**`findEquippedRewardLabels`** 補 **`equippedCardFrameLayout`**；**`findEquippedCardFramesByUserIds`** 附掛至 **`village.service`**、**`market.service`**、**`alliance.action`**、**`chat.action`**、**`tavern.repository`**、**`TavernMessageDto.user`** 等。無 DB migration。
+3. **2026-03-30 — 裝備頭像框全站列表＋個人檔外溢；框線／背包政策**：**`findEquippedAvatarFramesByUserIds`**；**`/explore`**、血盟、聊天、酒館、**`ChatModal`** 我方頭像等。**`guild-profile-home`** **`overflow-visible`**、**`MasterAvatarShell`** **`frameEffectKey`**。**`SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS`**（±80）、領袖不再自動本地金框、裝備長按贈送／刪除等見 **`HANDOFF_HISTORY.md`**（列表快取延遲、信件頭像未併框亦載於該檔）。
 
 ## ⚠️ 目前已知問題
 

@@ -6,7 +6,7 @@ import {
   type ShopFrameLayout,
 } from "@/lib/utils/avatar-frame-layout";
 import { rewardEffectClassName } from "@/lib/utils/reward-effects";
-import { MASTER_AVATAR_FRAME_OVERLAY_PERCENT } from "@/lib/constants/master-avatar-frame";
+import { CARD_FRAME_OVERLAY_PERCENT } from "@/lib/constants/shop-card-frame-preview";
 
 export type ShopCardFrameOverlayProps = {
   imageUrl?: string | null;
@@ -26,7 +26,7 @@ export function ShopCardFrameOverlay({
   const src = imageUrl?.trim() || null;
   const fx = effectKey?.trim() || null;
   const layoutStyle = shopFrameLayoutStyle(layout ?? null);
-  const pct = MASTER_AVATAR_FRAME_OVERLAY_PERCENT;
+  const pct = CARD_FRAME_OVERLAY_PERCENT;
 
   if (!src && !fx) return null;
 

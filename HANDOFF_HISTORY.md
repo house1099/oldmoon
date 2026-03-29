@@ -1040,7 +1040,7 @@ e4f81a2 feat: shop frame_layout for avatar frames + tiger PNG post-process
 - **後台 `shop-admin-client.tsx`**（**`item_type === "avatar_frame"`**）：
   - 預覽槽 **80×80**（**`AVATAR_FRAME_PREVIEW_SLOT_PX`**），**overflow-visible**。
   - 內灰圓直徑 **slot × MASTER_AVATAR_INNER_PHOTO_DIAMETER_SCALE**；框圖 **160%** ＋ **`framePreviewStyle`**，與前台一致。
-  - **`card_frame`** 仍為圓角矩形槽＋**inset** 預覽，與頭像框分流。
+  - **`card_frame`** 為圓角矩形槽＋內層 **inset** 占位（與頭像框分流）；框圖層縮放見 **`CARD_FRAME_OVERLAY_PERCENT`**（與下方「卡框獨立…」補記）。
   - 說明文案改述「全會員同幾何；領袖另疊金框」。
 
 資料庫異動
@@ -1140,7 +1140,7 @@ Git
 完成項目
 
 - card_frame 改為 **PNG overlay** 呈現，對齊 **`LevelCardEffect`** 邊界，套用到 **`/explore`** 的 **`UserCard`**、個人首頁 **glass-panel**、**`UserDetailModal`**。
-- 新增 **`ShopCardFrameOverlay.tsx`**，沿用 **`MasterAvatarShell`** 的 160% overlay 比例與 **`shop_items.metadata.frame_layout`** 對齊邏輯。
+- 新增 **`ShopCardFrameOverlay.tsx`**，以置中 **`object-contain`** 疊圖並套用 **`shop_items.metadata.frame_layout`**；卡框整體縮放後續獨立為 **`CARD_FRAME_OVERLAY_PERCENT`**（見下方同日補記）。
 - **`findEquippedRewardLabels`** 補 **`equippedCardFrameLayout`**；新增 **`findEquippedCardFramesByUserIds`**，並接到 **village / market / alliance / chat / tavern** 批次資料流。
 - **`TavernMessageDto.user`**、**`MemberProfileView`**、聊天夥伴 DTO 與探索卡片 props 補齊 card frame effect / image / layout 欄位。
 
@@ -1154,4 +1154,23 @@ Git
 
 Git
 
-- 待本次 commit
+- 併入下方「卡框獨立 CARD_FRAME_OVERLAY_PERCENT」之 commit。
+
+---
+
+[2026-03-30] — 卡框獨立 CARD_FRAME_OVERLAY_PERCENT、後台預覽與前台一致、範例資產
+
+完成項目
+
+- **`CARD_FRAME_OVERLAY_PERCENT`**（**`src/lib/constants/shop-card-frame-preview.ts`**，預設 **100**）：與頭像框 **`MASTER_AVATAR_FRAME_OVERLAY_PERCENT`（160）** 分離；**`ShopCardFrameOverlay`** 與後台 **`shop-admin-client`** 卡框預覽共用此常數。
+- 後台卡片外框預覽 **`<img>`**：由 **`inset-0` 全滿** 改為與前台相同（**置中、`width`／`height` 同百分比** + **`shopFrameLayoutStyle(framePreviewLayout)`**）。
+- **`public/frames/cards/cny-money-bag-card-frame.png`**：範例卡框（736×520），中心近白區域改 **透明**，後台 **`getShopLocalImageOptionsAction`** 之 **`frames/cards/`** 可選。
+- 仍套於 **`LevelCardEffect`（`/explore` UserCard）**、**`UserDetailModal`**、**`guild-profile-home`** 三處；細調可改常數或商品 **`metadata.frame_layout.scalePercent`**（50–200）。
+
+資料庫異動
+
+- 無。
+
+Git
+
+- **`feat(shop): CARD_FRAME_OVERLAY_PERCENT for card_frame overlay`**（與程式變更同一提交）

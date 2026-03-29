@@ -43,6 +43,7 @@ import {
   MASTER_AVATAR_INNER_PHOTO_DIAMETER_SCALE,
 } from "@/lib/constants/master-avatar-frame";
 import {
+  CARD_FRAME_OVERLAY_PERCENT,
   SHOP_CARD_FRAME_PREVIEW_HEIGHT_PX,
   SHOP_CARD_FRAME_PREVIEW_WIDTH_PX,
 } from "@/lib/constants/shop-card-frame-preview";
@@ -895,7 +896,10 @@ export default function ShopAdminClient() {
                       卡片外框預覽槽與個資彈窗（UserDetailModal）外殼比例一致（約{" "}
                       {SHOP_CARD_FRAME_PREVIEW_WIDTH_PX}×
                       {SHOP_CARD_FRAME_PREVIEW_HEIGHT_PX}
-                      px、rounded-3xl）。探索列表 UserCard 的紫色光暈為等級特效（LevelCardEffect），非此商品圖。
+                      px、rounded-3xl）。框圖疊放{" "}
+                      <span className="font-mono">{CARD_FRAME_OVERLAY_PERCENT}%</span>
+                      （常數 CARD_FRAME_OVERLAY_PERCENT，與頭像框 160% 分離）。探索列表 UserCard
+                      的紫色光暈為等級特效（LevelCardEffect），非此商品圖。
                     </>
                   )}
                 </p>
@@ -1003,8 +1007,12 @@ export default function ShopAdminClient() {
                         <img
                           src={form.image_url.trim()}
                           alt=""
-                          className="pointer-events-none absolute inset-0 z-[1] h-full w-full object-contain"
-                          style={framePreviewStyle}
+                          className="pointer-events-none absolute left-1/2 top-1/2 z-[1] max-w-none -translate-x-1/2 -translate-y-1/2 select-none object-contain"
+                          style={{
+                            width: `${CARD_FRAME_OVERLAY_PERCENT}%`,
+                            height: `${CARD_FRAME_OVERLAY_PERCENT}%`,
+                            ...framePreviewStyle,
+                          }}
                         />
                       ) : null}
                     </>
