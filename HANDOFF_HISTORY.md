@@ -1027,3 +1027,31 @@ fc3b3a6 feat: static asset architecture + frame PNG overlay + effect preview
 Git
 
 e4f81a2 feat: shop frame_layout for avatar frames + tiger PNG post-process
+
+---
+
+[2026-03-30] — 商城頭像框：全角色統一鑽石金框幾何；後台預覽對齊
+
+完成項目
+
+- **`MasterAvatarShell`**：以「有商城框 **或** 領袖」啟用裝飾版面；外層 **size×size**、**overflow-visible**；內層圓形裁切直徑 **size × MASTER_AVATAR_INNER_PHOTO_DIAMETER_SCALE**；商城框圖 **MASTER_AVATAR_FRAME_OVERLAY_PERCENT%** 置中並套用 **`shopFrameLayoutStyle(frameLayout)`**；領袖另疊 **`/frames/master-avatar-frame.png`**。無裝飾時 **`Avatar`** 僅照片＋特效，不帶 **`frameImageUrl`**（避免重疊繪製）。
+- **`Avatar`**：維持獨立使用時的圓內框圖行為；re-export **`MASTER_AVATAR_*`** 常數供 shell 與他處共用。
+- **`src/lib/constants/master-avatar-frame.ts`**：補充註解（洞徑與 160% 疊加關係、**FRAME_SIZE_PERCENT** 別名）。
+- **後台 `shop-admin-client.tsx`**（**`item_type === "avatar_frame"`**）：
+  - 預覽槽 **80×80**（**`AVATAR_FRAME_PREVIEW_SLOT_PX`**），**overflow-visible**。
+  - 內灰圓直徑 **slot × MASTER_AVATAR_INNER_PHOTO_DIAMETER_SCALE**；框圖 **160%** ＋ **`framePreviewStyle`**，與前台一致。
+  - **`card_frame`** 仍為圓角矩形槽＋**inset** 預覽，與頭像框分流。
+  - 說明文案改述「全會員同幾何；領袖另疊金框」。
+
+資料庫異動
+
+- 無。
+
+需要注意
+
+- 列表／卡片凡經 **`MasterAvatarShell`** 且帶商城框者，所見比例應與領袖「鑽石金框＋商城框」疊加時的商城層一致（僅領袖多一金框層）。
+- 若未來改 **160%** 或洞徑比例，須同步 **`master-avatar-frame.ts`**、**`MasterAvatarShell`** 與 **`shop-admin-client`** 預覽常數。
+
+Git
+
+feat: unify shop avatar frame ornament layout for all roles（推送後以 `git log -1 --oneline` 核對 SHA）

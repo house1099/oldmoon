@@ -37,6 +37,14 @@ import {
   shopFrameLayoutStyle,
   type ShopFrameLayout,
 } from "@/lib/utils/avatar-frame-layout";
+import {
+  MASTER_AVATAR_FRAME_OVERLAY_PERCENT,
+  MASTER_AVATAR_INNER_PHOTO_DIAMETER_SCALE,
+} from "@/lib/constants/master-avatar-frame";
+import { cn } from "@/lib/utils";
+
+/** 後台頭像框預覽槽位邊長（px），對應 `h-20 w-20` */
+const AVATAR_FRAME_PREVIEW_SLOT_PX = 80;
 
 const ITEM_TYPE_LABELS: Record<string, string> = {
   avatar_frame: "頭像框",
@@ -744,13 +752,42 @@ export default function ShopAdminClient() {
             )}
             {FRAME_ITEM_TYPES.has(form.item_type) ? (
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
-                <p className="text-xs text-gray-600">特效預覽（與頭像裁切一致：圓內 overflow hidden）</p>
+                <p className="text-xs text-gray-600">
+                  {form.item_type === "avatar_frame" ? (
+                    <>
+                      頭像框預覽與前台一致：槽位{" "}
+                      <span className="font-mono">size×size</span>、臉圓約{" "}
+                      <span className="font-mono">
+                        size×{MASTER_AVATAR_INNER_PHOTO_DIAMETER_SCALE.toFixed(2)}
+                      </span>
+                      、框圖{" "}
+                      <span className="font-mono">{MASTER_AVATAR_FRAME_OVERLAY_PERCENT}%</span>
+                      （全會員；領袖另疊鑽石金框）。拖曳／滑桿作用在框圖層。
+                    </>
+                  ) : (
+                    <>卡片外框預覽（圓角矩形槽位）；拖曳／滑桿作用在框圖層。</>
+                  )}
+                </p>
                 <div
                   ref={framePreviewBoxRef}
                   className={
                     form.item_type === "avatar_frame"
-                      ? `relative mx-auto h-20 w-20 touch-none overflow-hidden rounded-full bg-zinc-700 select-none ${form.effect_key ? `effect-${form.effect_key}` : ""}`
-                      : `relative mx-auto h-28 w-20 touch-none overflow-hidden rounded-xl bg-zinc-700 select-none ${form.effect_key ? `effect-${form.effect_key}` : ""}`
+                      ? cn(
+                          "relative mx-auto touch-none select-none overflow-visible bg-zinc-700",
+                          form.effect_key?.trim() && `effect-${form.effect_key.trim()}`,
+                        )
+                      : cn(
+                          "relative mx-auto h-28 w-20 touch-none overflow-hidden rounded-xl bg-zinc-700 select-none",
+                          form.effect_key?.trim() && `effect-${form.effect_key.trim()}`,
+                        )
+                  }
+                  style={
+                    form.item_type === "avatar_frame"
+                      ? {
+                          width: AVATAR_FRAME_PREVIEW_SLOT_PX,
+                          height: AVATAR_FRAME_PREVIEW_SLOT_PX,
+                        }
+                      : undefined
                   }
                   onPointerDown={(e) => {
                     if (!form.image_url.trim()) return;
@@ -782,25 +819,60 @@ export default function ShopAdminClient() {
                       }
                     }
                   }}
-                  onPointerCancel={(e) => {
+                  onPointerCancel={() => {
                     const d = framePreviewDragRef.current;
-                    if (d?.pointerId === e.pointerId) framePreviewDragRef.current = null;
+                    if (d) framePreviewDragRef.current = null;
                   }}
                 >
                   {form.item_type === "avatar_frame" ? (
-                    <div className="absolute inset-[22%] rounded-full bg-zinc-500" />
+                    <>
+                      <div
+                        className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full bg-zinc-500"
+                        style={{
+                          width: Math.max(
+                            1,
+                            Math.round(
+                              AVATAR_FRAME_PREVIEW_SLOT_PX *
+                                MASTER_AVATAR_INNER_PHOTO_DIAMETER_SCALE,
+                            ),
+                          ),
+                          height: Math.max(
+                            1,
+                            Math.round(
+                              AVATAR_FRAME_PREVIEW_SLOT_PX *
+                                MASTER_AVATAR_INNER_PHOTO_DIAMETER_SCALE,
+                            ),
+                          ),
+                        }}
+                      />
+                      {form.image_url.trim() ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={form.image_url.trim()}
+                          alt=""
+                          className="pointer-events-none absolute left-1/2 top-1/2 z-[15] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain"
+                          style={{
+                            width: `${MASTER_AVATAR_FRAME_OVERLAY_PERCENT}%`,
+                            height: `${MASTER_AVATAR_FRAME_OVERLAY_PERCENT}%`,
+                            ...framePreviewStyle,
+                          }}
+                        />
+                      ) : null}
+                    </>
                   ) : (
-                    <div className="absolute inset-[18%] rounded-lg bg-zinc-500" />
+                    <>
+                      <div className="absolute inset-[18%] rounded-lg bg-zinc-500" />
+                      {form.image_url.trim() ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={form.image_url.trim()}
+                          alt=""
+                          className="pointer-events-none absolute inset-0 h-full w-full object-contain"
+                          style={framePreviewStyle}
+                        />
+                      ) : null}
+                    </>
                   )}
-                  {form.image_url.trim() ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={form.image_url.trim()}
-                      alt=""
-                      className="pointer-events-none absolute inset-0 h-full w-full object-contain"
-                      style={framePreviewStyle}
-                    />
-                  ) : null}
                 </div>
                 <p className="text-center text-[10px] text-gray-400">
                   在預覽區按住拖曳可微調左右／上下（手機可用）

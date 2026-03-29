@@ -13,6 +13,7 @@ export {
   FRAME_SIZE_PERCENT,
   MASTER_AVATAR_FRAME_OVERLAY_PERCENT,
   MASTER_AVATAR_HOLE_TO_FRAME_ASSET_RATIO,
+  MASTER_AVATAR_INNER_PHOTO_DIAMETER_SCALE,
 } from "@/lib/constants/master-avatar-frame";
 
 let didLogFramePercent = false;
