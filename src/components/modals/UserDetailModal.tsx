@@ -61,7 +61,9 @@ export type UserDetailModalProps = {
     equippedTitle?: string | null;
     equippedFrame?: string | null;
     equippedAvatarFrameEffectKey?: string | null;
+    equippedAvatarFrameImageUrl?: string | null;
     equippedCardFrameEffectKey?: string | null;
+    equippedCardFrameImageUrl?: string | null;
   };
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -396,10 +398,9 @@ export function UserDetailModal({
                   size={88}
                   src={u.avatar_url}
                   nickname={u.nickname}
-                  avatarClassName={cn(
-                    "ring-2 ring-zinc-700/50",
-                    rewardEffectClassName(u.equippedAvatarFrameEffectKey),
-                  )}
+                  frameImageUrl={u.equippedAvatarFrameImageUrl}
+                  frameEffectKey={u.equippedAvatarFrameEffectKey}
+                  avatarClassName="ring-2 ring-zinc-700/50"
                 >
                   <span
                     className={cn(

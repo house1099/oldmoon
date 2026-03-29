@@ -26,7 +26,11 @@ function tagLabel(slug: string): string {
 }
 
 export type UserCardProps = {
-  user: UserRow & { equippedTitle?: string | null };
+  user: UserRow & {
+    equippedTitle?: string | null;
+    equippedAvatarFrameEffectKey?: string | null;
+    equippedAvatarFrameImageUrl?: string | null;
+  };
   className?: string;
   /** 技能市集：命定師徒時顯示光暈與標籤 */
   perfectMatch?: boolean;
@@ -109,6 +113,8 @@ export function UserCard({
               size={56}
               src={user.avatar_url}
               nickname={user.nickname}
+              frameImageUrl={user.equippedAvatarFrameImageUrl}
+              frameEffectKey={user.equippedAvatarFrameEffectKey}
             >
               <span
                 className={cn(

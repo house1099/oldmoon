@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Image from "next/image";
 import { FRAME_SIZE_PERCENT } from "@/lib/constants/master-avatar-frame";
+import { rewardEffectClassName } from "@/lib/utils/reward-effects";
 
 export {
   FRAME_SIZE_PERCENT,
@@ -16,6 +17,8 @@ interface AvatarProps {
   src?: string | null;
   nickname?: string | null;
   size?: number;
+  frameImageUrl?: string | null;
+  frameEffectKey?: string | null;
   className?: string;
 }
 
@@ -23,6 +26,8 @@ export default function Avatar({
   src,
   nickname,
   size = 48,
+  frameImageUrl,
+  frameEffectKey,
   className = "",
 }: AvatarProps) {
   const trimmed = src?.trim() || null;
@@ -32,6 +37,9 @@ export default function Avatar({
     didLogFramePercent = true;
     console.log("當前框框比例:", FRAME_SIZE_PERCENT);
   }, []);
+
+  const frameEffectClass = rewardEffectClassName(frameEffectKey);
+  const frameSrc = frameImageUrl?.trim() || null;
 
   if (trimmed) {
     const optimizedSrc = trimmed.includes("cloudinary.com")
@@ -65,13 +73,26 @@ export default function Avatar({
             className="h-full w-full object-cover"
           />
         )}
+        {frameSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element -- 支援本地/Cloudinary 框架圖
+          <img
+            src={frameSrc}
+            alt=""
+            className="pointer-events-none absolute inset-0 z-10 h-full w-full object-contain"
+          />
+        ) : null}
+        {frameEffectClass ? (
+          <div
+            className={`pointer-events-none absolute inset-0 z-[11] rounded-full ${frameEffectClass}`}
+          />
+        ) : null}
       </div>
     );
   }
 
   return (
     <div
-      className={`flex flex-shrink-0 items-center justify-center rounded-full bg-zinc-700 ${className}`}
+      className={`relative flex flex-shrink-0 items-center justify-center rounded-full bg-zinc-700 ${className}`}
       style={{ width: size, height: size }}
       data-frame-size-percent={FRAME_SIZE_PERCENT}
     >
@@ -81,6 +102,19 @@ export default function Avatar({
       >
         {nickname?.[0]?.toUpperCase() ?? "?"}
       </span>
+      {frameSrc ? (
+        // eslint-disable-next-line @next/next/no-img-element -- 支援本地/Cloudinary 框架圖
+        <img
+          src={frameSrc}
+          alt=""
+          className="pointer-events-none absolute inset-0 z-10 h-full w-full object-contain"
+        />
+      ) : null}
+      {frameEffectClass ? (
+        <div
+          className={`pointer-events-none absolute inset-0 z-[11] rounded-full ${frameEffectClass}`}
+        />
+      ) : null}
     </div>
   );
 }

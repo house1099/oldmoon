@@ -11,6 +11,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+function resolveItemImageUrl(raw: string): string {
+  const src = raw.trim();
+  if (!src) return src;
+  if (src.startsWith("/")) return src;
+  if (src.startsWith("https://") && src.includes("cloudinary.com")) {
+    return src.replace("/upload/", "/upload/w_160,h_160,c_fill,q_auto,f_auto/");
+  }
+  return src;
+}
 import { Button } from "@/components/ui/button";
 import {
   getMyCoinsAction,
@@ -351,6 +361,7 @@ export default function ShopPage() {
               const canAfford = balance >= item.price;
               const cd = countdowns[item.id];
               const img = item.image_url?.trim();
+              const displayImg = img ? resolveItemImageUrl(img) : null;
 
               return (
                 <div
@@ -360,7 +371,7 @@ export default function ShopPage() {
                   <div className="mb-2 flex justify-center">
                     {img ? (
                       <Image
-                        src={img}
+                        src={displayImg ?? img}
                         alt=""
                         width={80}
                         height={80}

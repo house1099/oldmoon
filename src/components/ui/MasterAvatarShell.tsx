@@ -13,6 +13,8 @@ export type MasterAvatarShellProps = {
   nickname?: string | null;
   className?: string;
   avatarClassName?: string;
+  frameImageUrl?: string | null;
+  frameEffectKey?: string | null;
   children?: ReactNode;
 };
 
@@ -27,6 +29,8 @@ export function MasterAvatarShell({
   nickname,
   className,
   avatarClassName,
+  frameImageUrl,
+  frameEffectKey,
   children,
 }: MasterAvatarShellProps) {
   const isMaster = role === "master";
@@ -39,6 +43,8 @@ export function MasterAvatarShell({
           size={size}
           src={src}
           nickname={nickname}
+          frameImageUrl={frameImageUrl}
+          frameEffectKey={frameEffectKey}
           className={avatarClassName}
         />
         {children}
@@ -62,6 +68,8 @@ export function MasterAvatarShell({
             size={size}
             src={src}
             nickname={nickname}
+            frameImageUrl={frameImageUrl}
+            frameEffectKey={frameEffectKey}
             className={cn("h-full w-full border-0 bg-transparent", avatarClassName)}
           />
         </div>

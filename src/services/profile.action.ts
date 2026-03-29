@@ -10,7 +10,9 @@ export type MemberProfileView = UserRow & {
   equippedTitle: string | null;
   equippedFrame: string | null;
   equippedAvatarFrameEffectKey: string | null;
+  equippedAvatarFrameImageUrl: string | null;
   equippedCardFrameEffectKey: string | null;
+  equippedCardFrameImageUrl: string | null;
 };
 
 export async function getMyProfileAction() {
@@ -42,14 +44,18 @@ export async function getMemberProfileByIdAction(
       equippedTitle,
       equippedFrame,
       equippedAvatarFrameEffectKey,
+      equippedAvatarFrameImageUrl,
       equippedCardFrameEffectKey,
+      equippedCardFrameImageUrl,
     } = await findEquippedRewardLabels(targetUserId);
     return {
       ...profile,
       equippedTitle,
       equippedFrame,
       equippedAvatarFrameEffectKey,
+      equippedAvatarFrameImageUrl,
       equippedCardFrameEffectKey,
+      equippedCardFrameImageUrl,
     };
   } catch (e) {
     console.error("getMemberProfileByIdAction:", e);

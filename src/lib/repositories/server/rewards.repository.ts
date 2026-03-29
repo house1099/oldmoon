@@ -6,6 +6,7 @@ type BroadcastInsert = Database["public"]["Tables"]["broadcasts"]["Insert"];
 
 export type UserRewardWithEffect = UserRewardRow & {
   effect_key: string | null;
+  image_url: string | null;
 };
 
 /** 相容舊庫曾用 reward_ref_id；effect_key 僅在 prize_items */
@@ -31,14 +32,35 @@ export async function findMyRewards(
     new Set(rows.map(prizeItemRefId).filter((id): id is string => Boolean(id))),
   );
   const effectByItemId = new Map<string, string | null>();
+  const imageByPrizeItemId = new Map<string, string | null>();
   if (itemIds.length > 0) {
     const { data: items, error: itemErr } = await admin
       .from("prize_items")
-      .select("id, effect_key")
+      .select("id, effect_key, image_url")
       .in("id", itemIds);
     if (itemErr) throw itemErr;
     for (const it of items ?? []) {
       effectByItemId.set(it.id as string, (it.effect_key as string | null) ?? null);
+      imageByPrizeItemId.set(it.id as string, (it.image_url as string | null) ?? null);
+    }
+  }
+
+  const shopItemIds = Array.from(
+    new Set(
+      rows
+        .map((row) => row.shop_item_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const imageByShopItemId = new Map<string, string | null>();
+  if (shopItemIds.length > 0) {
+    const { data: shopItems, error: shopErr } = await admin
+      .from("shop_items")
+      .select("id, image_url")
+      .in("id", shopItemIds);
+    if (shopErr) throw shopErr;
+    for (const it of shopItems ?? []) {
+      imageByShopItemId.set(it.id as string, (it.image_url as string | null) ?? null);
     }
   }
 
@@ -49,11 +71,15 @@ export async function findMyRewards(
       user_id: row.user_id,
       reward_type: row.reward_type,
       item_ref_id: refId,
+      shop_item_id: row.shop_item_id,
       label: row.label,
       is_equipped: row.is_equipped,
       used_at: row.used_at,
       created_at: row.created_at,
       effect_key: refId ? (effectByItemId.get(refId) ?? null) : null,
+      image_url:
+        (refId ? (imageByPrizeItemId.get(refId) ?? null) : null) ??
+        (row.shop_item_id ? (imageByShopItemId.get(row.shop_item_id) ?? null) : null),
     };
   });
 }
@@ -224,7 +250,9 @@ export async function findEquippedRewardLabels(userId: string): Promise<{
   equippedTitle: string | null;
   equippedFrame: string | null;
   equippedAvatarFrameEffectKey: string | null;
+  equippedAvatarFrameImageUrl: string | null;
   equippedCardFrameEffectKey: string | null;
+  equippedCardFrameImageUrl: string | null;
 }> {
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -242,41 +270,76 @@ export async function findEquippedRewardLabels(userId: string): Promise<{
     ),
   );
   const effectByItemId = new Map<string, string | null>();
+  const imageByItemId = new Map<string, string | null>();
   if (itemIds.length > 0) {
     const { data: items, error: itemErr } = await admin
       .from("prize_items")
-      .select("id, effect_key")
+      .select("id, effect_key, image_url")
       .in("id", itemIds);
     if (itemErr) throw itemErr;
     for (const it of items ?? []) {
       effectByItemId.set(it.id as string, (it.effect_key as string | null) ?? null);
+      imageByItemId.set(it.id as string, (it.image_url as string | null) ?? null);
+    }
+  }
+  const shopItemIds = Array.from(
+    new Set(
+      list
+        .map((row) => row.shop_item_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const effectByShopItemId = new Map<string, string | null>();
+  const imageByShopItemId = new Map<string, string | null>();
+  if (shopItemIds.length > 0) {
+    const { data: shopItems, error: shopErr } = await admin
+      .from("shop_items")
+      .select("id, effect_key, image_url")
+      .in("id", shopItemIds);
+    if (shopErr) throw shopErr;
+    for (const it of shopItems ?? []) {
+      effectByShopItemId.set(it.id as string, (it.effect_key as string | null) ?? null);
+      imageByShopItemId.set(it.id as string, (it.image_url as string | null) ?? null);
     }
   }
 
   let equippedTitle: string | null = null;
   let equippedFrame: string | null = null;
   let equippedAvatarFrameEffectKey: string | null = null;
+  let equippedAvatarFrameImageUrl: string | null = null;
   let equippedCardFrameEffectKey: string | null = null;
+  let equippedCardFrameImageUrl: string | null = null;
   for (const row of list) {
     const rt = row.reward_type;
     const lb = row.label?.trim() || null;
     const refId = prizeItemRefId(row);
     const ek = refId
       ? effectByItemId.get(refId)?.trim() || null
-      : null;
+      : row.shop_item_id
+        ? effectByShopItemId.get(row.shop_item_id)?.trim() || null
+        : null;
+    const imageUrl = refId
+      ? imageByItemId.get(refId)?.trim() || null
+      : row.shop_item_id
+        ? imageByShopItemId.get(row.shop_item_id)?.trim() || null
+        : null;
     if (rt === "title" && lb) equippedTitle = lb;
     if (rt === "avatar_frame" && lb) {
       equippedFrame = lb;
       equippedAvatarFrameEffectKey = ek;
+      equippedAvatarFrameImageUrl = imageUrl;
     }
     if (rt === "card_frame" && lb) {
       equippedCardFrameEffectKey = ek;
+      equippedCardFrameImageUrl = imageUrl;
     }
   }
   return {
     equippedTitle,
     equippedFrame,
     equippedAvatarFrameEffectKey,
+    equippedAvatarFrameImageUrl,
     equippedCardFrameEffectKey,
+    equippedCardFrameImageUrl,
   };
 }

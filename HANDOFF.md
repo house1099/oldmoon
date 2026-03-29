@@ -93,9 +93,9 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## ✅ 最近完成（最新 3 次任務）
 
-1. **2026-03-29 — 酒館自刪＋廣播提前下架**：`TavernModal` 長按邏輯改為「本人可刪自己訊息」；`deleteTavernMessageAction` 新增「本人可刪自己／master、moderator 可刪任意」權限；`rewards.repository` + `rewards.action` 新增 `expireBroadcast`／`expireBroadcastAction`；`FloatingToolbar` 新增「📢 廣播管理」Sheet + `AlertDialog` 下架；`BroadcastBanner`（master）新增右側 ✕ 快速下架。
-2. **2026-03-29 — Google 邀請碼流程與除錯查核**：**`/register/invite`** + **`saveInviteCodeToMetadataAction`**；**middleware** 依 **`user_metadata.invite_code`** 分流（等同「無 profile 且無 invite → `/register/invite`」）；Supabase MCP 抽樣確認多數 **Google、無 `invite_code`、無 `public.users` 列** 之帳號符合預期；**`middleware.ts` 檔首** 附 Step 1–6 對照註解。
-3. **2026-03-29 — 酒館／廣播設定分離與樣式**：`tavern_marquee_*`／`broadcast_*` 設定；`TavernMarquee`／`BroadcastBanner`；`/admin/settings`；`layout` 預留 **40px**。
+1. **2026-03-29 — 靜態資產架構＋框架 PNG 疊加＋後台特效預覽**：建立 `public/frames|cards|items` 目錄與 README；`/admin/shop` 圖片改為本地路徑優先 + Cloudinary 選填上傳；`/admin/prizes` 新增框架圖片路徑與特效預覽；`getMyRewardsAction` / rewards repository 補 `image_url` 回查（prize_items + shop_items）；`Avatar`/`UserCard`/`UserDetailModal` 支援框架 PNG + CSS 特效同時疊加；新增 `scripts/resize-frame.py`。
+2. **2026-03-29 — 酒館自刪＋廣播提前下架**：`TavernModal` 長按邏輯改為「本人可刪自己訊息」；`deleteTavernMessageAction` 新增「本人可刪自己／master、moderator 可刪任意」權限；`rewards.repository` + `rewards.action` 新增 `expireBroadcast`／`expireBroadcastAction`；`FloatingToolbar` 新增「📢 廣播管理」Sheet + `AlertDialog` 下架；`BroadcastBanner`（master）新增右側 ✕ 快速下架。
+3. **2026-03-29 — Google 邀請碼流程與除錯查核**：**`/register/invite`** + **`saveInviteCodeToMetadataAction`**；**middleware** 依 **`user_metadata.invite_code`** 分流（等同「無 profile 且無 invite → `/register/invite`」）；Supabase MCP 抽樣確認多數 **Google、無 `invite_code`、無 `public.users` 列** 之帳號符合預期；**`middleware.ts` 檔首** 附 Step 1–6 對照註解。
 
 ## ⚠️ 目前已知問題
 

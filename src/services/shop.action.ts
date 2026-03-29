@@ -191,6 +191,7 @@ async function dispatchItemToUser(
         await insertUserReward({
           user_id: userId,
           reward_type: "broadcast",
+          shop_item_id: item.id,
           label: item.name,
           is_equipped: false,
         });
@@ -208,6 +209,7 @@ async function dispatchItemToUser(
         await insertUserReward({
           user_id: userId,
           reward_type: "rename_card",
+          shop_item_id: item.id,
           label: "改名卡",
           is_equipped: false,
         });
@@ -222,6 +224,7 @@ async function dispatchItemToUser(
         await insertUserReward({
           user_id: userId,
           reward_type: item.item_type,
+          shop_item_id: item.id,
           label: item.name,
           is_equipped: false,
         });
@@ -233,6 +236,7 @@ async function dispatchItemToUser(
         await insertUserReward({
           user_id: userId,
           reward_type: item.item_type,
+          shop_item_id: item.id,
           label: item.name,
           is_equipped: false,
         });
@@ -283,6 +287,7 @@ async function dispatchItemToUser(
         await insertUserReward({
           user_id: userId,
           reward_type: item.item_type,
+          shop_item_id: item.id,
           label: item.name,
           is_equipped: false,
         });

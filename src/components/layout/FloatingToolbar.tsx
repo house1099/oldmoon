@@ -199,6 +199,19 @@ function formatBroadcastRemaining(expiresAt: string): string {
   return `剩餘 ${hours} 小時 ${minutes} 分`;
 }
 
+function toThumbImageUrl(raw: string, width: number, height: number): string {
+  const src = raw.trim();
+  if (!src) return src;
+  if (src.startsWith("/")) return src;
+  if (src.includes("cloudinary.com")) {
+    return src.replace(
+      "/upload/",
+      `/upload/w_${width},h_${height},c_fill,q_auto,f_auto/`,
+    );
+  }
+  return src;
+}
+
 function FloatingToolbarInner({
   messageMaxLength,
   openEquipRef,
@@ -713,9 +726,26 @@ function FloatingToolbarInner({
                         rewardEffectClassName(fxKey ?? undefined),
                       )}
                     >
-                      <span className="text-base leading-none" aria-hidden>
-                        {vis.emoji}
-                      </span>
+                      {stack.rows[0]?.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={toThumbImageUrl(stack.rows[0].image_url, 128, 128)}
+                          alt=""
+                          className="h-8 w-8 object-contain"
+                        />
+                      ) : fxKey ? (
+                        <span
+                          className={cn(
+                            "h-7 w-7 rounded-full bg-zinc-500/80",
+                            stack.rewardType === "card_frame" && "rounded-md",
+                          )}
+                          aria-hidden
+                        />
+                      ) : (
+                        <span className="text-base leading-none" aria-hidden>
+                          {vis.emoji}
+                        </span>
+                      )}
                       <span className="line-clamp-2 max-h-[1.5rem] w-full text-[9px] leading-tight text-zinc-200">
                         {stack.label}
                       </span>

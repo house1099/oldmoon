@@ -56,6 +56,7 @@ const CURRENCY_LABELS: Record<string, string> = {
 };
 
 const EFFECT_KEY_TYPES = new Set(["avatar_frame", "card_frame", "title"]);
+const FRAME_ITEM_TYPES = new Set(["avatar_frame", "card_frame"]);
 
 type FormData = {
   sku: string;
@@ -126,6 +127,8 @@ export default function ShopAdminClient() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ShopItemRow | null>(null);
   const [imageUploading, setImageUploading] = useState(false);
+  const [imageMode, setImageMode] = useState<"local" | "cloudinary">("local");
+  const [imagePreviewError, setImagePreviewError] = useState(false);
   const shopImageInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -143,12 +146,18 @@ export default function ShopAdminClient() {
   function openCreate() {
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setImageMode("local");
+    setImagePreviewError(false);
     setDialogOpen(true);
   }
 
   function openEdit(item: ShopItemRow) {
     setEditingId(item.id);
     setForm(itemToForm(item));
+    setImageMode(
+      item.image_url?.trim().startsWith("https://") ? "cloudinary" : "local",
+    );
+    setImagePreviewError(false);
     setDialogOpen(true);
   }
 
@@ -441,6 +450,30 @@ export default function ShopAdminClient() {
             </label>
             <div className="block">
               <span className="text-gray-700">商品圖片</span>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setImageMode("local")}
+                  className={`rounded-lg border px-2 py-1 text-xs ${
+                    imageMode === "local"
+                      ? "border-violet-400 bg-violet-50 text-violet-700"
+                      : "border-gray-300 text-gray-600"
+                  }`}
+                >
+                  本地路徑（建議）
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImageMode("cloudinary")}
+                  className={`rounded-lg border px-2 py-1 text-xs ${
+                    imageMode === "cloudinary"
+                      ? "border-violet-400 bg-violet-50 text-violet-700"
+                      : "border-gray-300 text-gray-600"
+                  }`}
+                >
+                  Cloudinary 上傳（選填）
+                </button>
+              </div>
               <input
                 ref={shopImageInputRef}
                 type="file"
@@ -466,30 +499,68 @@ export default function ShopAdminClient() {
                   })();
                 }}
               />
-              <div className="mt-2 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  disabled={imageUploading}
-                  onClick={() => shopImageInputRef.current?.click()}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
-                >
-                  {imageUploading ? (
-                    <span className="inline-flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" /> 上傳中…
-                    </span>
-                  ) : (
-                    "上傳商品圖片"
-                  )}
-                </button>
-                {form.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={form.image_url}
-                    alt=""
-                    className="h-20 w-20 rounded-xl border border-gray-200 object-cover"
-                  />
-                ) : null}
-              </div>
+              {imageMode === "local" ? (
+                <div className="mt-2 grid grid-cols-[1fr_auto] items-start gap-3">
+                  <div>
+                    <input
+                      type="text"
+                      value={form.image_url}
+                      onChange={(e) => {
+                        setImagePreviewError(false);
+                        setField("image_url", e.target.value);
+                      }}
+                      placeholder="/items/gold-chest.png"
+                      className="block w-full rounded-lg border border-gray-300 px-3 py-2"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      請將圖片放入 public/items/ 目錄後填寫路徑
+                    </p>
+                  </div>
+                  <div className="h-20 w-20 rounded-xl border border-gray-200 bg-gray-50">
+                    {form.image_url.trim().startsWith("/") && !imagePreviewError ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={form.image_url.trim()}
+                        alt=""
+                        className="h-full w-full rounded-xl object-cover"
+                        onError={() => setImagePreviewError(true)}
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center px-1 text-center text-[10px] text-gray-400">
+                        圖片路徑無效
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={imageUploading}
+                    onClick={() => shopImageInputRef.current?.click()}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {imageUploading ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" /> 上傳中…
+                      </span>
+                    ) : (
+                      "上傳商品圖片"
+                    )}
+                  </button>
+                  <p className="text-xs text-gray-500">
+                    建議使用本地路徑以節省 Cloudinary 用量
+                  </p>
+                  {form.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={form.image_url}
+                      alt=""
+                      className="h-20 w-20 rounded-xl border border-gray-200 object-cover"
+                    />
+                  ) : null}
+                </div>
+              )}
             </div>
             <label className="block">
               <span className="text-gray-700">商品說明</span>
@@ -528,6 +599,35 @@ export default function ShopAdminClient() {
                 />
               </label>
             )}
+            {FRAME_ITEM_TYPES.has(form.item_type) ? (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="mb-1 text-xs text-gray-600">特效預覽</p>
+                <div
+                  className={
+                    form.item_type === "avatar_frame"
+                      ? `relative mx-auto h-20 w-20 overflow-visible rounded-full bg-zinc-700 ${form.effect_key ? `effect-${form.effect_key}` : ""}`
+                      : `relative mx-auto h-28 w-20 overflow-visible rounded-xl bg-zinc-700 ${form.effect_key ? `effect-${form.effect_key}` : ""}`
+                  }
+                >
+                  {form.item_type === "avatar_frame" ? (
+                    <div className="absolute inset-[22%] rounded-full bg-zinc-500" />
+                  ) : (
+                    <div className="absolute inset-[18%] rounded-lg bg-zinc-500" />
+                  )}
+                  {form.image_url.trim() ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={form.image_url.trim()}
+                      alt=""
+                      className="pointer-events-none absolute inset-0 h-full w-full object-contain"
+                    />
+                  ) : null}
+                </div>
+                {!form.effect_key.trim() ? (
+                  <p className="mt-1 text-center text-xs text-gray-400">（無特效）</p>
+                ) : null}
+              </div>
+            ) : null}
             <label className="block">
               <span className="text-gray-700">幣種</span>
               <select

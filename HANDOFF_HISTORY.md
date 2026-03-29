@@ -953,3 +953,45 @@ Git
 Git
 
 feat: self-delete tavern message + broadcast expire by master
+
+---
+
+[2026-03-29] — 靜態資產架構優化＋框架 PNG 疊加＋特效預覽
+
+完成項目
+
+- 建立靜態資產目錄：`public/frames`、`public/cards`、`public/items`，各自新增 README 與 `.gitkeep`。
+- 後台 `/admin/shop` 商品圖片改為雙模式：
+  - 本地路徑（預設）輸入 `/items/...`，即時預覽與無效路徑提示。
+  - Cloudinary 上傳（選填）保留既有上傳流程，並提示優先使用本地路徑。
+- 後台 `/admin/prizes` 當獎項為 `avatar_frame` / `card_frame` 時，新增「框架圖片路徑」欄位與即時預覽（含特效預覽區）。
+- 後台 `/admin/shop` 當商品為 `avatar_frame` / `card_frame` 時，新增特效預覽區，支援疊加圖片與 `effect_key`。
+- Layer 3 / Layer 2：
+  - `createPrizeItemAction` / `updatePrizeItemAction` 支援 `image_url`。
+  - `findMyRewards` 回傳 `image_url`，並回查 `prize_items` + `shop_items`。
+  - `findEquippedRewardLabels` 回傳 `equippedAvatarFrameImageUrl` / `equippedCardFrameImageUrl`。
+  - `purchaseItemAction` 發放 `user_rewards` 時加入 `shop_item_id`。
+- 前台裝備背包（`FloatingToolbar`）道具格顯示優先改為：
+  1) `image_url` 圖片，2) 僅特效時顯示特效預覽底形，3) 無圖無特效顯示 emoji。
+- 前台頭像框疊加：
+  - `Avatar` 新增 `frameImageUrl` / `frameEffectKey`，可同時疊加 PNG 框與 CSS 特效。
+  - `MasterAvatarShell` 傳遞框架 props。
+  - `UserCard` / `UserDetailModal` 以會員裝備資料套用框架。
+- 新增工具腳本：`scripts/resize-frame.py`（PNG 中心裁切縮放，保留透明背景）。
+- 商城前台顯示補強：本地 `/...` 直接使用；Cloudinary URL 自動套縮圖參數。
+
+資料庫異動
+
+- 🗄️ `public.prize_items` 新增 `image_url text NULL`，並加註解。
+- 🗄️ `public.user_rewards` 新增 `shop_item_id uuid NULL REFERENCES public.shop_items(id)`，並加註解。
+- 🗄️ 已透過 Supabase MCP 執行 `NOTIFY pgrst, 'reload schema';`。
+
+需要注意
+
+- 目前框架圖片建議走 `public/frames`、`public/cards`，可明顯降低 Cloudinary 用量。
+- `effect_key` 若前端未實作對應 CSS class，預覽會視為無特效。
+- `scripts/resize-frame.py` 依賴 Pillow；若本機尚未安裝需自行安裝。
+
+Git
+
+TBD

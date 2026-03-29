@@ -1165,6 +1165,7 @@ export interface Database {
           weight: number;
           is_active: boolean;
           effect_key: string | null;
+          image_url: string | null;
           created_at: string;
         };
         Insert: {
@@ -1177,6 +1178,7 @@ export interface Database {
           weight?: number;
           is_active?: boolean;
           effect_key?: string | null;
+          image_url?: string | null;
           created_at?: string;
         };
         Update: {
@@ -1187,6 +1189,7 @@ export interface Database {
           weight?: number;
           is_active?: boolean;
           effect_key?: string | null;
+          image_url?: string | null;
         };
         Relationships: [
           {
@@ -1251,6 +1254,7 @@ export interface Database {
           user_id: string;
           reward_type: string;
           item_ref_id: string | null;
+          shop_item_id: string | null;
           label: string;
           is_equipped: boolean;
           used_at: string | null;
@@ -1261,6 +1265,7 @@ export interface Database {
           user_id: string;
           reward_type: string;
           item_ref_id?: string | null;
+          shop_item_id?: string | null;
           label: string;
           is_equipped?: boolean;
           used_at?: string | null;
@@ -1269,6 +1274,7 @@ export interface Database {
         Update: {
           reward_type?: string;
           item_ref_id?: string | null;
+          shop_item_id?: string | null;
           label?: string;
           is_equipped?: boolean;
           used_at?: string | null;
@@ -1284,6 +1290,12 @@ export interface Database {
             foreignKeyName: "user_rewards_item_ref_id_fkey";
             columns: ["item_ref_id"];
             referencedRelation: "prize_items";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_rewards_shop_item_id_fkey";
+            columns: ["shop_item_id"];
+            referencedRelation: "shop_items";
             referencedColumns: ["id"];
           },
         ];

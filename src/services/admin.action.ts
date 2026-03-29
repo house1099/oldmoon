@@ -1848,6 +1848,7 @@ export async function createPrizeItemAction(
     max_value?: number | null;
     weight: number;
     effect_key?: string | null;
+    image_url?: string | null;
   },
 ): Promise<ActionResult<PrizeItemRow>> {
   try {
@@ -1866,8 +1867,11 @@ export async function createPrizeItemAction(
     });
     if (!v.ok) return v;
     const effectKeyRaw = data.effect_key?.trim() || null;
+    const imageUrlRaw = data.image_url?.trim() || null;
     const effect_key =
       rt === "avatar_frame" || rt === "card_frame" ? effectKeyRaw : null;
+    const image_url =
+      rt === "avatar_frame" || rt === "card_frame" ? imageUrlRaw : null;
     const row = await insertPrizeItem({
       pool_id: poolId,
       reward_type: rt,
@@ -1878,6 +1882,7 @@ export async function createPrizeItemAction(
       max_value:
         rt === "coins" || rt === "exp" ? maxV : null,
       effect_key,
+      image_url,
       is_active: true,
     });
     revalidatePath("/admin/prizes");
@@ -1913,6 +1918,7 @@ export async function updatePrizeItemAction(
     min_value?: number | null;
     max_value?: number | null;
     effect_key?: string | null;
+    image_url?: string | null;
   },
 ): Promise<ActionResult<void>> {
   try {
@@ -1931,6 +1937,10 @@ export async function updatePrizeItemAction(
       data.effect_key !== undefined
         ? data.effect_key?.trim() || null
         : existing.effect_key ?? null;
+    let image_url =
+      data.image_url !== undefined
+        ? data.image_url?.trim() || null
+        : existing.image_url ?? null;
 
     if (reward_type !== "coins" && reward_type !== "exp") {
       min_value = null;
@@ -1938,6 +1948,7 @@ export async function updatePrizeItemAction(
     }
     if (reward_type !== "avatar_frame" && reward_type !== "card_frame") {
       effect_key = null;
+      image_url = null;
     }
 
     const v = validatePrizeItemRewardFields({
@@ -1956,6 +1967,7 @@ export async function updatePrizeItemAction(
       min_value,
       max_value,
       effect_key,
+      image_url,
     });
     revalidatePath("/admin/prizes");
     return { ok: true, data: undefined };

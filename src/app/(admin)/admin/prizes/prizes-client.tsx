@@ -72,6 +72,7 @@ type DraftItem = Pick<
   | "reward_type"
   | "is_active"
   | "effect_key"
+  | "image_url"
 >;
 
 export default function AdminPrizesClient() {
@@ -102,6 +103,7 @@ export default function AdminPrizesClient() {
   const [newItemMin, setNewItemMin] = useState("");
   const [newItemMax, setNewItemMax] = useState("");
   const [newItemEffectKey, setNewItemEffectKey] = useState("");
+  const [newItemImageUrl, setNewItemImageUrl] = useState("");
   const [creatingItem, setCreatingItem] = useState(false);
   const [prizeTypeHelpOpen, setPrizeTypeHelpOpen] = useState(false);
 
@@ -140,6 +142,7 @@ export default function AdminPrizesClient() {
         reward_type: it.reward_type,
         is_active: it.is_active,
         effect_key: it.effect_key ?? null,
+        image_url: it.image_url ?? null,
       };
     }
     setDrafts(d);
@@ -190,6 +193,7 @@ export default function AdminPrizesClient() {
           max_value: d.max_value,
           reward_type: d.reward_type,
           effect_key: d.effect_key ?? null,
+          image_url: d.image_url ?? null,
         });
       }),
     );
@@ -258,6 +262,10 @@ export default function AdminPrizesClient() {
           newItemType === "avatar_frame" || newItemType === "card_frame"
             ? newItemEffectKey.trim() || null
             : null,
+        image_url:
+          newItemType === "avatar_frame" || newItemType === "card_frame"
+            ? newItemImageUrl.trim() || null
+            : null,
       });
       if (!r.ok) {
         toast.error(r.error);
@@ -270,6 +278,7 @@ export default function AdminPrizesClient() {
       setNewItemMin("");
       setNewItemMax("");
       setNewItemEffectKey("");
+      setNewItemImageUrl("");
       await loadItems(selectedPoolId);
     } finally {
       setCreatingItem(false);
@@ -463,6 +472,11 @@ export default function AdminPrizesClient() {
                                     e.target.value === "card_frame"
                                       ? d.effect_key
                                       : null,
+                                  image_url:
+                                    e.target.value === "avatar_frame" ||
+                                    e.target.value === "card_frame"
+                                      ? d.image_url
+                                      : null,
                                 },
                               }))
                             }
@@ -628,32 +642,97 @@ export default function AdminPrizesClient() {
                           )}
                           {(d.reward_type === "avatar_frame" ||
                             d.reward_type === "card_frame") && (
-                            <div className="w-full min-w-[12rem] max-w-md">
-                              <label className="text-xs text-gray-500">
-                                特效代碼（effect_key）
-                              </label>
-                              <input
-                                type="text"
-                                value={d.effect_key ?? ""}
-                                onChange={(e) =>
-                                  setDrafts((prev) => ({
-                                    ...prev,
-                                    [it.id]: {
-                                      ...d,
-                                      effect_key:
-                                        e.target.value.trim() === ""
-                                          ? null
-                                          : e.target.value.trim(),
-                                    },
-                                  }))
-                                }
-                                placeholder="如：star_frame、rainbow_frame"
-                                className="mt-0.5 w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
-                              />
-                              <p className="mt-0.5 text-[10px] text-gray-500">
-                                此代碼需對應前端已實作的 CSS
-                                特效，未實作的代碼不會有視覺效果
-                              </p>
+                            <div className="grid w-full min-w-[12rem] max-w-2xl grid-cols-1 gap-3 md:grid-cols-2">
+                              <div className="space-y-2">
+                                <div>
+                                  <label className="text-xs text-gray-500">
+                                    特效代碼（effect_key）
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={d.effect_key ?? ""}
+                                    onChange={(e) =>
+                                      setDrafts((prev) => ({
+                                        ...prev,
+                                        [it.id]: {
+                                          ...d,
+                                          effect_key:
+                                            e.target.value.trim() === ""
+                                              ? null
+                                              : e.target.value.trim(),
+                                        },
+                                      }))
+                                    }
+                                    placeholder="如：star_frame、rainbow_frame"
+                                    className="mt-0.5 w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-gray-500">
+                                    框架圖片路徑
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={d.image_url ?? ""}
+                                    onChange={(e) =>
+                                      setDrafts((prev) => ({
+                                        ...prev,
+                                        [it.id]: {
+                                          ...d,
+                                          image_url:
+                                            e.target.value.trim() === ""
+                                              ? null
+                                              : e.target.value.trim(),
+                                        },
+                                      }))
+                                    }
+                                    placeholder={
+                                      d.reward_type === "avatar_frame"
+                                        ? "/frames/star-frame.png"
+                                        : "/cards/dragon-card.png"
+                                    }
+                                    className="mt-0.5 w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
+                                  />
+                                  <p className="mt-0.5 text-[10px] text-gray-500">
+                                    {d.reward_type === "avatar_frame"
+                                      ? "PNG 透明背景，512x512px，放入 public/frames/"
+                                      : "PNG 透明背景，400x560px，放入 public/cards/"}
+                                  </p>
+                                </div>
+                              </div>
+                              <div>
+                                <p className="mb-1 text-xs text-gray-500">
+                                  特效預覽
+                                </p>
+                                <div className="rounded-lg border border-gray-200 bg-white p-2">
+                                  <div
+                                    className={
+                                      d.reward_type === "avatar_frame"
+                                        ? `relative mx-auto h-20 w-20 overflow-visible rounded-full bg-zinc-700 ${d.effect_key ? `effect-${d.effect_key}` : ""}`
+                                        : `relative mx-auto h-28 w-20 overflow-visible rounded-xl bg-zinc-700 ${d.effect_key ? `effect-${d.effect_key}` : ""}`
+                                    }
+                                  >
+                                    {d.reward_type === "avatar_frame" ? (
+                                      <div className="absolute inset-[22%] rounded-full bg-zinc-500" />
+                                    ) : (
+                                      <div className="absolute inset-[18%] rounded-lg bg-zinc-500" />
+                                    )}
+                                    {d.image_url ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        src={d.image_url}
+                                        alt=""
+                                        className="pointer-events-none absolute inset-0 h-full w-full object-contain"
+                                      />
+                                    ) : null}
+                                  </div>
+                                  {!d.effect_key ? (
+                                    <p className="mt-2 text-center text-[10px] text-gray-400">
+                                      （無特效）
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -916,21 +995,38 @@ export default function AdminPrizesClient() {
             )}
             {(newItemType === "avatar_frame" ||
               newItemType === "card_frame") && (
-              <div>
-                <label className="text-xs text-gray-500">
-                  特效代碼（effect_key）
-                </label>
-                <input
-                  type="text"
-                  value={newItemEffectKey}
-                  onChange={(e) => setNewItemEffectKey(e.target.value)}
-                  placeholder="如：star_frame、rainbow_frame"
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                />
-                <p className="mt-0.5 text-[10px] text-gray-500">
-                  此代碼需對應前端已實作的 CSS
-                  特效，未實作的代碼不會有視覺效果；可留空（留空=無特效，只顯示名稱）
-                </p>
+              <div className="space-y-2">
+                <div>
+                  <label className="text-xs text-gray-500">
+                    特效代碼（effect_key）
+                  </label>
+                  <input
+                    type="text"
+                    value={newItemEffectKey}
+                    onChange={(e) => setNewItemEffectKey(e.target.value)}
+                    placeholder="如：star_frame、rainbow_frame"
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">框架圖片路徑</label>
+                  <input
+                    type="text"
+                    value={newItemImageUrl}
+                    onChange={(e) => setNewItemImageUrl(e.target.value)}
+                    placeholder={
+                      newItemType === "avatar_frame"
+                        ? "/frames/star-frame.png"
+                        : "/cards/dragon-card.png"
+                    }
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  />
+                  <p className="mt-0.5 text-[10px] text-gray-500">
+                    {newItemType === "avatar_frame"
+                      ? "PNG 透明背景，512x512px，放入 public/frames/"
+                      : "PNG 透明背景，400x560px，放入 public/cards/"}
+                  </p>
+                </div>
               </div>
             )}
           </div>
