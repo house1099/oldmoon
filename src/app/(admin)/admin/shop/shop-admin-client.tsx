@@ -27,6 +27,7 @@ import {
   updateShopItemAction,
   toggleShopItemAction,
   deleteShopItemAction,
+  getShopLocalImageOptionsAction,
 } from "@/services/admin.action";
 import type { ShopItemRow } from "@/lib/repositories/server/shop.repository";
 import { uploadAvatarToCloudinary } from "@/lib/utils/cloudinary";
@@ -129,6 +130,8 @@ export default function ShopAdminClient() {
   const [imageUploading, setImageUploading] = useState(false);
   const [imageMode, setImageMode] = useState<"local" | "cloudinary">("local");
   const [imagePreviewError, setImagePreviewError] = useState(false);
+  const [localFrames, setLocalFrames] = useState<string[]>([]);
+  const [localItems, setLocalItems] = useState<string[]>([]);
   const shopImageInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -142,6 +145,16 @@ export default function ShopAdminClient() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!dialogOpen || imageMode !== "local") return;
+    void (async () => {
+      const res = await getShopLocalImageOptionsAction();
+      if (!res.ok) return;
+      setLocalFrames(res.data.frames);
+      setLocalItems(res.data.items);
+    })();
+  }, [dialogOpen, imageMode]);
 
   function openCreate() {
     setEditingId(null);
@@ -164,6 +177,8 @@ export default function ShopAdminClient() {
   function setField(key: keyof FormData, value: string | boolean) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
+
+  const localImageOptions = FRAME_ITEM_TYPES.has(form.item_type) ? localFrames : localItems;
 
   async function handleSave() {
     const price = parseInt(form.price, 10);
@@ -502,6 +517,43 @@ export default function ShopAdminClient() {
               {imageMode === "local" ? (
                 <div className="mt-2 grid grid-cols-[1fr_auto] items-start gap-3">
                   <div>
+                    <div className="mb-2 grid grid-cols-[1fr_auto] gap-2">
+                      <select
+                        value={localImageOptions.includes(form.image_url.trim()) ? form.image_url.trim() : ""}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (!v) return;
+                          setImagePreviewError(false);
+                          setField("image_url", v);
+                        }}
+                        className="block w-full rounded-lg border border-gray-300 px-3 py-2"
+                      >
+                        <option value="">從資料夾直接選圖（最穩定）</option>
+                        {localImageOptions.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void (async () => {
+                            const res = await getShopLocalImageOptionsAction();
+                            if (!res.ok) {
+                              toast.error(res.error);
+                              return;
+                            }
+                            setLocalFrames(res.data.frames);
+                            setLocalItems(res.data.items);
+                            toast.success("已重新讀取圖片清單");
+                          })();
+                        }}
+                        className="rounded-lg border border-gray-300 px-2 py-1 text-xs hover:bg-gray-50"
+                      >
+                        重新掃描
+                      </button>
+                    </div>
                     <input
                       type="text"
                       value={form.image_url}
@@ -513,7 +565,9 @@ export default function ShopAdminClient() {
                       className="block w-full rounded-lg border border-gray-300 px-3 py-2"
                     />
                     <p className="mt-1 text-xs text-gray-500">
-                      請將圖片放入 public/items/ 目錄後填寫路徑
+                      {FRAME_ITEM_TYPES.has(form.item_type)
+                        ? "頭像框/卡框請放 public/frames，建議直接用上方下拉選。"
+                        : "一般商品請放 public/items，建議直接用上方下拉選。"}
                     </p>
                   </div>
                   <div className="h-20 w-20 rounded-xl border border-gray-200 bg-gray-50">

@@ -7,6 +7,8 @@ import {
   revalidateTag,
   unstable_noStore as noStore,
 } from "next/cache";
+import { readdir } from "node:fs/promises";
+import path from "node:path";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
 import {
   getDashboardStats as repoGetDashboardStats,
@@ -2250,6 +2252,31 @@ export async function deleteShopItemAction(
     await repoDeleteShopItem(id);
     revalidateTag("shop_items");
     return { ok: true, data: { success: true } };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function getShopLocalImageOptionsAction(): Promise<
+  ActionResult<{ frames: string[]; items: string[] }>
+> {
+  try {
+    await requireRole(["master"]);
+
+    async function listPublicImages(folder: string): Promise<string[]> {
+      const dir = path.join(process.cwd(), "public", folder);
+      const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+      return entries
+        .filter((entry) => entry.isFile() && /\.(png|jpe?g|webp|gif|svg)$/i.test(entry.name))
+        .map((entry) => `/${folder}/${entry.name}`)
+        .sort((a, b) => a.localeCompare(b));
+    }
+
+    const [frames, items] = await Promise.all([
+      listPublicImages("frames"),
+      listPublicImages("items"),
+    ]);
+    return { ok: true, data: { frames, items } };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
   }
