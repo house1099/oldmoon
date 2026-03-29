@@ -1026,4 +1026,4 @@ fc3b3a6 feat: static asset architecture + frame PNG overlay + effect preview
 
 Git
 
-283531b feat: shop frame_layout for avatar frames + tiger PNG post-process
+e4f81a2 feat: shop frame_layout for avatar frames + tiger PNG post-process
