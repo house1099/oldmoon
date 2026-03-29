@@ -862,3 +862,42 @@ Git
 Git
 
 41dbeb2 feat: marquee/broadcast separate styles + admin settings
+
+---
+
+[2026-03-29] — Google OAuth 補邀請碼流程（`/register/invite`）
+
+完成項目
+
+1. **新頁 `src/app/(auth)/register/invite/page.tsx`（client）**  
+   - 標題／副標、`GuildAuthShell` 深色奢華風與註冊頁一致；邀請碼膠囊輸入、自動大寫去空白。  
+   - **驗證並繼續**：`validateInvitationCodeAction` → 失敗 `toast.error`「邀請碼無效或已過期」；成功則 `saveInviteCodeToMetadataAction` → `router.push('/register/profile')` + `refresh`。  
+   - 驗證／儲存過程 **LoadingButton**「驗證中…」。  
+   - 底部 **登出**：`supabase.auth.signOut()` → `/login`。
+
+2. **Layer 3 `saveInviteCodeToMetadataAction(code)`**（`invitation.action.ts`）  
+   - `createClient()` → `getUser()` → `auth.updateUser({ data: { invite_code: normalized } })`；與既有 `normalizeInviteCode` 一致。
+
+3. **`middleware.ts`**  
+   - `inviteCodeFromUserMetadata`／`isRegisterOnboardingPath`。  
+   - `needs_profile` 且 **無** `user_metadata.invite_code`：受保護路徑導向 **`/register/invite`**；`/login`、`/register`、標籤 onboarding 路徑同理。  
+   - **有** invite：非 onboarding 路徑導向 **`/register/profile`**。  
+   - **`/register/invite`**：未登入 → login+next；已建檔 → 首頁；needs_profile 且已有 invite → profile；否則放行。  
+   - **`/register/profile`**：needs_profile 無 invite → **`/register/invite`**。  
+   - **matcher** 新增 **`/register/invite`**。
+
+4. **`completeAdventurerProfile`**（`adventurer-profile.action.ts`）  
+   - 註解確認 Email signUp 與 OAuth 補碼皆依 `user_metadata.invite_code`；建檔後 **`claimInvitationCodeAction`** 邏輯不變，兩種登入皆適用。
+
+資料庫異動
+
+- 無。
+
+需要注意
+
+- `updateUser` 後依賴 cookie 刷新；頁面已 **`router.refresh()`**。  
+- Email 註冊仍於 **`register-form.tsx`** signUp 帶入 `invite_code`，**不會**被導向 `/register/invite`。
+
+Git
+
+fix: Google OAuth missing invite code flow

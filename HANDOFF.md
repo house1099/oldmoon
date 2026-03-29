@@ -30,7 +30,7 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 ## 📁 關鍵檔案索引
 
 - 守衛／Session：`src/middleware.ts`；`deriveAuthStatus`、`getCachedProfile`
-- Auth／註冊：`(auth)/login|register|register/profile`；`registration-step-indicator.tsx`；`TermsModal`／`terms.ts`
+- Auth／註冊：`(auth)/login|register|register/invite|register/profile`；`registration-step-indicator.tsx`；`TermsModal`／`terms.ts`
 - OAuth／健康：`src/app/auth/callback/route.ts`；`src/app/api/ping/route.ts`
 - Profile：`profile.action.ts`；`profile-update.action.ts`；`adventurer-profile.action.ts`
 - IG 審核：`ig-request.action.ts`；`ig-request.repository.ts`；`/register/pending`
@@ -93,9 +93,9 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## ✅ 最近完成（最新 3 次任務）
 
-1. **2026-03-29 — 酒館／廣播設定分離與樣式**：`system_settings` 新增 **`tavern_marquee_mode`／`speed`、`broadcast_style`／`speed`**；`getMarqueeAndBroadcastSettingsAction`；首頁 **`TavernMarquee`**（scroll／fade／bounce）；**`BroadcastBanner`**（glow／flicker／fullscreen／fire／lightning／flow）；`/admin/settings` 兩區塊＋預覽；`layout` 依廣播預留 **40px**。
-2. **2026-03-29 — 金幣後台＋背包＋廣播／酒館位置對調**：`/admin/coins`、裝備背包、`getMyRewardsAction`、PIN、`BroadcastBanner` 前版等。
-3. **2026-03-29 — HANDOFF 雙檔架構**：主檔精簡；歷史追加於 `HANDOFF_HISTORY.md`。
+1. **2026-03-29 — Google OAuth 補邀請碼**：新增 **`/register/invite`**（驗證＋`saveInviteCodeToMetadataAction`）；**middleware** 依 **`user_metadata.invite_code`** 分流 invite／profile；Email 註冊仍於 Step1 寫入 metadata，不經此頁。
+2. **2026-03-29 — 酒館／廣播設定分離與樣式**：`tavern_marquee_*`／`broadcast_*` 設定；`TavernMarquee`／`BroadcastBanner`；`/admin/settings`；`layout` 預留 **40px**。
+3. **2026-03-29 — 金幣後台＋背包＋廣播／酒館位置對調**：`/admin/coins`、裝備背包、`getMyRewardsAction`、PIN 等。
 
 ## ⚠️ 目前已知問題
 

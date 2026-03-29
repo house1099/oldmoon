@@ -5,6 +5,7 @@ import {
   claimInvitationCode as repoClaimInvitationCode,
 } from "@/lib/repositories/server/invitation.repository";
 import { updateProfile } from "@/lib/repositories/server/user.repository";
+import { createClient } from "@/lib/supabase/server";
 
 function normalizeInviteCode(code: string): string {
   return code.trim().toUpperCase();
@@ -62,4 +63,36 @@ export async function claimInvitationCodeAction(
     }
   }
   return result;
+}
+
+/**
+ * Google OAuth 等略過 Email 註冊 Step1 時，將已驗證之邀請碼寫入 `user_metadata.invite_code`，
+ * 供 middleware 放行 `/register/profile` 與 `completeAdventurerProfile` 核銷。
+ */
+export async function saveInviteCodeToMetadataAction(
+  code: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const normalized = normalizeInviteCode(code);
+  if (!normalized) {
+    return { ok: false, error: "邀請碼為必填欄位" };
+  }
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { ok: false, error: "工作階段已失效，請重新登入。" };
+  }
+
+  const { error } = await supabase.auth.updateUser({
+    data: { invite_code: normalized },
+  });
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true };
 }

@@ -37,6 +37,34 @@ function isProfileSetupPath(pathname: string) {
   );
 }
 
+function inviteCodeFromUserMetadata(
+  user: { user_metadata?: Record<string, unknown> } | null,
+): string | null {
+  if (!user?.user_metadata) return null;
+  const raw = user.user_metadata.invite_code;
+  if (typeof raw !== "string") return null;
+  const t = raw.trim();
+  return t.length > 0 ? t : null;
+}
+
+/** 已具 invite metadata 後，允許的註冊／補資料路徑（其餘受保護路徑導向 profile） */
+function isRegisterOnboardingPath(pathname: string): boolean {
+  return (
+    pathname === "/register/profile" ||
+    pathname.startsWith("/register/profile/") ||
+    pathname === "/register/interests" ||
+    pathname.startsWith("/register/interests/") ||
+    pathname === "/register/skills" ||
+    pathname.startsWith("/register/skills/") ||
+    pathname === "/register/skills-offer" ||
+    pathname.startsWith("/register/skills-offer/") ||
+    pathname === "/register/skills-want" ||
+    pathname.startsWith("/register/skills-want/") ||
+    pathname === "/register/matchmaking" ||
+    pathname.startsWith("/register/matchmaking/")
+  );
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -73,6 +101,7 @@ export async function middleware(request: NextRequest) {
 
   const loginUrl = new URL("/login", request.url);
   const profileUrl = new URL("/register/profile", request.url);
+  const inviteUrl = new URL("/register/invite", request.url);
   const homeUrl = new URL("/", request.url);
   const pendingReviewUrl = new URL("/register/pending", request.url);
 
@@ -103,7 +132,8 @@ export async function middleware(request: NextRequest) {
 
   if (user && auth.kind === "needs_profile") {
     if (pathname === "/login" || pathname === "/register") {
-      return NextResponse.redirect(profileUrl);
+      const hasInvite = Boolean(inviteCodeFromUserMetadata(user));
+      return NextResponse.redirect(hasInvite ? profileUrl : inviteUrl);
     }
   }
 
@@ -120,12 +150,30 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
     if (auth.kind === "needs_profile") {
-      return NextResponse.redirect(profileUrl);
+      const hasInvite = Boolean(inviteCodeFromUserMetadata(user));
+      return NextResponse.redirect(hasInvite ? profileUrl : inviteUrl);
     }
   }
 
   // --- 公開與補資料路徑 ---
   if (isPublicAuthPath(pathname)) {
+    if (pathname === "/register/invite") {
+      if (!user) {
+        loginUrl.searchParams.set("next", pathname);
+        return NextResponse.redirect(loginUrl);
+      }
+      if (auth.kind === "authenticated") {
+        return NextResponse.redirect(homeUrl);
+      }
+      if (auth.kind === "needs_profile") {
+        if (inviteCodeFromUserMetadata(user)) {
+          return NextResponse.redirect(profileUrl);
+        }
+        return response;
+      }
+      return response;
+    }
+
     if (isProfileSetupPath(pathname)) {
       if (!user) {
         loginUrl.searchParams.set("next", pathname);
@@ -133,6 +181,12 @@ export async function middleware(request: NextRequest) {
       }
       if (auth.kind === "authenticated") {
         return NextResponse.redirect(homeUrl);
+      }
+      if (
+        auth.kind === "needs_profile" &&
+        !inviteCodeFromUserMetadata(user)
+      ) {
+        return NextResponse.redirect(inviteUrl);
       }
       return response;
     }
@@ -187,7 +241,16 @@ export async function middleware(request: NextRequest) {
   }
 
   if (auth.kind === "needs_profile") {
-    return NextResponse.redirect(profileUrl);
+    if (!inviteCodeFromUserMetadata(user)) {
+      if (pathname !== "/register/invite") {
+        return NextResponse.redirect(inviteUrl);
+      }
+      return response;
+    }
+    if (!isRegisterOnboardingPath(pathname)) {
+      return NextResponse.redirect(profileUrl);
+    }
+    return response;
   }
 
   return response;
@@ -230,6 +293,7 @@ async function signOutAndRedirectBanned(
 export const config = {
   matcher: [
     "/register/pending",
+    "/register/invite",
     "/register/profile/:path*",
     "/register/interests",
     "/register/skills",

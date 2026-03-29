@@ -140,6 +140,7 @@ export async function completeAdventurerProfile(input: {
     return { ok: false, error: "建立檔案時發生錯誤，請稍後再試。" };
   }
 
+  // Email 註冊（signUp data）與 Google OAuth（`/register/invite` → saveInviteCodeToMetadataAction）皆寫入此欄
   const inviteRaw = meta?.invite_code;
   const inviteStr =
     typeof inviteRaw === "string" ? inviteRaw.trim() : "";
