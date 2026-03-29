@@ -1081,4 +1081,4 @@ Git
 
 Git
 
-ff1ebdb fix: show equipped avatar frames across app and profile overflow
+641365c fix: show equipped avatar frames across app and profile overflow
