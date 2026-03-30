@@ -103,20 +103,21 @@ export async function getMarketUsersAction(
       ]);
       return base.map((u) => {
         const f = frameMap.get(u.id);
-        const cf = cardFrameMap.get(u.id);
+        const deco = cardFrameMap.get(u.id);
         return {
           ...u,
           equippedAvatarFrameEffectKey: f?.equippedAvatarFrameEffectKey ?? null,
           equippedAvatarFrameImageUrl: f?.equippedAvatarFrameImageUrl ?? null,
           equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
-          equippedCardFrameEffectKey: cf?.equippedCardFrameEffectKey ?? null,
-          equippedCardFrameImageUrl: cf?.equippedCardFrameImageUrl ?? null,
-          equippedCardFrameLayout: cf?.equippedCardFrameLayout ?? null,
+          equippedCardFrameEffectKey: deco?.cardFrameEffectKey ?? null,
+          equippedCardFrameImageUrl: deco?.cardFrameImageUrl ?? null,
+          equippedCardFrameLayout: deco?.cardFrameLayout ?? null,
+          cardDecoration: deco ?? {},
         };
       });
     },
     [`market-${user.id}`],
-    { revalidate: 60 },
+    { revalidate: 300 },
   );
 
   let candidates = await getCachedMarketUsers();

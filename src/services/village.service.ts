@@ -43,15 +43,16 @@ export async function getVillageUsersAction(): Promise<{
       ]);
       const withFrames = candidates.map((u) => {
         const f = frameMap.get(u.id);
-        const cf = cardFrameMap.get(u.id);
+        const deco = cardFrameMap.get(u.id);
         return {
           ...u,
           equippedAvatarFrameEffectKey: f?.equippedAvatarFrameEffectKey ?? null,
           equippedAvatarFrameImageUrl: f?.equippedAvatarFrameImageUrl ?? null,
           equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
-          equippedCardFrameEffectKey: cf?.equippedCardFrameEffectKey ?? null,
-          equippedCardFrameImageUrl: cf?.equippedCardFrameImageUrl ?? null,
-          equippedCardFrameLayout: cf?.equippedCardFrameLayout ?? null,
+          equippedCardFrameEffectKey: deco?.cardFrameEffectKey ?? null,
+          equippedCardFrameImageUrl: deco?.cardFrameImageUrl ?? null,
+          equippedCardFrameLayout: deco?.cardFrameLayout ?? null,
+          cardDecoration: deco ?? {},
         };
       });
       const filtered = withFrames.filter((u) =>
@@ -78,7 +79,7 @@ export async function getVillageUsersAction(): Promise<{
       return scored;
     },
     [`village-${user.id}-${me.region}`],
-    { revalidate: 30 },
+    { revalidate: 300 },
   );
 
   const users = await getCachedVillageUsers();

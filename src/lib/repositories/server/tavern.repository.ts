@@ -61,9 +61,9 @@ export async function findTavernMessages(): Promise<TavernMessageDto[]> {
           equippedAvatarFrameEffectKey: f?.equippedAvatarFrameEffectKey ?? null,
           equippedAvatarFrameImageUrl: f?.equippedAvatarFrameImageUrl ?? null,
           equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
-          equippedCardFrameEffectKey: cf?.equippedCardFrameEffectKey ?? null,
-          equippedCardFrameImageUrl: cf?.equippedCardFrameImageUrl ?? null,
-          equippedCardFrameLayout: cf?.equippedCardFrameLayout ?? null,
+          equippedCardFrameEffectKey: cf?.cardFrameEffectKey ?? null,
+          equippedCardFrameImageUrl: cf?.cardFrameImageUrl ?? null,
+          equippedCardFrameLayout: cf?.cardFrameLayout ?? null,
         },
       ] as const;
     }),

@@ -26,6 +26,7 @@ export default function ExploreClient({
       fallbackData: initialVillageUsers,
       revalidateOnFocus: false,
       revalidateOnMount: false,
+      revalidateIfStale: false,
     },
   );
 
@@ -34,7 +35,9 @@ export default function ExploreClient({
     () => getMarketUsersAction(query).then((r) => r.users ?? []),
     {
       revalidateOnFocus: false,
+      revalidateOnMount: false,
       keepPreviousData: true,
+      revalidateIfStale: false,
     },
   );
 

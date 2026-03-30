@@ -9,7 +9,8 @@ export default function SWRProvider({ children }: { children: ReactNode }) {
       value={{
         revalidateOnFocus: false,
         revalidateOnReconnect: true,
-        dedupingInterval: 30000, // 30秒內不重複請求
+        dedupingInterval: 300000, // 5 分鐘內不重複請求（與探索列表 DB 快取對齊）
+        keepPreviousData: true,
         errorRetryCount: 2,
       }}
     >

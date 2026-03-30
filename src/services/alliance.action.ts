@@ -261,9 +261,9 @@ export async function getMyAlliancesAction(): Promise<MyAllianceListItem[]> {
           equippedAvatarFrameEffectKey: f?.equippedAvatarFrameEffectKey ?? null,
           equippedAvatarFrameImageUrl: f?.equippedAvatarFrameImageUrl ?? null,
           equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
-          equippedCardFrameEffectKey: cf?.equippedCardFrameEffectKey ?? null,
-          equippedCardFrameImageUrl: cf?.equippedCardFrameImageUrl ?? null,
-          equippedCardFrameLayout: cf?.equippedCardFrameLayout ?? null,
+          equippedCardFrameEffectKey: cf?.cardFrameEffectKey ?? null,
+          equippedCardFrameImageUrl: cf?.cardFrameImageUrl ?? null,
+          equippedCardFrameLayout: cf?.cardFrameLayout ?? null,
         },
       };
     });
@@ -319,9 +319,9 @@ export async function getPendingRequestsAction(): Promise<
           equippedAvatarFrameEffectKey: f?.equippedAvatarFrameEffectKey ?? null,
           equippedAvatarFrameImageUrl: f?.equippedAvatarFrameImageUrl ?? null,
           equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
-          equippedCardFrameEffectKey: cf?.equippedCardFrameEffectKey ?? null,
-          equippedCardFrameImageUrl: cf?.equippedCardFrameImageUrl ?? null,
-          equippedCardFrameLayout: cf?.equippedCardFrameLayout ?? null,
+          equippedCardFrameEffectKey: cf?.cardFrameEffectKey ?? null,
+          equippedCardFrameImageUrl: cf?.cardFrameImageUrl ?? null,
+          equippedCardFrameLayout: cf?.cardFrameLayout ?? null,
         },
       };
     });

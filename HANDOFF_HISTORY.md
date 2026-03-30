@@ -5,6 +5,28 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-30 — 探索頁 DB JOIN、SWR、粒子與 CardDecorationSystem
+
+1. **Layer 2 `rewards.repository.ts`**  
+   - **`findEquippedAvatarFramesByUserIds`**、**`findEquippedCardFramesByUserIds`**：改為單一 PostgREST 查詢 **`.from('user_rewards').select('*, prize_items(effect_key, image_url), shop_items(metadata, effect_key, image_url)')`**，以 **`embeddedSingle()`** 正規化內嵌一對一關聯（物件或單元素陣列）。  
+   - **`findEquippedCardFramesByUserIds`** 回傳 **`Map<string, CardDecorationConfig>`**（取代 **`EquippedCardFrameForList`**）；**`cardDecorationFromJoinedEquippedRow`** 合併獎池／商城欄位與 **`parseCardDecorationFromMetadata`**。  
+   - **`findEquippedRewardLabels`**：新增 **`decorationByShopItemId`**（**`parseCardDecorationFromMetadata`**），回傳 **`equippedCardDecoration: CardDecorationConfig`**（與既有 **`equippedCardFrame*`** 並存）。
+
+2. **Layer 3 `village.service.ts`／`market.service.ts`**：**`unstable_cache` `revalidate`** 由 **30／60** 改 **300**（5 分鐘）；列表仍 **`Promise.all`** 併查頭像框與卡框兩張圖（各僅 1 次 DB）；每位使用者附加 **`cardDecoration`** 與扁平 **`equippedCardFrame*`**（由 **`cardFrame*`** 對應）。
+
+3. **Layer 4 SWR**：**`src/lib/swr/provider.tsx`** — **`dedupingInterval: 300000`**、**`keepPreviousData: true`**。**`ExploreClient.tsx`** — 村莊／市集 **`revalidateIfStale: false`**；市集 **`revalidateOnMount: false`**（與全域 **`keepPreviousData`** 搭配，返回探索頁時先顯示快取資料）。
+
+4. **`LevelCardEffect.tsx`**：根節點 **`ref` + `IntersectionObserver`（`threshold: 0.1`）**；**`ParticleEffect`** 僅在 **`isVisible`** 時掛載；邊框 **`effectClass.border`** 始終渲染（**breathe／flow／rainbow** 等不受影響）。**`ShopCardFrameOverlay`** 自本元件移除，改由 **`CardDecorationWrapper`** 負責。
+
+5. **CardDecoration 架構**  
+   - **`src/lib/utils/card-decoration.ts`**：**`CardDecorationConfig`**、**`parseCardDecorationFromMetadata`**、**`mergeCardDecoration`**；**`metadata`** 鍵：**`cardBgImageUrl`／`cardCornerImageUrl`／`cardMascotImageUrl`／`cardEffectKey`**（與既有 **`frame_layout`** 並存）。  
+   - **`CardDecorationWrapper.tsx`**：圖層順序 — 背景紋理 → **`children`** → **`ShopCardFrameOverlay`（卡框）** → 角落 → 角色；無值者不渲染（背景／角／角色）。  
+   - **`UserCard.tsx`**：可選 **`user.cardDecoration`**，否則由 **`equippedCardFrame*`** 組出 **`CardDecorationConfig`**。
+
+6. **消費端對齊 `CardDecorationConfig`**：**`tavern.repository.ts`**、**`chat.action.ts`**、**`alliance.action.ts`** 以 **`cf?.cardFrameEffectKey`／`cardFrameImageUrl`／`cardFrameLayout`** 填入 DTO。**`profile.action.ts`** **`MemberProfileView`** 增加 **`equippedCardDecoration`**。
+
+7. **後台 `shop-admin-client.tsx`**（**`card_frame`**）：**`<details>`** 折疊區「未來裝飾層」— 四欄位寫入 **`metadata`**；**`stripReservedCardDecorationKeys`** 避免與 JSON 文字區重複；卡框預覽區顯示各層圖或灰色虛線「未設定」占位。
+
 ## 歸檔：舊主檔前半 — Wave／修復長文（2026-03-26 — 2026-03-29 等）
 
 以下段落自拆分前 `HANDOFF.md` 約第 29—212 行遷移，與下方「逐日 `###` 任務日誌」互補。

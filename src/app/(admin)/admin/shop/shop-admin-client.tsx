@@ -86,6 +86,21 @@ function stripFrameLayoutKeys(meta: Record<string, unknown>) {
   return m;
 }
 
+/** 表單獨立欄位：不寫入「進階 metadata JSON」文字區，避免重複 */
+function stripReservedCardDecorationKeys(meta: Record<string, unknown>) {
+  const m = stripFrameLayoutKeys(meta);
+  delete m.cardBgImageUrl;
+  delete m.cardCornerImageUrl;
+  delete m.cardMascotImageUrl;
+  delete m.cardEffectKey;
+  return m;
+}
+
+function readMetaString(meta: Record<string, unknown>, key: string): string {
+  const v = meta[key];
+  return typeof v === "string" ? v.trim() : "";
+}
+
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
 }
@@ -124,6 +139,12 @@ type FormData = {
   frame_offset_x: string;
   frame_offset_y: string;
   frame_scale: string;
+  /** 卡片外框預留圖層（寫入 metadata） */
+  card_bg_image_url: string;
+  card_corner_image_url: string;
+  card_mascot_image_url: string;
+  /** 預留：卡片動畫識別（metadata.cardEffectKey） */
+  card_effect_key: string;
 };
 
 const EMPTY_FORM: FormData = {
@@ -151,6 +172,10 @@ const EMPTY_FORM: FormData = {
   frame_offset_x: "0",
   frame_offset_y: "0",
   frame_scale: "100",
+  card_bg_image_url: "",
+  card_corner_image_url: "",
+  card_mascot_image_url: "",
+  card_effect_key: "",
 };
 
 function itemToForm(item: ShopItemRow): FormData {
@@ -160,7 +185,7 @@ function itemToForm(item: ShopItemRow): FormData {
       : {};
   const layout =
     parseShopFrameLayoutFromMetadata(rawMeta) ?? DEFAULT_SHOP_FRAME_LAYOUT;
-  const metaForTextarea = stripFrameLayoutKeys(rawMeta);
+  const metaForTextarea = stripReservedCardDecorationKeys(rawMeta);
   return {
     sku: item.sku,
     name: item.name,
@@ -195,6 +220,10 @@ function itemToForm(item: ShopItemRow): FormData {
     frame_offset_x: String(layout.offsetXPercent),
     frame_offset_y: String(layout.offsetYPercent),
     frame_scale: String(layout.scalePercent),
+    card_bg_image_url: readMetaString(rawMeta, "cardBgImageUrl"),
+    card_corner_image_url: readMetaString(rawMeta, "cardCornerImageUrl"),
+    card_mascot_image_url: readMetaString(rawMeta, "cardMascotImageUrl"),
+    card_effect_key: readMetaString(rawMeta, "cardEffectKey"),
   };
 }
 
@@ -372,6 +401,19 @@ export default function ShopAdminClient() {
         scalePercent: sc,
       };
       metadata = { ...(metadata ?? {}), frame_layout: layout };
+      if (form.item_type === "card_frame") {
+        const m = metadata as Record<string, unknown>;
+        const setPath = (key: string, val: string) => {
+          const t = val.trim();
+          if (t) m[key] = t;
+          else delete m[key];
+        };
+        setPath("cardBgImageUrl", form.card_bg_image_url);
+        setPath("cardCornerImageUrl", form.card_corner_image_url);
+        setPath("cardMascotImageUrl", form.card_mascot_image_url);
+        setPath("cardEffectKey", form.card_effect_key);
+        metadata = m;
+      }
     } else if (metadata != null && typeof metadata === "object" && !Array.isArray(metadata)) {
       const m = stripFrameLayoutKeys(metadata as Record<string, unknown>);
       metadata = Object.keys(m).length ? m : null;
@@ -903,6 +945,61 @@ export default function ShopAdminClient() {
                     </>
                   )}
                 </p>
+                {form.item_type === "card_frame" ? (
+                  <details className="rounded-lg border border-dashed border-gray-300 bg-white/80 px-3 py-2">
+                    <summary className="cursor-pointer text-xs font-medium text-gray-700">
+                      未來裝飾層（metadata：背景／角落／角色圖）
+                    </summary>
+                    <div className="mt-2 space-y-2 border-t border-gray-100 pt-2">
+                      <label className="block text-[11px] text-gray-600">
+                        背景紋理路徑（cardBgImageUrl）
+                        <input
+                          type="text"
+                          value={form.card_bg_image_url}
+                          onChange={(e) => setField("card_bg_image_url", e.target.value)}
+                          placeholder="/textures/card-bg.png"
+                          className="mt-0.5 block w-full rounded border border-gray-200 px-2 py-1 font-mono text-xs"
+                        />
+                      </label>
+                      <label className="block text-[11px] text-gray-600">
+                        角落圖路徑（cardCornerImageUrl）
+                        <input
+                          type="text"
+                          value={form.card_corner_image_url}
+                          onChange={(e) =>
+                            setField("card_corner_image_url", e.target.value)
+                          }
+                          placeholder="/decor/corner.png"
+                          className="mt-0.5 block w-full rounded border border-gray-200 px-2 py-1 font-mono text-xs"
+                        />
+                      </label>
+                      <label className="block text-[11px] text-gray-600">
+                        角色圖路徑（cardMascotImageUrl）
+                        <input
+                          type="text"
+                          value={form.card_mascot_image_url}
+                          onChange={(e) =>
+                            setField("card_mascot_image_url", e.target.value)
+                          }
+                          placeholder="/decor/mascot.png"
+                          className="mt-0.5 block w-full rounded border border-gray-200 px-2 py-1 font-mono text-xs"
+                        />
+                      </label>
+                      <label className="block text-[11px] text-gray-600">
+                        卡片特效代碼（cardEffectKey，預留）
+                        <input
+                          type="text"
+                          value={form.card_effect_key}
+                          onChange={(e) =>
+                            setField("card_effect_key", e.target.value)
+                          }
+                          placeholder="與 effect_key 分開，供未來多層動畫"
+                          className="mt-0.5 block w-full rounded border border-gray-200 px-2 py-1 font-mono text-xs"
+                        />
+                      </label>
+                    </div>
+                  </details>
+                ) : null}
                 <div
                   ref={framePreviewBoxRef}
                   className={
@@ -1001,20 +1098,60 @@ export default function ShopAdminClient() {
                     </>
                   ) : (
                     <>
-                      <div className="absolute inset-[7%] rounded-2xl bg-zinc-600/75" />
+                      {form.card_bg_image_url.trim().startsWith("/") ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={form.card_bg_image_url.trim()}
+                          alt=""
+                          className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover opacity-80"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 z-0 flex items-center justify-center rounded-3xl border border-dashed border-zinc-500/50 bg-zinc-800/40 text-[9px] text-zinc-500">
+                          背景紋理 未設定
+                        </div>
+                      )}
+                      <div className="absolute inset-[7%] z-[1] rounded-2xl bg-zinc-600/75" />
                       {form.image_url.trim() ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={form.image_url.trim()}
                           alt=""
-                          className="pointer-events-none absolute left-1/2 top-1/2 z-[1] max-w-none -translate-x-1/2 -translate-y-1/2 select-none object-contain"
+                          className="pointer-events-none absolute left-1/2 top-1/2 z-[2] max-w-none -translate-x-1/2 -translate-y-1/2 select-none object-contain"
                           style={{
                             width: `${CARD_FRAME_OVERLAY_PERCENT}%`,
                             height: `${CARD_FRAME_OVERLAY_PERCENT}%`,
                             ...framePreviewStyle,
                           }}
                         />
-                      ) : null}
+                      ) : (
+                        <div className="pointer-events-none absolute left-1/2 top-1/2 z-[2] flex h-[40%] w-[55%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-xl border border-dashed border-zinc-500/50 text-[9px] text-zinc-500">
+                          卡框圖 未設定
+                        </div>
+                      )}
+                      {form.card_corner_image_url.trim().startsWith("/") ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={form.card_corner_image_url.trim()}
+                          alt=""
+                          className="pointer-events-none absolute right-[3%] top-[3%] z-[3] w-[18%] max-w-[52px] object-contain"
+                        />
+                      ) : (
+                        <div className="pointer-events-none absolute right-[3%] top-[3%] z-[3] flex h-[14%] w-[18%] max-w-[52px] items-center justify-center rounded border border-dashed border-zinc-500/50 text-[7px] leading-tight text-zinc-500">
+                          角落 未設定
+                        </div>
+                      )}
+                      {form.card_mascot_image_url.trim().startsWith("/") ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={form.card_mascot_image_url.trim()}
+                          alt=""
+                          className="pointer-events-none absolute bottom-[2%] right-[2%] z-[4] w-[22%] max-w-[72px] object-contain"
+                        />
+                      ) : (
+                        <div className="pointer-events-none absolute bottom-[2%] right-[2%] z-[4] flex h-[18%] w-[22%] max-w-[72px] items-center justify-center rounded border border-dashed border-zinc-500/50 text-[7px] leading-tight text-zinc-500">
+                          角色 未設定
+                        </div>
+                      )}
                     </>
                   )}
                 </div>

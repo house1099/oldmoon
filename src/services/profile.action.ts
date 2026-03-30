@@ -6,6 +6,7 @@ import { findProfileById } from "@/lib/repositories/server/user.repository";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { findEquippedRewardLabels } from "@/lib/repositories/server/rewards.repository";
 import type { ShopFrameLayout } from "@/lib/utils/avatar-frame-layout";
+import type { CardDecorationConfig } from "@/lib/utils/card-decoration";
 
 export type MemberProfileView = UserRow & {
   equippedTitle: string | null;
@@ -16,6 +17,7 @@ export type MemberProfileView = UserRow & {
   equippedCardFrameEffectKey: string | null;
   equippedCardFrameImageUrl: string | null;
   equippedCardFrameLayout: ShopFrameLayout | null;
+  equippedCardDecoration: CardDecorationConfig;
 };
 
 export async function getMyProfileAction() {
@@ -52,6 +54,7 @@ export async function getMemberProfileByIdAction(
       equippedCardFrameEffectKey,
       equippedCardFrameImageUrl,
       equippedCardFrameLayout,
+      equippedCardDecoration,
     } = await findEquippedRewardLabels(targetUserId);
     return {
       ...profile,
@@ -63,6 +66,7 @@ export async function getMemberProfileByIdAction(
       equippedCardFrameEffectKey,
       equippedCardFrameImageUrl,
       equippedCardFrameLayout,
+      equippedCardDecoration,
     };
   } catch (e) {
     console.error("getMemberProfileByIdAction:", e);

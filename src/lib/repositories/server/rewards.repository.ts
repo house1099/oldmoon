@@ -5,6 +5,10 @@ import {
   parseShopFrameLayoutFromMetadata,
   type ShopFrameLayout,
 } from "@/lib/utils/avatar-frame-layout";
+import {
+  parseCardDecorationFromMetadata,
+  type CardDecorationConfig,
+} from "@/lib/utils/card-decoration";
 
 type UserRewardUpdate = Database["public"]["Tables"]["user_rewards"]["Update"];
 type UserRewardInsert = Database["public"]["Tables"]["user_rewards"]["Insert"];
@@ -323,6 +327,7 @@ export async function findEquippedRewardLabels(userId: string): Promise<{
   equippedCardFrameEffectKey: string | null;
   equippedCardFrameImageUrl: string | null;
   equippedCardFrameLayout: ShopFrameLayout | null;
+  equippedCardDecoration: CardDecorationConfig;
 }> {
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -362,6 +367,7 @@ export async function findEquippedRewardLabels(userId: string): Promise<{
   const effectByShopItemId = new Map<string, string | null>();
   const imageByShopItemId = new Map<string, string | null>();
   const layoutByShopItemId = new Map<string, ShopFrameLayout | null>();
+  const decorationByShopItemId = new Map<string, CardDecorationConfig>();
   if (shopItemIds.length > 0) {
     const { data: shopItems, error: shopErr } = await admin
       .from("shop_items")
@@ -376,6 +382,10 @@ export async function findEquippedRewardLabels(userId: string): Promise<{
         sid,
         parseShopFrameLayoutFromMetadata(it.metadata as unknown),
       );
+      decorationByShopItemId.set(
+        sid,
+        parseCardDecorationFromMetadata(it.metadata as unknown),
+      );
     }
   }
 
@@ -387,6 +397,7 @@ export async function findEquippedRewardLabels(userId: string): Promise<{
   let equippedCardFrameEffectKey: string | null = null;
   let equippedCardFrameImageUrl: string | null = null;
   let equippedCardFrameLayout: ShopFrameLayout | null = null;
+  let equippedCardDecoration: CardDecorationConfig = {};
   for (const row of list) {
     const rt = row.reward_type;
     const lb = row.label?.trim() || null;
@@ -416,6 +427,15 @@ export async function findEquippedRewardLabels(userId: string): Promise<{
       equippedCardFrameLayout = row.shop_item_id
         ? (layoutByShopItemId.get(row.shop_item_id) ?? null)
         : null;
+      const shopDec = row.shop_item_id
+        ? (decorationByShopItemId.get(row.shop_item_id) ?? {})
+        : {};
+      equippedCardDecoration = {
+        ...shopDec,
+        cardFrameEffectKey: ek,
+        cardFrameImageUrl: imageUrl,
+        cardFrameLayout: equippedCardFrameLayout,
+      };
     }
   }
   return {
@@ -427,6 +447,7 @@ export async function findEquippedRewardLabels(userId: string): Promise<{
     equippedCardFrameEffectKey,
     equippedCardFrameImageUrl,
     equippedCardFrameLayout,
+    equippedCardDecoration,
   };
 }
 
@@ -437,14 +458,99 @@ export type EquippedAvatarFrameForList = {
   equippedAvatarFrameLayout: ShopFrameLayout | null;
 };
 
-export type EquippedCardFrameForList = {
-  equippedCardFrameEffectKey: string | null;
-  equippedCardFrameImageUrl: string | null;
-  equippedCardFrameLayout: ShopFrameLayout | null;
+/** PostgREST 內嵌一對一關聯可能是物件或單元素陣列 */
+function embeddedSingle<T>(v: T | T[] | null | undefined): T | null {
+  if (v == null) return null;
+  return Array.isArray(v) ? (v[0] ?? null) : v;
+}
+
+const USER_REWARD_ITEM_JOIN_SELECT =
+  "*, prize_items(effect_key, image_url), shop_items(metadata, effect_key, image_url)";
+
+type JoinedUserRewardRow = RawUserRewardRow & {
+  prize_items:
+    | { effect_key: string | null; image_url: string | null }
+    | { effect_key: string | null; image_url: string | null }[]
+    | null;
+  shop_items:
+    | {
+        metadata: unknown;
+        effect_key: string | null;
+        image_url: string | null;
+      }
+    | Array<{
+        metadata: unknown;
+        effect_key: string | null;
+        image_url: string | null;
+      }>
+    | null;
 };
+
+function equippedAvatarFrameFromJoinedRow(
+  row: JoinedUserRewardRow,
+): EquippedAvatarFrameForList {
+  const refId = prizeItemRefId(row);
+  const pi = embeddedSingle(row.prize_items);
+  const si = embeddedSingle(row.shop_items);
+  if (refId && pi) {
+    return {
+      equippedAvatarFrameEffectKey: pi.effect_key?.trim() || null,
+      equippedAvatarFrameImageUrl: pi.image_url?.trim() || null,
+      equippedAvatarFrameLayout:
+        row.shop_item_id && si
+          ? parseShopFrameLayoutFromMetadata(si.metadata)
+          : null,
+    };
+  }
+  if (si) {
+    const layout = row.shop_item_id
+      ? parseShopFrameLayoutFromMetadata(si.metadata)
+      : null;
+    return {
+      equippedAvatarFrameEffectKey: si.effect_key?.trim() || null,
+      equippedAvatarFrameImageUrl: si.image_url?.trim() || null,
+      equippedAvatarFrameLayout: layout,
+    };
+  }
+  return {
+    equippedAvatarFrameEffectKey: null,
+    equippedAvatarFrameImageUrl: null,
+    equippedAvatarFrameLayout: null,
+  };
+}
+
+function cardDecorationFromJoinedEquippedRow(
+  row: JoinedUserRewardRow,
+): CardDecorationConfig {
+  const refId = prizeItemRefId(row);
+  const pi = embeddedSingle(row.prize_items);
+  const si = embeddedSingle(row.shop_items);
+  const metaDec = si ? parseCardDecorationFromMetadata(si.metadata) : {};
+  const layout = row.shop_item_id ? (metaDec.cardFrameLayout ?? null) : null;
+  if (refId && pi) {
+    return {
+      ...metaDec,
+      cardFrameLayout: layout,
+      cardFrameEffectKey: pi.effect_key?.trim() || null,
+      cardFrameImageUrl: pi.image_url?.trim() || null,
+    };
+  }
+  if (si) {
+    return {
+      ...metaDec,
+      cardFrameLayout: layout,
+      cardFrameEffectKey:
+        si.effect_key?.trim() || metaDec.cardFrameEffectKey || null,
+      cardFrameImageUrl:
+        si.image_url?.trim() || metaDec.cardFrameImageUrl || null,
+    };
+  }
+  return { ...metaDec, cardFrameLayout: layout };
+}
 
 /**
  * 一次查多個使用者的已裝備商城／獎池頭像框（每人最多取一筆）。
+ * 單次查詢：`user_rewards` LEFT JOIN `prize_items`／`shop_items`。
  */
 export async function findEquippedAvatarFramesByUserIds(
   userIds: string[],
@@ -455,170 +561,43 @@ export async function findEquippedAvatarFramesByUserIds(
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("user_rewards")
-    .select("*")
+    .select(USER_REWARD_ITEM_JOIN_SELECT)
     .in("user_id", userIds)
     .eq("reward_type", "avatar_frame")
     .eq("is_equipped", true);
   if (error) throw error;
-  const list = (data ?? []) as RawUserRewardRow[];
-  if (list.length === 0) return out;
-
-  const itemIds = Array.from(
-    new Set(list.map(prizeItemRefId).filter((id): id is string => Boolean(id))),
-  );
-  const effectByItemId = new Map<string, string | null>();
-  const imageByItemId = new Map<string, string | null>();
-  if (itemIds.length > 0) {
-    const { data: items, error: itemErr } = await admin
-      .from("prize_items")
-      .select("id, effect_key, image_url")
-      .in("id", itemIds);
-    if (itemErr) throw itemErr;
-    for (const it of items ?? []) {
-      effectByItemId.set(it.id as string, (it.effect_key as string | null) ?? null);
-      imageByItemId.set(it.id as string, (it.image_url as string | null) ?? null);
-    }
-  }
-
-  const shopItemIds = Array.from(
-    new Set(
-      list
-        .map((row) => row.shop_item_id)
-        .filter((id): id is string => Boolean(id)),
-    ),
-  );
-  const effectByShopItemId = new Map<string, string | null>();
-  const imageByShopItemId = new Map<string, string | null>();
-  const layoutByShopItemId = new Map<string, ShopFrameLayout | null>();
-  if (shopItemIds.length > 0) {
-    const { data: shopItems, error: shopErr } = await admin
-      .from("shop_items")
-      .select("id, effect_key, image_url, metadata")
-      .in("id", shopItemIds);
-    if (shopErr) throw shopErr;
-    for (const it of shopItems ?? []) {
-      const sid = it.id as string;
-      effectByShopItemId.set(sid, (it.effect_key as string | null) ?? null);
-      imageByShopItemId.set(sid, (it.image_url as string | null) ?? null);
-      layoutByShopItemId.set(
-        sid,
-        parseShopFrameLayoutFromMetadata(it.metadata as unknown),
-      );
-    }
-  }
-
+  const list = (data ?? []) as JoinedUserRewardRow[];
   for (const row of list) {
     const uid = row.user_id as string;
     if (out.has(uid)) continue;
-    const refId = prizeItemRefId(row);
-    const ek = refId
-      ? effectByItemId.get(refId)?.trim() || null
-      : row.shop_item_id
-        ? effectByShopItemId.get(row.shop_item_id)?.trim() || null
-        : null;
-    const imageUrl = refId
-      ? imageByItemId.get(refId)?.trim() || null
-      : row.shop_item_id
-        ? imageByShopItemId.get(row.shop_item_id)?.trim() || null
-        : null;
-    const layout = row.shop_item_id
-      ? (layoutByShopItemId.get(row.shop_item_id) ?? null)
-      : null;
-    out.set(uid, {
-      equippedAvatarFrameEffectKey: ek,
-      equippedAvatarFrameImageUrl: imageUrl,
-      equippedAvatarFrameLayout: layout,
-    });
+    out.set(uid, equippedAvatarFrameFromJoinedRow(row));
   }
   return out;
 }
 
 /**
- * 一次查多個使用者的已裝備商城／獎池卡框（每人最多取一筆）。
+ * 一次查多個使用者的已裝備商城／獎池卡框裝飾（每人最多取一筆）。
+ * 單次查詢：`user_rewards` LEFT JOIN `prize_items`／`shop_items`。
  */
 export async function findEquippedCardFramesByUserIds(
   userIds: string[],
-): Promise<Map<string, EquippedCardFrameForList>> {
-  const out = new Map<string, EquippedCardFrameForList>();
+): Promise<Map<string, CardDecorationConfig>> {
+  const out = new Map<string, CardDecorationConfig>();
   if (userIds.length === 0) return out;
 
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("user_rewards")
-    .select("*")
+    .select(USER_REWARD_ITEM_JOIN_SELECT)
     .in("user_id", userIds)
     .eq("reward_type", "card_frame")
     .eq("is_equipped", true);
   if (error) throw error;
-  const list = (data ?? []) as RawUserRewardRow[];
-  if (list.length === 0) return out;
-
-  const itemIds = Array.from(
-    new Set(list.map(prizeItemRefId).filter((id): id is string => Boolean(id))),
-  );
-  const effectByItemId = new Map<string, string | null>();
-  const imageByItemId = new Map<string, string | null>();
-  if (itemIds.length > 0) {
-    const { data: items, error: itemErr } = await admin
-      .from("prize_items")
-      .select("id, effect_key, image_url")
-      .in("id", itemIds);
-    if (itemErr) throw itemErr;
-    for (const it of items ?? []) {
-      effectByItemId.set(it.id as string, (it.effect_key as string | null) ?? null);
-      imageByItemId.set(it.id as string, (it.image_url as string | null) ?? null);
-    }
-  }
-
-  const shopItemIds = Array.from(
-    new Set(
-      list
-        .map((row) => row.shop_item_id)
-        .filter((id): id is string => Boolean(id)),
-    ),
-  );
-  const effectByShopItemId = new Map<string, string | null>();
-  const imageByShopItemId = new Map<string, string | null>();
-  const layoutByShopItemId = new Map<string, ShopFrameLayout | null>();
-  if (shopItemIds.length > 0) {
-    const { data: shopItems, error: shopErr } = await admin
-      .from("shop_items")
-      .select("id, effect_key, image_url, metadata")
-      .in("id", shopItemIds);
-    if (shopErr) throw shopErr;
-    for (const it of shopItems ?? []) {
-      const sid = it.id as string;
-      effectByShopItemId.set(sid, (it.effect_key as string | null) ?? null);
-      imageByShopItemId.set(sid, (it.image_url as string | null) ?? null);
-      layoutByShopItemId.set(
-        sid,
-        parseShopFrameLayoutFromMetadata(it.metadata as unknown),
-      );
-    }
-  }
-
+  const list = (data ?? []) as JoinedUserRewardRow[];
   for (const row of list) {
     const uid = row.user_id as string;
     if (out.has(uid)) continue;
-    const refId = prizeItemRefId(row);
-    const ek = refId
-      ? effectByItemId.get(refId)?.trim() || null
-      : row.shop_item_id
-        ? effectByShopItemId.get(row.shop_item_id)?.trim() || null
-        : null;
-    const imageUrl = refId
-      ? imageByItemId.get(refId)?.trim() || null
-      : row.shop_item_id
-        ? imageByShopItemId.get(row.shop_item_id)?.trim() || null
-        : null;
-    const layout = row.shop_item_id
-      ? (layoutByShopItemId.get(row.shop_item_id) ?? null)
-      : null;
-    out.set(uid, {
-      equippedCardFrameEffectKey: ek,
-      equippedCardFrameImageUrl: imageUrl,
-      equippedCardFrameLayout: layout,
-    });
+    out.set(uid, cardDecorationFromJoinedEquippedRow(row));
   }
   return out;
 }

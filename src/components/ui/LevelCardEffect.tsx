@@ -1,16 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import type { ShopFrameLayout } from "@/lib/utils/avatar-frame-layout";
-import { ShopCardFrameOverlay } from "@/components/ui/ShopCardFrameOverlay";
 
 export interface LevelCardEffectProps {
   level: number;
   role?: string | null;
-  shopCardFrameImageUrl?: string | null;
-  shopCardFrameEffectKey?: string | null;
-  shopCardFrameLayout?: ShopFrameLayout | null;
   children: React.ReactNode;
   className?: string;
 }
@@ -89,29 +84,35 @@ function ParticleEffect({
 export function LevelCardEffect({
   level,
   role,
-  shopCardFrameImageUrl,
-  shopCardFrameEffectKey,
-  shopCardFrameLayout,
   children,
   className,
 }: LevelCardEffectProps) {
   const effectClass = getEffectClass(level, role);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting);
+      },
+      { threshold: 0.1 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   return (
-    <div className={cn("relative", className)}>
+    <div ref={rootRef} className={cn("relative", className)}>
       <div
         className={cn(
           "absolute inset-0 z-0 rounded-2xl pointer-events-none",
           effectClass.border,
         )}
       />
-      <ShopCardFrameOverlay
-        imageUrl={shopCardFrameImageUrl}
-        effectKey={shopCardFrameEffectKey}
-        layout={shopCardFrameLayout ?? null}
-        borderRadiusClass="rounded-2xl"
-      />
-      {effectClass.particles ? (
+      {effectClass.particles && isVisible ? (
         <ParticleEffect level={level} role={role} />
       ) : null}
       <div className="relative z-10">{children}</div>
