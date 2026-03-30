@@ -42,6 +42,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import useSWR from "swr";
+import { BROADCAST_MESSAGE_MAX_LENGTH } from "@/lib/constants/broadcast";
 import { cn } from "@/lib/utils";
 import { useMyProfile } from "@/hooks/useMyProfile";
 import {
@@ -908,19 +909,24 @@ function FloatingToolbarInner({
           <DialogHeader>
             <DialogTitle>使用廣播券</DialogTitle>
             <DialogDescription className="text-zinc-500">
-              訊息將顯示於畫面頂部約 24 小時（1〜30 字）
+              訊息將顯示於畫面頂部約 24 小時（1〜
+              {BROADCAST_MESSAGE_MAX_LENGTH} 字）
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <Textarea
               value={broadcastDraft}
-              onChange={(e) => setBroadcastDraft(e.target.value.slice(0, 30))}
+              onChange={(e) =>
+                setBroadcastDraft(
+                  e.target.value.slice(0, BROADCAST_MESSAGE_MAX_LENGTH),
+                )
+              }
               placeholder="輸入廣播內容…"
               rows={3}
               className="min-h-[5rem] border-zinc-700 bg-zinc-900/80 text-zinc-100"
             />
             <div className="flex justify-end text-xs text-zinc-500">
-              {broadcastDraft.trim().length}/30
+              {broadcastDraft.trim().length}/{BROADCAST_MESSAGE_MAX_LENGTH}
             </div>
             <div className="rounded-2xl border border-amber-400/40 bg-amber-950/60 px-4 py-2">
               <p className="flex flex-wrap items-center gap-2 text-sm text-amber-100">
@@ -948,7 +954,7 @@ function FloatingToolbarInner({
               disabled={
                 broadcastSending ||
                 broadcastDraft.trim().length < 1 ||
-                broadcastDraft.trim().length > 30
+                broadcastDraft.trim().length > BROADCAST_MESSAGE_MAX_LENGTH
               }
               onClick={async () => {
                 const unused = broadcastStack?.rows.find(

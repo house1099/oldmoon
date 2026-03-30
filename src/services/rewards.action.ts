@@ -5,6 +5,10 @@ import { revalidateTag, unstable_cache } from "next/cache";
 import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
 import { updateMyProfile } from "@/services/profile-update.action";
+import {
+  BROADCAST_MESSAGE_LENGTH_ERROR,
+  BROADCAST_MESSAGE_MAX_LENGTH,
+} from "@/lib/constants/broadcast";
 import { nicknameSchema } from "@/lib/validation/nickname";
 import { findAllianceBetween } from "@/lib/repositories/server/alliance.repository";
 import {
@@ -190,8 +194,12 @@ export async function useBroadcastAction(
   }
 
   const trimmed = message.trim();
-  if (!trimmed || trimmed.length < 1 || trimmed.length > 30) {
-    return { ok: false, error: "廣播訊息須為 1〜30 字" };
+  if (
+    !trimmed ||
+    trimmed.length < 1 ||
+    trimmed.length > BROADCAST_MESSAGE_MAX_LENGTH
+  ) {
+    return { ok: false, error: BROADCAST_MESSAGE_LENGTH_ERROR };
   }
 
   try {

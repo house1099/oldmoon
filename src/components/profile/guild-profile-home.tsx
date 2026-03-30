@@ -13,6 +13,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import { BROADCAST_MESSAGE_MAX_LENGTH } from "@/lib/constants/broadcast";
 import { DAILY_CHECKIN_ALREADY_CLAIMED } from "@/lib/constants/daily-checkin";
 import {
   claimDailyCheckin,
@@ -1504,14 +1505,17 @@ export function GuildProfileHome({
           <DialogHeader>
             <DialogTitle>使用廣播券</DialogTitle>
             <DialogDescription className="text-zinc-500">
-              訊息將在畫面頂部顯示約 24 小時（1〜30 字）
+              訊息將在畫面頂部顯示約 24 小時（1〜
+              {BROADCAST_MESSAGE_MAX_LENGTH} 字）
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <Textarea
               value={broadcastDraft}
               onChange={(e) =>
-                setBroadcastDraft(e.target.value.slice(0, 30))
+                setBroadcastDraft(
+                  e.target.value.slice(0, BROADCAST_MESSAGE_MAX_LENGTH),
+                )
               }
               onFocus={handleIosTextareaFocus}
               placeholder="輸入廣播內容…"
@@ -1519,7 +1523,7 @@ export function GuildProfileHome({
               className={cn(IOS_TEXTAREA_CLASS, "min-h-[5rem]")}
             />
             <div className="flex justify-end text-xs text-zinc-500">
-              {broadcastDraft.trim().length}/30
+              {broadcastDraft.trim().length}/{BROADCAST_MESSAGE_MAX_LENGTH}
             </div>
             <div>
               <p className="mb-1 text-[10px] font-medium text-amber-400/90">
@@ -1552,7 +1556,7 @@ export function GuildProfileHome({
               disabled={
                 broadcastSending ||
                 broadcastDraft.trim().length < 1 ||
-                broadcastDraft.trim().length > 30
+                broadcastDraft.trim().length > BROADCAST_MESSAGE_MAX_LENGTH
               }
               onClick={async () => {
                 const unused = rewardsData?.broadcasts.find(

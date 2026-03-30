@@ -25,6 +25,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 const COMPACT_H = 40;
@@ -68,6 +76,7 @@ export function BroadcastBanner({
   const [overlayDismissed, setOverlayDismissed] = useState(true);
   const [confirmExpireOpen, setConfirmExpireOpen] = useState(false);
   const [expiring, setExpiring] = useState(false);
+  const [broadcastDetailOpen, setBroadcastDetailOpen] = useState(false);
   const prevStyleRef = useRef<string>("");
 
   useEffect(() => {
@@ -214,7 +223,16 @@ export function BroadcastBanner({
             🔥
           </span>
         ) : null}
-        <div key={index} className={bodyClass}>
+        <button
+          key={index}
+          type="button"
+          className={cn(
+            bodyClass,
+            "cursor-pointer border-0 bg-transparent p-0 text-left font-inherit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950",
+          )}
+          aria-label="查看廣播全文"
+          onClick={() => setBroadcastDetailOpen(true)}
+        >
           {style === "lightning" ? (
             <span
               className="shrink-0 text-sm animate-broadcast-lightning-emoji"
@@ -246,7 +264,7 @@ export function BroadcastBanner({
               ⚡
             </span>
           ) : null}
-        </div>
+        </button>
         {style === "fire" ? (
           <span
             className="flex shrink-0 items-center px-0.5 text-sm animate-broadcast-fire-emoji"
@@ -304,6 +322,28 @@ export function BroadcastBanner({
     <>
       {fullscreenPortal}
       {overlayDismissed || style !== "fullscreen" ? compactBar : null}
+      <Dialog open={broadcastDetailOpen} onOpenChange={setBroadcastDetailOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto border-zinc-700 bg-zinc-950 text-zinc-100">
+          <DialogHeader>
+            <DialogTitle className="text-amber-200">
+              {current.nickname}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zinc-100">
+            {current.message}
+          </p>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              className="bg-zinc-800 text-zinc-100 hover:bg-zinc-700"
+              onClick={() => setBroadcastDetailOpen(false)}
+            >
+              關閉
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <AlertDialog open={confirmExpireOpen} onOpenChange={setConfirmExpireOpen}>
         <AlertDialogContent className="border-zinc-700 bg-zinc-950 text-zinc-100">
           <AlertDialogHeader>
