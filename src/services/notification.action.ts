@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidateTag } from "next/cache";
+import { sendPushToUser } from "@/lib/push/send-push";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -9,6 +10,15 @@ import {
 } from "@/lib/repositories/server/notification.repository";
 import { notificationsUserCacheTag } from "@/lib/constants/notification-cache";
 import type { NotificationRow } from "@/types/database.types";
+
+function fireMailboxNotificationPush(userId: string, message: string): void {
+  const body = message.length > 100 ? `${message.slice(0, 100)}…` : message;
+  void sendPushToUser(userId, {
+    title: "傳奇公會",
+    body,
+    url: "/guild",
+  }).catch(() => {});
+}
 
 export type NotificationListItem = NotificationRow & {
   fromUser: {
@@ -105,6 +115,7 @@ export async function insertMailboxNotificationAction(
 ): Promise<void> {
   await repoInsertNotification(row);
   revalidateTag(notificationsUserCacheTag(row.user_id));
+  fireMailboxNotificationPush(row.user_id, row.message);
 }
 
 /** 管理員／系統寫入：**靜默失敗**（僅 **`console.error`**），不影響主流程。 */
@@ -114,6 +125,7 @@ export async function notifyUserMailboxSilent(
   try {
     await repoInsertNotification(row);
     revalidateTag(notificationsUserCacheTag(row.user_id));
+    fireMailboxNotificationPush(row.user_id, row.message);
   } catch (e) {
     console.error("notifyUserMailboxSilent:", e);
   }

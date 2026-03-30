@@ -15,6 +15,11 @@ import {
 } from "@/lib/repositories/server/tavern.repository";
 import { findSystemSettingByKey } from "@/lib/repositories/server/invitation.repository";
 import { resolveTavernMessageMaxLength } from "@/lib/utils/tavern-message-limit";
+import { sendPushToUser } from "@/lib/push/send-push";
+import {
+  buildTavernNicknameToUserId,
+  extractTavernMentionedUserIds,
+} from "@/lib/utils/tavern-mentions";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
 import type { TavernBanRow, TavernMessageDto } from "@/types/database.types";
 
@@ -39,6 +44,22 @@ async function requireRole(allowedRoles: ("master" | "moderator")[]) {
     throw new Error("權限不足");
   }
   return { user, profile };
+}
+
+/**
+ * 與 `buildTavernNicknameToUserId` + 前端 `renderTavernMessageText` 對齊：
+ * 以當下酒館最近一頁訊息的作者暱稱建表（同暱稱後蓋前），再從內文抽 `@暱稱`。
+ * Web Push Phase 4：於此對 `targets` 逐筆 `sendPushToUser`（建議 fire-and-forget）。
+ */
+async function resolveTavernMentionedUserIdsForContent(
+  content: string,
+  senderUserId: string,
+): Promise<string[]> {
+  const messages = await findTavernMessages();
+  const map = buildTavernNicknameToUserId(messages);
+  return extractTavernMentionedUserIds(content, map, {
+    excludeUserId: senderUserId,
+  });
 }
 
 async function checkOperationPermission(operatorId: string, targetUserId: string) {
@@ -106,6 +127,24 @@ export async function sendTavernMessageAction(
     content: trimmed,
     type,
   });
+
+  if (type === "text") {
+    void resolveTavernMentionedUserIdsForContent(trimmed, user.id)
+      .then(async (targets) => {
+        if (targets.length === 0) return;
+        const sender = await findProfileById(user.id);
+        const nick = sender?.nickname ?? "有人";
+        for (const uid of targets) {
+          void sendPushToUser(uid, {
+            title: "酒館呼叫",
+            body: `${nick} 在酒館提到了你`,
+            url: "/",
+          }).catch(() => {});
+        }
+      })
+      .catch((e) => console.error("resolveTavernMentionedUserIdsForContent:", e));
+  }
+
   return { success: true };
 }
 

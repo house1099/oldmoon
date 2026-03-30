@@ -1,26 +1,19 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { TavernMessageDto } from "@/types/database.types";
+import {
+  buildTavernNicknameToUserId,
+  createTavernMentionNickRegex,
+} from "@/lib/utils/tavern-mentions";
 
-/** 以目前訊息串出現過的暱稱對應 user_id（同暱稱則後蓋前） */
-export function buildTavernNicknameToUserId(
-  messages: TavernMessageDto[],
-): Map<string, string> {
-  const map = new Map<string, string>();
-  for (const row of messages) {
-    const n = row.user.nickname?.trim();
-    if (n) map.set(n, row.user_id);
-  }
-  return map;
-}
+export { buildTavernNicknameToUserId };
 
 export function renderTavernMessageText(
   text: string,
   nicknameToId: Map<string, string>,
   onMentionClick: (userId: string) => void,
 ): ReactNode {
-  const re = /@([^\s@]+)/g;
+  const re = createTavernMentionNickRegex();
   const parts: React.ReactNode[] = [];
   let last = 0;
   let m: RegExpExecArray | null;

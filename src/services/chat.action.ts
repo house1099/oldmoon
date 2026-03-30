@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { sendPushToUser } from "@/lib/push/send-push";
 import {
   blockUser,
   countConversationsWithUnreadFromOthers,
@@ -117,6 +118,17 @@ export async function sendMessageAction(conversationId: string, content: string)
       sender_id: user.id,
       content: content.trim(),
     });
+
+    const partnerId =
+      conv.user_a === user.id ? conv.user_b : conv.user_a;
+    const senderProfile = await findProfileById(user.id);
+    void sendPushToUser(partnerId, {
+      title: "新私訊",
+      body: senderProfile
+        ? `${senderProfile.nickname} 傳了一則訊息給你`
+        : "你有一則新私訊",
+      url: "/guild",
+    }).catch(() => {});
 
     return { ok: true as const, message };
   } catch {

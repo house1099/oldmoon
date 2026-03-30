@@ -86,6 +86,7 @@ import {
 } from "@/services/rewards.action";
 import { Textarea } from "@/components/ui/textarea";
 import { useOpenEquipmentSheet } from "@/components/layout/FloatingToolbar";
+import { PushNotifyGuildRow } from "@/components/profile/PushNotifyGuildRow";
 
 const IOS_TEXTAREA_CLASS =
   "w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-base text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none";
@@ -1835,6 +1836,8 @@ export function GuildProfileHome({
             </DialogDescription>
           </DialogHeader>
           <div className="flex max-h-[min(70vh,520px)] flex-col gap-5 overflow-y-auto px-4 py-4">
+            <PushNotifyGuildRow />
+
             <div className="space-y-2">
               <p className="text-sm font-medium text-white">Instagram 帳號</p>
 
