@@ -890,3 +890,26 @@
     @apply font-sans;
   }
 }
+
+/* 全站禁止文字選取；表單與可編輯區仍可选取 */
+* {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input,
+textarea,
+[contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* 長按互動元素保留觸控行為 */
+[data-long-press],
+[role="button"],
+button {
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}

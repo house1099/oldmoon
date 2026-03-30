@@ -99,11 +99,7 @@ export async function getMyRewardsAction(): Promise<MyRewardsPayload | null> {
       findMyRewards(user.id),
       findProfileById(user.id),
     ]);
-    const rows = rawRows.filter((r) => {
-      if (r.reward_type === "broadcast" && r.used_at != null) return false;
-      if (r.reward_type === "rename_card" && r.used_at != null) return false;
-      return true;
-    });
+    const rows = rawRows.filter((r) => r.used_at == null);
     const titles = rows.filter((r) => r.reward_type === "title");
     const avatarFrames = rows.filter((r) => r.reward_type === "avatar_frame");
     const cardFrames = rows.filter((r) => r.reward_type === "card_frame");

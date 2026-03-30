@@ -1242,3 +1242,31 @@ Git
 Git
 
 - **49e5aa4** — **`feat: checkin reset to taipei natural day (00:00 daily)`**
+
+---
+
+[2026-03-30] — 全站文字選取、背包長按、UserDetailModal 捲軸、背包贈禮任意玩家
+
+完成項目
+
+- **`src/app/globals.css`**：全站 **`*`** **`user-select: none`**、**`-webkit-touch-callout: none`**；**`input, textarea, [contenteditable]`** 恢復可選取；**`[data-long-press], [role="button"], button`** **`touch-action: manipulation`** 與 **`user-select: none`**。
+- **`UserDetailModal.tsx`**：移除 **`scrollTo`／`setTimeout`** 與 **`scrollContainerRef`**；可捲動內層 **`key={\`scroll-${user?.id ?? "empty"}\`}`**、**`overscrollBehavior: 'contain'`**；**`DialogContent`** 維持 **`overflow-hidden`**。
+- **`rewards.repository.ts`**：**`findUserRewardById`** 改為 **JOIN `shop_items(allow_gift)`、`prize_items(reward_type)`**（內部 **`fetchJoinedUserReward`**）；新增 **`findUserRewardGiftMeta`**、**`findUsersByNickname`**（**`status = active`**、**`ILIKE`**、**`LIMIT 5`**、可排除自己）、**`GiftRecipientSearchRow`**。
+- **`gift.action.ts`（Layer 3）**：**`giftItemToUserAction({ rewardId, recipientNickname })`** 驗證持有／**`used_at`**／裝備／**`allow_gift`**（商城；獎池來源預設可送）後回傳候選；**`confirmGiftAction(rewardId, recipientId)`** 先 **`insertUserReward`** 再 **`markUserRewardConsumed`**、**`notifyUserMailboxSilent`**（**`from_user_id`** 為贈送者）、**`insertAdminAction`**（**`action_type: gift_item`**，**`admin_id`** 使用贈送者 **user id** 作稽核 actor，失敗僅 **log**）。
+- **`rewards.action.ts`**：**`getMyRewardsAction`** 的 **`allRewards`** 改為僅 **`used_at == null`**（不再只針對廣播／改名卡）。
+- **`FloatingToolbar.tsx`**：背包格長按 **500ms**；**`data-long-press="true"`**、**`onContextMenu` preventDefault**、inline **`userSelect`／`touchAction`**；長按選單新增 **「🎁 贈送給玩家」**（暱稱搜尋 **Dialog** + **AlertDialog** 確認），保留 **「贈送給血盟夥伴」**。
+- **`shop-admin-client.tsx`**：已存在 **「允許贈送」**（**`allow_gift`**），未修改。
+
+資料庫異動
+
+- 無（僅使用既有 **`user_rewards.used_at`**、**`shop_items.allow_gift`**、**`notifications`**、**`admin_actions`**）。
+
+需要注意
+
+- 贈送給玩家採 **先寫入收禮者 `user_rewards` 再標記贈送者 `used_at`**；若第二步失敗理論上可能造成短暫資料不一致，可後續改 **DB transaction**。
+- **`admin_actions.admin_id`** 對 **玩家贈禮** 填贈送者 id 僅作稽核追溯，後台列表解讀時勿與「管理員」語意混淆。
+- 全站禁止選取可能影響少數需複製一般文字的區塊；必要時可於該區塊加 **`select-text`** 類或 **`contenteditable`** 策略（目前未加）。
+
+Git
+
+**6381faa** — **`feat: gift items to any user by nickname, site user-select, modal scroll reset`**

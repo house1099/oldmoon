@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   MapPin,
@@ -103,19 +103,6 @@ export function UserDetailModal({
   const [moodOpen, setMoodOpen] = useState(false);
   const [resolvedProfile, setResolvedProfile] =
     useState<MemberProfileView | null>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  /** 動畫與 flex 高度結算後再重置內層捲動；ref 未掛好時用 data 屬性備援。勿對內層設 initialFocus：FloatingFocusManager 僅對 dialog 根節點用 preventScroll，內層焦點會捲動底層頁面（探索列表）。 */
-  useEffect(() => {
-    if (!open) return;
-    const id = window.setTimeout(() => {
-      const resolved =
-        scrollContainerRef.current ??
-        document.querySelector<HTMLElement>("[data-modal-scroll-container]");
-      resolved?.scrollTo({ top: 0, behavior: "instant" });
-    }, 150);
-    return () => window.clearTimeout(id);
-  }, [open, user?.id]);
 
   useEffect(() => {
     if (!open) {
@@ -406,9 +393,10 @@ export function UserDetailModal({
           />
 
           <div
-            ref={scrollContainerRef}
+            key={`scroll-${user?.id ?? "empty"}`}
             data-modal-scroll-container="true"
             className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+            style={{ overscrollBehavior: "contain" }}
           >
           <div className="relative flex-shrink-0 overflow-visible bg-gradient-to-b from-zinc-900/80 to-zinc-950 px-5 pb-5 pt-6">
             <button

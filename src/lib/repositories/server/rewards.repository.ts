@@ -156,17 +156,115 @@ export async function findMyRewards(
   });
 }
 
-export async function findUserRewardById(
+type JoinedUserRewardForGift = RawUserRewardRow & {
+  shop_items: { allow_gift: boolean } | { allow_gift: boolean }[] | null;
+  prize_items: { reward_type: string } | { reward_type: string }[] | null;
+};
+
+function userRewardRowFromJoined(data: JoinedUserRewardForGift): UserRewardRow {
+  const { shop_items, prize_items, ...rest } = data;
+  void shop_items;
+  void prize_items;
+  const raw = rest as RawUserRewardRow;
+  return {
+    id: raw.id,
+    user_id: raw.user_id,
+    reward_type: raw.reward_type,
+    item_ref_id: prizeItemRefId(raw),
+    shop_item_id: raw.shop_item_id,
+    label: raw.label,
+    is_equipped: raw.is_equipped,
+    used_at: raw.used_at,
+    created_at: raw.created_at,
+  };
+}
+
+function embeddedGiftJoin<T>(v: T | T[] | null | undefined): T | null {
+  if (v == null) return null;
+  return Array.isArray(v) ? (v[0] ?? null) : v;
+}
+
+async function fetchJoinedUserReward(
   rewardId: string,
-): Promise<UserRewardRow | null> {
+): Promise<JoinedUserRewardForGift | null> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("user_rewards")
-    .select("*")
+    .select("*, shop_items(allow_gift), prize_items(reward_type)")
     .eq("id", rewardId)
     .maybeSingle();
   if (error) throw error;
-  return (data as UserRewardRow) ?? null;
+  return (data as JoinedUserRewardForGift) ?? null;
+}
+
+/**
+ * 單筆 user_rewards，LEFT JOIN shop_items（allow_gift）、prize_items（reward_type）。
+ * 其餘呼叫端僅使用回傳之列欄位。
+ */
+export async function findUserRewardById(
+  rewardId: string,
+): Promise<UserRewardRow | null> {
+  const j = await fetchJoinedUserReward(rewardId);
+  return j ? userRewardRowFromJoined(j) : null;
+}
+
+/** 贈送流程用：同筆 JOIN，附是否允許贈送（商城看 allow_gift；獎池來源預設 true） */
+export async function findUserRewardGiftMeta(
+  rewardId: string,
+): Promise<{
+  row: UserRewardRow;
+  allowGift: boolean;
+  prizeRewardType: string | null;
+} | null> {
+  const j = await fetchJoinedUserReward(rewardId);
+  if (!j) return null;
+  const row = userRewardRowFromJoined(j);
+  const shop = embeddedGiftJoin(j.shop_items);
+  const prize = embeddedGiftJoin(j.prize_items);
+  const allowGift =
+    row.shop_item_id != null ? shop != null && Boolean(shop.allow_gift) : true;
+  return {
+    row,
+    allowGift,
+    prizeRewardType: prize?.reward_type ?? null,
+  };
+}
+
+export type GiftRecipientSearchRow = {
+  id: string;
+  nickname: string;
+  avatar_url: string | null;
+  level: number;
+};
+
+/** 模糊比對暱稱（僅 active），最多 5 筆；不包含 %、_ 字面量注入 */
+export async function findUsersByNickname(
+  nickname: string,
+  excludeUserId?: string,
+): Promise<GiftRecipientSearchRow[]> {
+  const term = nickname.trim().replace(/[%_]/g, "");
+  if (!term) return [];
+
+  const admin = createAdminClient();
+  let q = admin
+    .from("users")
+    .select("id, nickname, avatar_url, level")
+    .eq("status", "active")
+    .ilike("nickname", `%${term}%`)
+    .limit(5);
+
+  if (excludeUserId) {
+    q = q.neq("id", excludeUserId);
+  }
+
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []).map((u) => ({
+    id: u.id as string,
+    nickname: (u.nickname as string) ?? "",
+    avatar_url: (u.avatar_url as string | null) ?? null,
+    level: typeof u.level === "number" ? u.level : 1,
+  }));
 }
 
 export async function equipReward(rewardId: string): Promise<void> {

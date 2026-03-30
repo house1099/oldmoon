@@ -35,7 +35,7 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 - Profile：`profile.action.ts`；`profile-update.action.ts`；`adventurer-profile.action.ts`
 - IG 審核：`ig-request.action.ts`；`ig-request.repository.ts`；`/register/pending`
 - 簽到／連簽／盲盒：`daily-checkin.action.ts`；`streak.repository.ts`；`prize-engine.ts`；`user.repository`
-- 獎勵／廣播／改名：`rewards.action.ts`；`rewards.repository.ts`；`system-settings`
+- 獎勵／廣播／改名／贈禮：`rewards.action.ts`；`rewards.repository.ts`；`gift.action.ts`（暱稱搜尋贈送玩家）；`system-settings`
 - 商城：`shop.action.ts`；`shop.repository.ts`；`(app)/shop`；`(admin)/admin/shop`
 - 財務 master：`/admin/coins`（雙 Tab：`coins-admin-client.tsx`）；`adjustCoinsAction`／`getAdminCoinLedgerAction`；L2 `findCoinTransactionsWithFilters`
 - 探索：`explore/page.tsx`；`ExploreClient.tsx`；`village.service.ts`；`market.service.ts`
@@ -93,9 +93,9 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## ✅ 最近完成（最新 3 次任務）
 
-1. **2026-03-30 — UserDetailModal 捲動結構、框圖預載**：**`UserDetailModal`** 單一 **`data-modal-scroll-container`** 含頭像區、**`DialogContent` flex column + overflow-hidden**、**150ms** 後 **`scrollTo`** 與 **querySelector** 備援；首頁 **`findEquippedRewardLabels` → `<link rel="preload">` + `preloadImageUrls` + `Image()`**；**`ExploreClient`** 村莊列表框圖預載；**`Avatar`／`MasterAvatarShell`／`ShopCardFrameOverlay`** 框圖 **`eager` + `fetchPriority="high"`**；**`VillageUserWithScore`** 型別補框欄位。詳見 **`HANDOFF_HISTORY.md`**。
-2. **2026-03-30 — UserDetailModal 捲動時序、首頁 SSR 預載與 SWR**：**`Promise.all`** 首頁資料、**`useSWR`** 連簽／獎勵設定、**`useMyProfile` fallback** 等（見歷史「延遲捲動、首頁 SSR 預載與 SWR」）。
-3. **2026-03-30 — Bug：市集首次進入不載入／UserDetailModal 捲軸（早期）**：**`ExploreClient`** 市集 **`revalidateOnMount: true`**；**`UserDetailModal`** 捲動多次迭代（見上則與歷史）。
+1. **2026-03-30 — 全站選取禁止、背包長按、UserDetailModal 捲軸、背包贈禮玩家**：**`globals.css`** 全站 **`user-select: none`**（**`input`／`textarea`／`[contenteditable]`** 除外）、**`data-long-press`／`button`** **`touch-action: manipulation`**；**`FloatingToolbar`** 背包格 **500ms** 長按、**`data-long-press`**／**`onContextMenu` preventDefault**、**「🎁 贈送給玩家」**（**`giftItemToUserAction`／`confirmGiftAction`**，暱稱搜尋最多 5 人）＋保留血盟批次贈送；**`gift.action.ts`**、**`rewards.repository`** **`findUserRewardById` JOIN**、**`findUserRewardGiftMeta`／`findUsersByNickname`**；**`getMyRewardsAction`** 一律隱藏 **`used_at != null`**（含贈出後 sender 列）；**`UserDetailModal`** 移除 **`scrollTo`**，可捲區 **`key={scroll-${userId}}`** + **`overscroll-behavior: contain`**。後台 **`allow_gift`** 已存在未改。詳見 **`HANDOFF_HISTORY.md`**。
+2. **2026-03-30 — UserDetailModal 捲動結構、框圖預載**：**`UserDetailModal`** 單一 **`data-modal-scroll-container`**、**`DialogContent` overflow-hidden** 等（後已由上一則改為 key 重置捲軸）。首頁／探索框圖預載見歷史。
+3. **2026-03-30 — UserDetailModal 捲動時序、首頁 SSR 預載與 SWR**：**`Promise.all`** 首頁資料、**`useSWR`** 連簽／獎勵設定、**`useMyProfile` fallback** 等（見歷史）。
 
 ## ⚠️ 目前已知問題
 

@@ -62,7 +62,14 @@ import {
   type ActiveBroadcastDto,
   type MyRewardsPayload,
 } from "@/services/rewards.action";
-import type { UserRewardWithEffect } from "@/lib/repositories/server/rewards.repository";
+import {
+  giftItemToUserAction,
+  confirmGiftAction,
+} from "@/services/gift.action";
+import type {
+  GiftRecipientSearchRow,
+  UserRewardWithEffect,
+} from "@/lib/repositories/server/rewards.repository";
 import { rewardEffectClassName } from "@/lib/utils/reward-effects";
 import {
   AlertDialog,
@@ -162,7 +169,7 @@ const EQUIPPED_BADGE_REWARD_TYPES = new Set([
   "title",
 ]);
 
-const INVENTORY_LONGPRESS_MS = 550;
+const INVENTORY_LONGPRESS_MS = 500;
 
 function firstUnequippedRow(stack: RewardStack): UserRewardWithEffect | null {
   return stack.rows.find((r) => !r.is_equipped) ?? null;
@@ -345,6 +352,19 @@ function FloatingToolbarInner({
     currencyLabel: string;
   } | null>(null);
   const [resellBusy, setResellBusy] = useState(false);
+  const [giftPlayerDialogOpen, setGiftPlayerDialogOpen] = useState(false);
+  const [giftPlayerRewardId, setGiftPlayerRewardId] = useState<string | null>(
+    null,
+  );
+  const [giftPlayerItemLabel, setGiftPlayerItemLabel] = useState("");
+  const [giftNicknameDraft, setGiftNicknameDraft] = useState("");
+  const [giftPlayerCandidates, setGiftPlayerCandidates] = useState<
+    GiftRecipientSearchRow[]
+  >([]);
+  const [giftPlayerSearchBusy, setGiftPlayerSearchBusy] = useState(false);
+  const [giftPlayerRecipientPick, setGiftPlayerRecipientPick] =
+    useState<GiftRecipientSearchRow | null>(null);
+  const [giftPlayerConfirmBusy, setGiftPlayerConfirmBusy] = useState(false);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
 
@@ -525,6 +545,52 @@ function FloatingToolbarInner({
     setPendingGift({ rowIds, label: stackMenuTarget.label });
     setGiftPartners(res.partners);
     setGiftPickerOpen(true);
+  }
+
+  function beginGiftToPlayerFromMenu() {
+    setStackMenuOpen(false);
+    if (!stackMenuTarget) return;
+    const rowIds = pickUnequippedRowIds(stackMenuTarget, 1);
+    if (rowIds.length === 0) {
+      toast.error("沒有可贈送的道具");
+      return;
+    }
+    if (stackMenuQty > 1) {
+      toast.message("贈送給其他玩家每次僅能送出 1 件");
+    }
+    setGiftPlayerRewardId(rowIds[0]!);
+    setGiftPlayerItemLabel(stackMenuTarget.label);
+    setGiftNicknameDraft("");
+    setGiftPlayerCandidates([]);
+    setGiftPlayerRecipientPick(null);
+    setGiftPlayerDialogOpen(true);
+  }
+
+  async function handleGiftPlayerSearch() {
+    if (!giftPlayerRewardId) return;
+    const q = giftNicknameDraft.trim();
+    if (q.length < 1) {
+      toast.error("請至少輸入 1 個字再搜尋");
+      return;
+    }
+    setGiftPlayerSearchBusy(true);
+    try {
+      const r = await giftItemToUserAction({
+        rewardId: giftPlayerRewardId,
+        recipientNickname: q,
+      });
+      if (!r.ok) {
+        toast.error(r.error);
+        setGiftPlayerCandidates([]);
+        return;
+      }
+      if (r.candidates.length === 0) {
+        toast.message("找不到符合的冒險者");
+      }
+      setGiftPlayerCandidates(r.candidates);
+    } finally {
+      setGiftPlayerSearchBusy(false);
+    }
   }
 
   function beginDeleteFromMenu() {
@@ -926,6 +992,13 @@ function FloatingToolbarInner({
                     <button
                       key={stack.key}
                       type="button"
+                      data-long-press="true"
+                      onContextMenu={(e) => e.preventDefault()}
+                      style={{
+                        WebkitUserSelect: "none",
+                        userSelect: "none",
+                        touchAction: "manipulation",
+                      }}
                       onPointerDown={(e) => {
                         if (!canLongPressManage || e.button !== 0) return;
                         longPressFiredRef.current = false;
@@ -1000,7 +1073,7 @@ function FloatingToolbarInner({
               </div>
             )}
             <p className="mt-3 text-center text-[10px] text-zinc-500">
-              支援的道具：長按格位可贈送血盟、刪除或回賣（依商城設定；須先卸下已裝備者）
+              支援的道具：長按格位可贈送玩家或血盟、刪除或回賣（依商城設定；須先卸下已裝備者）
             </p>
           </div>
         </SheetContent>
@@ -1056,9 +1129,19 @@ function FloatingToolbarInner({
                   <Button
                     type="button"
                     className="w-full bg-violet-600 hover:bg-violet-500"
+                    onClick={() => beginGiftToPlayerFromMenu()}
+                  >
+                    🎁 贈送給玩家
+                  </Button>
+                ) : null}
+                {act.canGift ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full border border-violet-500/40 bg-violet-950/40 text-violet-100 hover:bg-violet-900/50"
                     onClick={() => void beginGiftFromMenu()}
                   >
-                    贈送（血盟夥伴）
+                    贈送給血盟夥伴
                   </Button>
                 ) : null}
                 {act.canDelete ? (
@@ -1096,6 +1179,152 @@ function FloatingToolbarInner({
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={giftPlayerDialogOpen}
+        onOpenChange={(o) => {
+          setGiftPlayerDialogOpen(o);
+          if (!o) {
+            setGiftPlayerRewardId(null);
+            setGiftPlayerCandidates([]);
+            setGiftNicknameDraft("");
+            setGiftPlayerRecipientPick(null);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[85vh] overflow-hidden border-zinc-700 bg-zinc-950 text-zinc-100 sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-100">贈送給誰？</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              {giftPlayerItemLabel
+                ? `將贈送「${giftPlayerItemLabel}」`
+                : "搜尋冒險者暱稱"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex min-h-0 flex-col gap-3 overflow-hidden pt-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={giftNicknameDraft}
+                onChange={(e) =>
+                  setGiftNicknameDraft(e.target.value.slice(0, 32))
+                }
+                placeholder="輸入暱稱（至少 1 字）"
+                className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
+              />
+              <Button
+                type="button"
+                disabled={
+                  giftPlayerSearchBusy ||
+                  giftNicknameDraft.trim().length < 1 ||
+                  !giftPlayerRewardId
+                }
+                onClick={() => void handleGiftPlayerSearch()}
+              >
+                {giftPlayerSearchBusy ? "搜尋中…" : "搜尋"}
+              </Button>
+            </div>
+            <div
+              className="max-h-52 min-h-0 space-y-2 overflow-y-auto"
+              style={{ overscrollBehavior: "contain" }}
+            >
+              {giftPlayerCandidates.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2.5 text-left transition-colors hover:bg-zinc-800/90"
+                  onClick={() => setGiftPlayerRecipientPick(c)}
+                >
+                  {c.avatar_url?.trim() ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={toThumbImageUrl(c.avatar_url, 64, 64)}
+                      alt=""
+                      className="h-10 w-10 shrink-0 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-sm text-zinc-400">
+                      {(c.nickname || "?")[0]?.toUpperCase() ?? "?"}
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-zinc-100">
+                      {c.nickname}
+                    </p>
+                    <p className="text-xs text-zinc-500">Lv.{c.level}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-zinc-600 bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
+              onClick={() => setGiftPlayerDialogOpen(false)}
+            >
+              關閉
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={giftPlayerRecipientPick !== null}
+        onOpenChange={(open) => {
+          if (!open) setGiftPlayerRecipientPick(null);
+        }}
+      >
+        <AlertDialogContent className="border-zinc-700 bg-zinc-950 text-zinc-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定贈送？</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              {giftPlayerRecipientPick
+                ? `確定要把「${giftPlayerItemLabel}」送給 ${giftPlayerRecipientPick.nickname} 嗎？送出後無法取回。`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              variant="outline"
+              className="border-zinc-700 bg-zinc-900 text-zinc-200"
+              disabled={giftPlayerConfirmBusy}
+            >
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-violet-600 text-white hover:bg-violet-500"
+              disabled={giftPlayerConfirmBusy || !giftPlayerRewardId}
+              onClick={async (e) => {
+                e.preventDefault();
+                const pick = giftPlayerRecipientPick;
+                const rid = giftPlayerRewardId;
+                if (!pick || !rid || giftPlayerConfirmBusy) return;
+                setGiftPlayerConfirmBusy(true);
+                try {
+                  const r = await confirmGiftAction(rid, pick.id);
+                  if (!r.ok) {
+                    toast.error(r.error);
+                    return;
+                  }
+                  toast.success("🎁 已成功送出！");
+                  setGiftPlayerRecipientPick(null);
+                  setGiftPlayerDialogOpen(false);
+                  setGiftPlayerRewardId(null);
+                  setGiftPlayerCandidates([]);
+                  setGiftNicknameDraft("");
+                  const p = await getMyRewardsAction();
+                  setRewardsPayload(p);
+                  router.refresh();
+                } finally {
+                  setGiftPlayerConfirmBusy(false);
+                }
+              }}
+            >
+              {giftPlayerConfirmBusy ? "送出中…" : "確定送出"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Sheet
         open={giftPickerOpen}
