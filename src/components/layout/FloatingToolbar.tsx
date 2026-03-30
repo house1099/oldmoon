@@ -15,7 +15,6 @@ import { useRouter } from "next/navigation";
 import {
   Backpack,
   Beer,
-  Check,
   Mail,
   Sparkles,
   X,
@@ -83,6 +82,130 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const TOTAL_INVENTORY_SLOTS = 48;
+
+const inventoryCellBaseStyle: CSSProperties = {
+  aspectRatio: "1",
+  background: "rgba(255,255,255,0.04)",
+  border: "0.5px solid rgba(255,255,255,0.08)",
+  borderRadius: 14,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "flex-start",
+  padding: "10px 6px 8px",
+  cursor: "pointer",
+  position: "relative",
+  overflow: "hidden",
+};
+
+const inventoryCellEquippedStyle: CSSProperties = {
+  borderColor: "rgba(34,197,94,0.4)",
+  background: "rgba(34,197,94,0.06)",
+};
+
+const inventoryCellIconStyle: CSSProperties = {
+  width: "100%",
+  height: 36,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: 26,
+  flexShrink: 0,
+  marginBottom: 6,
+};
+
+const inventoryCellNameStyle: CSSProperties = {
+  fontSize: 10,
+  fontWeight: 600,
+  color: "#a1a1aa",
+  textAlign: "center",
+  lineHeight: 1.3,
+  width: "100%",
+  display: "-webkit-box",
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: "vertical",
+  overflow: "hidden",
+};
+
+function InventoryActionBtnContent({
+  icon,
+  label,
+}: {
+  icon: string;
+  label: string;
+}) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "24px 1fr",
+        alignItems: "center",
+        gap: 8,
+        width: "100%",
+        padding: "0 16px",
+      }}
+    >
+      <span style={{ textAlign: "center", fontSize: 16 }}>{icon}</span>
+      <span style={{ textAlign: "left" }}>{label}</span>
+    </div>
+  );
+}
+
+function InventoryActionDivider() {
+  return (
+    <div
+      style={{
+        height: "0.5px",
+        background: "rgba(255,255,255,0.06)",
+        margin: "2px 0",
+      }}
+    />
+  );
+}
+
+const inventoryActionBtnBase: CSSProperties = {
+  width: "100%",
+  height: 48,
+  borderRadius: 13,
+  fontSize: 14,
+  fontWeight: 700,
+  border: "none",
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+};
+
+const inventoryActionBtnStyles = {
+  giftPlayer: {
+    ...inventoryActionBtnBase,
+    background: "linear-gradient(135deg, #7c3aed, #6d28d9)",
+    color: "white",
+  } satisfies CSSProperties,
+  giftAlliance: {
+    ...inventoryActionBtnBase,
+    background: "rgba(255,255,255,0.06)",
+    border: "0.5px solid rgba(255,255,255,0.1)",
+    color: "#d4d4d8",
+  } satisfies CSSProperties,
+  resell: {
+    ...inventoryActionBtnBase,
+    background: "rgba(180,130,0,0.12)",
+    border: "0.5px solid rgba(245,158,11,0.3)",
+    color: "#fbbf24",
+  } satisfies CSSProperties,
+  trash: {
+    ...inventoryActionBtnBase,
+    background: "transparent",
+    border: "0.5px solid rgba(220,38,38,0.35)",
+    color: "#f87171",
+  } satisfies CSSProperties,
+  cancel: {
+    ...inventoryActionBtnBase,
+    background: "rgba(255,255,255,0.04)",
+    border: "0.5px solid rgba(255,255,255,0.07)",
+    color: "#52525b",
+  } satisfies CSSProperties,
+};
 
 const FloatingToolbarOpenContext = createContext<(() => void) | null>(null);
 
@@ -919,7 +1042,7 @@ function FloatingToolbarInner({
       <Sheet open={equipOpen} onOpenChange={setEquipOpen}>
         <SheetContent
           side="right"
-          className="z-[70] flex w-[min(100vw,22rem)] flex-col border-l border-zinc-800 bg-zinc-950 px-0 pb-0 pt-[max(1.5rem,env(safe-area-inset-top,0px))] text-zinc-100"
+          className="z-[70] flex w-[min(100vw,22rem)] flex-col border-l border-zinc-800 bg-[#18181b] px-0 pb-0 pt-[max(1.5rem,env(safe-area-inset-top,0px))] text-zinc-100"
         >
           <SheetHeader className="space-y-1 border-b border-zinc-800/80 px-4 pb-4 pt-0 text-left">
             <SheetTitle className="text-lg text-zinc-100">🎒 裝備背包</SheetTitle>
@@ -978,7 +1101,6 @@ function FloatingToolbarInner({
                     );
                   }
                   const vis = rewardAccent(stack.rewardType);
-                  const actionHint = stackActionHint(stack);
                   const fxKey =
                     stack.rewardType === "avatar_frame" ||
                     stack.rewardType === "card_frame"
@@ -993,8 +1115,11 @@ function FloatingToolbarInner({
                       key={stack.key}
                       type="button"
                       data-long-press="true"
+                      title={stackActionHint(stack) ?? undefined}
                       onContextMenu={(e) => e.preventDefault()}
                       style={{
+                        ...inventoryCellBaseStyle,
+                        ...(showEquippedBadge ? inventoryCellEquippedStyle : {}),
                         WebkitUserSelect: "none",
                         userSelect: "none",
                         touchAction: "manipulation",
@@ -1020,53 +1145,73 @@ function FloatingToolbarInner({
                         void handleStackEquip(stack);
                       }}
                       className={cn(
-                        "relative flex min-h-16 flex-col items-center justify-center gap-0.5 rounded-xl border px-0.5 py-1 text-center transition-colors hover:brightness-110",
-                        vis.border,
-                        vis.bg,
+                        "transition-colors hover:brightness-110",
                         rewardEffectClassName(fxKey ?? undefined),
                       )}
                     >
-                      {stack.rows[0]?.image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={toThumbImageUrl(stack.rows[0].image_url, 128, 128)}
-                          alt=""
-                          className="h-8 w-8 object-contain"
-                        />
-                      ) : fxKey ? (
-                        <span
-                          className={cn(
-                            "h-7 w-7 rounded-full bg-zinc-500/80",
-                            stack.rewardType === "card_frame" && "rounded-md",
-                          )}
-                          aria-hidden
-                        />
-                      ) : (
-                        <span className="text-base leading-none" aria-hidden>
-                          {vis.emoji}
-                        </span>
-                      )}
-                      <span className="line-clamp-2 max-h-[1.5rem] w-full text-[9px] leading-tight text-zinc-200">
-                        {stack.label}
-                      </span>
-                      {actionHint ? (
-                        <span className="line-clamp-1 w-full text-[8px] leading-none text-zinc-400">
-                          {actionHint}
-                        </span>
-                      ) : null}
-                      {stack.count > 1 ? (
-                        <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-zinc-950/90 px-1 text-[10px] font-bold text-violet-200 ring-1 ring-violet-500/40">
-                          {stack.count > 9 ? "9+" : stack.count}
-                        </span>
-                      ) : null}
                       {showEquippedBadge ? (
-                        <span
-                          className="absolute bottom-0.5 left-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-600/95 text-white shadow-sm ring-1 ring-zinc-950"
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: 5,
+                            left: 6,
+                            width: 14,
+                            height: 14,
+                            borderRadius: "50%",
+                            background: "#22c55e",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 9,
+                            color: "white",
+                            fontWeight: 700,
+                          }}
                           title="裝備中"
                         >
-                          <Check className="h-2.5 w-2.5" strokeWidth={3} aria-hidden />
-                        </span>
+                          ✓
+                        </div>
                       ) : null}
+                      {stack.count > 1 ? (
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: 5,
+                            right: 6,
+                            fontSize: 10,
+                            fontWeight: 700,
+                            color: "#f59e0b",
+                            background: "rgba(245,158,11,0.15)",
+                            borderRadius: 6,
+                            padding: "1px 5px",
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          {stack.count > 9 ? "9+" : stack.count}
+                        </div>
+                      ) : null}
+                      <div style={inventoryCellIconStyle}>
+                        {stack.rows[0]?.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={toThumbImageUrl(stack.rows[0].image_url, 128, 128)}
+                            alt=""
+                            className="max-h-[36px] w-full object-contain"
+                          />
+                        ) : fxKey ? (
+                          <span
+                            className={cn(
+                              "h-9 w-9 rounded-full bg-zinc-500/80",
+                              stack.rewardType === "card_frame" && "rounded-md",
+                            )}
+                            aria-hidden
+                          />
+                        ) : (
+                          <span className="leading-none" aria-hidden>
+                            {vis.emoji}
+                          </span>
+                        )}
+                      </div>
+                      <div style={inventoryCellNameStyle}>{stack.label}</div>
                     </button>
                   );
                 })}
@@ -1086,10 +1231,10 @@ function FloatingToolbarInner({
           if (!open) setStackMenuTarget(null);
         }}
       >
-        <DialogContent className="border-zinc-700 bg-zinc-950 text-zinc-100 sm:max-w-sm">
+        <DialogContent className="border border-white/[0.08] bg-[#18181b] text-[#f4f4f5] sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-zinc-100">道具操作</DialogTitle>
-            <DialogDescription className="text-zinc-400">
+            <DialogTitle className="text-[#f4f4f5]">道具操作</DialogTitle>
+            <DialogDescription className="text-[#71717a]">
               {stackMenuTarget?.label ?? ""}
             </DialogDescription>
           </DialogHeader>
@@ -1106,72 +1251,96 @@ function FloatingToolbarInner({
                     : 0;
                 return (
                   <>
-              <label className="flex flex-col gap-1 text-xs text-zinc-400">
-                <span>數量（未裝備者可操作最多 {maxQ} 件）</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={maxQ}
-                  value={stackMenuQty}
-                  onChange={(e) => {
-                    const v = parseInt(e.target.value, 10);
-                    if (!Number.isFinite(v)) {
-                      setStackMenuQty(1);
-                      return;
-                    }
-                    setStackMenuQty(Math.min(Math.max(1, v), Math.max(1, maxQ)));
-                  }}
-                  className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
-                />
-              </label>
-              <div className="flex flex-col gap-2">
-                {act.canGift ? (
-                  <Button
-                    type="button"
-                    className="w-full bg-violet-600 hover:bg-violet-500"
-                    onClick={() => beginGiftToPlayerFromMenu()}
-                  >
-                    🎁 贈送給玩家
-                  </Button>
-                ) : null}
-                {act.canGift ? (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="w-full border border-violet-500/40 bg-violet-950/40 text-violet-100 hover:bg-violet-900/50"
-                    onClick={() => void beginGiftFromMenu()}
-                  >
-                    贈送給血盟夥伴
-                  </Button>
-                ) : null}
-                {act.canDelete ? (
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    className="w-full"
-                    onClick={() => beginDeleteFromMenu()}
-                  >
-                    刪除道具
-                  </Button>
-                ) : null}
-                {act.canResell && u ? (
-                  <Button
-                    type="button"
-                    className="w-full border border-amber-500/50 bg-amber-950/50 text-amber-100 hover:bg-amber-900/50"
-                    onClick={() => beginResellFromMenu()}
-                  >
-                    回賣系統（+{previewTotal} {resellCurrencyLabel(u)}）
-                  </Button>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="border-zinc-600 bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
-                  onClick={() => setStackMenuOpen(false)}
-                >
-                  取消
-                </Button>
-              </div>
+                    <label className="flex flex-col gap-1 text-xs text-[#71717a]">
+                      <span>數量（未裝備者可操作最多 {maxQ} 件）</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={maxQ}
+                        value={stackMenuQty}
+                        onChange={(e) => {
+                          const v = parseInt(e.target.value, 10);
+                          if (!Number.isFinite(v)) {
+                            setStackMenuQty(1);
+                            return;
+                          }
+                          setStackMenuQty(
+                            Math.min(Math.max(1, v), Math.max(1, maxQ)),
+                          );
+                        }}
+                        className="rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100"
+                      />
+                    </label>
+                    <div
+                      style={{
+                        padding: "0 20px 20px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 9,
+                      }}
+                    >
+                      {act.canGift ? (
+                        <button
+                          type="button"
+                          style={inventoryActionBtnStyles.giftPlayer}
+                          onClick={() => beginGiftToPlayerFromMenu()}
+                        >
+                          <InventoryActionBtnContent
+                            icon="🎁"
+                            label="贈送給玩家"
+                          />
+                        </button>
+                      ) : null}
+                      {act.canGift ? (
+                        <button
+                          type="button"
+                          style={inventoryActionBtnStyles.giftAlliance}
+                          onClick={() => void beginGiftFromMenu()}
+                        >
+                          <InventoryActionBtnContent
+                            icon="🤝"
+                            label="贈送給血盟夥伴"
+                          />
+                        </button>
+                      ) : null}
+                      {act.canGift &&
+                      ((act.canResell && u) || act.canDelete) ? (
+                        <InventoryActionDivider />
+                      ) : null}
+                      {act.canResell && u ? (
+                        <button
+                          type="button"
+                          style={inventoryActionBtnStyles.resell}
+                          onClick={() => beginResellFromMenu()}
+                        >
+                          <InventoryActionBtnContent
+                            icon="💰"
+                            label={`回賣系統（+${previewTotal} ${resellCurrencyLabel(u)}）`}
+                          />
+                        </button>
+                      ) : null}
+                      {act.canDelete ? (
+                        <button
+                          type="button"
+                          style={inventoryActionBtnStyles.trash}
+                          onClick={() => beginDeleteFromMenu()}
+                        >
+                          <InventoryActionBtnContent icon="🗑️" label="刪除道具" />
+                        </button>
+                      ) : null}
+                      {act.canGift ||
+                      (act.canResell && u) ||
+                      act.canDelete ? (
+                        <InventoryActionDivider />
+                      ) : null}
+                      <button
+                        type="button"
+                        style={inventoryActionBtnStyles.cancel}
+                        onClick={() => setStackMenuOpen(false)}
+                      >
+                        <InventoryActionBtnContent icon="" label="取消" />
+                      </button>
+                    </div>
                   </>
                 );
               })()}
