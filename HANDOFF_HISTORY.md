@@ -12,6 +12,7 @@
 3. **登入後過場**：**`PostLoginEntrance.tsx`** 包於 **`(app)/layout.tsx`**；**`postLoginBootstrapAction`**（**`auth-bootstrap.action.ts`**）**`getUser` + `findProfileById`**；**Email 登入** **`login-form.tsx`** **`markPostLoginEntrance()`** + **`router.push`**；**OAuth** **`auth/callback/route.ts`** **`withGuildEntranceFlag(next)`** 帶 **`guild_entrance=1`**，進頁 **`replaceState` 去參**。進度：**`router.refresh()`** 後 **`waitUntilVisualReady`**（**`window` `load` 若尚未 `complete`（逾時 12s）**、**`document.fonts.ready`**、**雙重 `requestAnimationFrame`**），再 **100%**、短暫停留後以 **上下門** CSS 開啟（`translateY`）。
 4. **建置**：**`npm run build`** 通過（Tailwind 對 **`duration-[850ms]`**／**`ease-[cubic-bezier(...)]`** 有 ambiguous 警告，不阻斷）。
 5. **文件**：**`docs/MCP_SUPABASE_CURSOR.md`** 工作區刪除（若需請自版本庫外備份）。
+6. **`PostLoginEntrance.tsx`（再修）**：取消獨立 **全黑 blocking 層**（避免黑幕未卸除）；改 **`revealMain`**（**`null`／`false`／`true`**）控制主內容 **`invisible` + `opacity-0`** 至開場結束；**`revealMain !== true` 且未進 `splashOn`** 時 **`zinc-950` 預載簾**（與主題底近）；門片底板改 **`zinc-950`**、最外層不再 **`bg-black`**；序列 **`finally`** 在 **`!isCancelled()`** 時必 **`releaseMain()`**；**`guild_app_splash_done_v1`** 僅成功跑完門動畫後寫入（失敗不寫，下次仍播）。
 
 ### 2026-03-30 — 設計修復計劃（探索 WiFi 列跳動、商城／贈送 Bottom Sheet）
 

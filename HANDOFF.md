@@ -48,7 +48,7 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 - 邀請碼：`invitation.repository.ts`；`invitation.action.ts`
 - 公告／廣告：`announcement.*`；`advertisement.*`
 - 首頁：`page.tsx`／`home-page-client.tsx`；`guild-profile-home.tsx`；`FloatingToolbar.tsx`
-- 版面：`Navbar.tsx`；`app-shell-motion.tsx`（`broadcastExtraTopPx`）；`app-broadcast-chrome.tsx`；`(app)/layout.tsx`（**`PostLoginEntrance`** 包住子頁＋**`Navbar`**）；**`PostLoginEntrance.tsx`**、**`auth-bootstrap.action.ts`**；**`(auth)/login/login-form.tsx`** **`markPostLoginEntrance`**
+- 版面：`Navbar.tsx`；`app-shell-motion.tsx`（`broadcastExtraTopPx`）；`app-broadcast-chrome.tsx`；`(app)/layout.tsx`（**`PostLoginEntrance`** 包住子頁＋**`Navbar`**）；**`PostLoginEntrance.tsx`**（開場：**`revealMain`** 隱主內容、**`zinc-950` 預載簾**、無全黑 stuck 層；詳見 **`HANDOFF_HISTORY`**）、**`auth-bootstrap.action.ts`**；**`(auth)/login/login-form.tsx`** **`markPostLoginEntrance`**
 - 卡片／Modal：`UserCard.tsx`；`CardDecorationWrapper.tsx`；`card-decoration.ts`（`CardDecorationConfig`／metadata 解析）；`modals/UserDetailModal.tsx`；`LevelBadge`／`LevelCardEffect`；`ShopCardFrameOverlay.tsx`；卡框比例 **`CARD_FRAME_OVERLAY_PERCENT`**（`shop-card-frame-preview.ts`，與頭像框 **`MASTER_AVATAR_FRAME_OVERLAY_PERCENT`** 分離）
 - 頭像：`Avatar.tsx`；`cloudinary.ts`；`cropImage.ts`；頭像框對齊 **`avatar-frame-layout.ts`**（`shop_items.metadata.frame_layout`）；**`scripts/process-tiger-avatar-frame.py`**
 - 型別：`src/types/database.types.ts`；SWR：`src/lib/swr/keys.ts`；等級：`src/lib/constants/levels.ts`；標籤：`src/lib/constants/tags.ts`

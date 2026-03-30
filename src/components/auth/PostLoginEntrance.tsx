@@ -20,6 +20,9 @@ const DOOR_MS = 1800;
 const HOLD_AT_100_MS = 520;
 const SPLASH_IMAGE_WAIT_MS = 2800;
 
+/** 與主版面底色一致，預載時短暫遮罩（非全黑 stuck 層） */
+const CURTAIN_CLASS = "bg-zinc-950";
+
 function waitForWindowLoadIfPending(): Promise<void> {
   if (typeof document === "undefined") return Promise.resolve();
   if (document.readyState === "complete") return Promise.resolve();
@@ -87,10 +90,10 @@ function rampGoalLinear(
 }
 
 type Phase = "idle" | "sync" | "doors";
-type Gate = "blocking" | "splash" | "off";
 
 /**
- * 公會開場儀式：先全黑覆蓋（避免首屏閃內容）→ 預載圖 → 上下門圖檔 + 平滑進度條 → 開門。
+ * 公會開場：無獨立「黑幕」狀態；layout 同步決策後，預載期僅短暫 zinc 底色簾，再顯示上下門圖與進度。
+ * 主內容在開場完成前 `opacity-0` + `invisible`，減少首屏閃爍。
  */
 export function PostLoginEntrance({
   children,
@@ -98,7 +101,9 @@ export function PostLoginEntrance({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [gate, setGate] = useState<Gate>("blocking");
+  /** `null`：首幀尚未 layout 決策；`true`：可顯示主內容；`false`：開場進行中／預載中 */
+  const [revealMain, setRevealMain] = useState<boolean | null>(null);
+  const [splashOn, setSplashOn] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [smoothPct, setSmoothPct] = useState(0);
   const goalRef = useRef(0);
@@ -106,7 +111,7 @@ export function PostLoginEntrance({
   const sequenceTicketRef = useRef(0);
 
   const animatingProgress =
-    gate === "splash" && (phase === "sync" || phase === "doors");
+    splashOn && (phase === "sync" || phase === "doors");
 
   useEffect(() => {
     if (!animatingProgress && goalRef.current === 0) return;
@@ -146,7 +151,7 @@ export function PostLoginEntrance({
 
     const fromLogin = fromLoginStorage || fromLoginQuery;
     if (splashDone && !fromLogin) {
-      setGate("off");
+      setRevealMain(true);
       return;
     }
 
@@ -164,183 +169,209 @@ export function PostLoginEntrance({
       window.history.replaceState({}, "", next);
     }
 
+    setRevealMain(false);
+
     const ticket = ++splashTicketRef.current;
     let settled = false;
-    const finishBlocking = () => {
+    const startSplash = () => {
       if (settled || splashTicketRef.current !== ticket) return;
       settled = true;
       goalRef.current = 0;
       setSmoothPct(0);
       setPhase("sync");
-      setGate("splash");
+      setSplashOn(true);
     };
 
     const img = new Image();
-    const timer = window.setTimeout(finishBlocking, SPLASH_IMAGE_WAIT_MS);
+    const timer = window.setTimeout(startSplash, SPLASH_IMAGE_WAIT_MS);
     img.onload = () => {
       window.clearTimeout(timer);
-      finishBlocking();
+      startSplash();
     };
     img.onerror = () => {
       window.clearTimeout(timer);
-      finishBlocking();
+      startSplash();
     };
     img.src = GUILD_ENTRANCE_SPLASH_PATH;
   }, []);
 
   useEffect(() => {
-    if (gate !== "splash" || phase !== "sync") return;
+    if (!splashOn || phase !== "sync") return;
 
     const seq = ++sequenceTicketRef.current;
     let cancelled = false;
     const isCancelled = () =>
       cancelled || sequenceTicketRef.current !== seq;
 
+    const releaseMain = () => {
+      setSplashOn(false);
+      setPhase("idle");
+      setRevealMain(true);
+      goalRef.current = 0;
+      setSmoothPct(0);
+    };
+
     const setGoal = (n: number) => {
       if (!isCancelled()) goalRef.current = Math.max(goalRef.current, n);
     };
 
     void (async () => {
-      goalRef.current = 0;
-      setSmoothPct(0);
-      setGoal(4);
-
-      await postLoginBootstrapAction().catch(() => {});
-      if (isCancelled()) return;
-      setGoal(22);
-
-      await router.refresh();
-      if (isCancelled()) return;
-      setGoal(40);
-
-      await waitUntilVisualReady();
-      if (isCancelled()) return;
-      setGoal(58);
-
-      const from = goalRef.current;
-      await rampGoalLinear(from, 100, 2400, setGoal, isCancelled);
-      if (isCancelled()) return;
-
-      await new Promise((r) => setTimeout(r, HOLD_AT_100_MS));
-      if (isCancelled()) return;
-
-      setPhase("doors");
-      await new Promise((r) => setTimeout(r, DOOR_MS + 120));
-      if (isCancelled()) return;
-
       try {
-        sessionStorage.setItem(SPLASH_SESSION_KEY, "1");
+        goalRef.current = 0;
+        setSmoothPct(0);
+        setGoal(4);
+
+        await postLoginBootstrapAction().catch(() => {});
+        if (isCancelled()) return;
+        setGoal(22);
+
+        await router.refresh();
+        if (isCancelled()) return;
+        setGoal(40);
+
+        await waitUntilVisualReady();
+        if (isCancelled()) return;
+        setGoal(58);
+
+        const from = goalRef.current;
+        await rampGoalLinear(from, 100, 2400, setGoal, isCancelled);
+        if (isCancelled()) return;
+
+        await new Promise((r) => setTimeout(r, HOLD_AT_100_MS));
+        if (isCancelled()) return;
+
+        setPhase("doors");
+        await new Promise((r) => setTimeout(r, DOOR_MS + 120));
+        if (isCancelled()) return;
+
+        try {
+          sessionStorage.setItem(SPLASH_SESSION_KEY, "1");
+        } catch {
+          /* ignore */
+        }
       } catch {
-        /* ignore */
+        /* 失敗時不寫 SPLASH_SESSION_KEY，下次仍會播開場 */
+      } finally {
+        if (!isCancelled()) {
+          releaseMain();
+        }
       }
-      setPhase("idle");
-      setGate("off");
-      goalRef.current = 0;
-      setSmoothPct(0);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [gate, phase, router]);
+  }, [splashOn, phase, router]);
 
   const doorOpen = phase === "doors";
-  const showBlackOnly = gate === "blocking";
-  const showSplashUi = gate === "splash";
   const barPct = Math.min(100, Math.round(smoothPct * 10) / 10);
+
+  const mainHidden = revealMain !== true;
+  /** 含 `revealMain === null`（layout 前）避免底層先透出 */
+  const preloadingCurtain =
+    revealMain !== true && !splashOn && phase === "idle";
 
   return (
     <>
-      {children}
-      {gate !== "off" ? (
+      <div
+        className={
+          mainHidden
+            ? "pointer-events-none invisible opacity-0"
+            : "opacity-100 transition-opacity duration-200"
+        }
+        aria-hidden={mainHidden}
+      >
+        {children}
+      </div>
+
+      {preloadingCurtain ? (
         <div
-          className="pointer-events-auto fixed inset-0 z-[10000] bg-black"
+          className={`pointer-events-auto fixed inset-0 z-[9998] ${CURTAIN_CLASS}`}
+          aria-hidden
+        />
+      ) : null}
+
+      {splashOn ? (
+        <div
+          className="pointer-events-auto fixed inset-0 z-[10000]"
           aria-live="polite"
-          aria-busy={showSplashUi && phase === "sync"}
+          aria-busy={phase === "sync"}
           aria-label={
-            showBlackOnly
-              ? "載入中"
-              : phase === "sync"
-                ? "公會營地載入中"
-                : "進入公會"
+            phase === "sync" ? "公會營地載入中" : "進入公會"
           }
         >
-          {showSplashUi ? (
-            <>
-              <div
-                className="fixed left-0 right-0 top-0 z-[2] h-1/2 overflow-hidden bg-black"
-                style={{
-                  transform: doorOpen ? "translateY(-100%)" : "translateY(0)",
-                  transition: `transform ${DOOR_MS}ms cubic-bezier(0.45, 0, 0.15, 1)`,
-                }}
-              >
-                <div
-                  className="absolute inset-x-0 top-0 h-[100dvh] min-h-[100vh] w-full bg-black"
-                  style={{
-                    backgroundImage: `url(${GUILD_ENTRANCE_SPLASH_PATH})`,
-                    backgroundSize: "contain",
-                    backgroundPosition: "center top",
-                    backgroundRepeat: "no-repeat",
-                  }}
-                />
-              </div>
+          <div
+            className={`fixed left-0 right-0 top-0 z-[2] h-1/2 overflow-hidden ${CURTAIN_CLASS}`}
+            style={{
+              transform: doorOpen ? "translateY(-100%)" : "translateY(0)",
+              transition: `transform ${DOOR_MS}ms cubic-bezier(0.45, 0, 0.15, 1)`,
+            }}
+          >
+            <div
+              className={`absolute inset-x-0 top-0 h-[100dvh] min-h-[100vh] w-full ${CURTAIN_CLASS}`}
+              style={{
+                backgroundImage: `url(${GUILD_ENTRANCE_SPLASH_PATH})`,
+                backgroundSize: "contain",
+                backgroundPosition: "center top",
+                backgroundRepeat: "no-repeat",
+              }}
+            />
+          </div>
 
-              <div
-                className="fixed bottom-0 left-0 right-0 z-[2] h-1/2 overflow-hidden bg-black"
-                style={{
-                  transform: doorOpen ? "translateY(100%)" : "translateY(0)",
-                  transition: `transform ${DOOR_MS}ms cubic-bezier(0.45, 0, 0.15, 1)`,
-                }}
-              >
-                <div
-                  className="absolute inset-x-0 bottom-0 h-[100dvh] min-h-[100vh] w-full bg-black"
-                  style={{
-                    backgroundImage: `url(${GUILD_ENTRANCE_SPLASH_PATH})`,
-                    backgroundSize: "contain",
-                    backgroundPosition: "center bottom",
-                    backgroundRepeat: "no-repeat",
-                  }}
-                />
-              </div>
+          <div
+            className={`fixed bottom-0 left-0 right-0 z-[2] h-1/2 overflow-hidden ${CURTAIN_CLASS}`}
+            style={{
+              transform: doorOpen ? "translateY(100%)" : "translateY(0)",
+              transition: `transform ${DOOR_MS}ms cubic-bezier(0.45, 0, 0.15, 1)`,
+            }}
+          >
+            <div
+              className={`absolute inset-x-0 bottom-0 h-[100dvh] min-h-[100vh] w-full ${CURTAIN_CLASS}`}
+              style={{
+                backgroundImage: `url(${GUILD_ENTRANCE_SPLASH_PATH})`,
+                backgroundSize: "contain",
+                backgroundPosition: "center bottom",
+                backgroundRepeat: "no-repeat",
+              }}
+            />
+          </div>
 
+          <div
+            className="pointer-events-none fixed inset-0 z-[3] bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.2)_55%,rgba(0,0,0,0.55)_100%)]"
+            style={{
+              opacity: doorOpen ? 0 : 1,
+              transition: `opacity ${DOOR_MS * 0.5}ms ease-out`,
+            }}
+          />
+
+          <div
+            className="fixed z-[4] flex w-[min(18rem,calc(100vw-2rem))] flex-col items-center gap-3"
+            style={{
+              left: "50%",
+              top: "50%",
+              transform:
+                "translate(-50%, calc(-50% + min(10vh, 4rem)))",
+              opacity: doorOpen ? 0 : 1,
+              transition: "opacity 400ms ease-out",
+            }}
+          >
+            <div className="h-1 w-full overflow-hidden rounded-full bg-zinc-900/90 shadow-inner ring-1 ring-amber-900/30">
               <div
-                className="pointer-events-none fixed inset-0 z-[3] bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.25)_55%,rgba(0,0,0,0.65)_100%)]"
-                style={{
-                  opacity: doorOpen ? 0 : 1,
-                  transition: `opacity ${DOOR_MS * 0.5}ms ease-out`,
-                }}
+                className="h-full rounded-full bg-gradient-to-r from-amber-900 via-amber-400 to-amber-200 shadow-[0_0_12px_rgba(251,191,36,0.35)]"
+                style={{ width: `${barPct}%` }}
               />
-
-              <div
-                className="fixed z-[4] flex w-[min(18rem,calc(100vw-2rem))] flex-col items-center gap-3"
-                style={{
-                  left: "50%",
-                  top: "50%",
-                  transform:
-                    "translate(-50%, calc(-50% + min(10vh, 4rem)))",
-                  opacity: doorOpen ? 0 : 1,
-                  transition: "opacity 400ms ease-out",
-                }}
-              >
-                <div className="h-1 w-full overflow-hidden rounded-full bg-zinc-900/90 shadow-inner ring-1 ring-amber-900/30">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-amber-900 via-amber-400 to-amber-200 shadow-[0_0_12px_rgba(251,191,36,0.35)]"
-                    style={{ width: `${barPct}%` }}
-                  />
-                </div>
-                <p className="font-mono text-sm tabular-nums tracking-[0.2em] text-amber-200/85">
-                  {barPct >= 100 ? "100.0" : barPct.toFixed(1)}%
-                </p>
-                <p className="text-center text-[10px] uppercase tracking-[0.35em] text-zinc-500">
-                  {phase === "doors"
-                    ? "門扉開啟"
-                    : barPct >= 99.5
-                      ? "同步完成"
-                      : "連線公會中樞…"}
-                </p>
-              </div>
-            </>
-          ) : null}
+            </div>
+            <p className="font-mono text-sm tabular-nums tracking-[0.2em] text-amber-200/85">
+              {barPct >= 100 ? "100.0" : barPct.toFixed(1)}%
+            </p>
+            <p className="text-center text-[10px] uppercase tracking-[0.35em] text-zinc-500">
+              {phase === "doors"
+                ? "門扉開啟"
+                : barPct >= 99.5
+                  ? "同步完成"
+                  : "連線公會中樞…"}
+            </p>
+          </div>
         </div>
       ) : null}
     </>
