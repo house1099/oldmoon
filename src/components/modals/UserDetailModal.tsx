@@ -160,6 +160,42 @@ export function UserDetailModal({
       ).catch(() => {});
       // #endregion
       resolved?.scrollTo({ top: 0, behavior: "instant" });
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const el2 = scrollContainerRef.current;
+          // eslint-disable-next-line no-console -- 診斷：對照焦點／layout 後 scrollTop 是否被改寫
+          console.log("[Modal Debug post-rAF]", {
+            scrollTop: el2?.scrollTop,
+            scrollHeight: el2?.scrollHeight,
+            clientHeight: el2?.clientHeight,
+          });
+          // #region agent log
+          fetch(
+            "http://127.0.0.1:7283/ingest/83ef5f11-58dd-4ace-9abb-e7c93854b9db",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Debug-Session-Id": "a1004d",
+              },
+              body: JSON.stringify({
+                sessionId: "a1004d",
+                runId: "modal-scroll-post-raf",
+                hypothesisId: "post-scrollTop-check",
+                location: "UserDetailModal.tsx:post-rAF",
+                message: "Scroll metrics after scrollTo + 2x rAF",
+                data: {
+                  scrollTop: el2?.scrollTop,
+                  scrollHeight: el2?.scrollHeight,
+                  clientHeight: el2?.clientHeight,
+                },
+                timestamp: Date.now(),
+              }),
+            },
+          ).catch(() => {});
+          // #endregion
+        });
+      });
     }, 150);
     return () => window.clearTimeout(id);
   }, [open, user?.id]);
@@ -423,6 +459,7 @@ export function UserDetailModal({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
           id="modal-content-root"
+          initialFocus={scrollContainerRef}
           showCloseButton={false}
           overlayClassName={
             stackAboveChatZ != null ? undefined : "z-[800]"
@@ -455,7 +492,8 @@ export function UserDetailModal({
           <div
             ref={scrollContainerRef}
             data-modal-scroll-container="true"
-            className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+            tabIndex={-1}
+            className="flex min-h-0 flex-1 flex-col overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
           >
           <div className="relative flex-shrink-0 overflow-visible bg-gradient-to-b from-zinc-900/80 to-zinc-950 px-5 pb-5 pt-6">
             <button
