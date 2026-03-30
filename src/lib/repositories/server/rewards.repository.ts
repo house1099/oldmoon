@@ -222,7 +222,7 @@ export async function findUserRewardGiftMeta(
   const shop = embeddedGiftJoin(j.shop_items);
   const prize = embeddedGiftJoin(j.prize_items);
   const allowGift =
-    row.shop_item_id != null ? shop != null && Boolean(shop.allow_gift) : true;
+    row.shop_item_id != null ? shop?.allow_gift !== false : true;
   return {
     row,
     allowGift,

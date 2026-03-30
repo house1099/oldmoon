@@ -150,10 +150,15 @@ export async function insertPrizeLog(
 
 export async function insertUserReward(
   data: Omit<UserRewardInsert, "id" | "created_at">,
-): Promise<void> {
+): Promise<string> {
   const admin = createAdminClient();
-  const { error } = await admin.from("user_rewards").insert(data);
+  const { data: row, error } = await admin
+    .from("user_rewards")
+    .insert(data)
+    .select("id")
+    .single();
   if (error) throw error;
+  return (row as { id: string }).id;
 }
 
 export async function updatePrizeItem(

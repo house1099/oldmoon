@@ -70,7 +70,7 @@ export async function getShopItemsAction(
 }
 
 type PurchaseResult =
-  | { ok: true; item: ShopItemDto }
+  | { ok: true; item: ShopItemDto; newRewardIds: string[] }
   | { ok: false; error: string };
 
 export async function purchaseItemAction(
@@ -127,8 +127,9 @@ export async function purchaseItemAction(
       return { ok: false, error: "insufficient_balance" };
     }
 
+    let newRewardIds: string[] = [];
     try {
-      await dispatchItemToUser(user.id, item, quantity);
+      newRewardIds = await dispatchItemToUser(user.id, item, quantity);
     } catch (dispatchErr) {
       console.error("purchaseItemAction 發放失敗:", dispatchErr);
       const refund = await creditCoins({
@@ -173,7 +174,7 @@ export async function purchaseItemAction(
     });
 
     const now = new Date();
-    return { ok: true, item: toShopItemDto(item, now) };
+    return { ok: true, item: toShopItemDto(item, now), newRewardIds };
   } catch (err) {
     console.error("purchaseItemAction 失敗:", err);
     return { ok: false, error: "購買失敗，請稍後再試" };
@@ -184,17 +185,20 @@ async function dispatchItemToUser(
   userId: string,
   item: ShopItemRow,
   quantity: number,
-): Promise<void> {
+): Promise<string[]> {
+  const newRewardIds: string[] = [];
   for (let i = 0; i < quantity; i++) {
     switch (item.item_type) {
       case "broadcast":
-        await insertUserReward({
-          user_id: userId,
-          reward_type: "broadcast",
-          shop_item_id: item.id,
-          label: item.name,
-          is_equipped: false,
-        });
+        newRewardIds.push(
+          await insertUserReward({
+            user_id: userId,
+            reward_type: "broadcast",
+            shop_item_id: item.id,
+            label: item.name,
+            is_equipped: false,
+          }),
+        );
         break;
 
       case "bag_expansion": {
@@ -206,13 +210,15 @@ async function dispatchItemToUser(
       }
 
       case "rename_card":
-        await insertUserReward({
-          user_id: userId,
-          reward_type: "rename_card",
-          shop_item_id: item.id,
-          label: "改名卡",
-          is_equipped: false,
-        });
+        newRewardIds.push(
+          await insertUserReward({
+            user_id: userId,
+            reward_type: "rename_card",
+            shop_item_id: item.id,
+            label: "改名卡",
+            is_equipped: false,
+          }),
+        );
         break;
 
       case "loot_box":
@@ -221,25 +227,29 @@ async function dispatchItemToUser(
 
       case "fishing_bait":
       case "fishing_rod":
-        await insertUserReward({
-          user_id: userId,
-          reward_type: item.item_type,
-          shop_item_id: item.id,
-          label: item.name,
-          is_equipped: false,
-        });
+        newRewardIds.push(
+          await insertUserReward({
+            user_id: userId,
+            reward_type: item.item_type,
+            shop_item_id: item.id,
+            label: item.name,
+            is_equipped: false,
+          }),
+        );
         break;
 
       case "avatar_frame":
       case "card_frame":
       case "title":
-        await insertUserReward({
-          user_id: userId,
-          reward_type: item.item_type,
-          shop_item_id: item.id,
-          label: item.name,
-          is_equipped: false,
-        });
+        newRewardIds.push(
+          await insertUserReward({
+            user_id: userId,
+            reward_type: item.item_type,
+            shop_item_id: item.id,
+            label: item.name,
+            is_equipped: false,
+          }),
+        );
         break;
 
       case "exp_boost": {
@@ -284,16 +294,19 @@ async function dispatchItemToUser(
       }
 
       default:
-        await insertUserReward({
-          user_id: userId,
-          reward_type: item.item_type,
-          shop_item_id: item.id,
-          label: item.name,
-          is_equipped: false,
-        });
+        newRewardIds.push(
+          await insertUserReward({
+            user_id: userId,
+            reward_type: item.item_type,
+            shop_item_id: item.id,
+            label: item.name,
+            is_equipped: false,
+          }),
+        );
         break;
     }
   }
+  return newRewardIds;
 }
 
 export async function getMyOrdersAction(): Promise<ShopOrderRow[]> {

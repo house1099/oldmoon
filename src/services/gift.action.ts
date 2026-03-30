@@ -4,9 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidateTag } from "next/cache";
 import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
 import {
+  clearUserRewardUsedAt,
   findUserRewardGiftMeta,
   findUsersByNickname,
   markUserRewardConsumed,
+  unequipReward,
   type GiftRecipientSearchRow,
 } from "@/lib/repositories/server/rewards.repository";
 import { insertUserReward } from "@/lib/repositories/server/prize.repository";
@@ -14,22 +16,12 @@ import { insertAdminAction } from "@/lib/repositories/server/admin.repository";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
 
-const LEGACY_PLAYER_GIFT_TYPES = new Set([
-  "title",
-  "avatar_frame",
-  "card_frame",
-]);
-
 function assertGiftEligibility(meta: NonNullable<
   Awaited<ReturnType<typeof findUserRewardGiftMeta>>
 >): string | null {
   const { row, allowGift } = meta;
   if (row.used_at != null) return "此道具已無法贈送";
-  if (row.is_equipped) return "請先卸下裝備中的道具才能贈送";
-  if (!allowGift) return "此道具不可贈送";
-  if (!row.shop_item_id && !LEGACY_PLAYER_GIFT_TYPES.has(row.reward_type)) {
-    return "此類型道具無法贈送";
-  }
+  if (row.shop_item_id != null && !allowGift) return "此道具不開放贈送";
   return null;
 }
 
@@ -89,6 +81,16 @@ export async function confirmGiftAction(
   const { row } = meta;
 
   try {
+    if (row.is_equipped) {
+      await unequipReward(rewardId);
+    }
+    await markUserRewardConsumed(rewardId);
+  } catch (e) {
+    console.error("confirmGiftAction mark consumed:", e);
+    return { ok: false, error: "贈送失敗，請稍後再試" };
+  }
+
+  try {
     await insertUserReward({
       user_id: recipientId,
       reward_type: row.reward_type,
@@ -98,9 +100,9 @@ export async function confirmGiftAction(
       is_equipped: false,
       used_at: null,
     });
-    await markUserRewardConsumed(rewardId);
   } catch (e) {
-    console.error("confirmGiftAction transfer:", e);
+    console.error("confirmGiftAction insert recipient:", e);
+    await clearUserRewardUsedAt(rewardId).catch(() => {});
     return { ok: false, error: "贈送失敗，請稍後再試" };
   }
 

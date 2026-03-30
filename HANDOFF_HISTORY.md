@@ -5,6 +5,16 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-30 — 贈送規則對齊、商城購後贈禮、捲軸診斷 log
+
+1. **`rewards.repository.ts`**：**`findUserRewardGiftMeta`** 之 **`allowGift`**：有 **`shop_item_id`** 時 **`shop?.allow_gift !== false`**（後台明確關閉才擋）；無 **`shop_item_id`** 時 **`true`**（獎池等來源）。
+2. **`prize.repository.ts`**：**`insertUserReward`** 改為 **`.insert().select('id').single()`** 回傳 **`string`**（既有呼叫端可忽略回傳值）。
+3. **`shop.action.ts`**：**`dispatchItemToUser`** 收集每次 **`insertUserReward`** 的 id；**`purchaseItemAction`** 成功時回傳 **`newRewardIds`**（盲盒／背包擴充／EXP／幣包等無 **`user_rewards`** 列者為空陣列）。
+4. **`gift.action.ts`**：**`assertGiftEligibility`** 僅 **`used_at`** 與商城 **「此道具不開放贈送」**；**`confirmGiftAction`**：**`is_equipped`** 時 **`unequipReward`** → **`markUserRewardConsumed`** → **`insertUserReward`**（收禮者）；插入失敗 **`clearUserRewardUsedAt`**；通知與 **`insertAdminAction`** 仍於轉移成功後。
+5. **`rewards.action.ts`**：**`assertRewardGiftable`**（血盟批次贈送）與上對齊：不擋裝備中；無 **`shop_item_id`** 不擋類型。
+6. **`(app)/shop/page.tsx`**：商品 **`allow_gift !== false` 且已登入** 顯示 **「🎁 送給朋友」**；意圖為贈禮時購買成功後 **Dialog**：「放入我的背包」／「直接送給玩家」→ **`giftItemToUserAction` + `confirmGiftAction`**（與 **`FloatingToolbar`** 相同互動）；**`createBrowserSupabase` + `onAuthStateChange`** 追蹤登入。
+7. **`UserDetailModal.tsx`**：可捲動區 **`onScroll` → `console.log('[scroll]', scrollTop)`**；**`useEffect(open)`** 延遲 **200ms** 列出 **`[data-modal-scroll-container]`** 之 **`scrollTop`／`scrollHeight`** 與 **`[modal open] user id`**，供釐清捲動容器與初始捲動位置（未在此任務改捲軸行為）。
+
 ### 2026-03-30 — UserDetailModal 捲動結構、框圖預載與 eager 載入
 
 1. **`UserDetailModal.tsx`**：**`DialogContent`** **`contentStyle`** **`display:flex`／`flexDirection:column`**，**`overflow-hidden`**；**單一** **`data-modal-scroll-container`** 包住**頭像標題區＋自白標籤**（**`flex-1 min-h-0 overflow-y-auto`**），底部按鈕列 **`flex-shrink-0`** 固定。**`setTimeout(150)`** 後 **`scrollTo` top**；**`scrollContainerRef`** 為 null 時備援 **`document.querySelector('[data-modal-scroll-container]')`**。

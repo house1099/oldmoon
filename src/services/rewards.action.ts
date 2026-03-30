@@ -75,14 +75,10 @@ async function assertRewardDeletable(
 async function assertRewardGiftable(
   row: UserRewardRow,
 ): Promise<string | null> {
-  if (row.is_equipped) return "請先卸下再贈送";
   if (row.shop_item_id) {
     const shop = await findShopItemById(row.shop_item_id);
-    if (shop?.allow_gift === false) return "此道具不可贈送";
+    if (shop?.allow_gift === false) return "此道具不開放贈送";
     return null;
-  }
-  if (!LEGACY_GIFT_DELETE_REWARD_TYPES.has(row.reward_type)) {
-    return "此類型道具無法贈送";
   }
   return null;
 }

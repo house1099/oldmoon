@@ -135,6 +135,26 @@ export function UserDetailModal({
     };
   }, [open, user.id]);
 
+  useEffect(() => {
+    if (!open) return;
+    console.log("[modal open] user:", user?.id);
+    const t = window.setTimeout(() => {
+      const els = document.querySelectorAll("[data-modal-scroll-container]");
+      els.forEach((el) => {
+        const node = el as HTMLElement;
+        console.log(
+          "[modal el]",
+          node,
+          "scrollTop:",
+          node.scrollTop,
+          "scrollHeight:",
+          node.scrollHeight,
+        );
+      });
+    }, 200);
+    return () => window.clearTimeout(t);
+  }, [open, user?.id]);
+
   const u = resolvedProfile ?? user;
 
   const isMoodActive = u.mood_at
@@ -397,6 +417,9 @@ export function UserDetailModal({
             data-modal-scroll-container="true"
             className="flex min-h-0 flex-1 flex-col overflow-y-auto"
             style={{ overscrollBehavior: "contain" }}
+            onScroll={(e) =>
+              console.log("[scroll]", e.currentTarget.scrollTop)
+            }
           >
           <div className="relative flex-shrink-0 overflow-visible bg-gradient-to-b from-zinc-900/80 to-zinc-950 px-5 pb-5 pt-6">
             <button

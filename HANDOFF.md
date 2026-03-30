@@ -36,7 +36,7 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 - IG 審核：`ig-request.action.ts`；`ig-request.repository.ts`；`/register/pending`
 - 簽到／連簽／盲盒：`daily-checkin.action.ts`；`streak.repository.ts`；`prize-engine.ts`；`user.repository`
 - 獎勵／廣播／改名／贈禮：`rewards.action.ts`；`rewards.repository.ts`；`gift.action.ts`（暱稱搜尋贈送玩家）；`system-settings`
-- 商城：`shop.action.ts`；`shop.repository.ts`；`(app)/shop`；`(admin)/admin/shop`
+- 商城：`shop.action.ts`（**`purchaseItemAction` → `newRewardIds`**）；`shop.repository.ts`；`(app)/shop`（**「🎁 送給朋友」** 購後贈禮）；`(admin)/admin/shop`
 - 財務 master：`/admin/coins`（雙 Tab：`coins-admin-client.tsx`）；`adjustCoinsAction`／`getAdminCoinLedgerAction`；L2 `findCoinTransactionsWithFilters`
 - 探索：`explore/page.tsx`；`ExploreClient.tsx`；`village.service.ts`；`market.service.ts`
 - 配對：`matching.ts`；`role-display.ts`
@@ -93,9 +93,9 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## ✅ 最近完成（最新 3 次任務）
 
-1. **2026-03-30 — 全站選取禁止、背包長按、UserDetailModal 捲軸、背包贈禮玩家**：**`globals.css`** 全站 **`user-select: none`**（**`input`／`textarea`／`[contenteditable]`** 除外）、**`data-long-press`／`button`** **`touch-action: manipulation`**；**`FloatingToolbar`** 背包格 **500ms** 長按、**`data-long-press`**／**`onContextMenu` preventDefault**、**「🎁 贈送給玩家」**（**`giftItemToUserAction`／`confirmGiftAction`**，暱稱搜尋最多 5 人）＋保留血盟批次贈送；**`gift.action.ts`**、**`rewards.repository`** **`findUserRewardById` JOIN**、**`findUserRewardGiftMeta`／`findUsersByNickname`**；**`getMyRewardsAction`** 一律隱藏 **`used_at != null`**（含贈出後 sender 列）；**`UserDetailModal`** 移除 **`scrollTo`**，可捲區 **`key={scroll-${userId}}`** + **`overscroll-behavior: contain`**。後台 **`allow_gift`** 已存在未改。詳見 **`HANDOFF_HISTORY.md`**。
-2. **2026-03-30 — UserDetailModal 捲動結構、框圖預載**：**`UserDetailModal`** 單一 **`data-modal-scroll-container`**、**`DialogContent` overflow-hidden** 等（後已由上一則改為 key 重置捲軸）。首頁／探索框圖預載見歷史。
-3. **2026-03-30 — UserDetailModal 捲動時序、首頁 SSR 預載與 SWR**：**`Promise.all`** 首頁資料、**`useSWR`** 連簽／獎勵設定、**`useMyProfile` fallback** 等（見歷史）。
+1. **2026-03-30 — 贈送規則、商城購後贈禮、UserDetailModal 捲軸診斷**：**`allow_gift`** 僅在 **`shop_items.allow_gift === false`** 時擋（**`findUserRewardGiftMeta`** **`shop?.allow_gift !== false`**）；**`prize_items` 來源**（無 **`shop_item_id`**）一律可贈；**`confirmGiftAction`** 可送裝備中道具（先 **`unequipReward`**）、流程為 **`markUserRewardConsumed` → `insertUserReward`（收禮者）**，插入失敗時 **`clearUserRewardUsedAt`** 回滾；錯誤文案「**此道具不開放贈送**」。**`insertUserReward`** 回傳 **`id`**；**`purchaseItemAction`** 回傳 **`newRewardIds`**。**`/shop`**：**`allow_gift !== false` 且已登入** 顯示 **「🎁 送給朋友」**，購買成功後可選放入背包或暱稱搜尋贈送（同背包流程）。**`UserDetailModal`** 暫時 **`console.log`**：**`[scroll]`**、**`[modal open]`**、**`[modal el] scrollTop/scrollHeight`**（部署後看 Console 再定捲軸修復）。詳見 **`HANDOFF_HISTORY.md`**。
+2. **2026-03-30 — 全站選取禁止、背包長按、UserDetailModal 捲軸、背包贈禮玩家**：**`globals.css`** 全站 **`user-select: none`**（**`input`／`textarea`／`[contenteditable]`** 除外）、**`data-long-press`／`button`** **`touch-action: manipulation`**；**`FloatingToolbar`** 背包格 **500ms** 長按、**「🎁 贈送給玩家」**（**`giftItemToUserAction`／`confirmGiftAction`**）＋血盟批次贈送；**`gift.action.ts`**、**`rewards.repository`**；**`UserDetailModal`** **`key` + `overscroll-behavior`**。
+3. **2026-03-30 — UserDetailModal 捲動結構、框圖預載**：**`UserDetailModal`** 單一 **`data-modal-scroll-container`**、**`DialogContent` overflow-hidden** 等。首頁／探索框圖預載見歷史。
 
 ## ⚠️ 目前已知問題
 

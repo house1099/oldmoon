@@ -2,15 +2,33 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
+import type { GiftRecipientSearchRow } from "@/lib/repositories/server/rewards.repository";
+import {
+  giftItemToUserAction,
+  confirmGiftAction,
+} from "@/services/gift.action";
 
 function resolveItemImageUrl(raw: string): string {
   const src = raw.trim();
@@ -81,7 +99,21 @@ function formatCountdown(seconds: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+function toThumbImageUrl(raw: string, width: number, height: number): string {
+  const src = raw.trim();
+  if (!src) return src;
+  if (src.startsWith("/")) return src;
+  if (src.includes("cloudinary.com")) {
+    return src.replace(
+      "/upload/",
+      `/upload/w_${width},h_${height},c_fill,q_auto,f_auto/`,
+    );
+  }
+  return src;
+}
+
 export default function ShopPage() {
+  const router = useRouter();
   const [premium, setPremium] = useState(0);
   const [free, setFree] = useState(0);
   const [rate, setRate] = useState(0.01);
@@ -107,6 +139,29 @@ export default function ShopPage() {
 
   const [countdowns, setCountdowns] = useState<Record<string, number>>({});
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [purchaseIntent, setPurchaseIntent] = useState<
+    "normal" | "gift_friend"
+  >("normal");
+  const [postPurchaseAskOpen, setPostPurchaseAskOpen] = useState(false);
+  const [postPurchaseContext, setPostPurchaseContext] = useState<{
+    itemName: string;
+    rewardId: string;
+  } | null>(null);
+  const [giftPlayerDialogOpen, setGiftPlayerDialogOpen] = useState(false);
+  const [giftPlayerRewardId, setGiftPlayerRewardId] = useState<string | null>(
+    null,
+  );
+  const [giftPlayerItemLabel, setGiftPlayerItemLabel] = useState("");
+  const [giftNicknameDraft, setGiftNicknameDraft] = useState("");
+  const [giftPlayerCandidates, setGiftPlayerCandidates] = useState<
+    GiftRecipientSearchRow[]
+  >([]);
+  const [giftPlayerSearchBusy, setGiftPlayerSearchBusy] = useState(false);
+  const [giftPlayerRecipientPick, setGiftPlayerRecipientPick] =
+    useState<GiftRecipientSearchRow | null>(null);
+  const [giftPlayerConfirmBusy, setGiftPlayerConfirmBusy] = useState(false);
 
   const refreshBalance = useCallback(async () => {
     const b = await getMyCoinsAction();
@@ -147,6 +202,17 @@ export default function ShopPage() {
       cancelled = true;
     };
   }, [loadItems]);
+
+  useEffect(() => {
+    const supabase = createBrowserSupabase();
+    void supabase.auth.getUser().then(({ data }) => {
+      setIsLoggedIn(!!data.user);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setIsLoggedIn(!!session?.user);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -195,9 +261,12 @@ export default function ShopPage() {
 
   async function handlePurchase() {
     if (!purchaseTarget) return;
+    const target = purchaseTarget;
+    const intent = purchaseIntent;
     if (dailyRemaining != null && dailyRemaining < 1) {
       toast.error("今日已達購買上限");
       setPurchaseTarget(null);
+      setPurchaseIntent("normal");
       return;
     }
     let qty = parseInt(purchaseQty.replace(/[^0-9]/g, "") || "0", 10);
@@ -213,17 +282,52 @@ export default function ShopPage() {
       return;
     }
     setPurchasing(true);
-    const res = await purchaseItemAction(purchaseTarget.id, qty);
+    const res = await purchaseItemAction(target.id, qty);
     setPurchasing(false);
     if (!res.ok) {
       toast.error(ERROR_LABELS[res.error] ?? res.error);
       setPurchaseTarget(null);
+      setPurchaseIntent("normal");
       return;
     }
-    toast.success(`🛍️ 購買成功！已存入背包`);
     setPurchaseTarget(null);
+    setPurchaseIntent("normal");
     await refreshBalance();
     void loadItems(tab);
+
+    if (intent === "gift_friend" && res.newRewardIds.length > 0) {
+      const rewardId = res.newRewardIds[res.newRewardIds.length - 1]!;
+      setPostPurchaseContext({ itemName: target.name, rewardId });
+      setPostPurchaseAskOpen(true);
+    } else {
+      toast.success(`🛍️ 購買成功！已存入背包`);
+      if (intent === "gift_friend" && res.newRewardIds.length === 0) {
+        toast.message(
+          "此商品已入背包。若要贈送他人，請從背包長按該道具使用贈送。",
+        );
+      }
+    }
+  }
+
+  async function handleGiftPlayerSearch() {
+    const nick = giftNicknameDraft.trim();
+    const rid = giftPlayerRewardId;
+    if (nick.length < 1 || !rid) return;
+    setGiftPlayerSearchBusy(true);
+    try {
+      const r = await giftItemToUserAction({
+        rewardId: rid,
+        recipientNickname: nick,
+      });
+      if (!r.ok) {
+        toast.error(r.error);
+        setGiftPlayerCandidates([]);
+        return;
+      }
+      setGiftPlayerCandidates(r.candidates);
+    } finally {
+      setGiftPlayerSearchBusy(false);
+    }
   }
 
   const openConvertModal = () => {
@@ -407,7 +511,7 @@ export default function ShopPage() {
                     </p>
                   )}
 
-                  <div className="mt-auto pt-2">
+                  <div className="mt-auto space-y-2 pt-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold text-zinc-200">
                         {currencyEmoji} {item.price}
@@ -415,7 +519,10 @@ export default function ShopPage() {
                       <button
                         type="button"
                         disabled={!canAfford}
-                        onClick={() => setPurchaseTarget(item)}
+                        onClick={() => {
+                          setPurchaseIntent("normal");
+                          setPurchaseTarget(item);
+                        }}
                         className={`rounded-full px-3 py-1 text-xs font-medium transition ${
                           canAfford
                             ? "bg-violet-600/80 text-white hover:bg-violet-500/80"
@@ -429,6 +536,23 @@ export default function ShopPage() {
                             : "探險幣不足"}
                       </button>
                     </div>
+                    {item.allow_gift !== false && isLoggedIn ? (
+                      <button
+                        type="button"
+                        disabled={!canAfford}
+                        onClick={() => {
+                          setPurchaseIntent("gift_friend");
+                          setPurchaseTarget(item);
+                        }}
+                        className={`w-full rounded-full py-2 text-xs font-medium transition ${
+                          canAfford
+                            ? "border border-violet-500/50 bg-violet-950/40 text-violet-200 hover:bg-violet-900/40"
+                            : "cursor-not-allowed border border-zinc-800 bg-zinc-900/40 text-zinc-600"
+                        }`}
+                      >
+                        🎁 送給朋友
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               );
@@ -441,7 +565,10 @@ export default function ShopPage() {
       <Dialog
         open={!!purchaseTarget}
         onOpenChange={(o) => {
-          if (!o) setPurchaseTarget(null);
+          if (!o) {
+            setPurchaseTarget(null);
+            setPurchaseIntent("normal");
+          }
         }}
       >
         <DialogContent className="border-zinc-800 bg-zinc-950 text-zinc-100 sm:max-w-md">
@@ -705,6 +832,200 @@ export default function ShopPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={postPurchaseAskOpen}
+        onOpenChange={(o) => {
+          if (!o) {
+            setPostPurchaseAskOpen(false);
+            setPostPurchaseContext(null);
+          }
+        }}
+      >
+        <DialogContent className="border-zinc-800 bg-zinc-950 text-zinc-100 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>要直接送給誰嗎？</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              {postPurchaseContext
+                ? `「${postPurchaseContext.itemName}」已放入你的背包。`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 pt-2">
+            <Button
+              type="button"
+              className="w-full bg-zinc-800 text-zinc-100 hover:bg-zinc-700"
+              onClick={() => {
+                setPostPurchaseAskOpen(false);
+                setPostPurchaseContext(null);
+              }}
+            >
+              放入我的背包
+            </Button>
+            <Button
+              type="button"
+              className="w-full bg-violet-600 text-white hover:bg-violet-500"
+              onClick={() => {
+                if (!postPurchaseContext) return;
+                setGiftPlayerRewardId(postPurchaseContext.rewardId);
+                setGiftPlayerItemLabel(postPurchaseContext.itemName);
+                setGiftNicknameDraft("");
+                setGiftPlayerCandidates([]);
+                setGiftPlayerRecipientPick(null);
+                setPostPurchaseAskOpen(false);
+                setPostPurchaseContext(null);
+                setGiftPlayerDialogOpen(true);
+              }}
+            >
+              🎁 直接送給玩家
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={giftPlayerDialogOpen}
+        onOpenChange={(o) => {
+          setGiftPlayerDialogOpen(o);
+          if (!o) {
+            setGiftPlayerRewardId(null);
+            setGiftPlayerCandidates([]);
+            setGiftNicknameDraft("");
+            setGiftPlayerRecipientPick(null);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[85vh] overflow-hidden border-zinc-700 bg-zinc-950 text-zinc-100 sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-zinc-100">贈送給誰？</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              {giftPlayerItemLabel
+                ? `將贈送「${giftPlayerItemLabel}」`
+                : "搜尋冒險者暱稱"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex min-h-0 flex-col gap-3 overflow-hidden pt-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={giftNicknameDraft}
+                onChange={(e) =>
+                  setGiftNicknameDraft(e.target.value.slice(0, 32))
+                }
+                placeholder="輸入暱稱（至少 1 字）"
+                className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
+              />
+              <Button
+                type="button"
+                disabled={
+                  giftPlayerSearchBusy ||
+                  giftNicknameDraft.trim().length < 1 ||
+                  !giftPlayerRewardId
+                }
+                onClick={() => void handleGiftPlayerSearch()}
+              >
+                {giftPlayerSearchBusy ? "搜尋中…" : "搜尋"}
+              </Button>
+            </div>
+            <div
+              className="max-h-52 min-h-0 space-y-2 overflow-y-auto"
+              style={{ overscrollBehavior: "contain" }}
+            >
+              {giftPlayerCandidates.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2.5 text-left transition-colors hover:bg-zinc-800/90"
+                  onClick={() => setGiftPlayerRecipientPick(c)}
+                >
+                  {c.avatar_url?.trim() ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={toThumbImageUrl(c.avatar_url, 64, 64)}
+                      alt=""
+                      className="h-10 w-10 shrink-0 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-sm text-zinc-400">
+                      {(c.nickname || "?")[0]?.toUpperCase() ?? "?"}
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-zinc-100">
+                      {c.nickname}
+                    </p>
+                    <p className="text-xs text-zinc-500">Lv.{c.level}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-zinc-600 bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
+              onClick={() => setGiftPlayerDialogOpen(false)}
+            >
+              關閉
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={giftPlayerRecipientPick !== null}
+        onOpenChange={(open) => {
+          if (!open) setGiftPlayerRecipientPick(null);
+        }}
+      >
+        <AlertDialogContent className="border-zinc-700 bg-zinc-950 text-zinc-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定贈送？</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              {giftPlayerRecipientPick
+                ? `確定要把「${giftPlayerItemLabel}」送給 ${giftPlayerRecipientPick.nickname} 嗎？送出後無法取回。`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              variant="outline"
+              className="border-zinc-700 bg-zinc-900 text-zinc-200"
+              disabled={giftPlayerConfirmBusy}
+            >
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-violet-600 text-white hover:bg-violet-500"
+              disabled={giftPlayerConfirmBusy || !giftPlayerRewardId}
+              onClick={async (e) => {
+                e.preventDefault();
+                const pick = giftPlayerRecipientPick;
+                const rid = giftPlayerRewardId;
+                if (!pick || !rid || giftPlayerConfirmBusy) return;
+                setGiftPlayerConfirmBusy(true);
+                try {
+                  const r = await confirmGiftAction(rid, pick.id);
+                  if (!r.ok) {
+                    toast.error(r.error);
+                    return;
+                  }
+                  toast.success("🎁 已成功送出！");
+                  setGiftPlayerRecipientPick(null);
+                  setGiftPlayerDialogOpen(false);
+                  setGiftPlayerRewardId(null);
+                  setGiftPlayerCandidates([]);
+                  setGiftNicknameDraft("");
+                  router.refresh();
+                } finally {
+                  setGiftPlayerConfirmBusy(false);
+                }
+              }}
+            >
+              {giftPlayerConfirmBusy ? "送出中…" : "確定送出"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
