@@ -1,36 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 傳奇公會（Old Moon）
 
-## Getting Started
+Next.js App Router 專案。開發銜接、架構與資料庫約束以 **`HANDOFF.md`** 為主；資料庫／遷移／**Supabase RLS** 以 **`HANDOFF_DB.md`** 為主。
 
-First, run the development server:
+## 安全與 RLS（Supabase）
+
+- **`public` 業務表預設應啟用 Row Level Security（RLS）**；敏感寫入（金流、派獎、經驗日誌、後台稽核等）應經 **`createAdminClient()`（service role）**，不受 RLS 阻擋。
+- **政策設計、表分類、新表檢查清單、除錯原則（含：禁止用關閉 RLS 當修 bug）** → 見 **`HANDOFF_DB.md`** 章節 **「RLS 政策與維運規範」**。
+- 封測曾套用之全表 RLS 強化遷移：`supabase/migrations/20260330190000_rls_lockdown_sensitive_tables.sql`（雲端執行紀錄以 Dashboard／MCP 為準）。
+
+## 本機開發
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+瀏覽 [http://localhost:3000](http://localhost:3000)。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 相關文件
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| 檔案 | 用途 |
+|------|------|
+| `HANDOFF.md` | 階段目標、五層架構、檔案索引 |
+| `HANDOFF_DB.md` | Schema、遷移、**RLS**、DDL 補丁 |
+| `HANDOFF_FEATURES.md` | 功能完成度與產品待辦 |
+| `.cursorrules` | Cursor／協作者機讀規範 |
+
+---
+
+以下為建立專案時的 Next.js 預設說明（可略）。
+
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Learn More
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Learn Next.js](https://nextjs.org/learn)
 
 ## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The easiest way to deploy is the [Vercel Platform](https://vercel.com/new). See [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying).

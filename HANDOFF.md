@@ -4,7 +4,7 @@
 
 ## 🌕 目前開發階段
 
-**Phase 2 — 社交核心進行中**：Phase 2.1 村莊＋市集已接線；**下一個優先** Phase 2.2 收尾 — 雲端 **RLS**、型別對齊、私訊／血盟壓測與 UX；註冊名冊兩步＋`/register/interests`→`/register/skills`、五步指示器、**`/profile/edit-tags`** 已接線。
+**Phase 2 — 社交核心進行中**：Phase 2.1 村莊＋市集已接線；**下一個優先** Phase 2.2 收尾 — 雲端 **RLS**（政策與維運規則見 **`HANDOFF_DB.md` →「RLS 政策與維運規範」**）、型別對齊、私訊／血盟壓測與 UX；註冊名冊兩步＋`/register/interests`→`/register/skills`、五步指示器、**`/profile/edit-tags`** 已接線。
 
 ## 🏛️ 五層架構核心規範
 
@@ -25,7 +25,7 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 - `inventory_slots`（背包格數，預設 16）
 - `users.status`（`pending` / `active` / `suspended` / `banned`）
 
-**補充**：`likes` 無 `id`；`alliances` 用 `user_a`／`user_b`／`initiated_by`；通知 `type`、`from_user_id`、`message`、`is_read`。更細 SSOT／遷移／RLS 見 `HANDOFF_DB.md`（深查時再開）。
+**補充**：`likes` 無 `id`；`alliances` 用 `user_a`／`user_b`／`initiated_by`；通知 `type`、`from_user_id`、`message`、`is_read`。更細 SSOT／遷移／**RLS 政策與除錯原則**見 `HANDOFF_DB.md`（深查時再開）。
 
 ## 📁 關鍵檔案索引
 
@@ -103,12 +103,12 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 - 若雲端 `coin_transactions.source` 有 **CHECK／enum** 未含 **`admin_adjust`**，後台調整幣會寫入失敗，需補 DDL 與型別。
 - 觸發器／函式若仍引用舊欄位 `exp` 而非 `total_exp` 需修正。
 - 雲端若缺 `loot_box` 獎池需補種子（見遷移 `20260329130000_shop_image_marquee_loot_box.sql`／MCP）。
-- `alliances`／私訊／`likes` 等 **RLS** 與 production 測試仍待補強。
+- `alliances`／私訊／`likes` 等 **RLS** 細節與 production 測試仍待對照 **`HANDOFF_DB.md`** 規範逐表確認。
 - `/admin/users` 篩選 `ig_pending` 完整列表邏輯待 Layer 2 擴充（見歷史紀錄）。
 
 ## 🔲 下一步待辦
 
-1. **Phase 2.2／雲端**：`alliances`、私訊、`likes` 等 RLS 與 production 測試；Schema 與 `database.types.ts` 對齊。
+1. **Phase 2.2／雲端**：`alliances`、私訊、`likes` 等政策與 **`HANDOFF_DB.md` RLS 規範**一致化；production 測試；Schema 與 `database.types.ts` 對齊。
 2. **產品／UX**：`/explore` 篩選與技能供需編輯；登入心跳 `last_seen_at`。
 3. **維運**：雲端缺獎池時補種子；重大 DDL 後 Reload schema。
 4. **功能規劃深查**：模組 ✅/🔲、視覺待辦見 `HANDOFF_FEATURES.md`。
@@ -116,5 +116,5 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 ## 📚 子檔案說明
 
 - `HANDOFF_HISTORY.md`：所有歷史任務完整紀錄（**不主動讀取**）
-- `HANDOFF_DB.md`：遷移、RLS、DDL 補丁、欄位細節（深查 DB 時）
+- `HANDOFF_DB.md`：遷移、**RLS 政策與維運規範**、DDL 補丁、欄位細節（深查 DB 時）
 - `HANDOFF_FEATURES.md`：功能完成度、Wave 摘要、視覺待辦（查產品狀態時）
