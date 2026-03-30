@@ -56,7 +56,7 @@ export function MarketContent({
                 技能市集
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                雙向技能標籤契合時為「⚔️ 命定師徒」— 白金光暈標示緣分
+                雙向互補技能合計 ≥ 2 項時為「⚔️ 命定師徒」— 白金光暈標示緣分
               </p>
             </div>
           </div>

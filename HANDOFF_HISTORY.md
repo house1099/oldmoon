@@ -5,6 +5,36 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-30 — 探索 `/explore`：村莊／市集 Layer 2–3 與註冊興趣必填（建置通過、已併版）
+
+1. **Layer 2 — `user.repository.ts`**  
+   - **`findMarketUsers`**：**`skills_offer` 或 `skills_want` 至少一邊**為非 NULL 且 **`neq {}`**（PostgREST **`.or(and(...),and(...))`**）；**`select` 補 `total_exp`** 供排序。  
+   - **`findVillageUsers`**：維持同縣市、**`active`**、排除 **`hidden`**、排除自己（性向於 L3 篩選）。
+
+2. **Layer 3 — `market.service.ts`**  
+   - **`getMarketUsersAction`**：**`calcSkillScore`** 之 **`complementScore`**；**`isPerfectMatch`＝`complementScore >= 2`**（命定師徒／師徒關係）；排序：**互補 ≥2 優先** → **`level` 高→低** → **`total_exp` 高→低**（不再以互補／同好分作次要排序；市集無 **`role` 置頂**）。  
+   - **`unstable_cache`** 列表鍵 **`market-v3-${userId}`**（**`revalidate: 300`**），避免舊快取缺 **`total_exp`**。關鍵字篩選仍於快取回傳後執行。
+
+3. **Layer 3 — `village.service.ts`**  
+   - **`getVillageUsersAction`**：**`isOrientationMatch`** 雙向 **`.filter`**；排序 **`roleTier`**：**`master` → `moderator` → 其他**，再 **`calcInterestScore`**，再 **`level`**。  
+   - 快取鍵 **`village-v3-${userId}-${region}`**（**`revalidate: 300`**）。
+
+4. **Layer 4 — `ExploreClient.tsx`**：未改本任務（村莊 SWR／市集 SWR 既有）。
+
+5. **Layer 5 — `MarketContent.tsx`**：副標改為 **「雙向互補技能合計 ≥ 2 項」**；**`UserCard`** 仍依 **`perfectMatch` prop**（由 service 計算）。
+
+6. **Layer 4 工具 — `matching.ts`**：新增 **`countComplementarySkills`**（內部呼叫 **`calcSkillScore`** 取 **`complementScore`**）。
+
+7. **註冊／興趣必填（與探索分開產品線但同併版）**  
+   - **`profile-form.tsx`**：建檔成功後 **`router.push('/register/interests')`**（不再直接進 **`/register/pending`**）。  
+   - **`middleware.ts`**：**`pending`** 使用者除 **`/register/pending`** 外，允許 **`/register/interests`**、**`/register/skills`**、舊 skills 路徑、**`/register/matchmaking`**，以便審核中仍補標籤。  
+   - **`register.action.ts`**：**`completeRegistration`** 正規化興趣、**至少 1 個**、**`getTagLimitsAction`** 上限。  
+   - **`skills-client.tsx`**：完成／跳過技能前若 session 無興趣，導回興趣頁。  
+   - **`profile-update.action.ts`**：更新 **`interests`** 時不可清空至 0、不可超上限。  
+   - **`adventurer-profile.action.ts`**：註解說明興趣於後續步驟寫入。
+
+8. **建置**：**`npm run build`** 通過（既有 **`no-img-element`** 警告不阻斷）。
+
 ### 2026-03-30 — 裝回 PostLoginEntrance（保留開場／進度條，禁止純黑全螢幕閃屏）
 
 1. **還原**：**`PostLoginEntrance.tsx`**、**`auth-bootstrap.action.ts`**；**`(app)/layout.tsx`** 再包 **`PostLoginEntrance`**；**`login-form`** **`markPostLoginEntrance()`**；**`auth/callback`** **`withGuildEntranceFlag`**（**`guild_entrance=1`**）。

@@ -34,7 +34,7 @@ export async function completeAdventurerProfile(input: {
   questionnaire: AdventurerQuestionnaire;
   /** 三題核心價值觀，依序對應 `CORE_VALUES_QUESTIONS` */
   coreValues: string[];
-  /** 興趣 slug 列表（users.interests）；建檔可為空，於 /register/interests、completeRegistration 補齊 */
+  /** 興趣 slug 列表；建檔時傳空陣列，須於 `/register/interests` → **`completeRegistration`** 寫入至少 1 筆 */
   interests: string[];
   /**
    * OAuth（如 Google）略過註冊 Step1 時，`user_metadata` 可能無 IG；

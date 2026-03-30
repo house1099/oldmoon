@@ -118,9 +118,24 @@ export async function middleware(request: NextRequest) {
     return signOutAndRedirectBanned(request, loginUrl);
   }
 
-  // --- IG／註冊審核中：僅允許 /register/pending（其餘含 /login、首頁皆導向待審核頁） ---
+  // --- IG／註冊審核中：待審核頁 + 補齊興趣／技能／月老（與名冊送審可並行）---
   if (auth.kind === "pending") {
-    if (pathname === "/register/pending") {
+    const pendingOnboardingPaths = new Set([
+      "/register/pending",
+      "/register/interests",
+      "/register/skills",
+      "/register/skills-offer",
+      "/register/skills-want",
+      "/register/matchmaking",
+    ]);
+    if (
+      pendingOnboardingPaths.has(pathname) ||
+      pathname.startsWith("/register/interests/") ||
+      pathname.startsWith("/register/skills/") ||
+      pathname.startsWith("/register/skills-offer/") ||
+      pathname.startsWith("/register/skills-want/") ||
+      pathname.startsWith("/register/matchmaking/")
+    ) {
       return response;
     }
     return NextResponse.redirect(pendingReviewUrl);

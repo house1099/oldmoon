@@ -29,8 +29,14 @@ export function SkillsClient({ skillsMax }: { skillsMax: number }) {
   }
 
   async function handleComplete() {
-    setSubmitting(true);
     const interests = readInterestsFromSession();
+    if (interests.length < 1) {
+      toast.error("請先完成興趣標籤（至少 1 個）。");
+      router.push("/register/interests");
+      return;
+    }
+
+    setSubmitting(true);
 
     const result = await completeRegistration({
       interests,
@@ -51,8 +57,14 @@ export function SkillsClient({ skillsMax }: { skillsMax: number }) {
   }
 
   async function handleSkip() {
-    setSubmitting(true);
     const interests = readInterestsFromSession();
+    if (interests.length < 1) {
+      toast.error("請先完成興趣標籤（至少 1 個），無法跳過。");
+      router.push("/register/interests");
+      return;
+    }
+
+    setSubmitting(true);
 
     const result = await completeRegistration({
       interests,

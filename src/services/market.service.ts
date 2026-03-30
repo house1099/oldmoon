@@ -34,44 +34,6 @@ async function getCachedMySkills(userId: string): Promise<MySkillsRow | null> {
   )();
 }
 
-function normalizeTags(raw: string[] | null | undefined): string[] {
-  if (!raw?.length) return [];
-  return Array.from(new Set(raw.filter(Boolean)));
-}
-
-function marketOffersFromUser(user: UserRow): string[] {
-  return normalizeTags(user.skills_offer);
-}
-
-function marketWantsFromUser(user: UserRow): string[] {
-  return normalizeTags(user.skills_want);
-}
-
-function intersectNonEmpty(a: string[], b: string[]): boolean {
-  if (a.length === 0 || b.length === 0) return false;
-  const setB = new Set(b);
-  return a.some((x) => setB.has(x));
-}
-
-/**
- * 完美匹配：(**我想要的** ∩ **他提供的**) 與 (**他想要的** ∩ **我提供的**) 皆不為空。
- */
-function evaluatePerfectMatch(
-  currentUser: UserRow,
-  targetUser: UserRow,
-): { isPerfectMatch: boolean } {
-  const myWants = marketWantsFromUser(currentUser);
-  const myOffers = marketOffersFromUser(currentUser);
-  const theirWants = marketWantsFromUser(targetUser);
-  const theirOffers = marketOffersFromUser(targetUser);
-
-  const isPerfectMatch =
-    intersectNonEmpty(myWants, theirOffers) &&
-    intersectNonEmpty(theirWants, myOffers);
-
-  return { isPerfectMatch };
-}
-
 export type MarketUserWithScores = UserRow & {
   _complementScore: number;
   _similarScore: number;
@@ -88,10 +50,6 @@ export async function getMarketUsersAction(
   if (!user) return { ok: false, users: [] };
 
   const me = await getCachedMySkills(user.id);
-  const meForPerfect = (me ?? {
-    skills_offer: [],
-    skills_want: [],
-  }) as UserRow;
 
   const getCachedMarketUsers = unstable_cache(
     async () => {
@@ -116,7 +74,7 @@ export async function getMarketUsersAction(
         };
       });
     },
-    [`market-v2-${user.id}`],
+    [`market-v3-${user.id}`],
     { revalidate: 300 },
   );
 
@@ -132,14 +90,17 @@ export async function getMarketUsersAction(
     );
   }
 
+  const myWant = me?.skills_want ?? [];
+  const myOffer = me?.skills_offer ?? [];
+
   const scored: MarketUserWithScores[] = candidates.map((u) => {
     const { complementScore, similarScore } = calcSkillScore(
-      me?.skills_want ?? [],
-      me?.skills_offer ?? [],
+      myWant,
+      myOffer,
       u.skills_offer ?? [],
       u.skills_want ?? [],
     );
-    const { isPerfectMatch } = evaluatePerfectMatch(meForPerfect, u);
+    const isPerfectMatch = complementScore >= 2;
     return {
       ...u,
       _complementScore: complementScore,
@@ -152,13 +113,9 @@ export async function getMarketUsersAction(
     if (a.isPerfectMatch !== b.isPerfectMatch) {
       return a.isPerfectMatch ? -1 : 1;
     }
-    if (b._complementScore !== a._complementScore) {
-      return b._complementScore - a._complementScore;
-    }
-    if (b._similarScore !== a._similarScore) {
-      return b._similarScore - a._similarScore;
-    }
-    return (b.level ?? 1) - (a.level ?? 1);
+    const levelDiff = (b.level ?? 1) - (a.level ?? 1);
+    if (levelDiff !== 0) return levelDiff;
+    return (b.total_exp ?? 0) - (a.total_exp ?? 0);
   });
 
   return { ok: true, users: scored };

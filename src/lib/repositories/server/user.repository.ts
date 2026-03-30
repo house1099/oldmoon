@@ -142,6 +142,7 @@ export async function findVillageUsers(params: {
 
 /**
  * 技能市集：全台其他 **`active`** 冒險者（排除自己）；不含 IG 欄位。
+ * 至少 **`skills_offer` 或 `skills_want` 其一為非 NULL 且非空陣列**（Layer 2 排除無技能者）。
  */
 export async function findMarketUsers(params: {
   currentUserId: string;
@@ -152,14 +153,17 @@ export async function findMarketUsers(params: {
     .select(
       `
       id, nickname, gender, region, orientation,
-      avatar_url, level, role, mood, mood_at,
+      avatar_url, level, total_exp, role, mood, mood_at,
       interests, skills_offer, skills_want,
       bio_village, bio_market, last_seen_at, activity_status, offline_ok
     `,
     )
     .eq("status", "active")
     .neq("activity_status", "hidden")
-    .neq("id", params.currentUserId);
+    .neq("id", params.currentUserId)
+    .or(
+      "and(skills_offer.not.is.null,skills_offer.neq.{}),and(skills_want.not.is.null,skills_want.neq.{})",
+    );
 
   if (error) {
     throw error;

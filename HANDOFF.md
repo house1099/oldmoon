@@ -93,9 +93,9 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## ✅ 最近完成（最新 3 次任務）
 
-1. **2026-03-30 — UserDetailModal 視窗置中 + 捲軸焦點**：無 **`DialogTrigger`** 時 Base UI 依錨點定位，彈窗常落在畫面下方；**`UserDetailModal`** **`contentStyle`** 強制 **`position:fixed; left/top:50%; transform:translate(-50%,-50%)`** ＋ **`maxHeight`**／**`width`** 置中。**`initialFocus={-1}`** 避免開啟時捲到內容底部。**`/shop`**：**🎁 送給朋友** 左側小鈕、**購買** 右側大鈕；贈送流程 **選對象（`searchGiftRecipientCandidatesAction`）→ 數量／小計 → 確認 Alert → 購買 + `confirmGiftAction`**（對方信件通知）。詳見 **`HANDOFF_HISTORY.md`**。
-2. **2026-03-30 — 贈送規則（`allow_gift`／獎池／裝備中）**：**`gift.action.ts`**、**`rewards.repository`**、**`confirmGiftAction`** 轉移順序與 **`insertUserReward` 回傳 id`**、**`purchaseItemAction.newRewardIds`** 等（延續前版）。
-3. **2026-03-30 — 全站選取禁止、背包長按、背包贈禮玩家**：**`globals.css`** **`user-select: none`** 等；**`FloatingToolbar`** 長按、**`giftItemToUserAction`／`confirmGiftAction`**、血盟批次贈送。
+1. **2026-03-30 — 探索村莊／市集邏輯、註冊興趣必填與建置**：**Layer 2** **`findMarketUsers`** 排除無技能（**`skills_offer`／`skills_want` 至少一邊非空**）、**`select` 含 `total_exp`**；**Layer 3** 市集 **`isPerfectMatch`＝互補 ≥2**、排序 **命定師徒 → `level` → `total_exp`**，快取鍵 **`market-v3-${userId}`**；村莊 **`master` → `moderator` → 興趣分 → `level`**、**`isOrientationMatch`** 篩選，快取 **`village-v3-…`**；**`matching.ts`** 新增 **`countComplementarySkills`**；**`MarketContent`** 文案對齊。**註冊**：名冊成功後導 **`/register/interests`**；**`pending`** 可進興趣／技能／月老（**`middleware.ts`**）；**`completeRegistration`／`updateMyProfile`** 強制 **≥1 興趣** 與上限。**`npm run build`** 通過。詳見 **`HANDOFF_HISTORY.md`**。
+2. **2026-03-30 — UserDetailModal 視窗置中 + 捲軸焦點**：無 **`DialogTrigger`** 時 Base UI 依錨點定位，彈窗常落在畫面下方；**`UserDetailModal`** **`contentStyle`** 強制 **`position:fixed; left/top:50%; transform:translate(-50%,-50%)`** ＋ **`maxHeight`**／**`width`** 置中。**`initialFocus={-1}`** 避免開啟時捲到內容底部。**`/shop`**：**🎁 送給朋友** 左側小鈕、**購買** 右側大鈕；贈送流程 **選對象（`searchGiftRecipientCandidatesAction`）→ 數量／小計 → 確認 Alert → 購買 + `confirmGiftAction`**（對方信件通知）。詳見 **`HANDOFF_HISTORY.md`**。
+3. **2026-03-30 — 贈送規則（`allow_gift`／獎池／裝備中）**：**`gift.action.ts`**、**`rewards.repository`**、**`confirmGiftAction`** 轉移順序與 **`insertUserReward` 回傳 id`**、**`purchaseItemAction.newRewardIds`** 等（延續前版）。
 
 ## ⚠️ 目前已知問題
 

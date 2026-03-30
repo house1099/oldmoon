@@ -11,6 +11,7 @@ import { instagramHandleSchema } from "@/lib/validation/instagram-handle";
 import { nicknameSchema } from "@/lib/validation/nickname";
 import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
 import { findSystemSettingByKey } from "@/lib/repositories/server/invitation.repository";
+import { getTagLimitsAction } from "@/services/system-settings.action";
 
 /**
  * Layer 3：編輯公會名片（通用 bio、分域自白、**`instagram_handle`**、IG 公開、每日心情、頭像 URL、**`interests`／`skills_offer`／`skills_want`** 標籤陣列）。
@@ -152,7 +153,24 @@ export async function updateMyProfile(input: {
     patch.avatar_url = u.length > 0 ? u : null;
   }
   if (input.interests !== undefined) {
-    patch.interests = input.interests;
+    const cleaned = Array.from(
+      new Set(
+        input.interests.filter(
+          (t): t is string => typeof t === "string" && t.trim().length > 0,
+        ),
+      ),
+    );
+    if (cleaned.length < 1) {
+      return { ok: false, error: "興趣至少需要保留 1 個標籤。" };
+    }
+    const { interestsMax } = await getTagLimitsAction();
+    if (cleaned.length > interestsMax) {
+      return {
+        ok: false,
+        error: `興趣標籤最多 ${interestsMax} 個。`,
+      };
+    }
+    patch.interests = cleaned;
   }
   if (input.skills_offer !== undefined) {
     patch.skills_offer = input.skills_offer;

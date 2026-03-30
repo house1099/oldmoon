@@ -60,3 +60,13 @@ export function calcSkillScore(
 
   return { complementScore, similarScore };
 }
+
+/** 雙向互補技能總數（同 {@link calcSkillScore} 的 `complementScore`）。 */
+export function countComplementarySkills(
+  myWant: string[],
+  myOffer: string[],
+  theirOffer: string[],
+  theirWant: string[],
+): number {
+  return calcSkillScore(myWant, myOffer, theirOffer, theirWant).complementScore;
+}
