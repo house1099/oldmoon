@@ -249,6 +249,7 @@
 
 - **`src/lib/utils/tavern-message-limit.ts`**：**`resolveTavernMessageMaxLength`**（預設 **50**、硬上限 **500**）；**`getMessageLimitsAction`** 之 **`tavernMax`** 與 **`sendTavernMessageAction`** 之 **`effectiveTavernMessageMax`** 共用，避免 UI 與伺服驗證漂移（後台設超過 **500** 時前台計數亦 **500**）。
 - **`TavernModal.tsx`** 訊息氣泡：**`min-w-0`**、**`break-words`**、**`overflow-wrap:anywhere`**，長串數字不撐破 **flex** 版面。
+- **後續**：**`sonner.tsx`** **`Toaster`** 加 **`z-[600]`**，避免錯誤 toast 被酒館全螢幕（**`z-50`**）遮住；**`handleSend`** **`try`／`finally`** 必解 **`sending`**，關閉酒館時 **`setSending(false)`** 清卡住狀態。
 
 ### Wave A 基礎修復（2026-03-27）
 

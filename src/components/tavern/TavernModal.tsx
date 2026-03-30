@@ -135,6 +135,7 @@ export function TavernModal({
 
   useEffect(() => {
     if (!open) {
+      setSending(false);
       setInput("");
       setStickersOpen(false);
       setMentionOpen(false);
@@ -181,18 +182,23 @@ export function TavernModal({
     const trimmed = content.trim();
     if (!trimmed || sending || isBanned) return;
     setSending(true);
-    const result = await sendTavernMessageAction(trimmed, type);
-    setSending(false);
-    if (result.success) {
-      setInput("");
-      setStickersOpen(false);
-      setMentionOpen(false);
-      void mutate();
-    } else {
-      toast.error(result.error ?? "發送失敗");
-      if (result.error?.includes("禁止")) {
-        void mutateBan();
+    try {
+      const result = await sendTavernMessageAction(trimmed, type);
+      if (result.success) {
+        setInput("");
+        setStickersOpen(false);
+        setMentionOpen(false);
+        void mutate();
+      } else {
+        toast.error(result.error ?? "發送失敗");
+        if (result.error?.includes("禁止")) {
+          void mutateBan();
+        }
       }
+    } catch (e) {
+      toast.error((e as Error).message ?? "發送失敗");
+    } finally {
+      setSending(false);
     }
   };
 
