@@ -1,3 +1,4 @@
+import { PostLoginEntrance } from "@/components/auth/PostLoginEntrance";
 import { AppBroadcastChrome } from "@/components/layout/app-broadcast-chrome";
 import { FloatingToolbarProvider } from "@/components/layout/FloatingToolbar";
 import { Navbar } from "@/components/layout/Navbar";
@@ -20,10 +21,12 @@ export default async function AppGroupLayout({
     <SWRProvider>
       <GuildTabProvider>
         <FloatingToolbarProvider messageMaxLength={tavernMax}>
-          <AppBroadcastChrome initialHasBroadcast={initialHasBroadcast}>
-            {children}
-          </AppBroadcastChrome>
-          <Navbar />
+          <PostLoginEntrance>
+            <AppBroadcastChrome initialHasBroadcast={initialHasBroadcast}>
+              {children}
+            </AppBroadcastChrome>
+            <Navbar />
+          </PostLoginEntrance>
         </FloatingToolbarProvider>
       </GuildTabProvider>
     </SWRProvider>

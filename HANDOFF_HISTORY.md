@@ -5,6 +5,14 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-30 — 裝備背包格尺寸、酒館 @ 提及、登入大門過場
+
+1. **`FloatingToolbar.tsx`（裝備背包）**：道具格 **`button`** 補 **`width:100%`／`minWidth:0`／`boxSizing`** 與 **`w-full min-w-0`**；空格／鎖格／loading 骨架改 **`aspect-square w-full min-w-0`**（移除 **`h-16`**）；**`grid`** 加 **`[&>*]:min-w-0`**，避免最後一格因 **`min-width:auto`** 視覺上較寬。背包長按選單：早前已改 **`stackSupportsLongPress`** 為 **`firstManageableRewardRow != null`**（本次若已併版一併存在）。
+2. **酒館 @**：**`TavernModal.tsx`** — **`@` 按鈕**展開目前訊息串中他人暱稱 chip，插入 **`@暱稱 `**；**`tavern-message-content.tsx`** — **`buildTavernNicknameToUserId`**、**`renderTavernMessageText`** 解析 **`@xxx`**，對應到訊息串暱稱者可點開 **`UserDetailModal`**（**`stopPropagation`**）；**`type === 'emoji'`** 不解析。無 DB 變更，內容仍為純文字。
+3. **登入後過場**：**`PostLoginEntrance.tsx`** 包於 **`(app)/layout.tsx`**；**`postLoginBootstrapAction`**（**`auth-bootstrap.action.ts`**）**`getUser` + `findProfileById`**；**Email 登入** **`login-form.tsx`** **`markPostLoginEntrance()`** + **`router.push`**；**OAuth** **`auth/callback/route.ts`** **`withGuildEntranceFlag(next)`** 帶 **`guild_entrance=1`**，進頁 **`replaceState` 去參**。進度：**`router.refresh()`** 後 **`waitUntilVisualReady`**（**`window` `load` 若尚未 `complete`（逾時 12s）**、**`document.fonts.ready`**、**雙重 `requestAnimationFrame`**），再 **100%**、短暫停留後以 **上下門** CSS 開啟（`translateY`）。
+4. **建置**：**`npm run build`** 通過（Tailwind 對 **`duration-[850ms]`**／**`ease-[cubic-bezier(...)]`** 有 ambiguous 警告，不阻斷）。
+5. **文件**：**`docs/MCP_SUPABASE_CURSOR.md`** 工作區刪除（若需請自版本庫外備份）。
+
 ### 2026-03-30 — 設計修復計劃（探索 WiFi 列跳動、商城／贈送 Bottom Sheet）
 
 1. **`user.repository.ts`**：**`findVillageUsers`**／**`findMarketUsers`** 的 **`.select`** 補 **`offline_ok`**（**`activity_status`／`last_seen_at`** 既有）；列表首次載入即含線上活動列所需欄位，避免二次補資料造成版面跳動。

@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -23,6 +24,10 @@ import { getMemberProfileByIdAction } from "@/services/profile.action";
 import type { TavernMessageDto } from "@/types/database.types";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { UserDetailModal } from "@/components/modals/UserDetailModal";
+import {
+  buildTavernNicknameToUserId,
+  renderTavernMessageText,
+} from "@/components/tavern/tavern-message-content";
 import { cn } from "@/lib/utils";
 import { getRoleDisplay } from "@/lib/utils/role-display";
 
@@ -82,6 +87,7 @@ export function TavernModal({
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [stickersOpen, setStickersOpen] = useState(false);
+  const [mentionOpen, setMentionOpen] = useState(false);
   const [actionTarget, setActionTarget] = useState<TavernMessageDto | null>(
     null,
   );
@@ -99,6 +105,29 @@ export function TavernModal({
   const myId = profile?.id;
   const isActionTargetMine = actionTarget?.user_id === myId;
 
+  const nicknameToUserId = useMemo(
+    () => buildTavernNicknameToUserId(messages),
+    [messages],
+  );
+
+  const mentionCandidates = useMemo(() => {
+    const seen = new Set<string>();
+    const list: { id: string; nickname: string }[] = [];
+    for (const row of messages) {
+      if (row.user_id === myId) continue;
+      if (seen.has(row.user_id)) continue;
+      seen.add(row.user_id);
+      list.push({
+        id: row.user_id,
+        nickname: row.user.nickname,
+      });
+    }
+    list.sort((a, b) =>
+      a.nickname.localeCompare(b.nickname, "zh-Hant", { sensitivity: "base" }),
+    );
+    return list;
+  }, [messages, myId]);
+
   useEffect(() => {
     if (!open) return;
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -108,6 +137,7 @@ export function TavernModal({
     if (!open) {
       setInput("");
       setStickersOpen(false);
+      setMentionOpen(false);
       setActionTarget(null);
       setSelectedBanHours(null);
       setBanReason("");
@@ -135,6 +165,18 @@ export function TavernModal({
     [myId],
   );
 
+  const renderBubbleContent = useCallback(
+    (msg: TavernMessageDto) => {
+      if (msg.type === "emoji") return msg.content;
+      return renderTavernMessageText(
+        msg.content,
+        nicknameToUserId,
+        (uid) => void openUserProfile(uid),
+      );
+    },
+    [nicknameToUserId, openUserProfile],
+  );
+
   const handleSend = async (content: string, type: "text" | "emoji") => {
     const trimmed = content.trim();
     if (!trimmed || sending || isBanned) return;
@@ -144,6 +186,7 @@ export function TavernModal({
     if (result.success) {
       setInput("");
       setStickersOpen(false);
+      setMentionOpen(false);
       void mutate();
     } else {
       toast.error(result.error ?? "發送失敗");
@@ -269,7 +312,7 @@ export function TavernModal({
                           }
                         }}
                       >
-                        {m.content}
+                        {renderBubbleContent(m)}
                       </div>
                       <span className="mt-0.5 text-right text-[10px] text-zinc-600">
                         {formatMsgTime(m.created_at)}
@@ -331,7 +374,7 @@ export function TavernModal({
                         }
                       }}
                     >
-                      {m.content}
+                      {renderBubbleContent(m)}
                     </div>
                     <span className="mt-0.5 text-[10px] text-zinc-600">
                       {formatMsgTime(m.created_at)}
@@ -345,6 +388,38 @@ export function TavernModal({
         </div>
 
         <div className="shrink-0 border-t border-zinc-800/50 bg-zinc-900/90 backdrop-blur-xl px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          {mentionOpen ? (
+            <div
+              className="mb-2 max-h-36 overflow-y-auto rounded-xl border border-zinc-700/60 bg-zinc-950/90 p-2"
+              style={{ overscrollBehavior: "contain" }}
+            >
+              <p className="mb-1.5 px-1 text-[10px] text-zinc-500">
+                點暱稱插入 @ 提及（須與對方在酒館曾出現的暱稱一致，訊息內可點擊 @ 開啟資料）
+              </p>
+              {mentionCandidates.length === 0 ? (
+                <p className="px-2 py-2 text-center text-xs text-zinc-500">
+                  尚無其他冒險者可選，可先和大家打聲招呼
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {mentionCandidates.map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      className="max-w-full truncate rounded-full border border-amber-600/45 bg-amber-950/50 px-2.5 py-1 text-xs text-amber-200/95 transition-colors hover:bg-amber-900/40"
+                      onClick={() => {
+                        const chunk = `@${u.nickname} `;
+                        setInput((prev) => (prev + chunk).slice(0, maxLength));
+                        setMentionOpen(false);
+                      }}
+                    >
+                      @{u.nickname}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
           {stickersOpen && (
             <div className="mb-2 grid grid-cols-8 gap-1 rounded-xl bg-zinc-900/80 p-2">
               {STICKERS.map((em) => (
@@ -366,9 +441,24 @@ export function TavernModal({
           <div className="flex items-center gap-2">
             <button
               type="button"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-800/80 text-sm font-bold text-amber-400/95 transition-transform active:scale-95 disabled:opacity-40 disabled:active:scale-100"
+              disabled={isBanned}
+              onClick={() => {
+                setMentionOpen((v) => !v);
+                setStickersOpen(false);
+              }}
+              aria-label="提及他人"
+            >
+              @
+            </button>
+            <button
+              type="button"
               className="w-10 h-10 rounded-full bg-zinc-800/80 flex items-center justify-center text-lg flex-shrink-0 active:scale-95 transition-transform disabled:opacity-40 disabled:active:scale-100"
               disabled={isBanned}
-              onClick={() => setStickersOpen((v) => !v)}
+              onClick={() => {
+                setStickersOpen((v) => !v);
+                setMentionOpen(false);
+              }}
               aria-label="貼圖"
             >
               😊

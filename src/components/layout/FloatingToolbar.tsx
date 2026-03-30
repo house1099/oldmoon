@@ -85,6 +85,10 @@ import {
 const TOTAL_INVENTORY_SLOTS = 48;
 
 const inventoryCellBaseStyle: CSSProperties = {
+  width: "100%",
+  minWidth: 0,
+  maxWidth: "100%",
+  boxSizing: "border-box",
   aspectRatio: "1",
   background: "rgba(255,255,255,0.04)",
   border: "0.5px solid rgba(255,255,255,0.08)",
@@ -280,13 +284,6 @@ type RewardStack = {
   rows: UserRewardWithEffect[];
 };
 
-/** 無商城來源時：維持原可長按之裝飾類道具 */
-const LEGACY_LONGPRESS_REWARD_TYPES = new Set([
-  "avatar_frame",
-  "card_frame",
-  "title",
-]);
-
 const EQUIPPED_BADGE_REWARD_TYPES = new Set([
   "avatar_frame",
   "card_frame",
@@ -309,23 +306,9 @@ function firstManageableRewardRow(stack: RewardStack): UserRewardWithEffect | nu
   return firstUnequippedRow(stack);
 }
 
+/** 只要有可操作的未裝備列（播券另計未使用）即可長按開啟選單；實際按鈕依商城／來源由 stackMenuActions 決定 */
 function stackSupportsLongPress(stack: RewardStack): boolean {
-  const sample = firstManageableRewardRow(stack);
-  if (!sample) return false;
-  if (sample.shop_item_id) {
-    const canGift = sample.shop_allow_gift !== false;
-    const canDelete = sample.shop_allow_delete !== false;
-    const unit =
-      sample.shop_resell_price != null
-        ? Number(sample.shop_resell_price)
-        : NaN;
-    const canResell =
-      sample.shop_allow_resell === true &&
-      Number.isFinite(unit) &&
-      unit >= 0;
-    return canGift || canDelete || canResell;
-  }
-  return LEGACY_LONGPRESS_REWARD_TYPES.has(stack.rewardType);
+  return firstManageableRewardRow(stack) != null;
 }
 
 function stackMenuMaxQty(stack: RewardStack): number {
@@ -1087,23 +1070,23 @@ function FloatingToolbarInner({
             ) : null}
 
             {rewardsLoading ? (
-              <div className="grid grid-cols-4 gap-2 py-4">
+              <div className="grid grid-cols-4 gap-2 py-4 [&>*]:min-w-0">
                 {Array.from({ length: 8 }).map((_, i) => (
                   <div
                     key={i}
-                    className="h-16 animate-pulse rounded-xl bg-zinc-800/40"
+                    className="aspect-square w-full min-w-0 animate-pulse rounded-xl bg-zinc-800/40"
                   />
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-4 gap-2 [&>*]:min-w-0">
                 {Array.from({ length: TOTAL_INVENTORY_SLOTS }, (_, slotIdx) => {
                   if (slotIdx >= lockedStart) {
                     return (
                       <div
                         key={`lock-${slotIdx}`}
                         title="購買擴充包解鎖（即將開放）"
-                        className="flex h-16 cursor-default flex-col items-center justify-center rounded-xl border border-zinc-800/30 bg-zinc-800/40 text-zinc-600 transition-colors hover:bg-zinc-800/55"
+                        className="flex aspect-square w-full min-w-0 cursor-default flex-col items-center justify-center rounded-xl border border-zinc-800/30 bg-zinc-800/40 text-zinc-600 transition-colors hover:bg-zinc-800/55"
                       >
                         <span className="text-lg opacity-70" aria-hidden>
                           🔒
@@ -1119,7 +1102,7 @@ function FloatingToolbarInner({
                     return (
                       <div
                         key={`empty-${slotIdx}`}
-                        className="flex h-16 items-center justify-center rounded-xl border border-dashed border-zinc-700/30 bg-zinc-800/20"
+                        className="flex aspect-square w-full min-w-0 items-center justify-center rounded-xl border border-dashed border-zinc-700/30 bg-zinc-800/20"
                       />
                     );
                   }
@@ -1168,7 +1151,7 @@ function FloatingToolbarInner({
                         void handleStackEquip(stack);
                       }}
                       className={cn(
-                        "transition-colors hover:brightness-110",
+                        "w-full min-w-0 max-w-full box-border transition-colors hover:brightness-110",
                         rewardEffectClassName(fxKey ?? undefined),
                       )}
                     >
@@ -1241,7 +1224,7 @@ function FloatingToolbarInner({
               </div>
             )}
             <p className="mt-3 text-center text-[10px] text-zinc-500">
-              支援的道具：長按格位可贈送玩家或血盟、刪除或回賣（依商城設定；須先卸下已裝備者）
+              長按格位可開啟道具操作（贈送、刪除、回賣依商城設定；須先卸下已裝備者）
             </p>
           </div>
         </SheetContent>
@@ -1272,28 +1255,36 @@ function FloatingToolbarInner({
                   act.canResell && u
                     ? act.unit * Math.min(stackMenuQty, maxQ)
                     : 0;
+                const hasAnyAction =
+                  act.canGift || act.canDelete || (act.canResell && u != null);
                 return (
                   <>
-                    <label className="flex flex-col gap-1 text-xs text-[#71717a]">
-                      <span>數量（未裝備者可操作最多 {maxQ} 件）</span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={maxQ}
-                        value={stackMenuQty}
-                        onChange={(e) => {
-                          const v = parseInt(e.target.value, 10);
-                          if (!Number.isFinite(v)) {
-                            setStackMenuQty(1);
-                            return;
-                          }
-                          setStackMenuQty(
-                            Math.min(Math.max(1, v), Math.max(1, maxQ)),
-                          );
-                        }}
-                        className="rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100"
-                      />
-                    </label>
+                    {hasAnyAction ? (
+                      <label className="flex flex-col gap-1 text-xs text-[#71717a]">
+                        <span>數量（未裝備者可操作最多 {maxQ} 件）</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={maxQ}
+                          value={stackMenuQty}
+                          onChange={(e) => {
+                            const v = parseInt(e.target.value, 10);
+                            if (!Number.isFinite(v)) {
+                              setStackMenuQty(1);
+                              return;
+                            }
+                            setStackMenuQty(
+                              Math.min(Math.max(1, v), Math.max(1, maxQ)),
+                            );
+                          }}
+                          className="rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100"
+                        />
+                      </label>
+                    ) : (
+                      <p className="px-1 text-sm leading-relaxed text-[#a1a1aa]">
+                        此道具依商城設定，目前未開放贈送、刪除或回賣。可先卸下或點擊格位使用／裝備。
+                      </p>
+                    )}
                     <div
                       style={{
                         padding: "0 20px 20px",
