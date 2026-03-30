@@ -35,7 +35,7 @@ export default function ExploreClient({
     () => getMarketUsersAction(query).then((r) => r.users ?? []),
     {
       revalidateOnFocus: false,
-      revalidateOnMount: false,
+      revalidateOnMount: true,
       keepPreviousData: true,
       revalidateIfStale: false,
     },

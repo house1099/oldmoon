@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   MapPin,
@@ -103,6 +103,13 @@ export function UserDetailModal({
   const [moodOpen, setMoodOpen] = useState(false);
   const [resolvedProfile, setResolvedProfile] =
     useState<MemberProfileView | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (open) {
+      scrollContainerRef.current?.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, [open, user?.id]);
 
   useEffect(() => {
     if (!open) {
@@ -495,7 +502,10 @@ export function UserDetailModal({
             ) : null}
           </div>
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
+          <div
+            ref={scrollContainerRef}
+            className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4"
+          >
             {u.bio_village?.trim() ? (
               <div>
                 <p className="mb-1.5 text-[10px] font-medium text-violet-400">

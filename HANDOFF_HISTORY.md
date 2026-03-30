@@ -5,6 +5,11 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-30 — Bug：市集 SWR 首次載入／UserDetailModal 捲軸
+
+1. **`ExploreClient.tsx`**：技能市集無 **`fallbackData`**，**`revalidateOnMount: false`** 會讓 SWR 在無快取時不請求；改回 **`revalidateOnMount: true`**，並保留 **`keepPreviousData`**、**`revalidateIfStale: false`**。村莊有 SSR **`initialVillageUsers`** 仍可 **`revalidateOnMount: false`**。
+2. **`UserDetailModal.tsx`**：可捲動內容區 **`ref={scrollContainerRef}`**，**`useEffect([open, user?.id])`** 在 **`open`** 時 **`scrollTo({ top: 0, behavior: 'instant' })`**。
+
 ### 2026-03-30 — 探索頁 DB JOIN、SWR、粒子與 CardDecorationSystem
 
 1. **Layer 2 `rewards.repository.ts`**  
