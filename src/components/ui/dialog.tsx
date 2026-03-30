@@ -47,13 +47,19 @@ function DialogContent({
   overlayClassName,
   overlayStyle,
   contentStyle,
+  initialFocus,
   ...props
-}: DialogPrimitive.Popup.Props & {
+}: Omit<DialogPrimitive.Popup.Props, "initialFocus"> & {
   showCloseButton?: boolean
   overlayClassName?: string
   overlayStyle?: React.CSSProperties
   contentStyle?: React.CSSProperties
+  /** Base UI 不支援 -1；傳 -1 時改為 `false`，避免開啟時自動聚焦可聚焦子元素而捲動捲軸。 */
+  initialFocus?: DialogPrimitive.Popup.Props["initialFocus"] | -1
 }) {
+  const resolvedInitialFocus =
+    initialFocus === -1 ? false : initialFocus
+
   return (
     <DialogPortal>
       <DialogOverlay className={overlayClassName} style={overlayStyle} />
@@ -66,6 +72,9 @@ function DialogContent({
           className
         )}
         {...props}
+        {...(resolvedInitialFocus !== undefined
+          ? { initialFocus: resolvedInitialFocus }
+          : {})}
       >
         {children}
         {showCloseButton && (

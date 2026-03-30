@@ -5,6 +5,11 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-30 — UserDetailModal 捲軸：關閉開啟時自動 focus
+
+1. **`dialog.tsx`**：**`DialogContent`** 自 props 解構 **`initialFocus`**（**`Omit<Popup.Props, 'initialFocus'> & { initialFocus?: Popup initialFocus | -1 }`**），**`-1` → `false`** 再傳入 **`DialogPrimitive.Popup`**（Base UI **`initialFocus === false`** 為 **`ignoreInitialFocus`**，不將焦點移到第一個 tabbable，避免內層 **`overflow-y-auto`** 被捲到底）。
+2. **`UserDetailModal.tsx`**：**`DialogContent`** **`initialFocus={-1}`**；移除 **`onScroll`／`useEffect`** 診斷 **`console.log`**；保留 **`data-modal-scroll-container`** 之 **`key`** 與 **`overscrollBehavior: 'contain'`**。
+
 ### 2026-03-30 — 贈送規則對齊、商城購後贈禮、捲軸診斷 log
 
 1. **`rewards.repository.ts`**：**`findUserRewardGiftMeta`** 之 **`allowGift`**：有 **`shop_item_id`** 時 **`shop?.allow_gift !== false`**（後台明確關閉才擋）；無 **`shop_item_id`** 時 **`true`**（獎池等來源）。

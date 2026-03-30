@@ -93,9 +93,9 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## ✅ 最近完成（最新 3 次任務）
 
-1. **2026-03-30 — 贈送規則、商城購後贈禮、UserDetailModal 捲軸診斷**：**`allow_gift`** 僅在 **`shop_items.allow_gift === false`** 時擋（**`findUserRewardGiftMeta`** **`shop?.allow_gift !== false`**）；**`prize_items` 來源**（無 **`shop_item_id`**）一律可贈；**`confirmGiftAction`** 可送裝備中道具（先 **`unequipReward`**）、流程為 **`markUserRewardConsumed` → `insertUserReward`（收禮者）**，插入失敗時 **`clearUserRewardUsedAt`** 回滾；錯誤文案「**此道具不開放贈送**」。**`insertUserReward`** 回傳 **`id`**；**`purchaseItemAction`** 回傳 **`newRewardIds`**。**`/shop`**：**`allow_gift !== false` 且已登入** 顯示 **「🎁 送給朋友」**，購買成功後可選放入背包或暱稱搜尋贈送（同背包流程）。**`UserDetailModal`** 暫時 **`console.log`**：**`[scroll]`**、**`[modal open]`**、**`[modal el] scrollTop/scrollHeight`**（部署後看 Console 再定捲軸修復）。詳見 **`HANDOFF_HISTORY.md`**。
-2. **2026-03-30 — 全站選取禁止、背包長按、UserDetailModal 捲軸、背包贈禮玩家**：**`globals.css`** 全站 **`user-select: none`**（**`input`／`textarea`／`[contenteditable]`** 除外）、**`data-long-press`／`button`** **`touch-action: manipulation`**；**`FloatingToolbar`** 背包格 **500ms** 長按、**「🎁 贈送給玩家」**（**`giftItemToUserAction`／`confirmGiftAction`**）＋血盟批次贈送；**`gift.action.ts`**、**`rewards.repository`**；**`UserDetailModal`** **`key` + `overscroll-behavior`**。
-3. **2026-03-30 — UserDetailModal 捲動結構、框圖預載**：**`UserDetailModal`** 單一 **`data-modal-scroll-container`**、**`DialogContent` overflow-hidden** 等。首頁／探索框圖預載見歷史。
+1. **2026-03-30 — UserDetailModal 開啟時捲軸不再跳到底**：根因為 Base UI **`DialogPopup`** 開啟時自動聚焦第一個可聚焦子元素（底部按鈕），瀏覽器捲動可捲容器以露出焦點。**`dialog.tsx`** **`DialogContent`** 透傳 **`initialFocus`**（**`-1` 映射為 `false`**，對應 Base UI「不自動移動焦點」）；**`UserDetailModal`** 設 **`initialFocus={-1}`**；移除暫時診斷 log。可捲區仍保留 **`key`**、**`overscroll-behavior: contain`**。
+2. **2026-03-30 — 贈送規則、商城購後贈禮**：**`allow_gift`** 僅在 **`shop_items.allow_gift === false`** 時擋；**`prize_items` 來源**一律可贈；**`confirmGiftAction`** 裝備中先卸再轉移；**`purchaseItemAction` → `newRewardIds`**；**`/shop`** **「🎁 送給朋友」** 購後贈禮流程。詳見 **`HANDOFF_HISTORY.md`**。
+3. **2026-03-30 — 全站選取禁止、背包長按、背包贈禮玩家**：**`globals.css`** **`user-select: none`** 等；**`FloatingToolbar`** 長按、**`giftItemToUserAction`／`confirmGiftAction`**、血盟批次贈送。
 
 ## ⚠️ 目前已知問題
 
