@@ -39,7 +39,6 @@ import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
 import { ShopCardFrameOverlay } from "@/components/ui/ShopCardFrameOverlay";
 import {
   ChevronRight,
-  Lock,
   LogOut,
   PencilLine,
   Settings,
@@ -65,6 +64,10 @@ import {
 import { LEVEL_MIN_EXP_BY_LEVEL, getLevelTierByExp } from "@/lib/constants/levels";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { cn } from "@/lib/utils";
+import {
+  taipeiCalendarDateKey,
+  taipeiWallClockHour,
+} from "@/lib/utils/date";
 import { getMoodCountdown, isMoodActive } from "@/lib/utils/mood";
 import { TavernMarquee } from "@/components/tavern/TavernMarquee";
 import { getActiveAnnouncementsAction } from "@/services/announcement.action";
@@ -109,8 +112,6 @@ function normalizeLevel(v: UserRow["level"]): number {
   if (!Number.isFinite(n) || n < 1) return 1;
   return Math.min(10, Math.floor(n));
 }
-
-const STREAK_BREAK_MS = 48 * 60 * 60 * 1000;
 
 const DEFAULT_STREAK_REWARDS: StreakRewardDay[] = [
   { day: 1, exp: 1, coins: 1, coinsMax: null, specialReward: null, specialLabel: null },
@@ -361,10 +362,6 @@ export function GuildProfileHome({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [checkinLoading, setCheckinLoading] = useState(false);
   const [checkinDone, setCheckinDone] = useState(false);
-  const [cooldown, setCooldown] = useState<{
-    hours: number;
-    mins: number;
-  } | null>(null);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [expLogs, setExpLogs] = useState<ExpLogProfileEntry[]>([]);
   const [openSection, setOpenSection] = useState<string | null>(null);
@@ -380,8 +377,6 @@ export function GuildProfileHome({
   );
   const [lootBoxRevealed, setLootBoxRevealed] = useState(false);
   const [currentStreak, setCurrentStreak] = useState(0);
-  const [lastClaimAt, setLastClaimAt] = useState<string | null>(null);
-  const [streakBreakHours, setStreakBreakHours] = useState<number | null>(null);
   const [rewardsLoading, setRewardsLoading] = useState(false);
   const [rewardsData, setRewardsData] = useState<MyRewardsPayload | null>(null);
   const [streakRewardSettings, setStreakRewardSettings] = useState<
@@ -456,7 +451,6 @@ export function GuildProfileHome({
     void getMyStreakAction().then((r) => {
       if (!r.ok) return;
       setCurrentStreak(r.currentStreak);
-      setLastClaimAt(r.lastClaimAt);
     });
   }, []);
 
@@ -529,62 +523,22 @@ export function GuildProfileHome({
   }, [moodAt]);
 
   useEffect(() => {
-    const lastCheckin = profile.last_checkin_at
-      ? new Date(profile.last_checkin_at).getTime()
-      : 0;
-    const now = Date.now();
-    const remainMs = 24 * 60 * 60 * 1000 - (now - lastCheckin);
-
-    if (remainMs > 0) {
-      setCooldown({
-        hours: Math.floor(remainMs / (1000 * 60 * 60)),
-        mins: Math.floor((remainMs % (1000 * 60 * 60)) / (1000 * 60)),
-      });
-      setCheckinDone(true);
-    } else {
-      setCheckinDone(false);
-      setCooldown(null);
-    }
+    const todayKey = taipeiCalendarDateKey();
+    const lastKey = profile.last_checkin_at
+      ? taipeiCalendarDateKey(new Date(profile.last_checkin_at))
+      : null;
+    setCheckinDone(lastKey === todayKey);
   }, [profile.last_checkin_at]);
 
-  useEffect(() => {
-    if (!checkinDone) return;
-    const timer = setInterval(() => {
-      const lastCheckin = profile.last_checkin_at
-        ? new Date(profile.last_checkin_at).getTime()
-        : 0;
-      const remainMs = 24 * 60 * 60 * 1000 - (Date.now() - lastCheckin);
-      if (remainMs <= 0) {
-        setCheckinDone(false);
-        setCooldown(null);
-      } else {
-        setCooldown({
-          hours: Math.floor(remainMs / (1000 * 60 * 60)),
-          mins: Math.floor((remainMs % (1000 * 60 * 60)) / (1000 * 60)),
-        });
-      }
-    }, 60000);
-    return () => clearInterval(timer);
-  }, [checkinDone, profile.last_checkin_at]);
-
-  useEffect(() => {
-    if (!lastClaimAt) {
-      setStreakBreakHours(null);
-      return;
+  const showStreakDeadlineWarning = useMemo(() => {
+    if (checkinDone || currentStreak <= 0) return false;
+    try {
+      const h = taipeiWallClockHour();
+      return h >= 22 && h <= 23;
+    } catch {
+      return false;
     }
-    const tick = () => {
-      const deadline = new Date(lastClaimAt).getTime() + STREAK_BREAK_MS;
-      const ms = deadline - Date.now();
-      if (ms <= 0) {
-        setStreakBreakHours(0);
-        return;
-      }
-      setStreakBreakHours(ms / (1000 * 60 * 60));
-    };
-    tick();
-    const t = setInterval(tick, 60_000);
-    return () => clearInterval(t);
-  }, [lastClaimAt]);
+  }, [checkinDone, currentStreak]);
 
   const onCropComplete = useCallback((_area: Area, pixels: Area) => {
     setCroppedAreaPixels(pixels);
@@ -787,12 +741,8 @@ export function GuildProfileHome({
           result.error === DAILY_CHECKIN_ALREADY_CLAIMED ||
           /duplicate/i.test(result.error)
         ) {
-          toast.success("還在冷卻中，明天再來！");
+          toast.success("今日已報到過了，明天再來！");
           setCheckinDone(true);
-          setCooldown({
-            hours: result.remainHours ?? 23,
-            mins: result.remainMins ?? 59,
-          });
           return;
         }
         toast.error("❌ 操作失敗，請稍後再試");
@@ -806,7 +756,6 @@ export function GuildProfileHome({
       setShowCheckinModal(true);
       setCheckinDone(true);
       setCurrentStreak(result.currentStreak);
-      setCooldown({ hours: 23, mins: 59 });
       router.refresh();
       refreshStreak();
     } finally {
@@ -1797,14 +1746,9 @@ export function GuildProfileHome({
           </div>
         </div>
 
-        {streakBreakHours != null &&
-        streakBreakHours > 0 &&
-        streakBreakHours < 4 &&
-        currentStreak > 0 ? (
+        {showStreakDeadlineWarning ? (
           <div className="mb-3 rounded-full border border-amber-500/40 bg-amber-950/60 px-3 py-1.5 text-center text-xs text-amber-300">
-            ⚠️ 還有{" "}
-            {streakBreakHours < 1 ? "不到 1" : Math.ceil(streakBreakHours)}h
-            ，連續就斷了！
+            ⚠️ 今天還沒報到，連續就快斷了！
           </div>
         ) : null}
 
@@ -1824,20 +1768,12 @@ export function GuildProfileHome({
               text="處理中…"
               className="justify-center text-sm font-semibold"
             />
-          ) : checkinDone && cooldown ? (
-            <span className="flex w-full items-center justify-center gap-3 px-2">
-              <Lock className="size-5 shrink-0 text-zinc-500" aria-hidden />
-              <span className="flex flex-col items-start gap-0.5 text-left">
-                <span className="text-sm text-zinc-400">今日已報到</span>
-                <span className="text-xs text-zinc-500">
-                  {cooldown.hours}h {cooldown.mins}m 後可報到
-                </span>
-              </span>
-            </span>
           ) : checkinDone ? (
-            <span className="flex w-full items-center justify-center gap-3 px-2">
-              <Lock className="size-5 shrink-0 text-zinc-500" aria-hidden />
-              <span className="text-sm text-zinc-400">⏳ 報到冷卻中</span>
+            <span className="flex w-full flex-col items-center justify-center gap-0.5 px-2 text-center">
+              <span className="text-sm text-zinc-400">🔒 今日已報到</span>
+              <span className="text-xs text-zinc-500">
+                明天 00:00 後可再次報到
+              </span>
             </span>
           ) : (
             <span className="text-white">

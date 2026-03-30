@@ -197,7 +197,7 @@ export async function restoreActivityOnCheckin(userId: string): Promise<void> {
   }
 }
 
-/** 簽到成功後寫入 **`last_checkin_at`**（24h 冷卻 SSOT）。 */
+/** 簽到成功後寫入 **`last_checkin_at`**（台北自然日冷卻 SSOT，與 `taipeiCalendarDateKey` 比對）。 */
 export async function updateLastCheckinAt(userId: string): Promise<void> {
   const admin = createAdminClient();
   const { error } = await admin

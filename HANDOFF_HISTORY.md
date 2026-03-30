@@ -1174,3 +1174,27 @@ Git
 Git
 
 - **`feat(shop): CARD_FRAME_OVERLAY_PERCENT for card_frame overlay`**（與程式變更同一提交）
+
+---
+
+[2026-03-30] — 簽到冷卻改台北自然日（00:00 重置）、連簽斷簽改曆日差、首頁 UI
+
+完成項目
+
+- **`claimDailyCheckin`**（**`daily-checkin.action.ts`**）：冷卻由 **24h 滾動** 改為 **台北曆日** — **`todayKey = taipeiCalendarDateKey()`** 與 **`last_checkin_at`** 轉成之曆日鍵相同則 **`already_claimed`**；不再回傳 **`remainHours`／`remainMins`**。
+- **連簽**：以 **`login_streaks.last_claim_at`** 之台北曆日與今日計 **`taipeiCalendarDaysBetween`**；**`> 1`** 重置為 **1**，**`= 1`**（昨天有簽）則 **`current_streak + 1`**；無紀錄視為首日 **1**。
+- **`src/lib/utils/date.ts`**：新增 **`taipeiCalendarDaysBetween(earlierYmd, laterYmd)`**（**`T12:00:00+08:00`** 錨點）、**`taipeiWallClockHour(date?)`**（台北鐘點 **0–23**）。
+- **`guild-profile-home.tsx`**：**`profile.last_checkin_at`** 與 **`taipeiCalendarDateKey()`** 同步 **`checkinDone`**；已簽按鈕「🔒 今日已報到」+「明天 00:00 後可再次報到」；移除每分鐘冷卻倒數 **`setInterval`**；斷簽警示改為台北 **22–23** 時、當日未簽且 **`currentStreak > 0`** 顯示「今天還沒報到，連續就快斷了！」。
+- **`user.repository.ts`**、**`daily-checkin.ts`** 註解與 **`HANDOFF.md`** SSOT 說明已對齊自然日制。
+
+資料庫異動
+
+- 無（仍僅讀寫 **`users.last_checkin_at`**、**`login_streaks`** 既有欄位）。
+
+需要注意
+
+- 跨日後若使用者未重新整理頁面，**`checkinDone`** 不會自動解除（已移除定時 tick）；可 **`router.refresh()`** 或次日再開頁。
+
+Git
+
+- **`feat: checkin reset to taipei natural day (00:00 daily)`**

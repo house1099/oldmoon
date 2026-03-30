@@ -14,7 +14,7 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 - 寫入必須經 Layer 3 → Layer 2
 - 經驗值欄位唯一 SSOT：`total_exp`
 
-**路徑速記**：L1 `src/lib/supabase/`；L2 `src/lib/repositories/server/*.repository.ts`；L3 `src/services/*.action.ts`；L4 `src/hooks/`、`src/lib/swr/`；L5 `src/components/`、`src/app/`。**台灣日界** `src/lib/utils/date.ts` 之 `taipeiCalendarDateKey()`；簽到可否以 `users.last_checkin_at`（24h 滾動）為 SSOT。**頭像**僅 Cloudinary（見 `.cursorrules`），禁止 `supabase.storage` 上傳頭像。
+**路徑速記**：L1 `src/lib/supabase/`；L2 `src/lib/repositories/server/*.repository.ts`；L3 `src/services/*.action.ts`；L4 `src/hooks/`、`src/lib/swr/`；L5 `src/components/`、`src/app/`。**台灣日界** `src/lib/utils/date.ts` 之 `taipeiCalendarDateKey()`、`taipeiCalendarDaysBetween()`、`taipeiWallClockHour()`；**簽到冷卻**為台北自然日制（每天 00:00 重置）：同一台北曆日僅能簽一次，以 `users.last_checkin_at` 與 `taipeiCalendarDateKey(last_checkin_at)` 比對（非 24h 滾動）。**頭像**僅 Cloudinary（見 `.cursorrules`），禁止 `supabase.storage` 上傳頭像。
 
 ## 🗄️ DB SSOT 關鍵欄位
 
@@ -80,7 +80,7 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 - `invitation_code_uses` — 邀請碼使用紀錄
 - `coin_transactions` — 幣種流水
 - `topup_orders` — 儲值訂單
-- `login_streaks` — 連簽狀態（與 `last_checkin_at` 冷卻分離）
+- `login_streaks` — 連簽狀態（`last_claim_at` 與今日台北曆日差 **>1** 日則斷簽重算；冷卻仍以 `last_checkin_at` 為準）
 - `streak_reward_settings` — 七日簽到獎勵設定
 - `prize_pools` — 獎池
 - `prize_items` — 獎項與加權（含 `effect_key`）
@@ -93,9 +93,9 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## ✅ 最近完成（最新 3 次任務）
 
-1. **2026-03-30 — 卡框專用 `CARD_FRAME_OVERLAY_PERCENT` + 範例 PNG**：`src/lib/constants/shop-card-frame-preview.ts` 新增 **`CARD_FRAME_OVERLAY_PERCENT`**（預設 **100**，與頭像框 **`MASTER_AVATAR_FRAME_OVERLAY_PERCENT`（160）** 分離）。**`ShopCardFrameOverlay`** 改以此常數縮放框圖；後台 **`shop-admin-client`** 卡片外框預覽改與前台相同（置中、`width/height` 同百分比 + **`frame_layout`** 的 **`shopFrameLayoutStyle`**）。範例資產 **`public/frames/cards/cny-money-bag-card-frame.png`**（736×520、中心近白改透明）。仍套於 **`LevelCardEffect`（UserCard）**、**`UserDetailModal`**、**`guild-profile-home`** 三處。細部對齊可再改常數或商品 **`metadata.frame_layout.scalePercent`**（50–200）。
-2. **2026-03-30 — 商城 card_frame PNG overlay 與批次附掛**：**`ShopCardFrameOverlay`** 承接 **`card_frame`** 圖片與 **`effect_key`**（取代 Modal／home 直接掛 **`rewardEffectClassName`**）。**`findEquippedRewardLabels`** 補 **`equippedCardFrameLayout`**；**`findEquippedCardFramesByUserIds`** 附掛至 **`village.service`**、**`market.service`**、**`alliance.action`**、**`chat.action`**、**`tavern.repository`**、**`TavernMessageDto.user`** 等。無 DB migration。
-3. **2026-03-30 — 裝備頭像框全站列表＋個人檔外溢；框線／背包政策**：**`findEquippedAvatarFramesByUserIds`**；**`/explore`**、血盟、聊天、酒館、**`ChatModal`** 我方頭像等。**`guild-profile-home`** **`overflow-visible`**、**`MasterAvatarShell`** **`frameEffectKey`**。**`SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS`**（±80）、領袖不再自動本地金框、裝備長按贈送／刪除等見 **`HANDOFF_HISTORY.md`**（列表快取延遲、信件頭像未併框亦載於該檔）。
+1. **2026-03-30 — 簽到冷卻改台北自然日（00:00 重置）**：**`claimDailyCheckin`** 以 **`taipeiCalendarDateKey`** 比對 **`users.last_checkin_at`**（同日即 **`already_claimed`**）；**`login_streaks`** 斷簽改為 **`taipeiCalendarDaysBetween(last_claim, today) > 1`**。首頁 **`guild-profile-home`**：已簽「🔒 今日已報到」+「明天 00:00 後可再次報到」；台北 **22–23** 時未簽且連簽 **>0** 顯示斷簽警示；移除 24h 倒數 **`setInterval`**。**`date.ts`** 新增 **`taipeiCalendarDaysBetween`**、**`taipeiWallClockHour`**。
+2. **2026-03-30 — 卡框專用 `CARD_FRAME_OVERLAY_PERCENT` + 範例 PNG**：`shop-card-frame-preview.ts` 之 **`CARD_FRAME_OVERLAY_PERCENT`**（預設 **100**）；**`ShopCardFrameOverlay`**／後台預覽；範例 **`public/frames/cards/cny-money-bag-card-frame.png`**。細部見前次提交說明。
+3. **2026-03-30 — 商城 card_frame PNG overlay 與批次附掛；裝備頭像框等**：**`ShopCardFrameOverlay`**、**`findEquippedCardFramesByUserIds`**；**`findEquippedAvatarFramesByUserIds`**、**`SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS`**、背包贈送／刪除等完整條目見 **`HANDOFF_HISTORY.md`**。
 
 ## ⚠️ 目前已知問題
 

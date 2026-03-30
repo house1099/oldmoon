@@ -19,6 +19,36 @@ export function taipeiCalendarDateKey(date: Date = new Date()): string {
 }
 
 /**
+ * 兩個台北曆日鍵（`YYYY-MM-DD`）相差的整數天數（`later` 不早於 `earlier` 時為非負）。
+ * 以 `T12:00:00+08:00` 錨點避免 `Date` 解析歧義。
+ */
+export function taipeiCalendarDaysBetween(
+  earlierYmd: string,
+  laterYmd: string,
+): number {
+  const a = new Date(`${earlierYmd}T12:00:00+08:00`);
+  const b = new Date(`${laterYmd}T12:00:00+08:00`);
+  return Math.round((b.getTime() - a.getTime()) / 86400000);
+}
+
+/**
+ * 指定時間在 `Asia/Taipei` 的鐘點小時（0–23，`hourCycle: h23`）。
+ */
+export function taipeiWallClockHour(date: Date = new Date()): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Taipei",
+    hour: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const h = parts.find((p) => p.type === "hour")?.value;
+  const n = h != null ? parseInt(h, 10) : NaN;
+  if (!Number.isFinite(n)) {
+    throw new Error("taipeiWallClockHour: missing hour");
+  }
+  return n;
+}
+
+/**
  * 以台北時區「曆日鍵」推算下一個曆日鍵（台灣無 DST，+24h 自該日正午錨點推算即可）。
  */
 export function nextTaipeiCalendarDateAfter(ymdKey: string): string {

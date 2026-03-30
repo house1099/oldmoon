@@ -21,11 +21,12 @@ import {
 } from "@/lib/repositories/server/streak-rewards.repository";
 import { drawFromPool, type DrawResult } from "@/services/prize-engine";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
+import {
+  taipeiCalendarDateKey,
+  taipeiCalendarDaysBetween,
+} from "@/lib/utils/date";
 
 export type { DrawResult };
-
-const COOLDOWN_MS = 24 * 60 * 60 * 1000;
-const STREAK_BREAK_MS = 48 * 60 * 60 * 1000;
 
 function logCheckinRawError(error: unknown) {
   try {
@@ -60,18 +61,6 @@ function formatCheckinErrorForClient(error: unknown): string {
   }
   if (error instanceof Error && error.message) return error.message;
   return String(error);
-}
-
-function remainFromLastCheckin(lastCheckinMs: number): {
-  remainHours: number;
-  remainMins: number;
-} {
-  const now = Date.now();
-  const remainMs = COOLDOWN_MS - (now - lastCheckinMs);
-  return {
-    remainHours: Math.floor(remainMs / (1000 * 60 * 60)),
-    remainMins: Math.floor((remainMs % (1000 * 60 * 60)) / (1000 * 60)),
-  };
 }
 
 export type StreakRewardDay = {
@@ -118,8 +107,6 @@ export type ClaimDailyCheckinResult =
   | {
       ok: false;
       error: string;
-      remainHours?: number;
-      remainMins?: number;
     };
 
 /** `newStreak % 7`：0 代表週期第 7 天，對應 DB `day = 7`。 */
@@ -176,8 +163,8 @@ async function resolveCheckinRewardsForStreakMod(streakMod: number): Promise<{
 }
 
 /**
- * Layer 3：每日簽到。冷卻以 **`users.last_checkin_at`** 為 SSOT（滾動 24h）。
- * 連續天數見 **`login_streaks`**；第 7 天觸發公會盲盒（**`drawFromPool('loot_box')`**）。
+ * Layer 3：每日簽到。冷卻以 **`users.last_checkin_at`** 為 SSOT（台北自然日：同曆日僅能簽一次，見 **`taipeiCalendarDateKey`**）。
+ * 連續天數見 **`login_streaks`**；斷簽為「跳過超過 1 個台北曆日」；第 7 天觸發公會盲盒（**`drawFromPool('loot_box')`**）。
  */
 export async function claimDailyCheckin(): Promise<ClaimDailyCheckinResult> {
   const supabase = createClient();
@@ -194,43 +181,46 @@ export async function claimDailyCheckin(): Promise<ClaimDailyCheckinResult> {
     return { ok: false, error: "找不到冒險者資料。" };
   }
 
-  const lastCheckin = profile.last_checkin_at
-    ? new Date(profile.last_checkin_at).getTime()
-    : 0;
-  const now = Date.now();
+  const now = new Date();
+  const todayKey = taipeiCalendarDateKey(now);
+  const lastCheckinKey = profile.last_checkin_at
+    ? taipeiCalendarDateKey(new Date(profile.last_checkin_at))
+    : null;
 
-  if (now - lastCheckin < COOLDOWN_MS) {
-    const { remainHours, remainMins } = remainFromLastCheckin(lastCheckin);
+  if (lastCheckinKey === todayKey) {
     return {
       ok: false,
       error: DAILY_CHECKIN_ALREADY_CLAIMED,
-      remainHours,
-      remainMins,
     };
   }
 
   const streakRow = await findStreakByUserId(user.id);
   const prevStreak = streakRow?.current_streak ?? 0;
   const longestBefore = streakRow?.longest_streak ?? 0;
-  const lastClaimMs = streakRow?.last_claim_at
-    ? new Date(streakRow.last_claim_at).getTime()
+  const lastClaimKey = streakRow?.last_claim_at
+    ? taipeiCalendarDateKey(new Date(streakRow.last_claim_at))
     : null;
 
-  const elapsed =
-    lastClaimMs === null ? Number.POSITIVE_INFINITY : now - lastClaimMs;
-
   let newStreak: number;
-  if (lastClaimMs === null || elapsed > STREAK_BREAK_MS) {
+  if (lastClaimKey == null) {
     newStreak = 1;
   } else {
-    newStreak = prevStreak + 1;
+    const dayDiff = taipeiCalendarDaysBetween(lastClaimKey, todayKey);
+    if (dayDiff > 1) {
+      newStreak = 1;
+    } else if (dayDiff === 1) {
+      newStreak = prevStreak + 1;
+    } else {
+      newStreak = 1;
+    }
   }
 
   const streakMod = newStreak % 7;
   const { exp: expEarned, coins: coinsEarned, triggerLootBox } =
     await resolveCheckinRewardsForStreakMod(streakMod);
 
-  const unique_key = `daily_checkin:${user.id}:${now}`;
+  const nowMs = now.getTime();
+  const unique_key = `daily_checkin:${user.id}:${nowMs}`;
 
   try {
     await insertExpLog({
@@ -245,16 +235,9 @@ export async function claimDailyCheckin(): Promise<ClaimDailyCheckinResult> {
       error instanceof DuplicateExpRewardError ||
       isUniqueConstraintError(error)
     ) {
-      const again = await findProfileById(user.id);
-      const lm = again?.last_checkin_at
-        ? new Date(again.last_checkin_at).getTime()
-        : lastCheckin;
-      const { remainHours, remainMins } = remainFromLastCheckin(lm);
       return {
         ok: false,
         error: DAILY_CHECKIN_ALREADY_CLAIMED,
-        remainHours,
-        remainMins,
       };
     }
     logCheckinRawError(error);
@@ -292,7 +275,7 @@ export async function claimDailyCheckin(): Promise<ClaimDailyCheckinResult> {
   }
 
   const longestStreak = Math.max(newStreak, longestBefore);
-  const lastClaimIso = new Date(now).toISOString();
+  const lastClaimIso = now.toISOString();
   try {
     await upsertStreak(user.id, {
       current_streak: newStreak,
