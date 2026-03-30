@@ -26,7 +26,7 @@ import {
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 import type { GiftRecipientSearchRow } from "@/lib/repositories/server/rewards.repository";
 import {
-  giftItemToUserAction,
+  searchGiftRecipientCandidatesAction,
   confirmGiftAction,
 } from "@/services/gift.action";
 
@@ -144,24 +144,26 @@ export default function ShopPage() {
   const [purchaseIntent, setPurchaseIntent] = useState<
     "normal" | "gift_friend"
   >("normal");
-  const [postPurchaseAskOpen, setPostPurchaseAskOpen] = useState(false);
-  const [postPurchaseContext, setPostPurchaseContext] = useState<{
-    itemName: string;
-    rewardId: string;
-  } | null>(null);
-  const [giftPlayerDialogOpen, setGiftPlayerDialogOpen] = useState(false);
-  const [giftPlayerRewardId, setGiftPlayerRewardId] = useState<string | null>(
-    null,
-  );
-  const [giftPlayerItemLabel, setGiftPlayerItemLabel] = useState("");
-  const [giftNicknameDraft, setGiftNicknameDraft] = useState("");
-  const [giftPlayerCandidates, setGiftPlayerCandidates] = useState<
+  const [shopGiftRecipient, setShopGiftRecipient] =
+    useState<GiftRecipientSearchRow | null>(null);
+  const [shopPickRecipientOpen, setShopPickRecipientOpen] = useState(false);
+  const [shopPickRecipientItem, setShopPickRecipientItem] =
+    useState<ShopItemDto | null>(null);
+  const [shopRecipientNicknameDraft, setShopRecipientNicknameDraft] =
+    useState("");
+  const [shopRecipientCandidates, setShopRecipientCandidates] = useState<
     GiftRecipientSearchRow[]
   >([]);
-  const [giftPlayerSearchBusy, setGiftPlayerSearchBusy] = useState(false);
-  const [giftPlayerRecipientPick, setGiftPlayerRecipientPick] =
-    useState<GiftRecipientSearchRow | null>(null);
-  const [giftPlayerConfirmBusy, setGiftPlayerConfirmBusy] = useState(false);
+  const [shopRecipientSearchBusy, setShopRecipientSearchBusy] = useState(false);
+  const [shopGiftCheckoutOpen, setShopGiftCheckoutOpen] = useState(false);
+  const [shopGiftCheckoutSnapshot, setShopGiftCheckoutSnapshot] = useState<{
+    target: ShopItemDto;
+    qty: number;
+    recipient: GiftRecipientSearchRow;
+    sub: number;
+    currencyEmoji: string;
+  } | null>(null);
+  const [giftCheckoutBusy, setGiftCheckoutBusy] = useState(false);
 
   const refreshBalance = useCallback(async () => {
     const b = await getMyCoinsAction();
@@ -267,6 +269,7 @@ export default function ShopPage() {
       toast.error("今日已達購買上限");
       setPurchaseTarget(null);
       setPurchaseIntent("normal");
+      setShopGiftRecipient(null);
       return;
     }
     let qty = parseInt(purchaseQty.replace(/[^0-9]/g, "") || "0", 10);
@@ -281,6 +284,27 @@ export default function ShopPage() {
       toast.error("超過今日可購數量");
       return;
     }
+
+    if (intent === "gift_friend") {
+      if (!shopGiftRecipient) {
+        toast.error("請先選擇贈送對象");
+        return;
+      }
+      const eff = qty;
+      const sub = target.price * eff;
+      const currencyEmoji =
+        target.currency_type === "premium_coins" ? "💎" : "🪙";
+      setShopGiftCheckoutSnapshot({
+        target,
+        qty: eff,
+        recipient: shopGiftRecipient,
+        sub,
+        currencyEmoji,
+      });
+      setShopGiftCheckoutOpen(true);
+      return;
+    }
+
     setPurchasing(true);
     const res = await purchaseItemAction(target.id, qty);
     setPurchasing(false);
@@ -294,39 +318,60 @@ export default function ShopPage() {
     setPurchaseIntent("normal");
     await refreshBalance();
     void loadItems(tab);
+    toast.success(`🛍️ 購買成功！已存入背包`);
+  }
 
-    if (intent === "gift_friend" && res.newRewardIds.length > 0) {
-      const rewardId = res.newRewardIds[res.newRewardIds.length - 1]!;
-      setPostPurchaseContext({ itemName: target.name, rewardId });
-      setPostPurchaseAskOpen(true);
-    } else {
-      toast.success(`🛍️ 購買成功！已存入背包`);
-      if (intent === "gift_friend" && res.newRewardIds.length === 0) {
-        toast.message(
-          "此商品已入背包。若要贈送他人，請從背包長按該道具使用贈送。",
-        );
+  async function handleShopRecipientSearch() {
+    const nick = shopRecipientNicknameDraft.trim();
+    if (nick.length < 1) return;
+    setShopRecipientSearchBusy(true);
+    try {
+      const r = await searchGiftRecipientCandidatesAction(nick);
+      if (!r.ok) {
+        toast.error(r.error);
+        setShopRecipientCandidates([]);
+        return;
       }
+      setShopRecipientCandidates(r.candidates);
+    } finally {
+      setShopRecipientSearchBusy(false);
     }
   }
 
-  async function handleGiftPlayerSearch() {
-    const nick = giftNicknameDraft.trim();
-    const rid = giftPlayerRewardId;
-    if (nick.length < 1 || !rid) return;
-    setGiftPlayerSearchBusy(true);
+  async function executeShopGiftCheckout() {
+    const snap = shopGiftCheckoutSnapshot;
+    if (!snap || giftCheckoutBusy) return;
+    setGiftCheckoutBusy(true);
     try {
-      const r = await giftItemToUserAction({
-        rewardId: rid,
-        recipientNickname: nick,
-      });
-      if (!r.ok) {
-        toast.error(r.error);
-        setGiftPlayerCandidates([]);
+      const res = await purchaseItemAction(snap.target.id, snap.qty);
+      if (!res.ok) {
+        toast.error(ERROR_LABELS[res.error] ?? res.error);
         return;
       }
-      setGiftPlayerCandidates(r.candidates);
+      if (res.newRewardIds.length === 0) {
+        toast.error(
+          "此商品無法透過商城直接贈送，請改由背包長按道具贈送。",
+        );
+        return;
+      }
+      for (const rid of res.newRewardIds) {
+        const g = await confirmGiftAction(rid, snap.recipient.id);
+        if (!g.ok) {
+          toast.error(g.error);
+          return;
+        }
+      }
+      toast.success("🎁 已成功購買並贈送！對方將收到信件通知。");
+      setShopGiftCheckoutOpen(false);
+      setShopGiftCheckoutSnapshot(null);
+      setPurchaseTarget(null);
+      setPurchaseIntent("normal");
+      setShopGiftRecipient(null);
+      await refreshBalance();
+      void loadItems(tab);
+      router.refresh();
     } finally {
-      setGiftPlayerSearchBusy(false);
+      setGiftCheckoutBusy(false);
     }
   }
 
@@ -511,48 +556,53 @@ export default function ShopPage() {
                     </p>
                   )}
 
-                  <div className="mt-auto space-y-2 pt-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-zinc-200">
+                  <div className="mt-auto pt-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="shrink-0 text-sm font-semibold text-zinc-200">
                         {currencyEmoji} {item.price}
                       </span>
-                      <button
-                        type="button"
-                        disabled={!canAfford}
-                        onClick={() => {
-                          setPurchaseIntent("normal");
-                          setPurchaseTarget(item);
-                        }}
-                        className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                          canAfford
-                            ? "bg-violet-600/80 text-white hover:bg-violet-500/80"
-                            : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                        }`}
-                      >
-                        {canAfford
-                          ? "購買"
-                          : item.currency_type === "premium_coins"
-                            ? "純金不足"
-                            : "探險幣不足"}
-                      </button>
+                      <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+                        {item.allow_gift !== false && isLoggedIn ? (
+                          <button
+                            type="button"
+                            disabled={!canAfford}
+                            onClick={() => {
+                              setShopPickRecipientItem(item);
+                              setShopRecipientNicknameDraft("");
+                              setShopRecipientCandidates([]);
+                              setShopPickRecipientOpen(true);
+                            }}
+                            className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-medium leading-tight transition ${
+                              canAfford
+                                ? "border border-violet-500/40 bg-violet-950/30 text-violet-300 hover:bg-violet-900/35"
+                                : "cursor-not-allowed border border-zinc-800 bg-zinc-900/30 text-zinc-600"
+                            }`}
+                          >
+                            🎁 送給朋友
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          disabled={!canAfford}
+                          onClick={() => {
+                            setPurchaseIntent("normal");
+                            setShopGiftRecipient(null);
+                            setPurchaseTarget(item);
+                          }}
+                          className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                            canAfford
+                              ? "bg-violet-600/90 text-white hover:bg-violet-500/90"
+                              : "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                          }`}
+                        >
+                          {canAfford
+                            ? "購買"
+                            : item.currency_type === "premium_coins"
+                              ? "純金不足"
+                              : "探險幣不足"}
+                        </button>
+                      </div>
                     </div>
-                    {item.allow_gift !== false && isLoggedIn ? (
-                      <button
-                        type="button"
-                        disabled={!canAfford}
-                        onClick={() => {
-                          setPurchaseIntent("gift_friend");
-                          setPurchaseTarget(item);
-                        }}
-                        className={`w-full rounded-full py-2 text-xs font-medium transition ${
-                          canAfford
-                            ? "border border-violet-500/50 bg-violet-950/40 text-violet-200 hover:bg-violet-900/40"
-                            : "cursor-not-allowed border border-zinc-800 bg-zinc-900/40 text-zinc-600"
-                        }`}
-                      >
-                        🎁 送給朋友
-                      </button>
-                    ) : null}
                   </div>
                 </div>
               );
@@ -568,6 +618,7 @@ export default function ShopPage() {
           if (!o) {
             setPurchaseTarget(null);
             setPurchaseIntent("normal");
+            setShopGiftRecipient(null);
           }
         }}
       >
@@ -575,7 +626,17 @@ export default function ShopPage() {
           {purchaseTarget ? (
             <>
               <DialogHeader>
-                <DialogTitle>購買 {purchaseTarget.name}</DialogTitle>
+                <DialogTitle>
+                  {purchaseIntent === "gift_friend"
+                    ? `購買並贈送「${purchaseTarget.name}」`
+                    : `購買 ${purchaseTarget.name}`}
+                </DialogTitle>
+                {purchaseIntent === "gift_friend" && shopGiftRecipient ? (
+                  <DialogDescription className="text-left text-violet-200/90">
+                    收禮者：{shopGiftRecipient.nickname}（Lv.
+                    {shopGiftRecipient.level}）
+                  </DialogDescription>
+                ) : null}
               </DialogHeader>
               <div className="space-y-3 text-sm text-zinc-300">
                 {dailyLimit != null && dailyRemaining != null ? (
@@ -670,10 +731,12 @@ export default function ShopPage() {
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : !canPay ? (
                             "餘額不足"
-                          ) : (
+                          ) : purchaseIntent === "gift_friend" ? (
                             <>
-                              確認購買 {currencyEmoji} {sub}
+                              下一步：確認贈送 {currencyEmoji} {sub}
                             </>
+                          ) : (
+                            <>確認購買 {currencyEmoji} {sub}</>
                           )}
                         </Button>
                         <Button
@@ -834,73 +897,22 @@ export default function ShopPage() {
       </Dialog>
 
       <Dialog
-        open={postPurchaseAskOpen}
+        open={shopPickRecipientOpen}
         onOpenChange={(o) => {
+          setShopPickRecipientOpen(o);
           if (!o) {
-            setPostPurchaseAskOpen(false);
-            setPostPurchaseContext(null);
-          }
-        }}
-      >
-        <DialogContent className="border-zinc-800 bg-zinc-950 text-zinc-100 sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>要直接送給誰嗎？</DialogTitle>
-            <DialogDescription className="text-zinc-400">
-              {postPurchaseContext
-                ? `「${postPurchaseContext.itemName}」已放入你的背包。`
-                : ""}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-2 pt-2">
-            <Button
-              type="button"
-              className="w-full bg-zinc-800 text-zinc-100 hover:bg-zinc-700"
-              onClick={() => {
-                setPostPurchaseAskOpen(false);
-                setPostPurchaseContext(null);
-              }}
-            >
-              放入我的背包
-            </Button>
-            <Button
-              type="button"
-              className="w-full bg-violet-600 text-white hover:bg-violet-500"
-              onClick={() => {
-                if (!postPurchaseContext) return;
-                setGiftPlayerRewardId(postPurchaseContext.rewardId);
-                setGiftPlayerItemLabel(postPurchaseContext.itemName);
-                setGiftNicknameDraft("");
-                setGiftPlayerCandidates([]);
-                setGiftPlayerRecipientPick(null);
-                setPostPurchaseAskOpen(false);
-                setPostPurchaseContext(null);
-                setGiftPlayerDialogOpen(true);
-              }}
-            >
-              🎁 直接送給玩家
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={giftPlayerDialogOpen}
-        onOpenChange={(o) => {
-          setGiftPlayerDialogOpen(o);
-          if (!o) {
-            setGiftPlayerRewardId(null);
-            setGiftPlayerCandidates([]);
-            setGiftNicknameDraft("");
-            setGiftPlayerRecipientPick(null);
+            setShopPickRecipientItem(null);
+            setShopRecipientCandidates([]);
+            setShopRecipientNicknameDraft("");
           }
         }}
       >
         <DialogContent className="max-h-[85vh] overflow-hidden border-zinc-700 bg-zinc-950 text-zinc-100 sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-zinc-100">贈送給誰？</DialogTitle>
+            <DialogTitle className="text-zinc-100">選擇贈送對象</DialogTitle>
             <DialogDescription className="text-zinc-400">
-              {giftPlayerItemLabel
-                ? `將贈送「${giftPlayerItemLabel}」`
+              {shopPickRecipientItem
+                ? `購買「${shopPickRecipientItem.name}」並贈送給對方（下一步確認金額與數量）`
                 : "搜尋冒險者暱稱"}
             </DialogDescription>
           </DialogHeader>
@@ -908,9 +920,9 @@ export default function ShopPage() {
             <div className="flex gap-2">
               <input
                 type="text"
-                value={giftNicknameDraft}
+                value={shopRecipientNicknameDraft}
                 onChange={(e) =>
-                  setGiftNicknameDraft(e.target.value.slice(0, 32))
+                  setShopRecipientNicknameDraft(e.target.value.slice(0, 32))
                 }
                 placeholder="輸入暱稱（至少 1 字）"
                 className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
@@ -918,25 +930,34 @@ export default function ShopPage() {
               <Button
                 type="button"
                 disabled={
-                  giftPlayerSearchBusy ||
-                  giftNicknameDraft.trim().length < 1 ||
-                  !giftPlayerRewardId
+                  shopRecipientSearchBusy ||
+                  shopRecipientNicknameDraft.trim().length < 1
                 }
-                onClick={() => void handleGiftPlayerSearch()}
+                onClick={() => void handleShopRecipientSearch()}
               >
-                {giftPlayerSearchBusy ? "搜尋中…" : "搜尋"}
+                {shopRecipientSearchBusy ? "搜尋中…" : "搜尋"}
               </Button>
             </div>
             <div
               className="max-h-52 min-h-0 space-y-2 overflow-y-auto"
               style={{ overscrollBehavior: "contain" }}
             >
-              {giftPlayerCandidates.map((c) => (
+              {shopRecipientCandidates.map((c) => (
                 <button
                   key={c.id}
                   type="button"
                   className="flex w-full items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2.5 text-left transition-colors hover:bg-zinc-800/90"
-                  onClick={() => setGiftPlayerRecipientPick(c)}
+                  onClick={() => {
+                    const it = shopPickRecipientItem;
+                    if (!it) return;
+                    setShopGiftRecipient(c);
+                    setShopPickRecipientOpen(false);
+                    setShopPickRecipientItem(null);
+                    setShopRecipientCandidates([]);
+                    setShopRecipientNicknameDraft("");
+                    setPurchaseIntent("gift_friend");
+                    setPurchaseTarget(it);
+                  }}
                 >
                   {c.avatar_url?.trim() ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -963,7 +984,7 @@ export default function ShopPage() {
               type="button"
               variant="outline"
               className="border-zinc-600 bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
-              onClick={() => setGiftPlayerDialogOpen(false)}
+              onClick={() => setShopPickRecipientOpen(false)}
             >
               關閉
             </Button>
@@ -972,17 +993,20 @@ export default function ShopPage() {
       </Dialog>
 
       <AlertDialog
-        open={giftPlayerRecipientPick !== null}
+        open={shopGiftCheckoutOpen}
         onOpenChange={(open) => {
-          if (!open) setGiftPlayerRecipientPick(null);
+          if (!open) {
+            setShopGiftCheckoutOpen(false);
+            setShopGiftCheckoutSnapshot(null);
+          }
         }}
       >
         <AlertDialogContent className="border-zinc-700 bg-zinc-950 text-zinc-100">
           <AlertDialogHeader>
-            <AlertDialogTitle>確定贈送？</AlertDialogTitle>
+            <AlertDialogTitle>確定購買並贈送？</AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
-              {giftPlayerRecipientPick
-                ? `確定要把「${giftPlayerItemLabel}」送給 ${giftPlayerRecipientPick.nickname} 嗎？送出後無法取回。`
+              {shopGiftCheckoutSnapshot
+                ? `將花費 ${shopGiftCheckoutSnapshot.currencyEmoji} ${shopGiftCheckoutSnapshot.sub} 購買 ${shopGiftCheckoutSnapshot.qty} 個「${shopGiftCheckoutSnapshot.target.name}」，並贈送給 ${shopGiftCheckoutSnapshot.recipient.nickname}。對方將收到信件通知，送出後無法取回。`
                 : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -990,38 +1014,19 @@ export default function ShopPage() {
             <AlertDialogCancel
               variant="outline"
               className="border-zinc-700 bg-zinc-900 text-zinc-200"
-              disabled={giftPlayerConfirmBusy}
+              disabled={giftCheckoutBusy}
             >
               取消
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-violet-600 text-white hover:bg-violet-500"
-              disabled={giftPlayerConfirmBusy || !giftPlayerRewardId}
-              onClick={async (e) => {
+              disabled={giftCheckoutBusy}
+              onClick={(e) => {
                 e.preventDefault();
-                const pick = giftPlayerRecipientPick;
-                const rid = giftPlayerRewardId;
-                if (!pick || !rid || giftPlayerConfirmBusy) return;
-                setGiftPlayerConfirmBusy(true);
-                try {
-                  const r = await confirmGiftAction(rid, pick.id);
-                  if (!r.ok) {
-                    toast.error(r.error);
-                    return;
-                  }
-                  toast.success("🎁 已成功送出！");
-                  setGiftPlayerRecipientPick(null);
-                  setGiftPlayerDialogOpen(false);
-                  setGiftPlayerRewardId(null);
-                  setGiftPlayerCandidates([]);
-                  setGiftNicknameDraft("");
-                  router.refresh();
-                } finally {
-                  setGiftPlayerConfirmBusy(false);
-                }
+                void executeShopGiftCheckout();
               }}
             >
-              {giftPlayerConfirmBusy ? "送出中…" : "確定送出"}
+              {giftCheckoutBusy ? "處理中…" : "確定送出"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

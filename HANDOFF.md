@@ -93,8 +93,8 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## ✅ 最近完成（最新 3 次任務）
 
-1. **2026-03-30 — UserDetailModal 開啟時捲軸不再跳到底**：根因為 Base UI **`DialogPopup`** 開啟時自動聚焦第一個可聚焦子元素（底部按鈕），瀏覽器捲動可捲容器以露出焦點。**`dialog.tsx`** **`DialogContent`** 透傳 **`initialFocus`**（**`-1` 映射為 `false`**，對應 Base UI「不自動移動焦點」）；**`UserDetailModal`** 設 **`initialFocus={-1}`**；移除暫時診斷 log。可捲區仍保留 **`key`**、**`overscroll-behavior: contain`**。
-2. **2026-03-30 — 贈送規則、商城購後贈禮**：**`allow_gift`** 僅在 **`shop_items.allow_gift === false`** 時擋；**`prize_items` 來源**一律可贈；**`confirmGiftAction`** 裝備中先卸再轉移；**`purchaseItemAction` → `newRewardIds`**；**`/shop`** **「🎁 送給朋友」** 購後贈禮流程。詳見 **`HANDOFF_HISTORY.md`**。
+1. **2026-03-30 — UserDetailModal 視窗置中 + 捲軸焦點**：無 **`DialogTrigger`** 時 Base UI 依錨點定位，彈窗常落在畫面下方；**`UserDetailModal`** **`contentStyle`** 強制 **`position:fixed; left/top:50%; transform:translate(-50%,-50%)`** ＋ **`maxHeight`**／**`width`** 置中。**`initialFocus={-1}`** 避免開啟時捲到內容底部。**`/shop`**：**🎁 送給朋友** 左側小鈕、**購買** 右側大鈕；贈送流程 **選對象（`searchGiftRecipientCandidatesAction`）→ 數量／小計 → 確認 Alert → 購買 + `confirmGiftAction`**（對方信件通知）。詳見 **`HANDOFF_HISTORY.md`**。
+2. **2026-03-30 — 贈送規則（`allow_gift`／獎池／裝備中）**：**`gift.action.ts`**、**`rewards.repository`**、**`confirmGiftAction`** 轉移順序與 **`insertUserReward` 回傳 id`**、**`purchaseItemAction.newRewardIds`** 等（延續前版）。
 3. **2026-03-30 — 全站選取禁止、背包長按、背包贈禮玩家**：**`globals.css`** **`user-select: none`** 等；**`FloatingToolbar`** 長按、**`giftItemToUserAction`／`confirmGiftAction`**、血盟批次贈送。
 
 ## ⚠️ 目前已知問題

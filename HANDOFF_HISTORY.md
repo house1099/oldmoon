@@ -5,6 +5,12 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-30 — UserDetailModal 視窗置中（覆蓋錨點定位）與商城贈送流程重排
+
+1. **`UserDetailModal.tsx`**：**`DialogContent`** **`contentStyle`** 補 **`position: fixed`、`left/top: 50%`、`transform: translate(-50%, -50%)`、`width: min(100vw - 2rem, 24rem)`、`maxHeight: min(88vh, 100dvh - 2rem)`**，避免無觸發器時 **`DialogPopup`** 跟隨參考點出現在視窗外側下方。
+2. **`gift.action.ts`**：新增 **`searchGiftRecipientCandidatesAction(nickname)`**（僅 **`findUsersByNickname`**，購買前尚無 **`rewardId`** 時選收禮者）。
+3. **`(app)/shop/page.tsx`**：商品列 **價格左**、**🎁 送給朋友**（小）在左、**購買**（大）在右同一列；贈送為 **先開選人 Dialog → 再開數量／小計 Dialog → `AlertDialog` 確認金額與對象 → `purchaseItemAction` + 逐筆 `confirmGiftAction`**（對方通知沿用 **`confirmGiftAction` 內 `notifyUserMailboxSilent`**）；移除「購買後再問是否贈送」的中間 Dialog。
+
 ### 2026-03-30 — UserDetailModal 捲軸：關閉開啟時自動 focus
 
 1. **`dialog.tsx`**：**`DialogContent`** 自 props 解構 **`initialFocus`**（**`Omit<Popup.Props, 'initialFocus'> & { initialFocus?: Popup initialFocus | -1 }`**），**`-1` → `false`** 再傳入 **`DialogPrimitive.Popup`**（Base UI **`initialFocus === false`** 為 **`ignoreInitialFocus`**，不將焦點移到第一個 tabbable，避免內層 **`overflow-y-auto`** 被捲到底）。

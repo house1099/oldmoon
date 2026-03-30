@@ -376,6 +376,15 @@ export function UserDetailModal({
           contentStyle={{
             display: "flex",
             flexDirection: "column",
+            position: "fixed",
+            left: "50%",
+            top: "50%",
+            right: "auto",
+            bottom: "auto",
+            margin: 0,
+            transform: "translate(-50%, -50%)",
+            width: "min(100vw - 2rem, 24rem)",
+            maxHeight: "min(88vh, 100dvh - 2rem)",
             ...(stackAboveChatZ != null
               ? { zIndex: stackAboveChatZ + 20 }
               : {}),

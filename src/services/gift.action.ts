@@ -57,6 +57,31 @@ export async function giftItemToUserAction(params: {
   }
 }
 
+/** 商城「先選收禮者」流程用：僅暱稱搜尋，不驗證道具（購買前尚無 reward）。 */
+export async function searchGiftRecipientCandidatesAction(
+  nickname: string,
+): Promise<
+  | { ok: true; candidates: GiftRecipientSearchRow[] }
+  | { ok: false; error: string }
+> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "請先登入" };
+
+  const nick = nickname.trim();
+  if (nick.length < 1) return { ok: false, error: "請至少輸入 1 個字再搜尋" };
+
+  try {
+    const candidates = await findUsersByNickname(nick, user.id);
+    return { ok: true, candidates };
+  } catch (e) {
+    console.error("searchGiftRecipientCandidatesAction:", e);
+    return { ok: false, error: "搜尋失敗，請稍後再試" };
+  }
+}
+
 export async function confirmGiftAction(
   rewardId: string,
   recipientId: string,
