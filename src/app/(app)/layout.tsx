@@ -1,4 +1,5 @@
 import { PostLoginEntrance } from "@/components/auth/PostLoginEntrance";
+import { AppBadgeUnreadChatSync } from "@/components/shared/app-badge-unread-chat-sync";
 import { AppBroadcastChrome } from "@/components/layout/app-broadcast-chrome";
 import { FloatingToolbarProvider } from "@/components/layout/FloatingToolbar";
 import { Navbar } from "@/components/layout/Navbar";
@@ -22,6 +23,7 @@ export default async function AppGroupLayout({
       <GuildTabProvider>
         <FloatingToolbarProvider messageMaxLength={tavernMax}>
           <PostLoginEntrance>
+            <AppBadgeUnreadChatSync />
             <AppBroadcastChrome initialHasBroadcast={initialHasBroadcast}>
               {children}
             </AppBroadcastChrome>

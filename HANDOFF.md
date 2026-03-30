@@ -42,6 +42,8 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 - 配對：`matching.ts`；`role-display.ts`
 - 血盟／社交：`alliance.action.ts`；`alliance.repository.ts`；`social.action.ts`
 - 私訊／檢舉：`chat.action.ts`；`chat.repository.ts`；`ChatModal.tsx`；`useChat.ts`
+- **Web Push**：`public/sw.js`；`service-worker-register.tsx`（`providers.tsx`）；`usePushSubscription.ts`；`PushNotifyGuildRow.tsx`（`guild-profile-home` 帳號設定 Dialog）；`push.action.ts`；`push.repository.ts`；`lib/push/send-push.ts`（**`VAPID_SUBJECT`＋雙鑰** 才發送）
+- **PWA 角標**：`lib/utils/app-badge.ts`；`app-badge-unread-chat-sync.tsx`（**`(app)/layout.tsx`**，**未讀私訊對話數**＝`useUnreadChatCount`）
 - 通知／信件：`notification.action.ts`；`notification.repository.ts`；`guild/page.tsx` `MailBox`
 - 酒館／廣播：`tavern.action.ts`；`TavernModal.tsx`（**`@` 提及**、`tavern-message-content.tsx` 解析 **`@暱稱`**）；`TavernMarquee.tsx`（首頁酒館、`tavern_marquee_*`）；`broadcast/BroadcastBanner.tsx`（全站廣播、`broadcast_*`）；`getMarqueeAndBroadcastSettingsAction`；`app-broadcast-chrome.tsx`；`useTavern.ts`
 - 後台：`(admin)/layout.tsx`；`admin-shell.tsx`；`admin.action.ts`；`admin.repository.ts`；`admin-permissions.ts`
@@ -67,6 +69,7 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 - `blocks` — 封鎖
 - `reports` — 檢舉
 - `notifications` — 信件／站內通知
+- `push_subscriptions` — Web Push 訂閱（**`endpoint`／`p256dh`／`auth`**，依使用者 upsert）
 - `tavern_messages` — 酒館公開訊息
 - `tavern_bans` — 酒館禁言（含 `expires_at`）
 - `admin_actions` — 後台操作稽核（含 `action_label`）
@@ -93,11 +96,11 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## ✅ 最近完成（最新 5 次任務）
 
-1. **2026-03-30 — 酒館字數 SSOT 與氣泡斷行**：**`tavern-message-limit.ts`** 統一 **`tavernMax`** 與 **`sendTavernMessageAction`** 上限（預設 **50**、硬上限 **500**）；**`TavernModal`** 氣泡 **`min-w-0`** + **`overflow-wrap:anywhere`**。詳見 **`HANDOFF_HISTORY.md`**（**「酒館字數 SSOT 與氣泡斷行（2026-03-30）」**）。
-2. **2026-03-30 — 廣播 50 字、橫幅點開全文、商城說明遷移**：**`broadcast.ts`** 常數 **50**；**`BroadcastBanner`** 可點 **Dialog** 看全文；**`shop_items`** 廣播券說明 **30→50** 片語替換與空描述預設（遷移 **`20260330200000_shop_broadcast_description_50.sql`**）。詳見 **`HANDOFF_HISTORY.md`**（**「廣播訊息 50 字、橫幅全文、商城說明遷移（2026-03-30）」**）。
-3. **2026-03-30 — 興趣村莊：全站領袖／管理員置頂**：**Layer 2** **`findVillageStaffUsersGlobally`** 與同縣市 **`findVillageUsers`** 合併去重；營運略過性向、不比興趣分（內部 **`level` → `id`**）；無地區仍顯示營運；快取 **`village-v5-${userId}-${regionKey}`**。**`npm run build`** 通過。詳見 **`HANDOFF_HISTORY.md`**（**「興趣村莊：全站領袖／管理員置頂（2026-03-30）」**）。
-4. **2026-03-30 — 探索村莊／市集邏輯、註冊興趣必填與建置**：**Layer 2** **`findMarketUsers`** 排除無技能（**`skills_offer`／`skills_want` 至少一邊非空**）、**`select` 含 `total_exp`**；**Layer 3** 市集 **`isPerfectMatch`＝互補 ≥2**、排序 **命定師徒 → `level` → `total_exp`**，快取鍵 **`market-v3-${userId}`**；村莊排序／篩選歷經 **`village-v4`／`village-v5`** 演進（見 **`HANDOFF_HISTORY.md`**）。**`matching.ts`** 新增 **`countComplementarySkills`**；**`MarketContent`** 文案對齊。**註冊**：名冊成功後導 **`/register/interests`**；**`pending`** 可進興趣／技能／月老（**`middleware.ts`**）；**`completeRegistration`／`updateMyProfile`** 強制 **≥1 興趣** 與上限。**`npm run build`** 通過。詳見 **`HANDOFF_HISTORY.md`**。
-5. **2026-03-30 — UserDetailModal 視窗置中 + 捲軸焦點**：無 **`DialogTrigger`** 時 Base UI 依錨點定位，彈窗常落在畫面下方；**`UserDetailModal`** **`contentStyle`** 強制 **`position:fixed; left/top:50%; transform:translate(-50%,-50%)`** ＋ **`maxHeight`**／**`width`** 置中。**`initialFocus={-1}`** 避免開啟時捲到內容底部。**`/shop`**：**🎁 送給朋友** 左側小鈕、**購買** 右側大鈕；贈送流程 **選對象（`searchGiftRecipientCandidatesAction`）→ 數量／小計 → 確認 Alert → 購買 + `confirmGiftAction`**（對方信件通知）。詳見 **`HANDOFF_HISTORY.md`**。
+1. **2026-03-31 — Web Push 與 PWA 角標**：**VAPID** 三變數、**`sw.js`**／**`send-push.ts`**、**`PushNotifyGuildRow`**／**`usePushSubscription`**（逾時恢復、本機重訂閱、無金鑰引導）；**`AppBadgeUnreadChatSync`** 依 **未讀私訊對話數** 同步 **`setAppBadge`**。詳見 **`HANDOFF_HISTORY.md`**（**「Web Push（VAPID）與 PWA 圖示角標（2026-03-31）」**）。
+2. **2026-03-30 — 酒館字數 SSOT 與氣泡斷行**：**`tavern-message-limit.ts`** 統一 **`tavernMax`** 與 **`sendTavernMessageAction`** 上限（預設 **50**、硬上限 **500**）；**`TavernModal`** 氣泡 **`min-w-0`** + **`overflow-wrap:anywhere`**。詳見 **`HANDOFF_HISTORY.md`**（**「酒館字數 SSOT 與氣泡斷行（2026-03-30）」**）。
+3. **2026-03-30 — 廣播 50 字、橫幅點開全文、商城說明遷移**：**`broadcast.ts`** 常數 **50**；**`BroadcastBanner`** 可點 **Dialog** 看全文；**`shop_items`** 廣播券說明 **30→50** 片語替換與空描述預設（遷移 **`20260330200000_shop_broadcast_description_50.sql`**）。詳見 **`HANDOFF_HISTORY.md`**（**「廣播訊息 50 字、橫幅全文、商城說明遷移（2026-03-30）」**）。
+4. **2026-03-30 — 興趣村莊：全站領袖／管理員置頂**：**Layer 2** **`findVillageStaffUsersGlobally`** 與同縣市 **`findVillageUsers`** 合併去重；營運略過性向、不比興趣分（內部 **`level` → `id`**）；無地區仍顯示營運；快取 **`village-v5-${userId}-${regionKey}`**。**`npm run build`** 通過。詳見 **`HANDOFF_HISTORY.md`**（**「興趣村莊：全站領袖／管理員置頂（2026-03-30）」**）。
+5. **2026-03-30 — 探索村莊／市集邏輯、註冊興趣必填與建置**：**Layer 2** **`findMarketUsers`** 排除無技能（**`skills_offer`／`skills_want` 至少一邊非空**）、**`select` 含 `total_exp`**；**Layer 3** 市集 **`isPerfectMatch`＝互補 ≥2**、排序 **命定師徒 → `level` → `total_exp`**，快取鍵 **`market-v3-${userId}`**；村莊排序／篩選歷經 **`village-v4`／`village-v5`** 演進（見 **`HANDOFF_HISTORY.md`**）。**`matching.ts`** 新增 **`countComplementarySkills`**；**`MarketContent`** 文案對齊。**註冊**：名冊成功後導 **`/register/interests`**；**`pending`** 可進興趣／技能／月老（**`middleware.ts`**）；**`completeRegistration`／`updateMyProfile`** 強制 **≥1 興趣** 與上限。**`npm run build`** 通過。詳見 **`HANDOFF_HISTORY.md`**。
 
 ## ⚠️ 目前已知問題
 

@@ -5,6 +5,16 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-31 — Web Push（VAPID）與 PWA 圖示角標（未讀私訊對話數）
+
+1. **環境變數**（**`.env.example`**）：**`NEXT_PUBLIC_VAPID_PUBLIC_KEY`**、**`VAPID_PRIVATE_KEY`**、**`VAPID_SUBJECT`**（例 **`mailto:…`**）。**`src/lib/push/send-push.ts`** 之 **`ensureVapidConfigured()`** 三項皆必填才 **`webpush.setVapidDetails`**；缺任一則 **`sendPushToUser` 靜默 return**（無 throw）。
+2. **Service Worker**：**`public/sw.js`** — **`push`**（JSON **`title`／`body`／`url`** → **`showNotification`**）、**`notificationclick`**（focus 或 **`openWindow`**）。**`src/components/shared/service-worker-register.tsx`** 於 **`providers.tsx`** 註冊 **`/sw.js`**（**`scope: '/'`**）。**`middleware.ts`** **`isApiOrStatic`** 含 **`pathname === '/sw.js'`**。
+3. **訂閱 UI**：**`PushNotifyGuildRow.tsx`**（**`guild-profile-home.tsx`** 帳號設定 **Dialog** 捲動區頂）。**`usePushSubscription.ts`** — **`getVapidPublicKey()`**；掛載時 **`pushManager.getSubscription()`** 同步 **`subscribed`**、**`Notification.permission === 'denied'`** → **`denied`**；**`subscribe`** 內 **`Promise.race` 逾時（35s）** 回 **`idle`** 並 toast；**`clearLocalSubscription()`** 取消本機訂閱供重試；無公開金鑰時顯示**引導框**（production 說明／development 本機步驟）。
+4. **Layer 3／2**：**`push.action.ts`** **`savePushSubscriptionAction`**；**`push.repository.ts`**；遷移 **`supabase/migrations/*_push_subscriptions.sql`**（**`push_subscriptions`** 表）。
+5. **觸發發送**：**`sendPushToUser`** 由 **`chat.action.ts`**、**`notification.action.ts`**、**`tavern.action.ts`** 等 **fire-and-forget** 呼叫。
+6. **PWA 角標**：**`lib/utils/app-badge.ts`** **`setPwaAppBadgeFromUnreadChatCount`**（**`navigator.setAppBadge`／`clearAppBadge`**，數字 **1–99**，不支援則略過）。**`AppBadgeUnreadChatSync`** 用 **`useUnreadChatCount()`**（與 **`getUnreadChatConversationsCountAction`**／公會「聊天」未讀**對話數**同源），掛 **`(app)/layout.tsx`**（**`SWRProvider`** 內）；**unmount 清除角標**（離開 app shell／登出等）。
+7. **維運**：Vercel **三變數**齊備後 **Redeploy**；本機 **`.env.local`** 變更 **`NEXT_PUBLIC_*`** 後須**重啟 `npm run dev`**。iOS 主畫面 Web App 對 Badging／Web Push 支援因版本而異，需實機驗證。
+
 ### 2026-03-30 — 興趣村莊聯絡：`master`／`moderator` 略過性向；市集卡命定師徒版面
 
 1. **`village.service.ts` — `getVillageUsersAction`**：**`role === 'master'` 或 `'moderator'`** 時**不**套用 **`isOrientationMatch`**（仍限 L2 同縣市、`active`、非 `hidden`、排除自己）；其餘使用者維持雙向性向篩選。排序仍 **`master` → `moderator` → 興趣分 → `level`**。**`unstable_cache`** 鍵改 **`village-v4-${userId}-${region}`**（舊 **`village-v3`** 行為不同，避免 TTL 內混用）。**技能市集**不依 **`role` 置頂**（未改）。
