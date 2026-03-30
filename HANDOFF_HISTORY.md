@@ -281,9 +281,15 @@
 ### 角色識別、探索排序與命定師徒（2026-03-26）
 
 - **`src/lib/utils/role-display.ts`**：**`getRoleDisplay(role)`** 回傳 **`crown`** + **`nameClass`** — **`master`** → **👑**、`text-amber-300 font-semibold`；**`moderator`** → **🛡️**、`text-blue-300 font-semibold`；其餘 **`crown: null`**、`text-zinc-100`。套用：**`UserCard`**（**`src/components/ui/UserCard.tsx`**，**`cards/UserCard.tsx`** re-export）、**`UserDetailModal`**、**`TavernModal`** 訊息列、**`/guild`** 血盟（待確認／夥伴）與聊天列表暱稱。
-- **興趣村莊排序**（**`getVillageUsersAction`**／**`village.service.ts`**）：性向篩選後 — **①** **`master`／`moderator` 置頂** → **②** **`calcInterestScore` 高→低** → **③** 同分 **`level` 高→低**。**`findVillageUsers`** **`select`** 含 **`role`**、**`level`**、**`mood`**、**`mood_at`**、**`activity_status`** 及卡片／Modal 欄位（見上「前台 Bug 修復」第 4 點）。
+- **興趣村莊排序**（**`getVillageUsersAction`**／**`village.service.ts`**）：**`findVillageUsers`**（同縣市）與 **`findVillageStaffUsersGlobally`**（全站 **`master`／`moderator`**）**`Map` 去重**合併。性向：**營運略過**；一般 **`isOrientationMatch`**。排序：**①** **`master` → `moderator` → 一般** → **②** 營運內 **`level` 高→低**（不比興趣分，`id` 穩定次序）→ **③** 一般：**`calcInterestScore` → `level`**。無 **`region`** 時仍可見全站營運。快取 **`village-v5-${userId}-${regionKey}`**（無地區 **`__no_region__`**）。**`select`** 欄位見 **`findVillageUsers`**／**`findVillageStaffUsersGlobally`**（與卡片／Modal 一致）。
 - **技能市集排序**（**`getMarketUsersAction`**／**`market.service.ts`**）：**不做** staff 置頂 — **①** **Perfect Match**（雙向技能契合）→ **②** **互補分** → **③** **同好分** → **④** 同分 **`level` 高→低**。**`findMarketUsers`** **`select`** 同上（**`level`**、**`role`**、心情與活躍狀態等列表與詳情所需欄位）。
 - **命定師徒**：市集 UI 將原「靈魂伴侶／完美匹配」文案改為 **「⚔️ 命定師徒」**（**`MarketContent.tsx`**）；**`.perfect-match-market-shell`** 高光樣式不變（**`globals.css`** 註解同步）。
+
+### 興趣村莊：全站領袖／管理員置頂（2026-03-30）
+
+- **目的**：領袖與管理員不受縣市限制出現在村莊列表頂部，方便使用者聯繫；不依興趣分排序營運帳號。
+- **Layer 2**：**`src/lib/repositories/server/user.repository.ts`** 新增 **`findVillageStaffUsersGlobally`** — **`.in('role', ['master','moderator'])`**、**`active`**、**`activity_status !== hidden`**、排除自己；無 **`region`** 條件；**`select`** 與 **`findVillageUsers`** 相同。
+- **Layer 3**：**`src/services/village.service.ts`** **`Promise.all`** 並行同縣市與全站營運查詢後合併；**`unstable_cache`** 鍵 **`village-v5-…`**。
 
 ### 列表卡等級外框特效 `LevelCardEffect`（2026-03-27）
 

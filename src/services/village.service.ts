@@ -6,7 +6,10 @@ import {
   findEquippedAvatarFramesByUserIds,
   findEquippedCardFramesByUserIds,
 } from "@/lib/repositories/server/rewards.repository";
-import { findVillageUsers } from "@/lib/repositories/server/user.repository";
+import {
+  findVillageStaffUsersGlobally,
+  findVillageUsers,
+} from "@/lib/repositories/server/user.repository";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import type { CardDecorationConfig } from "@/lib/utils/card-decoration";
 import type { ShopFrameLayout } from "@/lib/utils/avatar-frame-layout";
@@ -39,14 +42,23 @@ export async function getVillageUsersAction(): Promise<{
     .eq("id", user.id)
     .single();
 
-  if (!me?.region) return { ok: true, users: [] };
+  const regionKey = me?.region ?? "__no_region__";
 
   const getCachedVillageUsers = unstable_cache(
     async () => {
-      const candidates = await findVillageUsers({
-        currentUserId: user.id,
-        region: me.region,
-      });
+      const [localRows, staffRows] = await Promise.all([
+        me?.region
+          ? findVillageUsers({
+              currentUserId: user.id,
+              region: me.region,
+            })
+          : Promise.resolve([]),
+        findVillageStaffUsersGlobally({ currentUserId: user.id }),
+      ]);
+      const byId = new Map<string, UserRow>();
+      for (const u of localRows) byId.set(u.id, u);
+      for (const u of staffRows) byId.set(u.id, u);
+      const candidates = Array.from(byId.values());
       const userIds = candidates.map((u) => u.id);
       const [frameMap, cardFrameMap] = await Promise.all([
         findEquippedAvatarFramesByUserIds(userIds),
@@ -66,17 +78,17 @@ export async function getVillageUsersAction(): Promise<{
           cardDecoration: deco ?? {},
         };
       });
-      // Layer 3：`master`／`moderator` 略過性向篩選（同縣市聯絡營運）；其餘雙向 isOrientationMatch
+      // Layer 3：`master`／`moderator` 略過性向篩選（全站可見、方便聯絡）；其餘雙向 isOrientationMatch
       const filtered = withFrames.filter((u) => {
         if (u.role === "master" || u.role === "moderator") return true;
         return isOrientationMatch(
-          me.gender ?? "",
-          me.orientation ?? "",
+          me?.gender ?? "",
+          me?.orientation ?? "",
           u.gender ?? "",
           u.orientation ?? "",
         );
       });
-      const myInterests = me.interests ?? [];
+      const myInterests = me?.interests ?? [];
       const scored: VillageUserWithScore[] = filtered.map((u) => ({
         ...u,
         _score: calcInterestScore(myInterests, u.interests ?? []),
@@ -87,13 +99,19 @@ export async function getVillageUsersAction(): Promise<{
         const ta = roleTier(a.role);
         const tb = roleTier(b.role);
         if (ta !== tb) return ta - tb;
+        // 營運不比興趣分：領袖／管理員內依 level，再以 id 穩定次序
+        if (ta <= 1) {
+          const lv = (b.level ?? 1) - (a.level ?? 1);
+          if (lv !== 0) return lv;
+          return a.id.localeCompare(b.id);
+        }
         if (b._score !== a._score) return b._score - a._score;
         return (b.level ?? 1) - (a.level ?? 1);
       });
       return scored;
     },
     // 版本後綴：欄位（如 offline_ok）變更時使舊快取失效
-    [`village-v4-${user.id}-${me.region}`],
+    [`village-v5-${user.id}-${regionKey}`],
     { revalidate: 300 },
   );
 
