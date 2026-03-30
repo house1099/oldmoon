@@ -14,18 +14,14 @@ import {
   isTavernBanned,
 } from "@/lib/repositories/server/tavern.repository";
 import { findSystemSettingByKey } from "@/lib/repositories/server/invitation.repository";
-
-const TAVERN_MESSAGE_HARD_CAP = 500;
-const TAVERN_MESSAGE_DEFAULT_MAX = 50;
+import { resolveTavernMessageMaxLength } from "@/lib/utils/tavern-message-limit";
+import { notifyUserMailboxSilent } from "@/services/notification.action";
+import type { TavernBanRow, TavernMessageDto } from "@/types/database.types";
 
 async function effectiveTavernMessageMax(): Promise<number> {
   const raw = await findSystemSettingByKey("tavern_message_max_length");
-  const n = parseInt((raw ?? "").trim(), 10);
-  if (!Number.isFinite(n) || n < 1) return TAVERN_MESSAGE_DEFAULT_MAX;
-  return Math.min(n, TAVERN_MESSAGE_HARD_CAP);
+  return resolveTavernMessageMaxLength(raw);
 }
-import { notifyUserMailboxSilent } from "@/services/notification.action";
-import type { TavernBanRow, TavernMessageDto } from "@/types/database.types";
 
 async function requireRole(allowedRoles: ("master" | "moderator")[]) {
   const supabase = createClient();

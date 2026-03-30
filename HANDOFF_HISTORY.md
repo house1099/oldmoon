@@ -245,6 +245,11 @@
 - **`BroadcastBanner.tsx`**：緊湊列主體為可聚焦 **`button`**（**`aria-label="查看廣播全文"`**），點擊開 **`Dialog`** 顯示暱稱與完整 **`message`**（**`whitespace-pre-wrap`**）；下架 **✕** 仍獨立。
 - **🗄️ **`supabase/migrations/20260330200000_shop_broadcast_description_50.sql`**：**`shop_items`** **`item_type = 'broadcast'`** 將說明中 **「1〜30 字」／「1～30 字」／「1-30 字」** 改為 **50**；**`description`** 空白時寫入預設繁中說明（含 **1〜50 字** 與約 **24h**）。
 
+### 酒館字數 SSOT 與氣泡斷行（2026-03-30）
+
+- **`src/lib/utils/tavern-message-limit.ts`**：**`resolveTavernMessageMaxLength`**（預設 **50**、硬上限 **500**）；**`getMessageLimitsAction`** 之 **`tavernMax`** 與 **`sendTavernMessageAction`** 之 **`effectiveTavernMessageMax`** 共用，避免 UI 與伺服驗證漂移（後台設超過 **500** 時前台計數亦 **500**）。
+- **`TavernModal.tsx`** 訊息氣泡：**`min-w-0`**、**`break-words`**、**`overflow-wrap:anywhere`**，長串數字不撐破 **flex** 版面。
+
 ### Wave A 基礎修復（2026-03-27）
 
 - **幣種文案全站更新**：UI 顯示統一改為 **探險幣**（原「免費幣」）與 **純金**（原「付費幣」）；僅改顯示文字，**DB 欄位仍維持 `free_coins`／`premium_coins`**。

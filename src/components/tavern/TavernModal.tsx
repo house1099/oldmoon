@@ -294,7 +294,7 @@ export function TavernModal({
                       <div
                         role={canOpenActionMenu ? "button" : undefined}
                         tabIndex={canOpenActionMenu ? 0 : undefined}
-                        className="touch-manipulation max-w-[70vw] rounded-2xl rounded-tr-sm bg-violet-700/80 px-3 py-2 text-sm text-white"
+                        className="touch-manipulation min-w-0 max-w-[70vw] break-words [overflow-wrap:anywhere] rounded-2xl rounded-tr-sm bg-violet-700/80 px-3 py-2 text-sm text-white"
                         onPointerDown={() => startLongPress(m, mine)}
                         onPointerUp={clearLongPress}
                         onPointerLeave={clearLongPress}
@@ -356,7 +356,7 @@ export function TavernModal({
                     <div
                       role={canOpenActionMenu ? "button" : undefined}
                       tabIndex={canOpenActionMenu ? 0 : undefined}
-                      className="touch-manipulation max-w-[70vw] rounded-2xl rounded-tl-sm bg-zinc-800/80 px-3 py-2 text-sm text-zinc-100"
+                      className="touch-manipulation min-w-0 max-w-[70vw] break-words [overflow-wrap:anywhere] rounded-2xl rounded-tl-sm bg-zinc-800/80 px-3 py-2 text-sm text-zinc-100"
                       onPointerDown={() => startLongPress(m, mine)}
                       onPointerUp={clearLongPress}
                       onPointerLeave={clearLongPress}

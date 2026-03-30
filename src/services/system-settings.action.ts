@@ -2,6 +2,7 @@
 
 import { unstable_cache } from "next/cache";
 import { findSystemSettingByKey } from "@/lib/repositories/server/invitation.repository";
+import { resolveTavernMessageMaxLength } from "@/lib/utils/tavern-message-limit";
 
 const DEFAULT_INTERESTS_MAX = 12;
 const DEFAULT_SKILLS_MAX = 8;
@@ -50,7 +51,7 @@ async function loadMessageLimits(): Promise<{
     findSystemSettingByKey("mood_max_length"),
   ]);
   return {
-    tavernMax: parseLimit(tavernRaw, DEFAULT_MESSAGE_MAX),
+    tavernMax: resolveTavernMessageMaxLength(tavernRaw),
     moodMax: parseLimit(moodRaw, DEFAULT_MESSAGE_MAX),
   };
 }
