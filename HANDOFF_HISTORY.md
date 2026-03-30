@@ -12,7 +12,7 @@
 3. **`src/services/push.action.ts`**：**`savePushSubscriptionAction`** JSDoc 補充推播 JSON 欄位與 **`send-push.ts`** 指標。
 4. **`src/lib/utils/app-badge.ts`**：新增 **`clearPwaAppBadge()`**（**`navigator.clearAppBadge`**，不支援則略過）。
 5. **登出**：**`guild-profile-home.tsx`**、**`register/pending/page.tsx`** 於 **`signOut` 後** **`clearPwaAppBadge()`** 並 **`useSWRConfig().mutate(() => true, undefined, { revalidate: false })`** 清空 SWR 快取，再導向 **`/login`**。
-6. **建置／Git**：**`npm run build`** 通過；已 **`git push`**（訊息見 log）。
+6. **建置／Git**：**`npm run build`** 通過；已 **`git push`**：**`270dc30`** **`feat(push): SW app badge from unreadCount, server payload, logout clear`**。
 
 ### 2026-03-31 — `.cursorrules`：任務收尾 HANDOFF／HISTORY／Git（重點紀錄）
 
