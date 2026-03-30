@@ -2,14 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSWRConfig } from "swr";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { getMyProfileAction } from "@/services/profile.action";
 import { updateMyProfile } from "@/services/profile-update.action";
 import { instagramHandleSchema } from "@/lib/validation/instagram-handle";
+import { clearPwaAppBadge } from "@/lib/utils/app-badge";
 
 export default function RegisterPendingPage() {
   const router = useRouter();
+  const { mutate: mutateGlobalCache } = useSWRConfig();
   const [loading, setLoading] = useState(true);
   const [handle, setHandle] = useState<string | null>(null);
   const [inputIg, setInputIg] = useState("");
@@ -57,6 +60,8 @@ export default function RegisterPendingPage() {
     try {
       const supabase = createClient();
       await supabase.auth.signOut();
+      void clearPwaAppBadge();
+      void mutateGlobalCache(() => true, undefined, { revalidate: false });
       router.push("/login");
       router.refresh();
     } finally {

@@ -75,7 +75,7 @@ import { getActiveAnnouncementsAction } from "@/services/announcement.action";
 import { getHomeAdsAction } from "@/services/advertisement.action";
 import { recordAdClickAction } from "@/services/advertisement.action";
 import type { AnnouncementRow, AdvertisementRow } from "@/types/database.types";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { useMyProfile } from "@/hooks/useMyProfile";
 import { SWR_KEYS } from "@/lib/swr/keys";
 import {
@@ -87,6 +87,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useOpenEquipmentSheet } from "@/components/layout/FloatingToolbar";
 import { PushNotifyGuildRow } from "@/components/profile/PushNotifyGuildRow";
+import { clearPwaAppBadge } from "@/lib/utils/app-badge";
 
 const IOS_TEXTAREA_CLASS =
   "w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-base text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none";
@@ -331,6 +332,7 @@ export function GuildProfileHome({
   preloadImageUrls?: string[];
 }) {
   const router = useRouter();
+  const { mutate: mutateGlobalCache } = useSWRConfig();
   const openEquipmentSheet = useOpenEquipmentSheet();
   const { mutate: mutateProfile } = useMyProfile();
 
@@ -791,6 +793,8 @@ export function GuildProfileHome({
     try {
       const supabase = createClient();
       await supabase.auth.signOut();
+      void clearPwaAppBadge();
+      void mutateGlobalCache(() => true, undefined, { revalidate: false });
       router.push("/login");
       router.refresh();
     } finally {

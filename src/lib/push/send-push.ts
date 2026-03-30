@@ -1,4 +1,5 @@
 import webpush, { WebPushError } from "web-push";
+import { countConversationsWithUnreadFromOthers } from "@/lib/repositories/server/chat.repository";
 import {
   deletePushSubscriptionByEndpoint,
   findPushSubscriptionsByUserId,
@@ -8,6 +9,8 @@ export type WebPushPayload = {
   title: string;
   body: string;
   url: string;
+  /** 由 `sendPushToUser` 依接收者合併；呼叫端可省略 */
+  unreadCount?: number;
 };
 
 let vapidInitialized = false;
@@ -52,7 +55,14 @@ export async function sendPushToUser(
 
   if (rows.length === 0) return;
 
-  const data = JSON.stringify(payload);
+  let unreadRaw = 0;
+  try {
+    unreadRaw = await countConversationsWithUnreadFromOthers(userId);
+  } catch (e) {
+    console.error("sendPushToUser countConversationsWithUnreadFromOthers:", e);
+  }
+  const unreadCount = Math.min(Math.max(0, Math.floor(unreadRaw)), 99);
+  const data = JSON.stringify({ ...payload, unreadCount });
 
   await Promise.allSettled(
     rows.map(async (row) => {

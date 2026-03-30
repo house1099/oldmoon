@@ -10,6 +10,7 @@ export type SavePushSubscriptionInput = {
 
 /**
  * 儲存／更新當前使用者的 Web Push 訂閱（依 **endpoint** upsert）。
+ * 伺服端推播 JSON 欄位（**`title`**／**`body`**／**`url`**／**`unreadCount`**）由 **`src/lib/push/send-push.ts`** 組裝。
  */
 export async function savePushSubscriptionAction(
   sub: SavePushSubscriptionInput,

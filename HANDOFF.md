@@ -42,8 +42,8 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 - 配對：`matching.ts`；`role-display.ts`
 - 血盟／社交：`alliance.action.ts`；`alliance.repository.ts`；`social.action.ts`
 - 私訊／檢舉：`chat.action.ts`；`chat.repository.ts`；`ChatModal.tsx`；`useChat.ts`
-- **Web Push**：`public/sw.js`；`service-worker-register.tsx`（`providers.tsx`）；`usePushSubscription.ts`；`PushNotifyGuildRow.tsx`（`guild-profile-home` 帳號設定 Dialog）；`push.action.ts`；`push.repository.ts`；`lib/push/send-push.ts`（**`VAPID_SUBJECT`＋雙鑰** 才發送）
-- **PWA 角標**：`lib/utils/app-badge.ts`；`app-badge-unread-chat-sync.tsx`（**`(app)/layout.tsx`**，**未讀私訊對話數**＝`useUnreadChatCount`）
+- **Web Push**：`public/sw.js`（**`push`** 含 **`unreadCount` → 角標**）；`service-worker-register.tsx`（`providers.tsx`）；`usePushSubscription.ts`；`PushNotifyGuildRow.tsx`（`guild-profile-home` 帳號設定 Dialog）；`push.action.ts`；`push.repository.ts`；`lib/push/send-push.ts`（**`VAPID_SUBJECT`＋雙鑰** 才發送；**`unreadCount`** 由 **`countConversationsWithUnreadFromOthers`** 合併）
+- **PWA 角標**：`lib/utils/app-badge.ts`（**`setPwaAppBadgeFromUnreadChatCount`**／**`clearPwaAppBadge`**）；`app-badge-unread-chat-sync.tsx`（**`(app)/layout.tsx`**，**未讀私訊對話數**＝`useUnreadChatCount`）；登出見 **`guild-profile-home`**／**`register/pending`**
 - 通知／信件：`notification.action.ts`；`notification.repository.ts`；`guild/page.tsx` `MailBox`
 - 酒館／廣播：`tavern.action.ts`；`TavernModal.tsx`（**`@` 提及**、`tavern-message-content.tsx` 解析 **`@暱稱`**）；`TavernMarquee.tsx`（首頁酒館、`tavern_marquee_*`）；`broadcast/BroadcastBanner.tsx`（全站廣播、`broadcast_*`）；`getMarqueeAndBroadcastSettingsAction`；`app-broadcast-chrome.tsx`；`useTavern.ts`
 - 後台：`(admin)/layout.tsx`；`admin-shell.tsx`；`admin.action.ts`；`admin.repository.ts`；`admin-permissions.ts`
@@ -96,11 +96,11 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## ✅ 最近完成（最新 5 次任務）
 
-1. **2026-03-31 — 流程強制：`.cursorrules` 重點紀錄**：任務完成後必更新 **`HANDOFF.md`**「最近完成」、**`HANDOFF_HISTORY.md`** 置頂 **`###` 完整紀錄**，並 **`git push`**（推送前 **`npm run build`**）；修正舊規「HISTORY 僅能最下方追加」與本 repo **日誌置頂**慣例一致。詳見 **`HANDOFF_HISTORY.md`**（**「`.cursorrules`：任務收尾 HANDOFF／HISTORY／Git（2026-03-31）」**）。
-2. **2026-03-31 — Web Push 與 PWA 角標**：**VAPID** 三變數、**`sw.js`**／**`send-push.ts`**、**`PushNotifyGuildRow`**／**`usePushSubscription`**（逾時恢復、本機重訂閱、無金鑰引導）；**`AppBadgeUnreadChatSync`** 依 **未讀私訊對話數** 同步 **`setAppBadge`**。詳見 **`HANDOFF_HISTORY.md`**（**「Web Push（VAPID）與 PWA 圖示角標（2026-03-31）」**）。
-3. **2026-03-30 — 酒館字數 SSOT 與氣泡斷行**：**`tavern-message-limit.ts`** 統一 **`tavernMax`** 與 **`sendTavernMessageAction`** 上限（預設 **50**、硬上限 **500**）；**`TavernModal`** 氣泡 **`min-w-0`** + **`overflow-wrap:anywhere`**。詳見 **`HANDOFF_HISTORY.md`**（**「酒館字數 SSOT 與氣泡斷行（2026-03-30）」**）。
-4. **2026-03-30 — 廣播 50 字、橫幅點開全文、商城說明遷移**：**`broadcast.ts`** 常數 **50**；**`BroadcastBanner`** 可點 **Dialog** 看全文；**`shop_items`** 廣播券說明 **30→50** 片語替換與空描述預設（遷移 **`20260330200000_shop_broadcast_description_50.sql`**）。詳見 **`HANDOFF_HISTORY.md`**（**「廣播訊息 50 字、橫幅全文、商城說明遷移（2026-03-30）」**）。
-5. **2026-03-30 — 興趣村莊：全站領袖／管理員置頂**：**Layer 2** **`findVillageStaffUsersGlobally`** 與同縣市 **`findVillageUsers`** 合併去重；營運略過性向、不比興趣分（內部 **`level` → `id`**）；無地區仍顯示營運；快取 **`village-v5-${userId}-${regionKey}`**。**`npm run build`** 通過。詳見 **`HANDOFF_HISTORY.md`**（**「興趣村莊：全站領袖／管理員置頂（2026-03-30）」**）。
+1. **2026-03-31 — Service Worker 角標、推播 `unreadCount`、登出清除**：**`sw.js`** 依 payload  **`setAppBadge`／`clearAppBadge`**；**`send-push.ts`** 以 **`countConversationsWithUnreadFromOthers(userId)`** 合併 **`unreadCount`**（與 **`getUnreadChatConversationsCountAction`** 同源語意、非 session action）；**`clearPwaAppBadge`** + **SWR 全清**於 **`guild-profile-home`**／**`register/pending`** 登出。詳見 **`HANDOFF_HISTORY.md`**（**「Service Worker 推播角標、`unreadCount` payload、登出清除角標與 SWR」**）。
+2. **2026-03-31 — 流程強制：`.cursorrules` 重點紀錄**：任務完成後必更新 **`HANDOFF.md`**「最近完成」、**`HANDOFF_HISTORY.md`** 置頂 **`###` 完整紀錄**，並 **`git push`**（推送前 **`npm run build`**）；修正舊規「HISTORY 僅能最下方追加」與本 repo **日誌置頂**慣例一致。詳見 **`HANDOFF_HISTORY.md`**（**「`.cursorrules`：任務收尾 HANDOFF／HISTORY／Git（2026-03-31）」**）。
+3. **2026-03-31 — Web Push 與 PWA 角標**：**VAPID** 三變數、**`sw.js`**／**`send-push.ts`**、**`PushNotifyGuildRow`**／**`usePushSubscription`**（逾時恢復、本機重訂閱、無金鑰引導）；**`AppBadgeUnreadChatSync`** 依 **未讀私訊對話數** 同步 **`setAppBadge`**。詳見 **`HANDOFF_HISTORY.md`**（**「Web Push（VAPID）與 PWA 圖示角標（2026-03-31）」**）。
+4. **2026-03-30 — 酒館字數 SSOT 與氣泡斷行**：**`tavern-message-limit.ts`** 統一 **`tavernMax`** 與 **`sendTavernMessageAction`** 上限（預設 **50**、硬上限 **500**）；**`TavernModal`** 氣泡 **`min-w-0`** + **`overflow-wrap:anywhere`**。詳見 **`HANDOFF_HISTORY.md`**（**「酒館字數 SSOT 與氣泡斷行（2026-03-30）」**）。
+5. **2026-03-30 — 廣播 50 字、橫幅點開全文、商城說明遷移**：**`broadcast.ts`** 常數 **50**；**`BroadcastBanner`** 可點 **Dialog** 看全文；**`shop_items`** 廣播券說明 **30→50** 片語替換與空描述預設（遷移 **`20260330200000_shop_broadcast_description_50.sql`**）。詳見 **`HANDOFF_HISTORY.md`**（**「廣播訊息 50 字、橫幅全文、商城說明遷移（2026-03-30）」**）。
 
 ## ⚠️ 目前已知問題
 

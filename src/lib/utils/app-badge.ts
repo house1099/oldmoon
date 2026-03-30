@@ -1,4 +1,19 @@
 /** PWA 主畫面圖示角標（Badging API）；不支援或失敗時靜默略過。 */
+
+/** 登出等情境明確清除圖示角標；不支援或失敗時靜默略過。 */
+export async function clearPwaAppBadge(): Promise<void> {
+  if (typeof navigator === "undefined") return;
+  const nav = navigator as Navigator & {
+    clearAppBadge?: () => Promise<void>;
+  };
+  if (typeof nav.clearAppBadge !== "function") return;
+  try {
+    await nav.clearAppBadge();
+  } catch {
+    /* iOS／部分瀏覽器可能 reject */
+  }
+}
+
 export async function setPwaAppBadgeFromUnreadChatCount(count: number): Promise<void> {
   if (typeof navigator === "undefined") return;
   const nav = navigator as Navigator & {

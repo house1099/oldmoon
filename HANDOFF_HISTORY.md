@@ -5,6 +5,15 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-31 — Service Worker 推播角標、`unreadCount` payload、登出清除角標與 SWR
+
+1. **`public/sw.js`**：**`push`** 解析 JSON 之 **`unreadCount`**（數值且非 NaN 才處理）；**`event.waitUntil(Promise.all([showNotification, syncBadge]))`**；**`navigator.setAppBadge`／`clearAppBadge`**（**0** 清除、**1–99** 設數，與 **`app-badge.ts`** 一致）；僅 **`setAppBadge` 存在**時才嘗試；**無 `unreadCount` 欄位**的舊 payload **不**改角標，避免誤清。
+2. **`src/lib/push/send-push.ts`**：**`WebPushPayload`** 可選 **`unreadCount`**（由本函式合併）；發送前對**接收者** **`userId`** 呼叫 L2 **`countConversationsWithUnreadFromOthers(userId)`**（與 **`getUnreadChatConversationsCountAction`** 對該使用者之語意同源；**未**用該 action，因其綁定**當前 HTTP session**，無法代表推播接收者）。合併 **`unreadCount` 0–99** 後 **`JSON.stringify`**。**`chat`／`notification`／`tavern`** 既有 **`sendPushToUser`** 呼叫無需改參數。
+3. **`src/services/push.action.ts`**：**`savePushSubscriptionAction`** JSDoc 補充推播 JSON 欄位與 **`send-push.ts`** 指標。
+4. **`src/lib/utils/app-badge.ts`**：新增 **`clearPwaAppBadge()`**（**`navigator.clearAppBadge`**，不支援則略過）。
+5. **登出**：**`guild-profile-home.tsx`**、**`register/pending/page.tsx`** 於 **`signOut` 後** **`clearPwaAppBadge()`** 並 **`useSWRConfig().mutate(() => true, undefined, { revalidate: false })`** 清空 SWR 快取，再導向 **`/login`**。
+6. **建置／Git**：**`npm run build`** 通過；已 **`git push`**（訊息見 log）。
+
 ### 2026-03-31 — `.cursorrules`：任務收尾 HANDOFF／HISTORY／Git（重點紀錄）
 
 1. **完成項目**  
