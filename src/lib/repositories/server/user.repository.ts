@@ -125,7 +125,7 @@ export async function findVillageUsers(params: {
       avatar_url, level, role, mood, mood_at,
       interests, skills_offer, skills_want,
       bio_village, bio_market, last_seen_at,
-      instagram_handle, ig_public, activity_status
+      instagram_handle, ig_public, activity_status, offline_ok
     `,
     )
     .eq("region", params.region)
@@ -154,7 +154,7 @@ export async function findMarketUsers(params: {
       id, nickname, gender, region, orientation,
       avatar_url, level, role, mood, mood_at,
       interests, skills_offer, skills_want,
-      bio_village, bio_market, last_seen_at, activity_status
+      bio_village, bio_market, last_seen_at, activity_status, offline_ok
     `,
     )
     .eq("status", "active")

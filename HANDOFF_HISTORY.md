@@ -5,6 +5,12 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-30 — 設計修復計劃（探索 WiFi 列跳動、商城／贈送 Bottom Sheet）
+
+1. **`user.repository.ts`**：**`findVillageUsers`**／**`findMarketUsers`** 的 **`.select`** 補 **`offline_ok`**（**`activity_status`／`last_seen_at`** 既有）；列表首次載入即含線上活動列所需欄位，避免二次補資料造成版面跳動。
+2. **廣播券贈送（Bug 2）**：**`shop.action.ts`** **`dispatchItemToUser`** 之 **`broadcast`** 已帶 **`shop_item_id: item.id`**；**`findUserRewardGiftMeta`** 之 **`allowGift`** 已為「有 **`shop_item_id`** → **`shop?.allow_gift !== false`**；無則 **`true`**」— 與計劃一致，**本次未改程式**。**DB** 無需新增欄位（**`offline_ok`／`user_rewards.shop_item_id`** 已存在型別與實作）。
+3. **`(app)/shop/page.tsx`**：**WalletBar**、**Tab 膠囊（`#7c3aed`）**、**雙欄商品卡**（玻璃底、特賣紫邊＋角標、價格琥珀／紫、大「購買」＋ **32×32** **🎁**）；**贈送選人**／**購買數量**改 **Bottom Sheet**（頂部把手、道具摘要、搜尋列、候選列選中＋勾、底部「下一步 →」；數量 **±**、**×1／×3／×5／×10**、合計、**更換** 收禮者）；**`AlertDialog`** 最終確認改 **`#1c1c1e`** 與雙鈕列。**`shopRecipientSearchKey`** 區分「尚未搜尋」與「搜尋無結果」提示。
+
 ### 2026-03-30 — UserDetailModal 視窗置中（覆蓋錨點定位）與商城贈送流程重排
 
 1. **`UserDetailModal.tsx`**：**`DialogContent`** **`contentStyle`** 補 **`position: fixed`、`left/top: 50%`、`transform: translate(-50%, -50%)`、`width: min(100vw - 2rem, 24rem)`、`maxHeight: min(88vh, 100dvh - 2rem)`**，避免無觸發器時 **`DialogPopup`** 跟隨參考點出現在視窗外側下方。
