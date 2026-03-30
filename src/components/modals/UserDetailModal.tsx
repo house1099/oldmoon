@@ -109,10 +109,57 @@ export function UserDetailModal({
   useEffect(() => {
     if (!open) return;
     const id = window.setTimeout(() => {
-      const el =
-        scrollContainerRef.current ??
+      const el = scrollContainerRef.current;
+      // eslint-disable-next-line no-console -- 診斷：手機 Remote Debug Console 查看
+      console.log("[Modal Debug]", {
+        el,
+        scrollTop: el?.scrollTop,
+        scrollHeight: el?.scrollHeight,
+        clientHeight: el?.clientHeight,
+        offsetTop: el?.offsetTop,
+      });
+      const resolved =
+        el ??
         document.querySelector<HTMLElement>("[data-modal-scroll-container]");
-      el?.scrollTo({ top: 0, behavior: "instant" });
+      const scrollTopResolved = resolved?.scrollTop;
+      const hypothesisId =
+        el == null
+          ? "H-C-ref-null"
+          : scrollTopResolved != null && scrollTopResolved > 2
+            ? "H-B-large-scrollTop"
+            : "H-A-or-zero";
+      // #region agent log
+      fetch(
+        "http://127.0.0.1:7283/ingest/83ef5f11-58dd-4ace-9abb-e7c93854b9db",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Debug-Session-Id": "a1004d",
+          },
+          body: JSON.stringify({
+            sessionId: "a1004d",
+            runId: "modal-scroll-diag",
+            hypothesisId,
+            location: "UserDetailModal.tsx:setTimeout-150",
+            message: "Modal scroll diagnostic",
+            data: {
+              refNull: el == null,
+              refScrollTop: el?.scrollTop,
+              refScrollHeight: el?.scrollHeight,
+              refClientHeight: el?.clientHeight,
+              refOffsetTop: el?.offsetTop,
+              usedFallback: el == null && resolved != null,
+              resolvedScrollTop: resolved?.scrollTop,
+              resolvedScrollHeight: resolved?.scrollHeight,
+              resolvedClientHeight: resolved?.clientHeight,
+            },
+            timestamp: Date.now(),
+          }),
+        },
+      ).catch(() => {});
+      // #endregion
+      resolved?.scrollTo({ top: 0, behavior: "instant" });
     }, 150);
     return () => window.clearTimeout(id);
   }, [open, user?.id]);
@@ -375,6 +422,7 @@ export function UserDetailModal({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
+          id="modal-content-root"
           showCloseButton={false}
           overlayClassName={
             stackAboveChatZ != null ? undefined : "z-[800]"
