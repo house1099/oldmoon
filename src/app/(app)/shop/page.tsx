@@ -348,7 +348,9 @@ export default function ShopPage() {
     if (!snap || giftCheckoutBusy) return;
     setGiftCheckoutBusy(true);
     try {
-      const res = await purchaseItemAction(snap.target.id, snap.qty);
+      const res = await purchaseItemAction(snap.target.id, snap.qty, {
+        skipBuyerMailbox: true,
+      });
       if (!res.ok) {
         toast.error(ERROR_LABELS[res.error] ?? res.error);
         return;

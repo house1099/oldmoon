@@ -73,9 +73,15 @@ type PurchaseResult =
   | { ok: true; item: ShopItemDto; newRewardIds: string[] }
   | { ok: false; error: string };
 
+export type PurchaseItemOptions = {
+  /** 商城「購買並贈送」：道具直接轉出，勿對買家發「已存入背包」以免誤導 */
+  skipBuyerMailbox?: boolean;
+};
+
 export async function purchaseItemAction(
   itemId: string,
   quantity: number = 1,
+  options?: PurchaseItemOptions,
 ): Promise<PurchaseResult> {
   try {
     const supabase = createClient();
@@ -167,11 +173,13 @@ export async function purchaseItemAction(
 
     revalidateTag("shop_items");
 
-    await notifyUserMailboxSilent({
-      user_id: user.id,
-      type: "system",
-      message: `🛍️ 購買成功！「${item.name}」x${quantity} 已存入背包。`,
-    });
+    if (!options?.skipBuyerMailbox) {
+      await notifyUserMailboxSilent({
+        user_id: user.id,
+        type: "system",
+        message: `🛍️ 購買成功！「${item.name}」x${quantity} 已存入背包。`,
+      });
+    }
 
     const now = new Date();
     return { ok: true, item: toShopItemDto(item, now), newRewardIds };

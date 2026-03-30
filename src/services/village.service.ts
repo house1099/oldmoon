@@ -89,7 +89,8 @@ export async function getVillageUsersAction(): Promise<{
       });
       return scored;
     },
-    [`village-${user.id}-${me.region}`],
+    // 版本後綴：欄位（如 offline_ok）變更時使舊快取失效
+    [`village-v2-${user.id}-${me.region}`],
     { revalidate: 300 },
   );
 

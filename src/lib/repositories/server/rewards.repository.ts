@@ -106,9 +106,10 @@ export async function findMyRewards(
         parseShopFrameLayoutFromMetadata(it.metadata as unknown),
       );
       policyByShopItemId.set(sid, {
-        allow_gift: Boolean(it.allow_gift),
-        allow_player_trade: Boolean(it.allow_player_trade),
-        allow_resell: Boolean(it.allow_resell),
+        // 與贈送／後台預設一致：null 視為允許，僅明確 false 才關閉
+        allow_gift: it.allow_gift !== false,
+        allow_player_trade: it.allow_player_trade !== false,
+        allow_resell: it.allow_resell === true,
         resell_price:
           it.resell_price != null && Number.isFinite(Number(it.resell_price))
             ? Number(it.resell_price)

@@ -116,7 +116,7 @@ export async function getMarketUsersAction(
         };
       });
     },
-    [`market-${user.id}`],
+    [`market-v2-${user.id}`],
     { revalidate: 300 },
   );
 

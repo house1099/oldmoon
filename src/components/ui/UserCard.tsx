@@ -67,6 +67,9 @@ export function UserCard({
     LEGACY_REGION_MAP,
   );
 
+  /** 僅明確 true 顯示可面交（與問卷 offline_ok 一致） */
+  const offlineOk = user.offline_ok === true;
+
   const handleActivate = () => {
     if (onClick) {
       onClick();
@@ -249,7 +252,7 @@ export function UserCard({
               ) : (
                 <div />
               )}
-              {user.offline_ok ? (
+              {offlineOk ? (
                 <div
                   style={{
                     display: "flex",
