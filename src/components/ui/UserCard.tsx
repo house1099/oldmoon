@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { MapPin } from "lucide-react";
 import {
   INTEREST_TAG_OPTIONS,
   LEGACY_REGION_MAP,
@@ -147,50 +146,144 @@ export function UserCard({
           </div>
 
           <div className="min-w-0 flex-1 pl-1">
-            <div className="flex flex-wrap items-center gap-1.5">
-              {crown ? (
-                <span className="text-sm leading-none" aria-hidden>
-                  {crown}
-                </span>
-              ) : null}
-              <span
-                className={cn(
-                  "truncate text-[15px] font-semibold leading-tight",
-                  nameClass,
-                )}
-              >
-                {user.nickname}
-              </span>
-              {user.equippedTitle?.trim() ? (
+            <div className="flex items-start gap-1.5">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                {crown ? (
+                  <span className="text-sm leading-none" aria-hidden>
+                    {crown}
+                  </span>
+                ) : null}
                 <span
-                  className="max-w-[5.5rem] truncate rounded-full bg-violet-600/60 px-2 py-0.5 text-[10px] leading-none text-violet-200"
-                  title={user.equippedTitle.trim()}
+                  className={cn(
+                    "truncate text-[15px] font-semibold leading-tight",
+                    nameClass,
+                  )}
                 >
-                  {user.equippedTitle.trim().length > 8
-                    ? `${user.equippedTitle.trim().slice(0, 8)}…`
-                    : user.equippedTitle.trim()}
+                  {user.nickname}
                 </span>
-              ) : null}
-              <LevelBadge level={user.level} />
-              {user.activity_status === "resting" ? (
-                <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] leading-none text-zinc-500">
-                  💤 休息中
-                </span>
-              ) : null}
+                {user.equippedTitle?.trim() ? (
+                  <span
+                    className="max-w-[5.5rem] truncate rounded-full bg-violet-600/60 px-2 py-0.5 text-[10px] leading-none text-violet-200"
+                    title={user.equippedTitle.trim()}
+                  >
+                    {user.equippedTitle.trim().length > 8
+                      ? `${user.equippedTitle.trim().slice(0, 8)}…`
+                      : user.equippedTitle.trim()}
+                  </span>
+                ) : null}
+                {user.activity_status === "resting" ? (
+                  <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] leading-none text-zinc-500">
+                    💤 休息中
+                  </span>
+                ) : null}
+              </div>
+              <LevelBadge
+                level={user.level}
+                className="ml-auto shrink-0 self-start"
+              />
             </div>
 
-            <div className="mt-1 flex items-center gap-1">
-              {crown ? (
-                <span className="relative shrink-0 text-sm leading-none" aria-hidden>
-                  <span className="invisible">{crown}</span>
-                  <MapPin className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 text-zinc-500" />
-                </span>
+            <div
+              className="mt-1"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "90px 52px 1fr",
+                gap: 5,
+                alignItems: "center",
+              }}
+            >
+              <div
+                className="min-w-0"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "3px 0",
+                  borderRadius: 20,
+                  background: "rgba(255,255,255,0.06)",
+                  color: "#71717a",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+                title={regionLabel}
+              >
+                📍 {user.region?.trim() ? regionLabel : "未知"}
+              </div>
+              {user.gender === "male" ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "3px 0",
+                    borderRadius: 20,
+                    background: "rgba(56,189,248,0.12)",
+                    border: "0.5px solid rgba(56,189,248,0.25)",
+                    color: "#38bdf8",
+                    fontSize: 11,
+                    fontWeight: 600,
+                  }}
+                >
+                  ♂ 男
+                </div>
+              ) : user.gender === "female" ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "3px 0",
+                    borderRadius: 20,
+                    background: "rgba(244,114,182,0.12)",
+                    border: "0.5px solid rgba(244,114,182,0.25)",
+                    color: "#f472b6",
+                    fontSize: 11,
+                    fontWeight: 600,
+                  }}
+                >
+                  ♀ 女
+                </div>
               ) : (
-                <MapPin className="h-3 w-3 shrink-0 text-zinc-500" />
+                <div />
               )}
-              <span className="min-w-0 truncate text-xs text-zinc-400">
-                {regionLabel}
-              </span>
+              {user.offline_ok ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "3px 0",
+                    borderRadius: 20,
+                    background: "rgba(245,158,11,0.1)",
+                    border: "0.5px solid rgba(245,158,11,0.2)",
+                    color: "#fbbf24",
+                    fontSize: 11,
+                    fontWeight: 600,
+                  }}
+                >
+                  🤝 可面交
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "3px 0",
+                    borderRadius: 20,
+                    background: "rgba(34,197,94,0.1)",
+                    border: "0.5px solid rgba(34,197,94,0.2)",
+                    color: "#4ade80",
+                    fontSize: 11,
+                    fontWeight: 600,
+                  }}
+                >
+                  💻 僅線上
+                </div>
+              )}
             </div>
 
             {isMoodActive && user.mood ? (
