@@ -1,13 +1,23 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { postLoginBootstrapAction } from "@/services/auth-bootstrap.action";
 
-const STORAGE_KEY = "guild_post_login_entrance";
+/** 與 `public/images/splash.png`（品牌開場圖）對應 */
+export const GUILD_ENTRANCE_SPLASH_PATH = "/images/splash.png";
 
-/** 若整頁還在載入資源，等到 load；已 complete（例如 SPA 換頁）則立即繼續 */
+const LOGIN_TRIGGER_KEY = "guild_post_login_entrance";
+/** 同一分頁工作階段內已完成過開場則略過；登入成功觸發時仍會再播一次 */
+const SPLASH_SESSION_KEY = "guild_app_splash_done_v1";
+
 const WINDOW_LOAD_TIMEOUT_MS = 12_000;
+const DOOR_MS = 1800;
+const HOLD_AT_100_MS = 520;
 
 function waitForWindowLoadIfPending(): Promise<void> {
   if (typeof document === "undefined") return Promise.resolve();
@@ -26,7 +36,6 @@ function waitForWindowLoadIfPending(): Promise<void> {
   });
 }
 
-/** 等下一個繪製幀（連兩次讓 React 排版後有機會上屏） */
 function waitNextPaint(): Promise<void> {
   return new Promise((resolve) => {
     requestAnimationFrame(() => {
@@ -35,27 +44,23 @@ function waitNextPaint(): Promise<void> {
   });
 }
 
-/**
- * 畫面就緒：字型（可選）＋至少一輪繪製。
- * 不依賴「多段 API」，而是瀏覽器載入／排版狀態。
- */
 async function waitUntilVisualReady(): Promise<void> {
   await waitForWindowLoadIfPending();
-
   try {
     await document.fonts.ready;
   } catch {
     /* ignore */
   }
-
   await waitNextPaint();
 }
 
 type Phase = "idle" | "sync" | "doors";
 
 /**
- * 登入成功後全螢幕過場：進度與「後端同步 + 畫面就緒」掛鉤，就緒後上下門扉開啟。
- * 觸發：① Email 登入寫入 sessionStorage；② OAuth 回呼網址帶 ?guild_entrance=1
+ * 公會開場儀式：全螢幕品牌圖、進度條、完成後上下門緩慢開啟。
+ *
+ * - **每次新開分頁／關閉後再開**（sessionStorage 清空）：進入 App 即播放。
+ * - **同一分頁內**已播過：不再打擾；但若為 **剛登入**（`markPostLoginEntrance` 或 `?guild_entrance=1`）則再播一次。
  */
 export function PostLoginEntrance({
   children,
@@ -64,30 +69,55 @@ export function PostLoginEntrance({
 }) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("idle");
-  const [pct, setPct] = useState(0);
+  const [smoothPct, setSmoothPct] = useState(0);
+  const goalRef = useRef(0);
+
+  useEffect(() => {
+    if (phase === "idle") return;
+    let raf = 0;
+    const loop = () => {
+      setSmoothPct((prev) => {
+        const g = goalRef.current;
+        if (prev >= g) return prev;
+        const step = Math.max(0.22, (g - prev) * 0.045);
+        return Math.min(prev + step, g);
+      });
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [phase]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    let fromStorage = false;
+    let fromLoginStorage = false;
     try {
-      fromStorage = sessionStorage.getItem(STORAGE_KEY) === "1";
+      fromLoginStorage = sessionStorage.getItem(LOGIN_TRIGGER_KEY) === "1";
     } catch {
       /* ignore */
     }
 
     const sp = new URLSearchParams(window.location.search);
-    const fromQuery = sp.get("guild_entrance") === "1";
+    const fromLoginQuery = sp.get("guild_entrance") === "1";
 
-    if (!fromStorage && !fromQuery) return;
-
+    let splashDone = false;
     try {
-      sessionStorage.removeItem(STORAGE_KEY);
+      splashDone = sessionStorage.getItem(SPLASH_SESSION_KEY) === "1";
     } catch {
       /* ignore */
     }
 
-    if (fromQuery) {
+    const fromLogin = fromLoginStorage || fromLoginQuery;
+    if (splashDone && !fromLogin) return;
+
+    try {
+      sessionStorage.removeItem(LOGIN_TRIGGER_KEY);
+    } catch {
+      /* ignore */
+    }
+
+    if (fromLoginQuery) {
       const u = new URL(window.location.href);
       u.searchParams.delete("guild_entrance");
       const next =
@@ -96,34 +126,48 @@ export function PostLoginEntrance({
     }
 
     let cancelled = false;
-    const bump = (n: number) => {
-      if (!cancelled) setPct((p) => Math.max(p, n));
+    const setGoal = (n: number) => {
+      if (!cancelled) goalRef.current = Math.max(goalRef.current, n);
     };
 
+    goalRef.current = 0;
+    setSmoothPct(0);
     setPhase("sync");
-    setPct(0);
 
     void (async () => {
-      bump(8);
+      setGoal(6);
       await postLoginBootstrapAction().catch(() => {});
       if (cancelled) return;
-      bump(32);
+      setGoal(28);
 
       await router.refresh();
       if (cancelled) return;
-      bump(58);
+      setGoal(52);
 
       await waitUntilVisualReady();
       if (cancelled) return;
-      bump(100);
+      setGoal(100);
+      /* 讓平滑進度條有时间追上 100%，維持儀式感 */
+      await new Promise((r) => setTimeout(r, 2400));
+      if (cancelled) return;
+      goalRef.current = 100;
+      setSmoothPct(100);
 
-      await new Promise((r) => setTimeout(r, 280));
+      await new Promise((r) => setTimeout(r, HOLD_AT_100_MS));
       if (cancelled) return;
+
       setPhase("doors");
-      await new Promise((r) => setTimeout(r, 900));
+      await new Promise((r) => setTimeout(r, DOOR_MS + 120));
       if (cancelled) return;
+
+      try {
+        sessionStorage.setItem(SPLASH_SESSION_KEY, "1");
+      } catch {
+        /* ignore */
+      }
       setPhase("idle");
-      setPct(0);
+      goalRef.current = 0;
+      setSmoothPct(0);
     })();
 
     return () => {
@@ -131,44 +175,96 @@ export function PostLoginEntrance({
     };
   }, [router]);
 
+  const doorOpen = phase === "doors";
+  const showOverlay = phase !== "idle";
+  const barPct = Math.min(100, Math.round(smoothPct * 10) / 10);
+
   return (
     <>
       {children}
-      {phase !== "idle" ? (
+      {showOverlay ? (
         <div
-          className="pointer-events-auto fixed inset-0 z-[10000]"
+          className="pointer-events-auto fixed inset-0 z-[10000] bg-black"
           aria-live="polite"
           aria-busy={phase === "sync"}
-          aria-label={phase === "sync" ? "營地同步中" : "進入公會"}
+          aria-label={phase === "sync" ? "公會營地載入中" : "進入公會"}
         >
+          {/* 上門：與下門共用同一張圖，裁切對齊 */}
           <div
-            className={`fixed left-0 right-0 top-0 z-[3] h-1/2 origin-top border-b border-amber-900/25 bg-gradient-to-b from-zinc-800 via-zinc-900 to-zinc-950 shadow-[inset_0_-12px_40px_rgba(0,0,0,0.55)] transition-transform duration-[850ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${
-              phase === "doors" ? "-translate-y-full" : "translate-y-0"
-            }`}
-          />
-          <div
-            className={`fixed bottom-0 left-0 right-0 z-[3] h-1/2 origin-bottom border-t border-amber-900/25 bg-gradient-to-t from-zinc-800 via-zinc-900 to-zinc-950 shadow-[inset_0_12px_40px_rgba(0,0,0,0.55)] transition-transform duration-[850ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${
-              phase === "doors" ? "translate-y-full" : "translate-y-0"
-            }`}
-          />
-          <div
-            className={`fixed inset-0 z-[2] flex flex-col items-center justify-center bg-black/55 transition-opacity duration-300 ${
-              phase === "doors" ? "opacity-0" : "opacity-100"
-            }`}
+            className="fixed left-0 right-0 top-0 z-[2] h-1/2 overflow-hidden bg-black"
+            style={{
+              transform: doorOpen ? "translateY(-100%)" : "translateY(0)",
+              transition: `transform ${DOOR_MS}ms cubic-bezier(0.45, 0, 0.15, 1)`,
+            }}
           >
-            <div className="guild-route-loading-orb" role="presentation" />
-            <p className="mt-6 text-sm tracking-wide text-zinc-400">
-              {pct >= 100
-                ? "準備開啟…"
-                : pct >= 58
-                  ? "等待畫面就緒…"
-                  : "與公會連線中…"}
+            <div
+              className="absolute inset-x-0 top-0 h-[100dvh] min-h-[100vh] w-full bg-black"
+              style={{
+                backgroundImage: `url(${GUILD_ENTRANCE_SPLASH_PATH})`,
+                backgroundSize: "contain",
+                backgroundPosition: "center top",
+                backgroundRepeat: "no-repeat",
+              }}
+            />
+          </div>
+
+          <div
+            className="fixed bottom-0 left-0 right-0 z-[2] h-1/2 overflow-hidden bg-black"
+            style={{
+              transform: doorOpen ? "translateY(100%)" : "translateY(0)",
+              transition: `transform ${DOOR_MS}ms cubic-bezier(0.45, 0, 0.15, 1)`,
+            }}
+          >
+            <div
+              className="absolute inset-x-0 bottom-0 h-[100dvh] min-h-[100vh] w-full bg-black"
+              style={{
+                backgroundImage: `url(${GUILD_ENTRANCE_SPLASH_PATH})`,
+                backgroundSize: "contain",
+                backgroundPosition: "center bottom",
+                backgroundRepeat: "no-repeat",
+              }}
+            />
+          </div>
+
+          {/* 中央微光與儀式感邊緣 */}
+          <div
+            className="pointer-events-none fixed inset-0 z-[3] bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(0,0,0,0.25)_55%,rgba(0,0,0,0.65)_100%)]"
+            style={{
+              opacity: doorOpen ? 0 : 1,
+              transition: `opacity ${DOOR_MS * 0.5}ms ease-out`,
+            }}
+          />
+
+          {/* 進度條 + 百分比（門縫附近） */}
+          <div
+            className="fixed z-[4] flex w-[min(18rem,calc(100vw-2rem))] flex-col items-center gap-3"
+            style={{
+              left: "50%",
+              top: "50%",
+              transform:
+                "translate(-50%, calc(-50% + min(10vh, 4rem)))",
+              opacity: doorOpen ? 0 : 1,
+              transition: "opacity 400ms ease-out",
+            }}
+          >
+            <div className="h-1 w-full overflow-hidden rounded-full bg-zinc-900/90 shadow-inner ring-1 ring-amber-900/30">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-amber-900 via-amber-400 to-amber-200 shadow-[0_0_12px_rgba(251,191,36,0.35)]"
+                style={{
+                  width: `${barPct}%`,
+                  transition: "width 120ms linear",
+                }}
+              />
+            </div>
+            <p className="font-mono text-sm tabular-nums tracking-[0.2em] text-amber-200/85">
+              {barPct >= 100 ? "100" : barPct.toFixed(1)}%
             </p>
-            <p className="mt-2 font-mono text-3xl tabular-nums text-amber-200/90">
-              {pct}%
-            </p>
-            <p className="mt-3 max-w-[16rem] text-center text-[11px] leading-relaxed text-zinc-600">
-              畫面與資源載入完成後才會開啟大門
+            <p className="text-center text-[10px] uppercase tracking-[0.35em] text-zinc-500">
+              {phase === "doors"
+                ? "門扉開啟"
+                : barPct >= 99
+                  ? "同步完成"
+                  : "連線公會中樞…"}
             </p>
           </div>
         </div>
@@ -179,7 +275,7 @@ export function PostLoginEntrance({
 
 export function markPostLoginEntrance(): void {
   try {
-    sessionStorage.setItem(STORAGE_KEY, "1");
+    sessionStorage.setItem(LOGIN_TRIGGER_KEY, "1");
   } catch {
     /* ignore */
   }
