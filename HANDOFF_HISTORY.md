@@ -24,7 +24,7 @@
    - 僅文件與流程規範，無跨層程式變更。
 
 5. **Git**  
-   - **`3fb305e`** — `chore: .cursorrules 重點—任務完成必更新 HANDOFF/HISTORY 並 push`
+   - 已推 **`origin/main`**；訊息 **`chore: .cursorrules 重點—任務完成必更新 HANDOFF/HISTORY 並 push`**（確切 hash 以 **`git log -1 --oneline`** 為準）。
 
 ### 2026-03-31 — Web Push（VAPID）與 PWA 圖示角標（未讀私訊對話數）
 
