@@ -74,7 +74,9 @@ import { getActiveAnnouncementsAction } from "@/services/announcement.action";
 import { getHomeAdsAction } from "@/services/advertisement.action";
 import { recordAdClickAction } from "@/services/advertisement.action";
 import type { AnnouncementRow, AdvertisementRow } from "@/types/database.types";
+import useSWR from "swr";
 import { useMyProfile } from "@/hooks/useMyProfile";
+import { SWR_KEYS } from "@/lib/swr/keys";
 import {
   getMyRewardsAction,
   useBroadcastAction as submitBroadcastAction,
@@ -316,9 +318,13 @@ function HomeBannerCarousel({ ads }: { ads: AdvertisementRow[] }) {
 export function GuildProfileHome({
   profile,
   moodMax,
+  initialStreak,
+  initialStreakSettings,
 }: {
   profile: UserRow;
   moodMax: number;
+  initialStreak: Awaited<ReturnType<typeof getMyStreakAction>>;
+  initialStreakSettings: StreakRewardDay[];
 }) {
   const router = useRouter();
   const openEquipmentSheet = useOpenEquipmentSheet();
@@ -376,18 +382,40 @@ export function GuildProfileHome({
     null,
   );
   const [lootBoxRevealed, setLootBoxRevealed] = useState(false);
-  const [currentStreak, setCurrentStreak] = useState(0);
   const [rewardsLoading, setRewardsLoading] = useState(false);
   const [rewardsData, setRewardsData] = useState<MyRewardsPayload | null>(null);
-  const [streakRewardSettings, setStreakRewardSettings] = useState<
-    StreakRewardDay[] | null
-  >(null);
   const [broadcastDialogOpen, setBroadcastDialogOpen] = useState(false);
   const [broadcastDraft, setBroadcastDraft] = useState("");
   const [broadcastSending, setBroadcastSending] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameDraft, setRenameDraft] = useState("");
   const [renameSaving, setRenameSaving] = useState(false);
+
+  const { data: streakPayload, mutate: mutateStreak } = useSWR(
+    SWR_KEYS.myStreak,
+    getMyStreakAction,
+    {
+      fallbackData: initialStreak,
+      revalidateOnMount: false,
+      revalidateIfStale: true,
+      revalidateOnFocus: true,
+    },
+  );
+
+  const { data: streakRewardList } = useSWR(
+    SWR_KEYS.streakRewardSettings,
+    getStreakRewardSettingsAction,
+    {
+      fallbackData: initialStreakSettings,
+      revalidateOnMount: false,
+      revalidateIfStale: false,
+      revalidateOnFocus: false,
+    },
+  );
+
+  const currentStreak =
+    streakPayload?.ok === true ? streakPayload.currentStreak : 0;
+  const streakRewardSettings = streakRewardList ?? null;
 
   const streakUi = useMemo(() => {
     const s = currentStreak;
@@ -440,23 +468,6 @@ export function GuildProfileHome({
   useEffect(() => {
     loadRewards();
   }, [loadRewards, profile.id, profile.updated_at]);
-
-  useEffect(() => {
-    void getStreakRewardSettingsAction()
-      .then((rows) => setStreakRewardSettings(rows))
-      .catch(() => setStreakRewardSettings(null));
-  }, []);
-
-  const refreshStreak = useCallback(() => {
-    void getMyStreakAction().then((r) => {
-      if (!r.ok) return;
-      setCurrentStreak(r.currentStreak);
-    });
-  }, []);
-
-  useEffect(() => {
-    refreshStreak();
-  }, [refreshStreak, profile.last_checkin_at, profile.updated_at]);
 
   useEffect(() => {
     if (!editOpen) return;
@@ -755,9 +766,8 @@ export function GuildProfileHome({
       setLootBoxRevealed(false);
       setShowCheckinModal(true);
       setCheckinDone(true);
-      setCurrentStreak(result.currentStreak);
       router.refresh();
-      refreshStreak();
+      void mutateStreak();
     } finally {
       setCheckinLoading(false);
     }

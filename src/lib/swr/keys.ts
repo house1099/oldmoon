@@ -1,5 +1,7 @@
 export const SWR_KEYS = {
   profile: 'my-profile',
+  myStreak: 'myStreak',
+  streakRewardSettings: 'streakRewardSettings',
   villageUsers: 'village-users',
   marketUsers: (query: string) => `market-users-${query}`,
   myAlliances: 'my-alliances',

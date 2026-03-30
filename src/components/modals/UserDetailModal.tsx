@@ -105,10 +105,13 @@ export function UserDetailModal({
     useState<MemberProfileView | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  /** Base UI Dialog 無 Radix 的 onOpenAutoFocus；動畫期間立即 scrollTo 會被蓋掉，延遲後再重置內層捲動容器。 */
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+    const id = window.setTimeout(() => {
       scrollContainerRef.current?.scrollTo({ top: 0, behavior: "instant" });
-    }
+    }, 50);
+    return () => window.clearTimeout(id);
   }, [open, user?.id]);
 
   useEffect(() => {

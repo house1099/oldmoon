@@ -49,7 +49,7 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 - 公告／廣告：`announcement.*`；`advertisement.*`
 - 首頁：`page.tsx`／`home-page-client.tsx`；`guild-profile-home.tsx`；`FloatingToolbar.tsx`
 - 版面：`Navbar.tsx`；`app-shell-motion.tsx`（`broadcastExtraTopPx`）；`app-broadcast-chrome.tsx`；`(app)/layout.tsx`
-- 卡片／Modal：`UserCard.tsx`；`CardDecorationWrapper.tsx`；`card-decoration.ts`（`CardDecorationConfig`／metadata 解析）；`UserDetailModal.tsx`；`LevelBadge`／`LevelCardEffect`；`ShopCardFrameOverlay.tsx`；卡框比例 **`CARD_FRAME_OVERLAY_PERCENT`**（`shop-card-frame-preview.ts`，與頭像框 **`MASTER_AVATAR_FRAME_OVERLAY_PERCENT`** 分離）
+- 卡片／Modal：`UserCard.tsx`；`CardDecorationWrapper.tsx`；`card-decoration.ts`（`CardDecorationConfig`／metadata 解析）；`modals/UserDetailModal.tsx`；`LevelBadge`／`LevelCardEffect`；`ShopCardFrameOverlay.tsx`；卡框比例 **`CARD_FRAME_OVERLAY_PERCENT`**（`shop-card-frame-preview.ts`，與頭像框 **`MASTER_AVATAR_FRAME_OVERLAY_PERCENT`** 分離）
 - 頭像：`Avatar.tsx`；`cloudinary.ts`；`cropImage.ts`；頭像框對齊 **`avatar-frame-layout.ts`**（`shop_items.metadata.frame_layout`）；**`scripts/process-tiger-avatar-frame.py`**
 - 型別：`src/types/database.types.ts`；SWR：`src/lib/swr/keys.ts`；等級：`src/lib/constants/levels.ts`；標籤：`src/lib/constants/tags.ts`
 
@@ -93,9 +93,9 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## ✅ 最近完成（最新 3 次任務）
 
-1. **2026-03-30 — Bug：市集首次進入不載入／UserDetailModal 捲軸未重置**：技能市集無 SSR 預載，**`ExploreClient`** 市集 **`useSWR`** 須 **`revalidateOnMount: true`**（曾誤設 **false** 導致首次不切換搜尋就不打 API）；仍保留 **`keepPreviousData: true`**、**`revalidateIfStale: false`**、**`revalidateOnFocus: false`**。村莊有 **`fallbackData`** 可維持 **`revalidateOnMount: false`**。**`UserDetailModal`** 內容區 **`scrollContainerRef`**，**`[open, user?.id]`** 時 **`scrollTo({ top: 0, behavior: 'instant' })`**，避免關閉後再開他員仍停在舊捲動位置。
-2. **2026-03-30 — 探索頁效能與 CardDecorationSystem**：**`findEquippedAvatarFramesByUserIds`／`findEquippedCardFramesByUserIds`** 單次 **`select` 內嵌 `prize_items`／`shop_items`**；**`village`／`market` `unstable_cache` `revalidate: 300`**；**`SWRProvider`** **`dedupingInterval: 300000`**、**`keepPreviousData: true`**；**`LevelCardEffect`** **`IntersectionObserver`** 粒子暫停；**`card-decoration.ts`**、**`CardDecorationWrapper`**、**`equippedCardDecoration`**、後台 **`metadata`** 裝飾鍵等。完整條目見 **`HANDOFF_HISTORY.md`**。
-3. **2026-03-30 — 簽到冷卻改台北自然日（00:00 重置）**：**`claimDailyCheckin`** 以 **`taipeiCalendarDateKey`** 比對 **`users.last_checkin_at`**；**`login_streaks`** 斷簽 **`taipeiCalendarDaysBetween > 1`**；首頁報到文案與 **`date.ts`** 工具函式。細部見歷史紀錄。
+1. **2026-03-30 — UserDetailModal 捲動時序、首頁 SSR 預載**：**`UserDetailModal`** 開啟後 **`setTimeout(50)`** 再對內層 **`overflow-y-auto`** **`scrollTo` top（Base UI 無 Radix `onOpenAutoFocus`）**。**`(app)/page.tsx`** **`Promise.all`** 預載 **`getAuthStatus`／`getMyStreakAction`／`getStreakRewardSettingsAction`／`getMessageLimitsAction`**；**`home-page-client`** **`useMyProfile` fallback + 骨架僅無 `initialProfile`**；**`GuildProfileHome`** **`useSWR`**（**`SWR_KEYS.myStreak`／`streakRewardSettings`**）接 SSR，連簽背景 **`revalidateIfStale`／`OnFocus`**；簽到鎖定仍 **`last_checkin_at` + 台北日鍵**。詳見 **`HANDOFF_HISTORY.md`**。
+2. **2026-03-30 — Bug：市集首次進入不載入／UserDetailModal 捲軸（早期）**：**`ExploreClient`** 市集 **`revalidateOnMount: true`**；**`UserDetailModal`** 捲動後續改 **50ms 延遲**（見上則）。
+3. **2026-03-30 — 探索頁效能與 CardDecorationSystem**：**`findEquippedAvatarFramesByUserIds`／`findEquippedCardFramesByUserIds`** 單次 **`select` 內嵌 `prize_items`／`shop_items`**；**`village`／`market` `unstable_cache` `revalidate: 300`**；**`SWRProvider`** **`dedupingInterval: 300000`**、**`keepPreviousData: true`**；**`LevelCardEffect`** **`IntersectionObserver`** 粒子暫停；**`card-decoration.ts`**、**`CardDecorationWrapper`**、**`equippedCardDecoration`**、後台 **`metadata`** 裝飾鍵等。完整條目見 **`HANDOFF_HISTORY.md`**。
 
 ## ⚠️ 目前已知問題
 

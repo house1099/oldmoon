@@ -5,10 +5,19 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
-### 2026-03-30 — Bug：市集 SWR 首次載入／UserDetailModal 捲軸
+### 2026-03-30 — UserDetailModal 延遲捲動、首頁 SSR 預載與 SWR
+
+1. **`UserDetailModal.tsx`**（**`src/components/modals/`**）：Base UI **`DialogContent`** 無 Radix **`onOpenAutoFocus`**；開啟動畫期間立即 **`scrollTo`** 會被蓋掉。改為 **`useEffect([open, user?.id])`** 在 **`open`** 時 **`setTimeout(50)`** 後對內層 **`overflow-y-auto`** 容器（**`scrollContainerRef`**）**`scrollTo({ top: 0, behavior: 'instant' })`**，並 **`clearTimeout`** 清理。
+2. **`(app)/page.tsx`**：**async RSC**；**`Promise.all`**：**`getAuthStatus`**、**`getMyStreakAction`**、**`getStreakRewardSettingsAction`**、**`getMessageLimitsAction`**；非 **`authenticated`** 時 **`redirect`** 與 **`profile/edit-tags`** 一致（**`unauthenticated`→`/login`**、**`needs_profile`→`/register/profile`**、**`banned`→`/login?error=banned`**、**`pending`→`/register/pending`**）。
+3. **`home-page-client.tsx`**：接收 **`initialProfile`／`initialStreak`／`initialStreakSettings`**；**`useMyProfile({ fallbackData: initialProfile, revalidateOnMount: false, revalidateIfStale: false, revalidateOnFocus: false })`**；**`HomePageSkeleton`** 僅 **`!initialProfile`**（正常登入首屏不閃骨架）。
+4. **`useMyProfile.ts`**：可選 **`UseMyProfileOptions`**（**`fallbackData`**、三項 **revalidate**），預設行為不變。
+5. **`SWR_KEYS`**：新增 **`myStreak`**、**`streakRewardSettings`**。
+6. **`GuildProfileHome`**：**`useSWR`** 綁 **`getMyStreakAction`**／**`getStreakRewardSettingsAction`**；**fallbackData** 接 SSR；連簽：**`revalidateOnMount: false`**、**`revalidateIfStale: true`**、**`revalidateOnFocus: true`**；獎勵設定：**三項 false**；簽到成功 **`mutateStreak()`**；**`checkinDone`** 仍只依 **`profile.last_checkin_at`** 與 **`taipeiCalendarDateKey()`**。
+
+### 2026-03-30 — Bug：市集 SWR 首次載入／UserDetailModal 捲軸（早期）
 
 1. **`ExploreClient.tsx`**：技能市集無 **`fallbackData`**，**`revalidateOnMount: false`** 會讓 SWR 在無快取時不請求；改回 **`revalidateOnMount: true`**，並保留 **`keepPreviousData`**、**`revalidateIfStale: false`**。村莊有 SSR **`initialVillageUsers`** 仍可 **`revalidateOnMount: false`**。
-2. **`UserDetailModal.tsx`**：可捲動內容區 **`ref={scrollContainerRef}`**，**`useEffect([open, user?.id])`** 在 **`open`** 時 **`scrollTo({ top: 0, behavior: 'instant' })`**。
+2. **`UserDetailModal`** 捲動重置後續改為 **50ms 延遲**（見上則「延遲捲動、首頁 SSR」）。
 
 ### 2026-03-30 — 探索頁 DB JOIN、SWR、粒子與 CardDecorationSystem
 

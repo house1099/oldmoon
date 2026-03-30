@@ -1,25 +1,39 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { useMyProfile } from "@/hooks/useMyProfile";
 import { GuildProfileHome } from "@/components/profile/guild-profile-home";
 import { HomeParticlesBackground } from "@/components/effects/HomeParticlesBackground";
+import type {
+  getMyStreakAction,
+  StreakRewardDay,
+} from "@/services/daily-checkin.action";
+
 export default function HomePageClient({
   moodMax,
+  initialProfile,
+  initialStreak,
+  initialStreakSettings,
 }: {
   moodMax: number;
+  initialProfile: UserRow;
+  initialStreak: Awaited<ReturnType<typeof getMyStreakAction>>;
+  initialStreakSettings: StreakRewardDay[];
 }) {
-  const router = useRouter();
-  const { profile, isLoading } = useMyProfile();
+  const { profile } = useMyProfile(
+    initialProfile
+      ? {
+          fallbackData: initialProfile,
+          revalidateOnMount: false,
+          revalidateIfStale: false,
+          revalidateOnFocus: false,
+        }
+      : undefined,
+  );
 
-  useEffect(() => {
-    if (!isLoading && profile === null) {
-      router.push("/login");
-    }
-  }, [isLoading, profile, router]);
+  const effectiveProfile = profile ?? initialProfile;
 
-  if (isLoading || !profile) {
+  if (!initialProfile) {
     return (
       <div className="relative isolate mx-auto flex min-h-[100dvh] w-full max-w-md flex-col gap-4 p-4 pt-[max(3rem,env(safe-area-inset-top,0px))]">
         <HomeParticlesBackground />
@@ -30,11 +44,20 @@ export default function HomePageClient({
     );
   }
 
+  if (!effectiveProfile) {
+    return null;
+  }
+
   return (
     <div className="relative isolate mx-auto flex min-h-[100dvh] w-full max-w-md flex-col items-center gap-4 p-4 pb-[max(8rem,calc(8rem+env(safe-area-inset-bottom,0px)))] pt-[max(3rem,env(safe-area-inset-top,0px))]">
       <HomeParticlesBackground />
       <div className="relative z-10 flex w-full flex-col items-center gap-4">
-        <GuildProfileHome profile={profile} moodMax={moodMax} />
+        <GuildProfileHome
+          profile={effectiveProfile}
+          moodMax={moodMax}
+          initialStreak={initialStreak}
+          initialStreakSettings={initialStreakSettings}
+        />
       </div>
     </div>
   );
