@@ -5,6 +5,14 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-30 — 移除 PostLoginEntrance（全螢幕開場遮罩）
+
+1. **刪除**：**`src/components/auth/PostLoginEntrance.tsx`**、**`src/services/auth-bootstrap.action.ts`**。
+2. **`(app)/layout.tsx`**：不再以 **`PostLoginEntrance`** 包住子頁；直接 **`AppBroadcastChrome`** + **`Navbar`**。
+3. **`login-form.tsx`**：移除 **`markPostLoginEntrance()`**。
+4. **`auth/callback/route.ts`**：成功後 **`redirect`** **`${origin}${next}`**，不再附加 **`guild_entrance`**。
+5. **原因**：全螢幕遮罩／預載簾在實機上曾無法可靠卸除，改為完全移除以免阻擋操作。
+
 ### 2026-03-30 — 裝備背包格尺寸、酒館 @ 提及、登入大門過場
 
 1. **`FloatingToolbar.tsx`（裝備背包）**：道具格 **`button`** 補 **`width:100%`／`minWidth:0`／`boxSizing`** 與 **`w-full min-w-0`**；空格／鎖格／loading 骨架改 **`aspect-square w-full min-w-0`**（移除 **`h-16`**）；**`grid`** 加 **`[&>*]:min-w-0`**，避免最後一格因 **`min-width:auto`** 視覺上較寬。背包長按選單：早前已改 **`stackSupportsLongPress`** 為 **`firstManageableRewardRow != null`**（本次若已併版一併存在）。
