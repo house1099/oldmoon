@@ -5,13 +5,12 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
-### 2026-03-30 — 移除 PostLoginEntrance（全螢幕開場遮罩）
+### 2026-03-30 — 裝回 PostLoginEntrance（保留開場／進度條，禁止純黑全螢幕閃屏）
 
-1. **刪除**：**`src/components/auth/PostLoginEntrance.tsx`**、**`src/services/auth-bootstrap.action.ts`**。
-2. **`(app)/layout.tsx`**：不再以 **`PostLoginEntrance`** 包住子頁；直接 **`AppBroadcastChrome`** + **`Navbar`**。
-3. **`login-form.tsx`**：移除 **`markPostLoginEntrance()`**。
-4. **`auth/callback/route.ts`**：成功後 **`redirect`** **`${origin}${next}`**，不再附加 **`guild_entrance`**。
-5. **原因**：全螢幕遮罩／預載簾在實機上曾無法可靠卸除，改為完全移除以免阻擋操作。
+1. **還原**：**`PostLoginEntrance.tsx`**、**`auth-bootstrap.action.ts`**；**`(app)/layout.tsx`** 再包 **`PostLoginEntrance`**；**`login-form`** **`markPostLoginEntrance()`**；**`auth/callback`** **`withGuildEntranceFlag`**（**`guild_entrance=1`**）。
+2. **明確不做**：全螢幕 **`bg-black`／#000 閃屏遮罩**（先前易造成「黑畫面關不掉」觀感）。
+3. **改為**：預載簾與門片底板 **`bg-zinc-950`**；開場層最外 **`fixed inset-0` 無底色**；邊緣漸層改 **zinc 色階**（**`rgba(24,24,27,…)`**）取代純黑漸層。
+4. **其餘行為**：**`revealMain`** 隱主內容、**`splash.png`** 上下門、**進度條**、**`finally` → `releaseMain()`**、成功後寫 **`guild_app_splash_done_v1`**（與刪除前邏輯一致，僅去掉黑幕）。
 
 ### 2026-03-30 — 裝備背包格尺寸、酒館 @ 提及、登入大門過場
 

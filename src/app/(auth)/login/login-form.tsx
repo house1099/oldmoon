@@ -16,6 +16,7 @@ import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { getSiteOrigin } from "@/lib/app-url";
 import { friendlyAuthErrorMessage } from "@/lib/utils/auth-errors";
+import { markPostLoginEntrance } from "@/components/auth/PostLoginEntrance";
 import { cn } from "@/lib/utils";
 
 const REMEMBER_STORAGE_KEY = "guild-login-remember";
@@ -117,6 +118,7 @@ export function LoginForm() {
       /* ignore */
     }
 
+    markPostLoginEntrance();
     toast.success("登入成功，正在進入公會…");
     router.push(nextPath.startsWith("/") ? nextPath : "/");
     router.refresh();
