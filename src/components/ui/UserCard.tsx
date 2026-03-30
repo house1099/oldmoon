@@ -149,7 +149,7 @@ export function UserCard({
           </div>
 
           <div className="min-w-0 flex-1 pl-1">
-            <div className="flex items-start gap-1.5">
+            <div className="flex w-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
               <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
                 {crown ? (
                   <span className="text-sm leading-none" aria-hidden>
@@ -180,110 +180,38 @@ export function UserCard({
                   </span>
                 ) : null}
               </div>
-              <LevelBadge
-                level={user.level}
-                className="ml-auto shrink-0 self-start"
-              />
+              <LevelBadge level={user.level} className="shrink-0" />
+              {variant === "market" && isPerfectMatch ? (
+                <span className="shrink-0 whitespace-nowrap rounded-full bg-gradient-to-r from-amber-600 to-orange-500 px-2.5 py-1 text-[10px] font-medium text-white">
+                  ⚔️ 命定師徒
+                </span>
+              ) : null}
             </div>
 
-            <div
-              className="mt-2.5"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "90px 52px 1fr",
-                gap: 5,
-                alignItems: "center",
-              }}
-            >
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
               <div
-                className="min-w-0"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "3px 0",
-                  borderRadius: 20,
-                  background: "rgba(255,255,255,0.06)",
-                  color: "#71717a",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
+                className="flex min-h-[26px] min-w-0 max-w-[min(100%,12rem)] shrink-0 items-center justify-center rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] font-semibold text-zinc-400"
                 title={regionLabel}
               >
-                📍 {user.region?.trim() ? regionLabel : "未知"}
+                <span className="truncate">
+                  📍 {user.region?.trim() ? regionLabel : "未知"}
+                </span>
               </div>
               {user.gender === "male" ? (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "3px 0",
-                    borderRadius: 20,
-                    background: "rgba(56,189,248,0.12)",
-                    border: "0.5px solid rgba(56,189,248,0.25)",
-                    color: "#38bdf8",
-                    fontSize: 11,
-                    fontWeight: 600,
-                  }}
-                >
+                <div className="flex shrink-0 items-center justify-center rounded-full border border-sky-400/25 bg-sky-400/10 px-2 py-0.5 text-[11px] font-semibold text-sky-400">
                   ♂ 男
                 </div>
               ) : user.gender === "female" ? (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "3px 0",
-                    borderRadius: 20,
-                    background: "rgba(244,114,182,0.12)",
-                    border: "0.5px solid rgba(244,114,182,0.25)",
-                    color: "#f472b6",
-                    fontSize: 11,
-                    fontWeight: 600,
-                  }}
-                >
+                <div className="flex shrink-0 items-center justify-center rounded-full border border-pink-400/25 bg-pink-400/10 px-2 py-0.5 text-[11px] font-semibold text-pink-400">
                   ♀ 女
                 </div>
-              ) : (
-                <div />
-              )}
+              ) : null}
               {offlineOk ? (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "3px 0",
-                    borderRadius: 20,
-                    background: "rgba(255,255,255,0.06)",
-                    border: "0.5px solid rgba(255,255,255,0.1)",
-                    color: "#d4d4d8",
-                    fontSize: 11,
-                    fontWeight: 600,
-                  }}
-                >
+                <div className="flex shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[11px] font-semibold text-zinc-300">
                   🤝 可面交
                 </div>
               ) : (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "3px 0",
-                    borderRadius: 20,
-                    background: "rgba(34,197,94,0.1)",
-                    border: "0.5px solid rgba(34,197,94,0.2)",
-                    color: "#4ade80",
-                    fontSize: 11,
-                    fontWeight: 600,
-                  }}
-                >
+                <div className="flex shrink-0 items-center justify-center rounded-full border border-green-400/20 bg-green-500/10 px-2 py-0.5 text-[11px] font-semibold text-green-400">
                   💻 僅線上
                 </div>
               )}
@@ -341,14 +269,6 @@ export function UserCard({
               )
             ) : null}
           </div>
-
-          {variant === "market" && isPerfectMatch ? (
-            <div className="shrink-0">
-              <span className="whitespace-nowrap rounded-full bg-gradient-to-r from-amber-600 to-orange-500 px-2.5 py-1 text-[10px] font-medium text-white">
-                ⚔️ 命定師徒
-              </span>
-            </div>
-          ) : null}
         </div>
 
         <div className="mt-3 border-t border-zinc-800/50" />

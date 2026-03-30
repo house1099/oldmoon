@@ -66,15 +66,16 @@ export async function getVillageUsersAction(): Promise<{
           cardDecoration: deco ?? {},
         };
       });
-      // Layer 3：性別／性向雙向嚴格篩選（與 matching.isOrientationMatch 一致）
-      const filtered = withFrames.filter((u) =>
-        isOrientationMatch(
+      // Layer 3：`master`／`moderator` 略過性向篩選（同縣市聯絡營運）；其餘雙向 isOrientationMatch
+      const filtered = withFrames.filter((u) => {
+        if (u.role === "master" || u.role === "moderator") return true;
+        return isOrientationMatch(
           me.gender ?? "",
           me.orientation ?? "",
           u.gender ?? "",
           u.orientation ?? "",
-        ),
-      );
+        );
+      });
       const myInterests = me.interests ?? [];
       const scored: VillageUserWithScore[] = filtered.map((u) => ({
         ...u,
@@ -92,7 +93,7 @@ export async function getVillageUsersAction(): Promise<{
       return scored;
     },
     // 版本後綴：欄位（如 offline_ok）變更時使舊快取失效
-    [`village-v3-${user.id}-${me.region}`],
+    [`village-v4-${user.id}-${me.region}`],
     { revalidate: 300 },
   );
 

@@ -5,6 +5,12 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-30 — 興趣村莊聯絡：`master`／`moderator` 略過性向；市集卡命定師徒版面
+
+1. **`village.service.ts` — `getVillageUsersAction`**：**`role === 'master'` 或 `'moderator'`** 時**不**套用 **`isOrientationMatch`**（仍限 L2 同縣市、`active`、非 `hidden`、排除自己）；其餘使用者維持雙向性向篩選。排序仍 **`master` → `moderator` → 興趣分 → `level`**。**`unstable_cache`** 鍵改 **`village-v4-${userId}-${region}`**（舊 **`village-v3`** 行為不同，避免 TTL 內混用）。**技能市集**不依 **`role` 置頂**（未改）。
+2. **`UserCard.tsx`（`variant="market"`）**：**「⚔️ 命定師徒」**自 flex 第三欄移入**暱稱列**，與 **`LevelBadge`** 同列 **`flex-wrap`／`items-center`**，避免擠壓中欄；**地區／性別／僅線上／可面交**改 **`flex flex-wrap gap-1.5`** 取代固定三欄 grid。
+3. **建置**：**`npm run build`** 通過。
+
 ### 2026-03-30 — 探索 `/explore`：村莊／市集 Layer 2–3 與註冊興趣必填（建置通過、已併版）
 
 1. **Layer 2 — `user.repository.ts`**  
