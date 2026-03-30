@@ -5,6 +5,27 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-31 — `.cursorrules`：任務收尾 HANDOFF／HISTORY／Git（重點紀錄）
+
+1. **完成項目**  
+   - 於 **`.cursorrules`** 新增 **「重點紀錄 — 任務收尾」**：每次實作任務完成前必做 — **(1)** 更新 **`HANDOFF.md`**「最近完成」精簡摘要（筆數與主檔標題一致，目前 **5** 則；超出則刪最舊摘要）；**(2)** 於 **`HANDOFF_HISTORY.md`** 開頭日誌區**置頂**新增 **`### YYYY-MM-DD — …` 完整紀錄**（禁止刪舊文）；**(3)** **`git add`／`commit`／`push`**，且推送前 **`npm run build`** 通過（與檔內「Git 自動推送規則」一致）。  
+   - 合併原「HANDOFF 雙檔更新規範」為讀取／維護補充；**廢止**「HISTORY 僅能檔案最下方追加」之描述，改與本檔**新日誌置頂**慣例一致。  
+   - 明定 **勿**將整份 **`HANDOFF.md`** 複製進 HISTORY。  
+   - 同步更新 **`HANDOFF.md`**「最近完成」第一則為本流程；為維持 5 則上限，精簡列表中暫不再重複「探索村莊／市集／註冊興趣」單獨一則（該次任務仍保留於本檔下方歷史 `###`）。
+
+2. **資料庫異動**  
+   - 無。
+
+3. **需要注意**  
+   - 使用者明確說「不要 commit／不要 push／僅本地」時，依 **`.cursorrules`** 例外不推送。  
+   - AI 對話若僅諮詢未改檔，無需空 commit。
+
+4. **架構合規**  
+   - 僅文件與流程規範，無跨層程式變更。
+
+5. **Git**  
+   - **`3fb305e`** — `chore: .cursorrules 重點—任務完成必更新 HANDOFF/HISTORY 並 push`
+
 ### 2026-03-31 — Web Push（VAPID）與 PWA 圖示角標（未讀私訊對話數）
 
 1. **環境變數**（**`.env.example`**）：**`NEXT_PUBLIC_VAPID_PUBLIC_KEY`**、**`VAPID_PRIVATE_KEY`**、**`VAPID_SUBJECT`**（例 **`mailto:…`**）。**`src/lib/push/send-push.ts`** 之 **`ensureVapidConfigured()`** 三項皆必填才 **`webpush.setVapidDetails`**；缺任一則 **`sendPushToUser` 靜默 return**（無 throw）。

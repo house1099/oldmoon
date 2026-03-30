@@ -96,11 +96,11 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## ✅ 最近完成（最新 5 次任務）
 
-1. **2026-03-31 — Web Push 與 PWA 角標**：**VAPID** 三變數、**`sw.js`**／**`send-push.ts`**、**`PushNotifyGuildRow`**／**`usePushSubscription`**（逾時恢復、本機重訂閱、無金鑰引導）；**`AppBadgeUnreadChatSync`** 依 **未讀私訊對話數** 同步 **`setAppBadge`**。詳見 **`HANDOFF_HISTORY.md`**（**「Web Push（VAPID）與 PWA 圖示角標（2026-03-31）」**）。
-2. **2026-03-30 — 酒館字數 SSOT 與氣泡斷行**：**`tavern-message-limit.ts`** 統一 **`tavernMax`** 與 **`sendTavernMessageAction`** 上限（預設 **50**、硬上限 **500**）；**`TavernModal`** 氣泡 **`min-w-0`** + **`overflow-wrap:anywhere`**。詳見 **`HANDOFF_HISTORY.md`**（**「酒館字數 SSOT 與氣泡斷行（2026-03-30）」**）。
-3. **2026-03-30 — 廣播 50 字、橫幅點開全文、商城說明遷移**：**`broadcast.ts`** 常數 **50**；**`BroadcastBanner`** 可點 **Dialog** 看全文；**`shop_items`** 廣播券說明 **30→50** 片語替換與空描述預設（遷移 **`20260330200000_shop_broadcast_description_50.sql`**）。詳見 **`HANDOFF_HISTORY.md`**（**「廣播訊息 50 字、橫幅全文、商城說明遷移（2026-03-30）」**）。
-4. **2026-03-30 — 興趣村莊：全站領袖／管理員置頂**：**Layer 2** **`findVillageStaffUsersGlobally`** 與同縣市 **`findVillageUsers`** 合併去重；營運略過性向、不比興趣分（內部 **`level` → `id`**）；無地區仍顯示營運；快取 **`village-v5-${userId}-${regionKey}`**。**`npm run build`** 通過。詳見 **`HANDOFF_HISTORY.md`**（**「興趣村莊：全站領袖／管理員置頂（2026-03-30）」**）。
-5. **2026-03-30 — 探索村莊／市集邏輯、註冊興趣必填與建置**：**Layer 2** **`findMarketUsers`** 排除無技能（**`skills_offer`／`skills_want` 至少一邊非空**）、**`select` 含 `total_exp`**；**Layer 3** 市集 **`isPerfectMatch`＝互補 ≥2**、排序 **命定師徒 → `level` → `total_exp`**，快取鍵 **`market-v3-${userId}`**；村莊排序／篩選歷經 **`village-v4`／`village-v5`** 演進（見 **`HANDOFF_HISTORY.md`**）。**`matching.ts`** 新增 **`countComplementarySkills`**；**`MarketContent`** 文案對齊。**註冊**：名冊成功後導 **`/register/interests`**；**`pending`** 可進興趣／技能／月老（**`middleware.ts`**）；**`completeRegistration`／`updateMyProfile`** 強制 **≥1 興趣** 與上限。**`npm run build`** 通過。詳見 **`HANDOFF_HISTORY.md`**。
+1. **2026-03-31 — 流程強制：`.cursorrules` 重點紀錄**：任務完成後必更新 **`HANDOFF.md`**「最近完成」、**`HANDOFF_HISTORY.md`** 置頂 **`###` 完整紀錄**，並 **`git push`**（推送前 **`npm run build`**）；修正舊規「HISTORY 僅能最下方追加」與本 repo **日誌置頂**慣例一致。詳見 **`HANDOFF_HISTORY.md`**（**「`.cursorrules`：任務收尾 HANDOFF／HISTORY／Git（2026-03-31）」**）。
+2. **2026-03-31 — Web Push 與 PWA 角標**：**VAPID** 三變數、**`sw.js`**／**`send-push.ts`**、**`PushNotifyGuildRow`**／**`usePushSubscription`**（逾時恢復、本機重訂閱、無金鑰引導）；**`AppBadgeUnreadChatSync`** 依 **未讀私訊對話數** 同步 **`setAppBadge`**。詳見 **`HANDOFF_HISTORY.md`**（**「Web Push（VAPID）與 PWA 圖示角標（2026-03-31）」**）。
+3. **2026-03-30 — 酒館字數 SSOT 與氣泡斷行**：**`tavern-message-limit.ts`** 統一 **`tavernMax`** 與 **`sendTavernMessageAction`** 上限（預設 **50**、硬上限 **500**）；**`TavernModal`** 氣泡 **`min-w-0`** + **`overflow-wrap:anywhere`**。詳見 **`HANDOFF_HISTORY.md`**（**「酒館字數 SSOT 與氣泡斷行（2026-03-30）」**）。
+4. **2026-03-30 — 廣播 50 字、橫幅點開全文、商城說明遷移**：**`broadcast.ts`** 常數 **50**；**`BroadcastBanner`** 可點 **Dialog** 看全文；**`shop_items`** 廣播券說明 **30→50** 片語替換與空描述預設（遷移 **`20260330200000_shop_broadcast_description_50.sql`**）。詳見 **`HANDOFF_HISTORY.md`**（**「廣播訊息 50 字、橫幅全文、商城說明遷移（2026-03-30）」**）。
+5. **2026-03-30 — 興趣村莊：全站領袖／管理員置頂**：**Layer 2** **`findVillageStaffUsersGlobally`** 與同縣市 **`findVillageUsers`** 合併去重；營運略過性向、不比興趣分（內部 **`level` → `id`**）；無地區仍顯示營運；快取 **`village-v5-${userId}-${regionKey}`**。**`npm run build`** 通過。詳見 **`HANDOFF_HISTORY.md`**（**「興趣村莊：全站領袖／管理員置頂（2026-03-30）」**）。
 
 ## ⚠️ 目前已知問題
 
