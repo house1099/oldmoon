@@ -34,9 +34,9 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 - OAuth／健康：`src/app/auth/callback/route.ts`（成功可帶 **`guild_entrance=1`** 觸發開場）；`src/app/api/ping/route.ts`
 - Profile：`profile.action.ts`；`profile-update.action.ts`；`adventurer-profile.action.ts`
 - IG 審核：`ig-request.action.ts`；`ig-request.repository.ts`；`/register/pending`
-- 簽到／連簽／盲盒：`daily-checkin.action.ts`；`streak.repository.ts`；`prize-engine.ts`；`user.repository`
+- 簽到／連簽／盲盒：`daily-checkin.action.ts`（第 7 天 **`drawFromPool('loot_box')`**；獎池失敗時 **系統信** 提示）；`streak.repository.ts`；`prize-engine.ts`；`guild-profile-home.tsx`（簽到成功 Modal 內 **`GuildLootBoxReveal`**）；`user.repository`
 - 獎勵／廣播／改名／贈禮：`rewards.action.ts`；`rewards.repository.ts`；`gift.action.ts`（暱稱搜尋贈送玩家）；`system-settings`
-- 商城：`shop.action.ts`（**`purchaseItemAction` → `newRewardIds`**）；`shop.repository.ts`；`(app)/shop`（**「🎁 送給朋友」** 購後贈禮）；`(admin)/admin/shop`
+- 商城：`shop.action.ts`（**`purchaseItemAction` → `newRewardIds`／盲盒另回 `lootDraws`**）；`shop.repository.ts`；`(app)/shop`（**「🎁 送給朋友」**；**`loot_box` 不可商城贈送**）；**公會盲盒開箱** **`GuildLootBoxReveal`**（`src/components/loot-box/guild-loot-box-reveal.tsx`，動畫 **`public/animations/guild-loot-box-treasure.json`**，常數 **`src/lib/constants/guild-loot-box-lottie.ts`**）；`(admin)/admin/shop`（盲盒類型表單說明）
 - 財務 master：`/admin/coins`（雙 Tab：`coins-admin-client.tsx`）；`adjustCoinsAction`／`getAdminCoinLedgerAction`；L2 `findCoinTransactionsWithFilters`
 - 探索：`explore/page.tsx`；`ExploreClient.tsx`；`village.service.ts`；`market.service.ts`
 - 配對：`matching.ts`；`role-display.ts`
@@ -96,11 +96,11 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## ✅ 最近完成（最新 5 次任務）
 
-1. **2026-03-31 — Service Worker 角標、推播 `unreadCount`、登出清除**：**`sw.js`** 依 payload  **`setAppBadge`／`clearAppBadge`**；**`send-push.ts`** 以 **`countConversationsWithUnreadFromOthers(userId)`** 合併 **`unreadCount`**（與 **`getUnreadChatConversationsCountAction`** 同源語意、非 session action）；**`clearPwaAppBadge`** + **SWR 全清**於 **`guild-profile-home`**／**`register/pending`** 登出。詳見 **`HANDOFF_HISTORY.md`**（**「Service Worker 推播角標、`unreadCount` payload、登出清除角標與 SWR」**）。
-2. **2026-03-31 — 流程強制：`.cursorrules` 重點紀錄**：任務完成後必更新 **`HANDOFF.md`**「最近完成」、**`HANDOFF_HISTORY.md`** 置頂 **`###` 完整紀錄**，並 **`git push`**（推送前 **`npm run build`**）；修正舊規「HISTORY 僅能最下方追加」與本 repo **日誌置頂**慣例一致。詳見 **`HANDOFF_HISTORY.md`**（**「`.cursorrules`：任務收尾 HANDOFF／HISTORY／Git（2026-03-31）」**）。
-3. **2026-03-31 — Web Push 與 PWA 角標**：**VAPID** 三變數、**`sw.js`**／**`send-push.ts`**、**`PushNotifyGuildRow`**／**`usePushSubscription`**（逾時恢復、本機重訂閱、無金鑰引導）；**`AppBadgeUnreadChatSync`** 依 **未讀私訊對話數** 同步 **`setAppBadge`**。詳見 **`HANDOFF_HISTORY.md`**（**「Web Push（VAPID）與 PWA 圖示角標（2026-03-31）」**）。
-4. **2026-03-30 — 酒館字數 SSOT 與氣泡斷行**：**`tavern-message-limit.ts`** 統一 **`tavernMax`** 與 **`sendTavernMessageAction`** 上限（預設 **50**、硬上限 **500**）；**`TavernModal`** 氣泡 **`min-w-0`** + **`overflow-wrap:anywhere`**。詳見 **`HANDOFF_HISTORY.md`**（**「酒館字數 SSOT 與氣泡斷行（2026-03-30）」**）。
-5. **2026-03-30 — 廣播 50 字、橫幅點開全文、商城說明遷移**：**`broadcast.ts`** 常數 **50**；**`BroadcastBanner`** 可點 **Dialog** 看全文；**`shop_items`** 廣播券說明 **30→50** 片語替換與空描述預設（遷移 **`20260330200000_shop_broadcast_description_50.sql`**）。詳見 **`HANDOFF_HISTORY.md`**（**「廣播訊息 50 字、橫幅全文、商城說明遷移（2026-03-30）」**）。
+1. **2026-03-31 — 公會盲盒：商城／簽到一致、Lottie 開箱 UX**：**`purchaseItemAction`** 回傳 **`lootDraws`**，盲盒信件改寫實際獎項（非「已存背包」）；**`loot_box` 阻擋商城贈送**；簽到 **`drawFromPool`** 失敗時 **系統信**；後台商品類型「盲盒」說明與獎池 **`loot_box`** 對齊。**`GuildLootBoxReveal`**（`fetch` **`/animations/guild-loot-box-treasure.json`**、`lottie-react`、獎項中央彈出、多抽 stagger、載入失敗降級）；**`globals.css`** **`@keyframes guildLootPrize`**；接入 **`(app)/shop`** 與 **`guild-profile-home`** 簽到 Modal。詳見 **`HANDOFF_HISTORY.md`**（**「公會盲盒：商城與簽到一致、Lottie 開箱與獎項展示（2026-03-31）」**）。
+2. **2026-03-31 — Service Worker 角標、推播 `unreadCount`、登出清除**：**`sw.js`** 依 payload  **`setAppBadge`／`clearAppBadge`**；**`send-push.ts`** 以 **`countConversationsWithUnreadFromOthers(userId)`** 合併 **`unreadCount`**（與 **`getUnreadChatConversationsCountAction`** 同源語意、非 session action）；**`clearPwaAppBadge`** + **SWR 全清**於 **`guild-profile-home`**／**`register/pending`** 登出。詳見 **`HANDOFF_HISTORY.md`**（**「Service Worker 推播角標、`unreadCount` payload、登出清除角標與 SWR」**）。
+3. **2026-03-31 — 流程強制：`.cursorrules` 重點紀錄**：任務完成後必更新 **`HANDOFF.md`**「最近完成」、**`HANDOFF_HISTORY.md`** 置頂 **`###` 完整紀錄**，並 **`git push`**（推送前 **`npm run build`**）；修正舊規「HISTORY 僅能最下方追加」與本 repo **日誌置頂**慣例一致。詳見 **`HANDOFF_HISTORY.md`**（**「`.cursorrules`：任務收尾 HANDOFF／HISTORY／Git（2026-03-31）」**）。
+4. **2026-03-31 — Web Push 與 PWA 角標**：**VAPID** 三變數、**`sw.js`**／**`send-push.ts`**、**`PushNotifyGuildRow`**／**`usePushSubscription`**（逾時恢復、本機重訂閱、無金鑰引導）；**`AppBadgeUnreadChatSync`** 依 **未讀私訊對話數** 同步 **`setAppBadge`**。詳見 **`HANDOFF_HISTORY.md`**（**「Web Push（VAPID）與 PWA 圖示角標（2026-03-31）」**）。
+5. **2026-03-30 — 酒館字數 SSOT 與氣泡斷行**：**`tavern-message-limit.ts`** 統一 **`tavernMax`** 與 **`sendTavernMessageAction`** 上限（預設 **50**、硬上限 **500**）；**`TavernModal`** 氣泡 **`min-w-0`** + **`overflow-wrap:anywhere`**。詳見 **`HANDOFF_HISTORY.md`**（**「酒館字數 SSOT 與氣泡斷行（2026-03-30）」**）。
 
 ## ⚠️ 目前已知問題
 

@@ -5,6 +5,51 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-31 — 公會盲盒：商城與簽到一致、Lottie 開箱與獎項展示
+
+**背景**：商城 **`loot_box`** 與第 7 天簽到皆呼叫 **`drawFromPool('loot_box')`**；使用者易誤以為獎勵應進背包。另需以 Lottie 寶箱動畫取代 CSS 翻面，並在開箱後於中央展示獎項。
+
+1. **`src/services/shop.action.ts`**  
+   - **`dispatchItemToUser`** 改回傳 **`{ newRewardIds, lootDraws }`**；**`loot_box`** 每 quantity 呼叫 **`drawFromPool`** 並 **`lootDraws.push`**。  
+   - **`PurchaseResult`** 成功分支含 **`lootDraws: DrawResult[]`**（非盲盒為空陣列）。  
+   - **`formatLootDrawSummaryLine`**；**`notifyUserMailboxSilent`**：盲盒改寫「開出內容」（單次一句／多次多行），其餘商品維持「已存入背包」。
+
+2. **`src/app/(app)/shop/page.tsx`**  
+   - 購買成功若有 **`lootDraws`**：**`shopLootPlaybackKey`** 遞增、開 Modal；**`GuildLootBoxReveal`** 取代原 CSS 翻面與多抽純列表。  
+   - **公會盲盒**：隱藏商品卡 **🎁 贈送**、**`handlePurchase`／`executeShopGiftCheckout`** 擋贈送並 toast（避免扣款後 **`newRewardIds` 為空**無法轉贈）。  
+   - Toast 文案改為引導觀看動畫。
+
+3. **`src/services/daily-checkin.action.ts`**  
+   - **`claimDailyCheckin`** 內 **`drawFromPool('loot_box')`** 之 **`catch`**：除 **`console.error`** 外 **`notifyUserMailboxSilent`** 發系統信（獎池異常提示）；通知失敗另 log。
+
+4. **`src/app/(admin)/admin/shop/shop-admin-client.tsx`**  
+   - 商品類型選 **盲盒** 時顯示說明：須 **`item_type = loot_box`** 才走獎池 **`loot_box`**（與七日簽到相同）；商品圖非必要。
+
+5. **動畫資產與常數**  
+   - **`public/animations/guild-loot-box-treasure.json`**（由使用者提供之 **3D Treasure Box** Lottie 複製入庫；內嵌 base64，檔案較大）。  
+   - **`src/lib/constants/guild-loot-box-lottie.ts`**：**`GUILD_LOOT_BOX_LOTTIE_PATH`**。
+
+6. **`src/components/loot-box/guild-loot-box-reveal.tsx`**（client）  
+   - **`open` 由父層 Modal 控制**；依 **`playbackKey`** 重置並 **`fetch`** Lottie JSON。  
+   - **`lottie-react`**：**`loop={false}`**、**`onComplete`** → 顯示獎項層；寶箱層半透明；獎項卡 **`animate-[guildLootPrize_…]`**。  
+   - **多抽**：Lottie **只播一次**，獎項 **stagger**（**`visiblePrizeCount` + interval**）。  
+   - **載入失敗**：提示並仍顯示獎項；**~4.2s fallback** 避免 **`onComplete` 未觸發**卡死。
+
+7. **`src/app/globals.css`**  
+   - 新增 **`@keyframes guildLootPrize`**（中央彈出感）。
+
+8. **`src/components/profile/guild-profile-home.tsx`**  
+   - 簽到成功 Modal 內盲盒區改 **`GuildLootBoxReveal`**；**`checkinLootPlaybackKey`** 於有 **`result.lootBox`** 時遞增；移除 **`lootBoxRevealed`** 翻面狀態。
+
+9. **資料庫**  
+   - 無 DDL；獎池仍 **`prize_pools.pool_type = 'loot_box'`**。
+
+10. **架構**  
+    - 僅 L5 動畫與 L3 信件／回傳欄位擴充；盲盒抽獎仍 **`prize-engine.drawFromPool`**。
+
+11. **建置／Git**  
+    - 推送前執行 **`npm run build`**；**`git push`**（commit 訊息見 log）。
+
 ### 2026-03-31 — Service Worker 推播角標、`unreadCount` payload、登出清除角標與 SWR
 
 1. **`public/sw.js`**：**`push`** 解析 JSON 之 **`unreadCount`**（數值且非 NaN 才處理）；**`event.waitUntil(Promise.all([showNotification, syncBadge]))`**；**`navigator.setAppBadge`／`clearAppBadge`**（**0** 清除、**1–99** 設數，與 **`app-badge.ts`** 一致）；僅 **`setAppBadge` 存在**時才嘗試；**無 `unreadCount` 欄位**的舊 payload **不**改角標，避免誤清。

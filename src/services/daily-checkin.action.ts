@@ -304,6 +304,18 @@ export async function claimDailyCheckin(): Promise<ClaimDailyCheckinResult> {
       });
     } catch (e) {
       console.error("loot_box draw:", e);
+      try {
+        await notifyUserMailboxSilent({
+          user_id: user.id,
+          type: "system",
+          from_user_id: null,
+          message:
+            "🎁 公會盲盒發放失敗，獎池可能暫時異常。其餘簽到獎勵已發放；若重複發生請聯絡管理員。",
+          is_read: false,
+        });
+      } catch (notifyErr) {
+        console.error("loot_box failure notify:", notifyErr);
+      }
     }
   }
 

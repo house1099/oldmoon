@@ -52,7 +52,9 @@ import {
   notifyShopGiftBuyerRecordAction,
   type ShopItemDto,
 } from "@/services/shop.action";
+import type { DrawResult } from "@/services/prize-engine";
 import type { CoinTransactionRow } from "@/types/database.types";
+import { GuildLootBoxReveal } from "@/components/loot-box/guild-loot-box-reveal";
 
 const SOURCE_LABEL: Record<CoinTransactionRow["source"], string> = {
   checkin: "簽到",
@@ -168,6 +170,10 @@ export default function ShopPage() {
     currencyEmoji: string;
   } | null>(null);
   const [giftCheckoutBusy, setGiftCheckoutBusy] = useState(false);
+
+  const [shopLootRevealOpen, setShopLootRevealOpen] = useState(false);
+  const [shopLootDraws, setShopLootDraws] = useState<DrawResult[]>([]);
+  const [shopLootPlaybackKey, setShopLootPlaybackKey] = useState(0);
 
   const refreshBalance = useCallback(async () => {
     const b = await getMyCoinsAction();
@@ -290,6 +296,10 @@ export default function ShopPage() {
     }
 
     if (intent === "gift_friend") {
+      if (target.item_type === "loot_box") {
+        toast.error("公會盲盒無法透過商城贈送，請自行購買開啟。");
+        return;
+      }
       if (!shopGiftRecipient) {
         toast.error("請先選擇贈送對象");
         return;
@@ -322,7 +332,18 @@ export default function ShopPage() {
     setPurchaseIntent("normal");
     await refreshBalance();
     void loadItems(tab);
-    toast.success(`🛍️ 購買成功！已存入背包`);
+    if (res.lootDraws.length > 0) {
+      setShopLootDraws(res.lootDraws);
+      setShopLootPlaybackKey((k) => k + 1);
+      setShopLootRevealOpen(true);
+      toast.success(
+        res.lootDraws.length === 1
+          ? "🎁 公會盲盒開啟中，請觀看動畫"
+          : `🎁 已開啟 ${res.lootDraws.length} 個公會盲盒，請觀看動畫與獎項`,
+      );
+    } else {
+      toast.success("🛍️ 購買成功！已存入背包");
+    }
   }
 
   async function handleShopRecipientSearch() {
@@ -347,6 +368,10 @@ export default function ShopPage() {
   async function executeShopGiftCheckout() {
     const snap = shopGiftCheckoutSnapshot;
     if (!snap || giftCheckoutBusy) return;
+    if (snap.target.item_type === "loot_box") {
+      toast.error("公會盲盒無法透過商城贈送，請自行購買開啟。");
+      return;
+    }
     setGiftCheckoutBusy(true);
     try {
       const res = await purchaseItemAction(snap.target.id, snap.qty, {
@@ -618,7 +643,9 @@ export default function ShopPage() {
                     ) : null}
                   </div>
                   <div className="mt-auto flex items-center gap-2 px-3.5 pb-3.5">
-                    {item.allow_gift !== false && isLoggedIn ? (
+                    {item.allow_gift !== false &&
+                    isLoggedIn &&
+                    item.item_type !== "loot_box" ? (
                       <button
                         type="button"
                         disabled={!canAfford}
@@ -899,6 +926,40 @@ export default function ShopPage() {
               </div>
             </>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={shopLootRevealOpen}
+        onOpenChange={setShopLootRevealOpen}
+      >
+        <DialogContent className="max-w-sm w-[calc(100%-2rem)] overflow-hidden rounded-3xl border border-violet-500/30 bg-zinc-950/90 p-0 text-center shadow-[0_0_28px_rgba(139,92,246,0.2)] backdrop-blur-xl text-[#f4f4f5]">
+          <div className="px-5 pb-2 pt-6">
+            <span className="inline-flex rounded-full border border-violet-400/40 bg-violet-950/60 px-4 py-1 text-xs font-semibold text-violet-200">
+              公會盲盒
+            </span>
+            <h2 className="mt-4 text-lg font-bold text-white">開獎結果</h2>
+            <p className="mt-1 text-xs text-zinc-500">
+              獎勵已發放（探險幣／經驗／造型道具等）
+            </p>
+          </div>
+
+          <div className="px-4 pb-2">
+            <GuildLootBoxReveal
+              playbackKey={shopLootPlaybackKey}
+              draws={shopLootDraws}
+            />
+          </div>
+
+          <div className="border-t border-white/10 bg-black/20 px-5 py-5">
+            <button
+              type="button"
+              onClick={() => setShopLootRevealOpen(false)}
+              className="w-full rounded-full bg-gradient-to-r from-violet-600 to-purple-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-violet-900/40 transition-transform active:scale-95"
+            >
+              完成
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
 

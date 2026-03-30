@@ -14,7 +14,7 @@ import {
 } from "@/lib/repositories/server/shop.repository";
 import { creditCoins } from "@/lib/repositories/server/coin.repository";
 import { insertUserReward } from "@/lib/repositories/server/prize.repository";
-import { drawFromPool } from "@/services/prize-engine";
+import { drawFromPool, type DrawResult } from "@/services/prize-engine";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
 import { updateProfile } from "@/lib/repositories/server/user.repository";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
@@ -70,8 +70,16 @@ export async function getShopItemsAction(
 }
 
 type PurchaseResult =
-  | { ok: true; item: ShopItemDto; newRewardIds: string[] }
+  | { ok: true; item: ShopItemDto; newRewardIds: string[]; lootDraws: DrawResult[] }
   | { ok: false; error: string };
+
+function formatLootDrawSummaryLine(draw: DrawResult): string {
+  const extra =
+    draw.value != null
+      ? `（${draw.rewardType} +${draw.value}）`
+      : `（${draw.rewardType}）`;
+  return `${draw.label}${extra}`;
+}
 
 export type PurchaseItemOptions = {
   /** 商城「購買並贈送」：道具直接轉出，勿對買家發「已存入背包」以免誤導 */
@@ -134,8 +142,11 @@ export async function purchaseItemAction(
     }
 
     let newRewardIds: string[] = [];
+    let lootDraws: DrawResult[] = [];
     try {
-      newRewardIds = await dispatchItemToUser(user.id, item, quantity);
+      const dispatched = await dispatchItemToUser(user.id, item, quantity);
+      newRewardIds = dispatched.newRewardIds;
+      lootDraws = dispatched.lootDraws;
     } catch (dispatchErr) {
       console.error("purchaseItemAction 發放失敗:", dispatchErr);
       const refund = await creditCoins({
@@ -174,15 +185,28 @@ export async function purchaseItemAction(
     revalidateTag("shop_items");
 
     if (!options?.skipBuyerMailbox) {
-      await notifyUserMailboxSilent({
-        user_id: user.id,
-        type: "system",
-        message: `🛍️ 購買成功！「${item.name}」x${quantity} 已存入背包。`,
-      });
+      if (item.item_type === "loot_box" && lootDraws.length > 0) {
+        const lines = lootDraws.map(formatLootDrawSummaryLine);
+        const message =
+          lootDraws.length === 1
+            ? `🛍️ 購買成功！公會盲盒開出：${lines[0]}`
+            : `🛍️ 購買成功！公會盲盒已開啟 ${lootDraws.length} 次：\n${lines.map((l, i) => `${i + 1}. ${l}`).join("\n")}`;
+        await notifyUserMailboxSilent({
+          user_id: user.id,
+          type: "system",
+          message,
+        });
+      } else {
+        await notifyUserMailboxSilent({
+          user_id: user.id,
+          type: "system",
+          message: `🛍️ 購買成功！「${item.name}」x${quantity} 已存入背包。`,
+        });
+      }
     }
 
     const now = new Date();
-    return { ok: true, item: toShopItemDto(item, now), newRewardIds };
+    return { ok: true, item: toShopItemDto(item, now), newRewardIds, lootDraws };
   } catch (err) {
     console.error("purchaseItemAction 失敗:", err);
     return { ok: false, error: "購買失敗，請稍後再試" };
@@ -211,8 +235,9 @@ async function dispatchItemToUser(
   userId: string,
   item: ShopItemRow,
   quantity: number,
-): Promise<string[]> {
+): Promise<{ newRewardIds: string[]; lootDraws: DrawResult[] }> {
   const newRewardIds: string[] = [];
+  const lootDraws: DrawResult[] = [];
   for (let i = 0; i < quantity; i++) {
     switch (item.item_type) {
       case "broadcast":
@@ -247,9 +272,11 @@ async function dispatchItemToUser(
         );
         break;
 
-      case "loot_box":
-        await drawFromPool("loot_box", userId);
+      case "loot_box": {
+        const d = await drawFromPool("loot_box", userId);
+        lootDraws.push(d);
         break;
+      }
 
       case "fishing_bait":
       case "fishing_rod":
@@ -332,7 +359,7 @@ async function dispatchItemToUser(
         break;
     }
   }
-  return newRewardIds;
+  return { newRewardIds, lootDraws };
 }
 
 export async function getMyOrdersAction(): Promise<ShopOrderRow[]> {

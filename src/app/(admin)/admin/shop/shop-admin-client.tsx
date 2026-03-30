@@ -904,6 +904,13 @@ export default function ShopAdminClient() {
                   </option>
                 ))}
               </select>
+              {form.item_type === "loot_box" ? (
+                <p className="mt-1.5 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+                  須選「盲盒」類型，前台購買才會走獎池{" "}
+                  <span className="font-mono">loot_box</span>（與七日簽到第 7
+                  天相同）。僅改 SKU／名稱無效；商品圖可不設，不影響開獎。
+                </p>
+              ) : null}
             </label>
             {EFFECT_KEY_TYPES.has(form.item_type) && (
               <label className="block">

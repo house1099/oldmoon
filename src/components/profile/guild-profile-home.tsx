@@ -36,6 +36,7 @@ import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import { Button } from "@/components/ui/button";
 import LoadingButton, { PendingLabel } from "@/components/ui/LoadingButton";
+import { GuildLootBoxReveal } from "@/components/loot-box/guild-loot-box-reveal";
 import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
 import { ShopCardFrameOverlay } from "@/components/ui/ShopCardFrameOverlay";
 import {
@@ -396,7 +397,7 @@ export function GuildProfileHome({
   const [checkinModalLoot, setCheckinModalLoot] = useState<DrawResult | null>(
     null,
   );
-  const [lootBoxRevealed, setLootBoxRevealed] = useState(false);
+  const [checkinLootPlaybackKey, setCheckinLootPlaybackKey] = useState(0);
   const [rewardsLoading, setRewardsLoading] = useState(false);
   const [rewardsData, setRewardsData] = useState<MyRewardsPayload | null>(null);
   const [broadcastDialogOpen, setBroadcastDialogOpen] = useState(false);
@@ -778,7 +779,9 @@ export function GuildProfileHome({
       setCheckinModalCoins(result.coinsEarned);
       setCheckinModalStreakDay(result.streakDay);
       setCheckinModalLoot(result.lootBox ?? null);
-      setLootBoxRevealed(false);
+      if (result.lootBox) {
+        setCheckinLootPlaybackKey((k) => k + 1);
+      }
       setShowCheckinModal(true);
       setCheckinDone(true);
       router.refresh();
@@ -2066,10 +2069,7 @@ export function GuildProfileHome({
 
       <Dialog
         open={showCheckinModal}
-        onOpenChange={(open) => {
-          setShowCheckinModal(open);
-          if (!open) setLootBoxRevealed(false);
-        }}
+        onOpenChange={setShowCheckinModal}
       >
         <DialogContent className="glass-panel max-w-xs w-[calc(100%-2rem)] overflow-hidden rounded-3xl border border-violet-500/30 bg-zinc-950/90 p-0 text-center shadow-[0_0_28px_rgba(139,92,246,0.2)] backdrop-blur-xl">
           <div className="px-5 pb-2 pt-6">
@@ -2095,62 +2095,14 @@ export function GuildProfileHome({
           </div>
 
           {checkinModalLoot ? (
-            <div className="mx-4 mb-4 rounded-2xl border border-violet-500/30 bg-violet-950/30 p-4">
-              <p className="mb-3 text-sm font-medium text-violet-100">
+            <div className="mx-4 mb-4">
+              <p className="mb-2 text-center text-sm font-medium text-violet-100">
                 🎁 公會盲盒開封！
               </p>
-              <div className="mx-auto" style={{ perspective: "1000px" }}>
-                <div
-                  role="button"
-                  tabIndex={0}
-                  className="relative mx-auto h-28 max-w-[200px] cursor-pointer outline-none"
-                  style={{
-                    transformStyle: "preserve-3d",
-                    transform: lootBoxRevealed
-                      ? "rotateY(180deg)"
-                      : "rotateY(0deg)",
-                    transition: "transform 0.7s ease-in-out",
-                  }}
-                  onClick={() => setLootBoxRevealed(true)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ")
-                      setLootBoxRevealed(true);
-                  }}
-                >
-                  <div
-                    className="absolute inset-0 flex items-center justify-center rounded-2xl border border-violet-400/50 bg-gradient-to-br from-violet-800/80 to-zinc-900 text-5xl"
-                    style={{
-                      backfaceVisibility: "hidden",
-                      WebkitBackfaceVisibility: "hidden",
-                    }}
-                  >
-                    🎁
-                  </div>
-                  <div
-                    className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-2xl border border-amber-400/40 bg-zinc-900/95 px-2 py-3"
-                    style={{
-                      backfaceVisibility: "hidden",
-                      WebkitBackfaceVisibility: "hidden",
-                      transform: "rotateY(180deg)",
-                    }}
-                  >
-                    <span className="text-lg font-bold text-white">
-                      {checkinModalLoot.label}
-                    </span>
-                    <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] font-medium uppercase text-violet-300">
-                      {checkinModalLoot.rewardType}
-                    </span>
-                    {checkinModalLoot.value != null ? (
-                      <span className="text-sm text-amber-200">
-                        +{checkinModalLoot.value}
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-              {!lootBoxRevealed ? (
-                <p className="mt-2 text-xs text-zinc-500">點擊箱子揭曉</p>
-              ) : null}
+              <GuildLootBoxReveal
+                playbackKey={checkinLootPlaybackKey}
+                draws={[checkinModalLoot]}
+              />
             </div>
           ) : null}
 
@@ -2159,7 +2111,6 @@ export function GuildProfileHome({
               type="button"
               onClick={() => {
                 setShowCheckinModal(false);
-                setLootBoxRevealed(false);
               }}
               className="w-full rounded-full bg-gradient-to-r from-violet-600 to-purple-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-violet-900/40 transition-transform active:scale-95"
             >
