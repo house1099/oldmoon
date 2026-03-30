@@ -48,7 +48,7 @@
     - 僅 L5 動畫與 L3 信件／回傳欄位擴充；盲盒抽獎仍 **`prize-engine.drawFromPool`**。
 
 11. **建置／Git**  
-    - 推送前執行 **`npm run build`**；**`git push`**（commit 訊息見 log）。
+    - **`npm run build`** 通過；**`git push`**：**`d46e859`** **`feat(loot-box): Lottie chest reveal, shop parity lootDraws, handoff docs`**。
 
 ### 2026-03-31 — Service Worker 推播角標、`unreadCount` payload、登出清除角標與 SWR
 
