@@ -17,17 +17,22 @@ Cursor 若使用 **遠端 URL** `https://mcp.supabase.com/mcp`，必須能解析
 1. 開啟：<https://supabase.com/dashboard/account/tokens>
 2. 建立 **Personal access token**，複製保存（只顯示一次）。
 
-### 3. 把 PAT 填進 Cursor MCP 設定
+### 3. 把 PAT 填進 Cursor MCP 設定（擇一）
 
-編輯：**`C:\Users\User\.cursor\mcp.json`**
+**方式 A（建議，不在畫面上留下明碼）**  
+在 PowerShell：
 
-在 `env.SUPABASE_ACCESS_TOKEN` 的 `""` 內貼上你的 PAT，例如：
-
-```json
-"SUPABASE_ACCESS_TOKEN": "sbp_xxxxxxxx..."
+```powershell
+cd D:\oldmoon
+.\scripts\set-cursor-supabase-mcp-token.ps1
 ```
 
-**不要**把 PAT 提交到 Git；`mcp.json` 在使用者目錄，通常不在專案內。
+依提示貼上 PAT（輸入時不會顯示字元）。
+
+**方式 B（手動）**  
+編輯 **`%USERPROFILE%\.cursor\mcp.json`**，把 `__PUT_YOUR_PAT_HERE__` 整段換成你的 PAT（保留雙引號）。
+
+**不要**把 PAT 提交到 Git；`mcp.json` 在使用者目錄，通常不在專案內。若曾把 token 貼在聊天／截圖，請到 Dashboard **撤銷舊 token 再建新 token**。
 
 ### 4. 確認 project ref
 
