@@ -187,7 +187,7 @@ export function UserCard({
             </div>
 
             <div
-              className="mt-1"
+              className="mt-2.5"
               style={{
                 display: "grid",
                 gridTemplateColumns: "90px 52px 1fr",
@@ -260,9 +260,9 @@ export function UserCard({
                     justifyContent: "center",
                     padding: "3px 0",
                     borderRadius: 20,
-                    background: "rgba(245,158,11,0.1)",
-                    border: "0.5px solid rgba(245,158,11,0.2)",
-                    color: "#fbbf24",
+                    background: "rgba(255,255,255,0.06)",
+                    border: "0.5px solid rgba(255,255,255,0.1)",
+                    color: "#d4d4d8",
                     fontSize: 11,
                     fontWeight: 600,
                   }}

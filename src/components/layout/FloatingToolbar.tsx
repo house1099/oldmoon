@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import {
   Backpack,
   Beer,
+  ChevronLeft,
   Mail,
   Sparkles,
   X,
@@ -298,9 +299,19 @@ function firstUnequippedRow(stack: RewardStack): UserRewardWithEffect | null {
   return stack.rows.find((r) => !r.is_equipped) ?? null;
 }
 
+/** 長按選單／數量：廣播券僅計「未使用」列，避免已用券佔位導致無法開選單 */
+function firstManageableRewardRow(stack: RewardStack): UserRewardWithEffect | null {
+  if (stack.rewardType === "broadcast") {
+    return (
+      stack.rows.find((r) => !r.is_equipped && r.used_at == null) ?? null
+    );
+  }
+  return firstUnequippedRow(stack);
+}
+
 function stackSupportsLongPress(stack: RewardStack): boolean {
-  if (!firstUnequippedRow(stack)) return false;
-  const sample = firstUnequippedRow(stack)!;
+  const sample = firstManageableRewardRow(stack);
+  if (!sample) return false;
   if (sample.shop_item_id) {
     const canGift = sample.shop_allow_gift !== false;
     const canDelete = sample.shop_allow_delete !== false;
@@ -318,11 +329,18 @@ function stackSupportsLongPress(stack: RewardStack): boolean {
 }
 
 function stackMenuMaxQty(stack: RewardStack): number {
+  if (stack.rewardType === "broadcast") {
+    return stack.rows.filter((r) => !r.is_equipped && r.used_at == null)
+      .length;
+  }
   return stack.rows.filter((r) => !r.is_equipped).length;
 }
 
 function pickUnequippedRowIds(stack: RewardStack, n: number): string[] {
-  const rows = stack.rows.filter((r) => !r.is_equipped);
+  const rows =
+    stack.rewardType === "broadcast"
+      ? stack.rows.filter((r) => !r.is_equipped && r.used_at == null)
+      : stack.rows.filter((r) => !r.is_equipped);
   const cap = rows.length;
   if (cap === 0) return [];
   const take = Math.min(Math.max(1, n), cap);
@@ -610,6 +628,11 @@ function FloatingToolbarInner({
     if (!stackSupportsLongPress(stack)) {
       if (!stack.rows.some((r) => !r.is_equipped)) {
         toast.error("請先卸下道具才能贈送、刪除或回賣");
+      } else if (
+        stack.rewardType === "broadcast" &&
+        !stack.rows.some((r) => !r.is_equipped && r.used_at == null)
+      ) {
+        toast.message("沒有未使用的廣播券可贈送或刪除");
       } else {
         toast.message("此道具未開放這些操作");
       }
@@ -621,7 +644,7 @@ function FloatingToolbarInner({
   }
 
   function stackMenuActions(stack: RewardStack) {
-    const sample = firstUnequippedRow(stack);
+    const sample = firstManageableRewardRow(stack);
     if (!sample) {
       return { canGift: false, canDelete: false, canResell: false, unit: 0 };
     }
@@ -730,7 +753,7 @@ function FloatingToolbarInner({
   function beginResellFromMenu() {
     setStackMenuOpen(false);
     if (!stackMenuTarget) return;
-    const sample = firstUnequippedRow(stackMenuTarget);
+    const sample = firstManageableRewardRow(stackMenuTarget);
     if (!sample) return;
     const rowIds = pickUnequippedRowIds(stackMenuTarget, stackMenuQty);
     if (rowIds.length === 0) {
@@ -1243,7 +1266,7 @@ function FloatingToolbarInner({
               {(() => {
                 const sm = stackMenuTarget;
                 const act = stackMenuActions(sm);
-                const u = firstUnequippedRow(sm);
+                const u = firstManageableRewardRow(sm);
                 const maxQ = stackMenuMaxQty(sm);
                 const previewTotal =
                   act.canResell && u
@@ -1773,11 +1796,26 @@ function FloatingToolbarInner({
           side="right"
           className="z-[70] flex w-[min(100vw,24rem)] flex-col border-l border-zinc-800 bg-zinc-950 px-0 pb-0 pt-[max(1.5rem,env(safe-area-inset-top,0px))] text-zinc-100"
         >
-          <SheetHeader className="space-y-1 border-b border-zinc-800/80 px-4 pb-4 pt-0 text-left">
-            <SheetTitle className="text-lg text-zinc-100">📢 廣播管理</SheetTitle>
-            <p className="text-xs font-normal text-zinc-400">
-              管理目前正在顯示中的廣播
-            </p>
+          <SheetHeader className="space-y-2 border-b border-zinc-800/80 px-4 pb-4 pt-0 text-left">
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-9 shrink-0 gap-0.5 px-2 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+                onClick={() => setBroadcastManageOpen(false)}
+                aria-label="返回"
+              >
+                <ChevronLeft className="h-5 w-5" />
+                <span className="text-sm font-medium">返回</span>
+              </Button>
+            </div>
+            <div className="space-y-1 pl-0.5">
+              <SheetTitle className="text-lg text-zinc-100">📢 廣播管理</SheetTitle>
+              <p className="text-xs font-normal text-zinc-400">
+                管理目前正在顯示中的廣播
+              </p>
+            </div>
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
             {activeBroadcasts.length === 0 ? (

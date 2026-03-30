@@ -49,6 +49,7 @@ import {
   getShopItemsAction,
   getShopDailyRemainingAction,
   purchaseItemAction,
+  notifyShopGiftBuyerRecordAction,
   type ShopItemDto,
 } from "@/services/shop.action";
 import type { CoinTransactionRow } from "@/types/database.types";
@@ -368,6 +369,11 @@ export default function ShopPage() {
           return;
         }
       }
+      await notifyShopGiftBuyerRecordAction({
+        itemName: snap.target.name,
+        quantity: snap.qty,
+        recipientNickname: snap.recipient.nickname,
+      });
       toast.success("🎁 已成功購買並贈送！對方將收到信件通知。");
       setShopGiftCheckoutOpen(false);
       setShopGiftCheckoutSnapshot(null);

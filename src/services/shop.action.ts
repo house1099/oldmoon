@@ -189,6 +189,24 @@ export async function purchaseItemAction(
   }
 }
 
+/** 商城「購買並贈送」全部成功後寫入買家紀錄信（不影響對方收禮通知） */
+export async function notifyShopGiftBuyerRecordAction(params: {
+  itemName: string;
+  quantity: number;
+  recipientNickname: string;
+}): Promise<void> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  await notifyUserMailboxSilent({
+    user_id: user.id,
+    type: "system",
+    message: `🛍️ 已扣款並贈送「${params.itemName}」x${params.quantity} 給 ${params.recipientNickname}。對方已收到道具通知。`,
+  });
+}
+
 async function dispatchItemToUser(
   userId: string,
   item: ShopItemRow,
