@@ -243,6 +243,11 @@ export function PostLoginEntrance({
         await new Promise((r) => setTimeout(r, HOLD_AT_100_MS));
         if (isCancelled()) return;
 
+        /**
+         * 門片移開後 overlay 中央透明，若此時主內容仍 invisible 會變「全黑」。
+         * 先恢復主畫面，再播開門；開門期間 overlay 改 pointer-events-none 以免挡操作。
+         */
+        setRevealMain(true);
         setPhase("doors");
         await new Promise((r) => setTimeout(r, DOOR_MS + 120));
         if (isCancelled()) return;
@@ -255,9 +260,8 @@ export function PostLoginEntrance({
       } catch {
         /* 失敗時不寫 SPLASH_SESSION_KEY */
       } finally {
-        if (!isCancelled()) {
-          releaseMain();
-        }
+        /** 一律卸載開場層，避免 effect 取消後主內容永遠隱藏 */
+        releaseMain();
       }
     })();
 
@@ -295,7 +299,9 @@ export function PostLoginEntrance({
 
       {splashOn ? (
         <div
-          className="pointer-events-auto fixed inset-0 z-[10000]"
+          className={`fixed inset-0 z-[10000] ${
+            phase === "doors" ? "pointer-events-none" : "pointer-events-auto"
+          }`}
           aria-live="polite"
           aria-busy={phase === "sync"}
           aria-label={
