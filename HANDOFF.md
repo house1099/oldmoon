@@ -93,9 +93,9 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## ✅ 最近完成（最新 3 次任務）
 
-1. **2026-03-30 — UserDetailModal 捲動時序、首頁 SSR 預載**：**`UserDetailModal`** 開啟後 **`setTimeout(50)`** 再對內層 **`overflow-y-auto`** **`scrollTo` top（Base UI 無 Radix `onOpenAutoFocus`）**。**`(app)/page.tsx`** **`Promise.all`** 預載 **`getAuthStatus`／`getMyStreakAction`／`getStreakRewardSettingsAction`／`getMessageLimitsAction`**；**`home-page-client`** **`useMyProfile` fallback + 骨架僅無 `initialProfile`**；**`GuildProfileHome`** **`useSWR`**（**`SWR_KEYS.myStreak`／`streakRewardSettings`**）接 SSR，連簽背景 **`revalidateIfStale`／`OnFocus`**；簽到鎖定仍 **`last_checkin_at` + 台北日鍵**。詳見 **`HANDOFF_HISTORY.md`**。
-2. **2026-03-30 — Bug：市集首次進入不載入／UserDetailModal 捲軸（早期）**：**`ExploreClient`** 市集 **`revalidateOnMount: true`**；**`UserDetailModal`** 捲動後續改 **50ms 延遲**（見上則）。
-3. **2026-03-30 — 探索頁效能與 CardDecorationSystem**：**`findEquippedAvatarFramesByUserIds`／`findEquippedCardFramesByUserIds`** 單次 **`select` 內嵌 `prize_items`／`shop_items`**；**`village`／`market` `unstable_cache` `revalidate: 300`**；**`SWRProvider`** **`dedupingInterval: 300000`**、**`keepPreviousData: true`**；**`LevelCardEffect`** **`IntersectionObserver`** 粒子暫停；**`card-decoration.ts`**、**`CardDecorationWrapper`**、**`equippedCardDecoration`**、後台 **`metadata`** 裝飾鍵等。完整條目見 **`HANDOFF_HISTORY.md`**。
+1. **2026-03-30 — UserDetailModal 捲動結構、框圖預載**：**`UserDetailModal`** 單一 **`data-modal-scroll-container`** 含頭像區、**`DialogContent` flex column + overflow-hidden**、**150ms** 後 **`scrollTo`** 與 **querySelector** 備援；首頁 **`findEquippedRewardLabels` → `<link rel="preload">` + `preloadImageUrls` + `Image()`**；**`ExploreClient`** 村莊列表框圖預載；**`Avatar`／`MasterAvatarShell`／`ShopCardFrameOverlay`** 框圖 **`eager` + `fetchPriority="high"`**；**`VillageUserWithScore`** 型別補框欄位。詳見 **`HANDOFF_HISTORY.md`**。
+2. **2026-03-30 — UserDetailModal 捲動時序、首頁 SSR 預載與 SWR**：**`Promise.all`** 首頁資料、**`useSWR`** 連簽／獎勵設定、**`useMyProfile` fallback** 等（見歷史「延遲捲動、首頁 SSR 預載與 SWR」）。
+3. **2026-03-30 — Bug：市集首次進入不載入／UserDetailModal 捲軸（早期）**：**`ExploreClient`** 市集 **`revalidateOnMount: true`**；**`UserDetailModal`** 捲動多次迭代（見上則與歷史）。
 
 ## ⚠️ 目前已知問題
 

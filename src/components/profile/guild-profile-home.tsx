@@ -320,15 +320,26 @@ export function GuildProfileHome({
   moodMax,
   initialStreak,
   initialStreakSettings,
+  preloadImageUrls,
 }: {
   profile: UserRow;
   moodMax: number;
   initialStreak: Awaited<ReturnType<typeof getMyStreakAction>>;
   initialStreakSettings: StreakRewardDay[];
+  preloadImageUrls?: string[];
 }) {
   const router = useRouter();
   const openEquipmentSheet = useOpenEquipmentSheet();
   const { mutate: mutateProfile } = useMyProfile();
+
+  const framePreloadKey = JSON.stringify(preloadImageUrls ?? []);
+  useEffect(() => {
+    (preloadImageUrls ?? []).forEach((url) => {
+      if (!url?.trim()) return;
+      const img = new Image();
+      img.src = url;
+    });
+  }, [framePreloadKey, preloadImageUrls]);
   const totalExpSafe = normalizeTotalExp(profile.total_exp);
   const levelSafe = normalizeLevel(profile.level);
   const tier = getLevelTierByExp(totalExpSafe);

@@ -5,9 +5,17 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-30 — UserDetailModal 捲動結構、框圖預載與 eager 載入
+
+1. **`UserDetailModal.tsx`**：**`DialogContent`** **`contentStyle`** **`display:flex`／`flexDirection:column`**，**`overflow-hidden`**；**單一** **`data-modal-scroll-container`** 包住**頭像標題區＋自白標籤**（**`flex-1 min-h-0 overflow-y-auto`**），底部按鈕列 **`flex-shrink-0`** 固定。**`setTimeout(150)`** 後 **`scrollTo` top**；**`scrollContainerRef`** 為 null 時備援 **`document.querySelector('[data-modal-scroll-container]')`**。
+2. **首頁框圖**：**`findEquippedRewardLabels(profile.id)`** 取 **`equippedAvatarFrameImageUrl`／`equippedCardFrameImageUrl`**；RSC **`HomeFramePreloadLinks`** 輸出 **`<link rel="preload" as="image">`**；**`preloadImageUrls`** 傳 **HomePageClient → GuildProfileHome**，**mount** 時 **`new Image().src`** 再補一輪。
+3. **`ExploreClient`**：村莊列表 **`useEffect`** 對 **`equippedAvatarFrameImageUrl`**、**`cardDecoration.cardFrameImageUrl`／`equippedCardFrameImageUrl`** 預載。
+4. **`Avatar.tsx`**（僅框圖 **`<img>`**）、**`MasterAvatarShell`**（商城框）、**`ShopCardFrameOverlay`**：**`loading="eager"`**、**`fetchPriority="high"`**；Cloudinary 臉圖仍 **`loading="lazy"`**。
+5. **`village.service.ts`**：**`VillageUserWithScore`** 型別補齊框／**`cardDecoration`** 欄位（與執行期資料一致）。
+
 ### 2026-03-30 — UserDetailModal 延遲捲動、首頁 SSR 預載與 SWR
 
-1. **`UserDetailModal.tsx`**（**`src/components/modals/`**）：Base UI **`DialogContent`** 無 Radix **`onOpenAutoFocus`**；開啟動畫期間立即 **`scrollTo`** 會被蓋掉。改為 **`useEffect([open, user?.id])`** 在 **`open`** 時 **`setTimeout(50)`** 後對內層 **`overflow-y-auto`** 容器（**`scrollContainerRef`**）**`scrollTo({ top: 0, behavior: 'instant' })`**，並 **`clearTimeout`** 清理。
+1. **`UserDetailModal.tsx`**（**`src/components/modals/`**）：Base UI **`DialogContent`** 無 Radix **`onOpenAutoFocus`**；開啟動畫期間立即 **`scrollTo`** 會被蓋掉。後續改為 **150ms**、**單一捲動區含頭像**、**`data-modal-scroll-container`** 備援（見上則「捲動結構、框圖預載」）。
 2. **`(app)/page.tsx`**：**async RSC**；**`Promise.all`**：**`getAuthStatus`**、**`getMyStreakAction`**、**`getStreakRewardSettingsAction`**、**`getMessageLimitsAction`**；非 **`authenticated`** 時 **`redirect`** 與 **`profile/edit-tags`** 一致（**`unauthenticated`→`/login`**、**`needs_profile`→`/register/profile`**、**`banned`→`/login?error=banned`**、**`pending`→`/register/pending`**）。
 3. **`home-page-client.tsx`**：接收 **`initialProfile`／`initialStreak`／`initialStreakSettings`**；**`useMyProfile({ fallbackData: initialProfile, revalidateOnMount: false, revalidateIfStale: false, revalidateOnFocus: false })`**；**`HomePageSkeleton`** 僅 **`!initialProfile`**（正常登入首屏不閃骨架）。
 4. **`useMyProfile.ts`**：可選 **`UseMyProfileOptions`**（**`fallbackData`**、三項 **revalidate**），預設行為不變。

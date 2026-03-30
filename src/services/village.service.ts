@@ -8,9 +8,20 @@ import {
 } from "@/lib/repositories/server/rewards.repository";
 import { findVillageUsers } from "@/lib/repositories/server/user.repository";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
+import type { CardDecorationConfig } from "@/lib/utils/card-decoration";
+import type { ShopFrameLayout } from "@/lib/utils/avatar-frame-layout";
 import { calcInterestScore, isOrientationMatch } from "@/lib/utils/matching";
 
-export type VillageUserWithScore = UserRow & { _score: number };
+export type VillageUserWithScore = UserRow & {
+  _score: number;
+  equippedAvatarFrameEffectKey: string | null;
+  equippedAvatarFrameImageUrl: string | null;
+  equippedAvatarFrameLayout: ShopFrameLayout | null;
+  equippedCardFrameEffectKey: string | null;
+  equippedCardFrameImageUrl: string | null;
+  equippedCardFrameLayout: ShopFrameLayout | null;
+  cardDecoration: CardDecorationConfig;
+};
 
 export async function getVillageUsersAction(): Promise<{
   ok: boolean;

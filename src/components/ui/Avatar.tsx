@@ -87,6 +87,8 @@ export default function Avatar({
           <img
             src={frameSrc}
             alt=""
+            loading="eager"
+            fetchPriority="high"
             className="pointer-events-none absolute inset-0 z-10 h-full w-full object-contain"
             style={frameTransformStyle}
           />
@@ -117,6 +119,8 @@ export default function Avatar({
         <img
           src={frameSrc}
           alt=""
+          loading="eager"
+          fetchPriority="high"
           className="pointer-events-none absolute inset-0 z-10 h-full w-full object-contain"
           style={frameTransformStyle}
         />

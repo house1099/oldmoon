@@ -14,11 +14,13 @@ export default function HomePageClient({
   initialProfile,
   initialStreak,
   initialStreakSettings,
+  preloadImageUrls,
 }: {
   moodMax: number;
   initialProfile: UserRow;
   initialStreak: Awaited<ReturnType<typeof getMyStreakAction>>;
   initialStreakSettings: StreakRewardDay[];
+  preloadImageUrls: string[];
 }) {
   const { profile } = useMyProfile(
     initialProfile
@@ -57,6 +59,7 @@ export default function HomePageClient({
           moodMax={moodMax}
           initialStreak={initialStreak}
           initialStreakSettings={initialStreakSettings}
+          preloadImageUrls={preloadImageUrls}
         />
       </div>
     </div>

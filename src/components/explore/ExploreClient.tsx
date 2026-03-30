@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import useSWR from "swr";
 import { getMarketUsersAction } from "@/services/market.service";
 import type { VillageUserWithScore } from "@/services/village.service";
@@ -47,6 +47,30 @@ export default function ExploreClient({
 
   const villageList = villageUsers ?? initialVillageUsers;
   const marketList = marketUsers ?? [];
+
+  const villageFramePreloadKey = villageList
+    .map(
+      (u) =>
+        `${u.id}:${u.equippedAvatarFrameImageUrl ?? ""}:${u.cardDecoration?.cardFrameImageUrl ?? ""}:${u.equippedCardFrameImageUrl ?? ""}`,
+    )
+    .join(";");
+
+  useEffect(() => {
+    const list = villageUsers ?? initialVillageUsers;
+    if (!list.length) return;
+    list.forEach((user) => {
+      if (user.equippedAvatarFrameImageUrl) {
+        const img = new Image();
+        img.src = user.equippedAvatarFrameImageUrl;
+      }
+      const cardUrl =
+        user.cardDecoration?.cardFrameImageUrl ?? user.equippedCardFrameImageUrl;
+      if (cardUrl) {
+        const img = new Image();
+        img.src = cardUrl;
+      }
+    });
+  }, [villageFramePreloadKey, villageUsers, initialVillageUsers]);
 
   return (
     <div className="min-h-[100dvh] bg-zinc-950">

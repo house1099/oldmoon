@@ -97,6 +97,8 @@ export function MasterAvatarShell({
           <img
             src={shopFrameSrc}
             alt=""
+            loading="eager"
+            fetchPriority="high"
             className="pointer-events-none absolute left-1/2 top-1/2 z-[15] max-w-none -translate-x-1/2 -translate-y-1/2 select-none object-contain"
             style={{
               width: `${framePct}%`,

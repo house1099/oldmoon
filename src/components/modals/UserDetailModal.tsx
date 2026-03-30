@@ -105,12 +105,15 @@ export function UserDetailModal({
     useState<MemberProfileView | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  /** Base UI Dialog 無 Radix 的 onOpenAutoFocus；動畫期間立即 scrollTo 會被蓋掉，延遲後再重置內層捲動容器。 */
+  /** 動畫與 flex 高度結算後再重置捲動；ref 未掛好時用 data 屬性備援。 */
   useEffect(() => {
     if (!open) return;
     const id = window.setTimeout(() => {
-      scrollContainerRef.current?.scrollTo({ top: 0, behavior: "instant" });
-    }, 50);
+      const el =
+        scrollContainerRef.current ??
+        document.querySelector<HTMLElement>("[data-modal-scroll-container]");
+      el?.scrollTo({ top: 0, behavior: "instant" });
+    }, 150);
     return () => window.clearTimeout(id);
   }, [open, user?.id]);
 
@@ -381,13 +384,15 @@ export function UserDetailModal({
               ? { zIndex: stackAboveChatZ + 10 }
               : undefined
           }
-          contentStyle={
-            stackAboveChatZ != null
+          contentStyle={{
+            display: "flex",
+            flexDirection: "column",
+            ...(stackAboveChatZ != null
               ? { zIndex: stackAboveChatZ + 20 }
-              : undefined
-          }
+              : {}),
+          }}
           className={cn(
-            "relative flex max-h-[88vh] min-h-0 w-full max-w-sm flex-col gap-0 overflow-visible rounded-3xl border border-zinc-800/60 bg-zinc-950 p-0",
+            "relative flex max-h-[88vh] min-h-0 w-full max-w-sm flex-col gap-0 overflow-hidden rounded-3xl border border-zinc-800/60 bg-zinc-950 p-0",
             stackAboveChatZ == null && "z-[810]",
           )}
         >
@@ -399,6 +404,11 @@ export function UserDetailModal({
             borderRadiusClass="rounded-3xl"
           />
 
+          <div
+            ref={scrollContainerRef}
+            data-modal-scroll-container="true"
+            className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+          >
           <div className="relative flex-shrink-0 overflow-visible bg-gradient-to-b from-zinc-900/80 to-zinc-950 px-5 pb-5 pt-6">
             <button
               type="button"
@@ -505,10 +515,7 @@ export function UserDetailModal({
             ) : null}
           </div>
 
-          <div
-            ref={scrollContainerRef}
-            className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4"
-          >
+          <div className="space-y-4 px-5 py-4">
             {u.bio_village?.trim() ? (
               <div>
                 <p className="mb-1.5 text-[10px] font-medium text-violet-400">
@@ -648,6 +655,7 @@ export function UserDetailModal({
                 </div>
               </div>
             ) : null}
+          </div>
           </div>
 
           <div className="flex-shrink-0 space-y-2.5 border-t border-zinc-800/60 bg-zinc-950 px-5 py-4">
