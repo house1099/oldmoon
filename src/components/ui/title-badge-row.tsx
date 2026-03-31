@@ -3,8 +3,8 @@ import { cn } from "@/lib/utils";
 export type TitleBadgeRowProps = {
   title: string | null | undefined;
   imageUrl?: string | null;
-  /** 列表卡片：16px；Modal／標題列：20px；探索 UserCard 底列：約 1.3× sm；`xl` 為底列加強（胸章再放大） */
-  size?: "sm" | "md" | "lg" | "xl";
+  /** 列表：16px；Modal：20px；`lg`／`xl`：放大；**`card`**：探索 UserCard 底列（約 **sm×1.1**，不擠標籤） */
+  size?: "sm" | "md" | "lg" | "xl" | "card";
   className?: string;
   pillClassName?: string;
 };
@@ -26,9 +26,11 @@ export function TitleBadgeRow({
       ? "h-[1.65rem] w-[1.65rem]"
       : size === "lg"
         ? "h-[1.3rem] w-[1.3rem]"
-        : size === "md"
-          ? "h-5 w-5"
-          : "h-4 w-4";
+        : size === "card"
+          ? "h-[1.1rem] w-[1.1rem]"
+          : size === "md"
+            ? "h-5 w-5"
+            : "h-4 w-4";
 
   const gapClass =
     size === "xl" || size === "lg" ? "gap-1.5" : "gap-1";
@@ -36,7 +38,7 @@ export function TitleBadgeRow({
   const pillText =
     t == null
       ? null
-      : size === "lg" || size === "xl"
+      : size === "lg" || size === "xl" || size === "card"
         ? t
         : t.length > 8
           ? `${t.slice(0, 8)}…`
@@ -64,6 +66,8 @@ export function TitleBadgeRow({
               "max-w-[min(11rem,calc(100vw-4rem))] px-3 py-1.5 text-[13px] font-medium leading-snug tracking-tight text-zinc-100",
             size === "xl" &&
               "max-w-[min(12rem,calc(100vw-4rem))] px-3 py-1.5 text-sm font-medium leading-snug tracking-tight text-zinc-100",
+            size === "card" &&
+              "max-w-[min(7.5rem,calc(100vw-8rem))] px-2 py-0.5 text-[11px] font-medium leading-snug tracking-tight text-zinc-100",
             pillClassName,
           )}
         >

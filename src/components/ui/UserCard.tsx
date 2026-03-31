@@ -297,7 +297,7 @@ export function UserCard({
                   <TitleBadgeRow
                     title={user.equippedTitle}
                     imageUrl={user.equippedTitleImageUrl}
-                    size="xl"
+                    size="card"
                     className="shrink-0 drop-shadow-[0_3px_12px_rgba(0,0,0,0.45)]"
                     pillClassName="border border-white/[0.12] bg-zinc-800/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] ring-1 ring-violet-500/15"
                   />
@@ -361,7 +361,7 @@ export function UserCard({
                   <TitleBadgeRow
                     title={user.equippedTitle}
                     imageUrl={user.equippedTitleImageUrl}
-                    size="xl"
+                    size="card"
                     className="shrink-0 drop-shadow-[0_3px_12px_rgba(0,0,0,0.45)]"
                     pillClassName="border border-white/[0.12] bg-zinc-800/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] ring-1 ring-violet-500/15"
                   />
