@@ -4,6 +4,7 @@ import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { useMyProfile } from "@/hooks/useMyProfile";
 import { GuildProfileHome } from "@/components/profile/guild-profile-home";
 import { HomeParticlesBackground } from "@/components/effects/HomeParticlesBackground";
+import { PwaInstallOverlay } from "@/components/shared/PwaInstallOverlay";
 import type {
   getMyStreakAction,
   StreakRewardDay,
@@ -62,6 +63,7 @@ export default function HomePageClient({
           preloadImageUrls={preloadImageUrls}
         />
       </div>
+      <PwaInstallOverlay />
     </div>
   );
 }
