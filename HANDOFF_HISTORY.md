@@ -13,7 +13,7 @@
 4. **Layer 5**：**`src/components/market/MarketSheet.tsx`** — Tabs **市場大廳**（幣種／排序膠囊、列表、購買 **AlertDialog**、**`buyListingAction`**）、**我的上架**（狀態 badge、下架、**`cancelListingAction`**）；**`src/components/layout/FloatingToolbar.tsx`** — 子鈕 **Lucide `Store`「玩家市集」**（**`delayMs: 150`**）、**`useSWR(SWR_KEYS.myMarketListings, getMyListingsAction)`** 組 **`activeListingRewardIds`**、**24h 內售出且 `seller_received > 0` 橘點**；長按選單 **「上架至市集」**（條件 **`shop_item_id`、 `allow_player_trade !== false`、未使用、無 active listing**）→ 上架 **Dialog** → **`createListingAction`**；**`src/lib/swr/keys.ts`** **`myMarketListings`**。
 5. **`rewards.repository.ts`**：**`UserRewardWithEffect`** 新增 **`allow_player_trade`**（與 **`shop_allow_player_trade`** 同源）。
 6. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
-7. **Git**：**`feat(market): Layer2/3/5 market listing, FloatingToolbar Store btn, MarketSheet UI`**；**`git push`** **`origin/main`**。
+7. **Git**：**`388a8a1`** — **`feat(market): Layer2/3/5 market listing, FloatingToolbar Store btn, MarketSheet UI`**；已 **`git push`** **`origin/main`**。
 
 ### 2026-03-31 — 玩家自由市場 DB 地基
 
