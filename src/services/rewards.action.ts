@@ -32,7 +32,7 @@ import { findShopItemById } from "@/lib/repositories/server/shop.repository";
 import type { UserRewardRow } from "@/types/database.types";
 import { creditCoins } from "@/lib/repositories/server/coin.repository";
 import { drawFromPool, type DrawResult } from "@/services/prize-engine";
-import { formatGiftBatchMailboxMessage } from "@/services/gift.action";
+import { formatGiftBatchMailboxMessage } from "@/lib/utils/gift-mailbox-message";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
 
 export type MyRewardsPayload = {
