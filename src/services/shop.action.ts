@@ -84,6 +84,8 @@ function formatLootDrawSummaryLine(draw: DrawResult): string {
 export type PurchaseItemOptions = {
   /** 商城「購買並贈送」：道具直接轉出，勿對買家發「已存入背包」以免誤導 */
   skipBuyerMailbox?: boolean;
+  /** 公會盲盒：寫入未開封背包列，不當場抽獎（購買並贈送用） */
+  sealLootBoxes?: boolean;
 };
 
 export async function purchaseItemAction(
@@ -144,7 +146,9 @@ export async function purchaseItemAction(
     let newRewardIds: string[] = [];
     let lootDraws: DrawResult[] = [];
     try {
-      const dispatched = await dispatchItemToUser(user.id, item, quantity);
+      const dispatched = await dispatchItemToUser(user.id, item, quantity, {
+        sealLootBoxes: options?.sealLootBoxes === true,
+      });
       newRewardIds = dispatched.newRewardIds;
       lootDraws = dispatched.lootDraws;
     } catch (dispatchErr) {
@@ -235,6 +239,7 @@ async function dispatchItemToUser(
   userId: string,
   item: ShopItemRow,
   quantity: number,
+  opts?: { sealLootBoxes?: boolean },
 ): Promise<{ newRewardIds: string[]; lootDraws: DrawResult[] }> {
   const newRewardIds: string[] = [];
   const lootDraws: DrawResult[] = [];
@@ -273,8 +278,20 @@ async function dispatchItemToUser(
         break;
 
       case "loot_box": {
-        const d = await drawFromPool("loot_box", userId);
-        lootDraws.push(d);
+        if (opts?.sealLootBoxes) {
+          newRewardIds.push(
+            await insertUserReward({
+              user_id: userId,
+              reward_type: "loot_box",
+              shop_item_id: item.id,
+              label: item.name,
+              is_equipped: false,
+            }),
+          );
+        } else {
+          const d = await drawFromPool("loot_box", userId);
+          lootDraws.push(d);
+        }
         break;
       }
 

@@ -31,6 +31,9 @@ import {
 import { findShopItemById } from "@/lib/repositories/server/shop.repository";
 import type { UserRewardRow } from "@/types/database.types";
 import { creditCoins } from "@/lib/repositories/server/coin.repository";
+import { drawFromPool, type DrawResult } from "@/services/prize-engine";
+import { formatGiftBatchMailboxMessage } from "@/services/gift.action";
+import { notifyUserMailboxSilent } from "@/services/notification.action";
 
 export type MyRewardsPayload = {
   titles: UserRewardWithEffect[];
@@ -85,6 +88,68 @@ async function assertRewardGiftable(
     return null;
   }
   return null;
+}
+
+const MAX_LOOT_BOX_OPEN_BATCH = 50;
+
+/** 背包內未開封公會盲盒：抽獎後刪除對應列。 */
+export async function openLootBoxRewardsAction(
+  rewardIds: string[],
+): Promise<
+  { ok: true; draws: DrawResult[] } | { ok: false; error: string }
+> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "未登入" };
+
+  const unique = Array.from(new Set(rewardIds.filter(Boolean)));
+  if (unique.length === 0) return { ok: false, error: "未選擇盲盒" };
+  if (unique.length > MAX_LOOT_BOX_OPEN_BATCH) {
+    return { ok: false, error: `單次最多開啟 ${MAX_LOOT_BOX_OPEN_BATCH} 個` };
+  }
+
+  const draws: DrawResult[] = [];
+
+  for (const id of unique) {
+    const row = await findUserRewardById(id);
+    if (!row || row.user_id !== user.id) {
+      return { ok: false, error: "找不到盲盒" };
+    }
+    if (row.reward_type !== "loot_box") {
+      return { ok: false, error: "不是未開封的公會盲盒" };
+    }
+    if (row.used_at != null) {
+      return { ok: false, error: "此盲盒已無法開啟" };
+    }
+    if (row.is_equipped) {
+      return { ok: false, error: "請先卸下再開啟" };
+    }
+
+    try {
+      draws.push(await drawFromPool("loot_box", user.id));
+    } catch (e) {
+      console.error("openLootBoxRewardsAction draw:", e);
+      return {
+        ok: false,
+        error: e instanceof Error ? e.message : "開啟失敗，請稍後再試",
+      };
+    }
+
+    try {
+      const deleted = await deleteUserRewardForOwner(id, user.id);
+      if (!deleted) {
+        return { ok: false, error: "移除盲盒道具失敗" };
+      }
+    } catch (e) {
+      console.error("openLootBoxRewardsAction delete:", e);
+      return { ok: false, error: "移除盲盒道具失敗" };
+    }
+  }
+
+  revalidateTag(profileCacheTag(user.id));
+  return { ok: true, draws };
 }
 
 export async function getMyRewardsAction(): Promise<MyRewardsPayload | null> {
@@ -414,6 +479,7 @@ export async function giftUserRewardsToAlliancePartnerBatchAction(
     return { ok: false, error: "贈送失敗，請稍後再試" };
   }
 
+  const giftLabels: string[] = [];
   for (const id of unique) {
     const row = await findUserRewardById(id);
     if (!row || row.user_id !== user.id) {
@@ -421,6 +487,7 @@ export async function giftUserRewardsToAlliancePartnerBatchAction(
     }
     const deny = await assertRewardGiftable(row);
     if (deny) return { ok: false, error: deny };
+    giftLabels.push(row.label?.trim() || "道具");
   }
 
   try {
@@ -431,6 +498,17 @@ export async function giftUserRewardsToAlliancePartnerBatchAction(
     console.error("giftUserRewardsToAlliancePartnerBatchAction:", e);
     return { ok: false, error: "贈送失敗，請稍後再試" };
   }
+
+  const senderProfile = await findProfileById(user.id);
+  const senderNickname = senderProfile?.nickname?.trim() || "某位冒險者";
+  await notifyUserMailboxSilent({
+    user_id: partnerUserId,
+    type: "system",
+    from_user_id: user.id,
+    message: formatGiftBatchMailboxMessage(senderNickname, giftLabels),
+    is_read: false,
+  });
+
   revalidateTag(profileCacheTag(user.id));
   revalidateTag(profileCacheTag(partnerUserId));
   return { ok: true };

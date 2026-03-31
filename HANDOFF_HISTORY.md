@@ -5,6 +5,35 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-31 — 贈禮單則通知與共用信件文案
+
+1. **背景**：同一批次贈送多件時，收件者應只收到 **一則** 站內信與 **一次** Web Push（**`notifyUserMailboxSilent`**）；背包贈一般玩家與血盟批次須與商城批次對齊。
+2. **`src/services/gift.action.ts`**  
+   - 新增並匯出 **`formatGiftBatchMailboxMessage(senderNickname, itemLabels[])`**（同標籤合併、多標籤 **「n 件道具」**）。  
+   - **`confirmGiftsToUserBatchAction`** 改以此函式組 **`message`**（行為與先前字串邏輯一致）。
+3. **`src/components/layout/FloatingToolbar.tsx`**  
+   - **`giftPlayerRewardId` → `giftPlayerRewardIds`**；**`beginGiftToPlayerFromMenu`** 使用 **`pickUnequippedRowIds(stackMenuTarget, stackMenuQty)`**（與堆疊數量一致）。  
+   - 確認送出改 **`confirmGiftsToUserBatchAction(ids, recipientId)`**；搜尋仍以第一筆 **`giftItemToUserAction`** 驗證。
+4. **`src/services/rewards.action.ts`**：**`giftUserRewardsToAlliancePartnerBatchAction`** 驗證迴圈收集 **`giftLabels`**，轉移成功後 **`notifyUserMailboxSilent`**（**`from_user_id`**、**`formatGiftBatchMailboxMessage`**）。
+5. **資料庫**：無。  
+6. **`HANDOFF.md`**：索引 **贈禮／`FloatingToolbar`**／**`rewards.action`** 補述；**「最近完成」** 新增本項。  
+7. **活躍度補述**（同次對話釐清，無程式變更）：探索列表 **`findVillageUsers`／`findMarketUsers`** 排除 **`activity_status = hidden`**；**`UserCard`** **`active`** 綠點、否則灰點、**`resting`** 顯示 **「休息中」**；**7／15 天** 轉 **`resting`／`hidden`** 以 **`HANDOFF_DB.md`**／雲端排程（**`last_checkin_at`**）為準；簽到 **`restoreActivityOnCheckin`** 設回 **`active`**。**`last_seen_at`** 與簽到語意不同，若採用需節流寫入。  
+8. **Git**：提交訊息 **`feat(gifts,tavern): batch gift single notify; inline @ mentions; handoff`**（程式＋**`HANDOFF.md`**／**`HANDOFF_HISTORY.md`** 首兩則條目）；已 **`git push`** **`origin/main`**（與下則酒館 @ 同提交；**`git log -1 --oneline`** 可查 hash）。
+
+### 2026-03-31 — 酒館 @ 提及輸入觸發與篩選
+
+1. **背景**：酒館 **`@`** 原依左側鈕 toggle 展開橫向 chip，點擊後 **`@暱稱 `** 接在字尾；改為類社群 **輸入 `@` 即出現名單、可接字篩選**。  
+2. **`src/lib/utils/tavern-mentions.ts`**：**`getTavernInlineMentionState(text, caret)`**（**`atIndex`／`query`**；**`@`** 左側須行首或空白；**`@`～游標** 不可含空白或第二個 **`@`**）。  
+3. **`src/components/tavern/TavernModal.tsx`**  
+   - **`inputRef`、`caretPos`**（**`onChange`／`onSelect`／`onClick`／`onKeyUp`**）；移除 **`mentionOpen`** toggle。  
+   - **`mentionPickerOpen`**：inline 狀態存在、未 **Esc** 暫時關閉（**`mentionEscapedFor`**）、且 **貼圖列未開**。  
+   - **`mentionFiltered`**：**`query`** 不分大小寫 **`includes`**；直向列表、**Lv.**；**`↑`／`↓`／`Enter` 選取**（不送出）、**`Escape`** 關閉名單。  
+   - 左側 **`@`**：**`insertAtCaret("@")`** 並聚焦。  
+   - 選人：**`applyMentionPick`** 自 **`@` 至游標** 替換為 **`@暱稱 `**，遵守 **`maxLength`**。  
+4. **資料庫／後端**：無；**`tavern.action`** 仍以訊息串暱稱解析 **`@`**。  
+5. **`HANDOFF.md`**：索引 **酒館** 更新。  
+6. **Git**：與「贈禮單則通知」同一提交；已 **`git push`** **`origin/main`**。
+
 ### 2026-03-31 — 探索 UserCard 底列稱號縮小（`card` ≈ sm×1.1）
 
 1. **背景**：底列稱號曾用 **`size="xl"`**，與興趣／技能標籤並排時**過大、擠壓左側標籤**；改為約**原列表 `sm` 的 1.1 倍**。  

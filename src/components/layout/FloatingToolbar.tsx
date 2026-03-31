@@ -60,12 +60,15 @@ import {
   deleteUserRewardsBatchAction,
   giftUserRewardsToAlliancePartnerBatchAction,
   resellUserRewardsBatchAction,
+  openLootBoxRewardsAction,
   type ActiveBroadcastDto,
   type MyRewardsPayload,
 } from "@/services/rewards.action";
+import type { DrawResult } from "@/services/prize-engine";
+import { GuildLootBoxReveal } from "@/components/loot-box/guild-loot-box-reveal";
 import {
   giftItemToUserAction,
-  confirmGiftAction,
+  confirmGiftsToUserBatchAction,
 } from "@/services/gift.action";
 import type {
   GiftRecipientSearchRow,
@@ -268,6 +271,12 @@ function rewardAccent(rewardType: string): {
         border: "border-sky-500/40",
         bg: "bg-sky-950/35",
       };
+    case "loot_box":
+      return {
+        emoji: "🎁",
+        border: "border-violet-500/45",
+        bg: "bg-violet-950/45",
+      };
     default:
       return {
         emoji: "🎁",
@@ -374,6 +383,9 @@ function buildStacks(rows: UserRewardWithEffect[]): RewardStack[] {
 
 function stackActionHint(stack: RewardStack): string {
   const rt = stack.rewardType;
+  if (rt === "loot_box") {
+    return "開啟";
+  }
   if (
     rt === "broadcast" ||
     rt === "rename_card" ||
@@ -450,6 +462,13 @@ function FloatingToolbarInner({
   const [stackMenuOpen, setStackMenuOpen] = useState(false);
   const [stackMenuTarget, setStackMenuTarget] = useState<RewardStack | null>(null);
   const [stackMenuQty, setStackMenuQty] = useState(1);
+  const [lootPackDialogOpen, setLootPackDialogOpen] = useState(false);
+  const [lootPackStack, setLootPackStack] = useState<RewardStack | null>(null);
+  const [lootPackQty, setLootPackQty] = useState(1);
+  const [lootRevealOpen, setLootRevealOpen] = useState(false);
+  const [lootDraws, setLootDraws] = useState<DrawResult[]>([]);
+  const [lootPlaybackKey, setLootPlaybackKey] = useState(0);
+  const [lootOpenBusy, setLootOpenBusy] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<{
     step: 1 | 2;
     rowIds: string[];
@@ -478,9 +497,7 @@ function FloatingToolbarInner({
   } | null>(null);
   const [resellBusy, setResellBusy] = useState(false);
   const [giftPlayerDialogOpen, setGiftPlayerDialogOpen] = useState(false);
-  const [giftPlayerRewardId, setGiftPlayerRewardId] = useState<string | null>(
-    null,
-  );
+  const [giftPlayerRewardIds, setGiftPlayerRewardIds] = useState<string[]>([]);
   const [giftPlayerItemLabel, setGiftPlayerItemLabel] = useState("");
   const [giftNicknameDraft, setGiftNicknameDraft] = useState("");
   const [giftPlayerCandidates, setGiftPlayerCandidates] = useState<
@@ -559,6 +576,17 @@ function FloatingToolbarInner({
       setBroadcastStack(stack);
       setBroadcastDraft("");
       setBroadcastDialogOpen(true);
+      return;
+    }
+
+    if (rt === "loot_box") {
+      if (!firstManageableRewardRow(stack)) {
+        toast.error("沒有可開啟的盲盒");
+        return;
+      }
+      setLootPackStack(stack);
+      setLootPackQty(1);
+      setLootPackDialogOpen(true);
       return;
     }
 
@@ -683,15 +711,12 @@ function FloatingToolbarInner({
   function beginGiftToPlayerFromMenu() {
     setStackMenuOpen(false);
     if (!stackMenuTarget) return;
-    const rowIds = pickUnequippedRowIds(stackMenuTarget, 1);
+    const rowIds = pickUnequippedRowIds(stackMenuTarget, stackMenuQty);
     if (rowIds.length === 0) {
       toast.error("沒有可贈送的道具");
       return;
     }
-    if (stackMenuQty > 1) {
-      toast.message("贈送給其他玩家每次僅能送出 1 件");
-    }
-    setGiftPlayerRewardId(rowIds[0]!);
+    setGiftPlayerRewardIds(rowIds);
     setGiftPlayerItemLabel(stackMenuTarget.label);
     setGiftNicknameDraft("");
     setGiftPlayerCandidates([]);
@@ -700,7 +725,7 @@ function FloatingToolbarInner({
   }
 
   async function handleGiftPlayerSearch() {
-    if (!giftPlayerRewardId) return;
+    if (giftPlayerRewardIds.length === 0) return;
     const q = giftNicknameDraft.trim();
     if (q.length < 1) {
       toast.error("請至少輸入 1 個字再搜尋");
@@ -709,7 +734,7 @@ function FloatingToolbarInner({
     setGiftPlayerSearchBusy(true);
     try {
       const r = await giftItemToUserAction({
-        rewardId: giftPlayerRewardId,
+        rewardId: giftPlayerRewardIds[0]!,
         recipientNickname: q,
       });
       if (!r.ok) {
@@ -757,6 +782,39 @@ function FloatingToolbarInner({
       payout,
       currencyLabel: resellCurrencyLabel(sample),
     });
+  }
+
+  async function beginOpenLootFromMenu() {
+    const target = stackMenuTarget;
+    const qty = stackMenuQty;
+    if (!target || target.rewardType !== "loot_box") return;
+    const rowIds = pickUnequippedRowIds(target, qty);
+    if (rowIds.length === 0) {
+      toast.error("沒有可開啟的盲盒");
+      return;
+    }
+    setStackMenuOpen(false);
+    setLootOpenBusy(true);
+    try {
+      const r = await openLootBoxRewardsAction(rowIds);
+      if (!r.ok) {
+        toast.error(r.error);
+        return;
+      }
+      setLootDraws(r.draws);
+      setLootPlaybackKey((k) => k + 1);
+      setLootRevealOpen(true);
+      toast.success(
+        r.draws.length === 1
+          ? "🎁 公會盲盒開啟中，請觀看動畫"
+          : `🎁 已開啟 ${r.draws.length} 個公會盲盒，請觀看動畫與獎項`,
+      );
+      const p = await getMyRewardsAction();
+      setRewardsPayload(p);
+      router.refresh();
+    } finally {
+      setLootOpenBusy(false);
+    }
   }
 
   const subButtons = [
@@ -992,6 +1050,125 @@ function FloatingToolbarInner({
               {broadcastSending ? "送出中…" : "確認送出"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={lootPackDialogOpen}
+        onOpenChange={(o) => {
+          setLootPackDialogOpen(o);
+          if (!o) setLootPackStack(null);
+        }}
+      >
+        <DialogContent className="max-w-md border-zinc-700 bg-zinc-950 text-zinc-100">
+          <DialogHeader>
+            <DialogTitle>開啟公會盲盒</DialogTitle>
+            <DialogDescription className="text-zinc-500">
+              {lootPackStack
+                ? `持有 ${lootPackStack.count} 個，選擇本次要開啟的數量`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {lootPackStack ? (
+            <div className="space-y-3">
+              <label className="flex flex-col gap-1 text-xs text-zinc-500">
+                <span>數量</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={Math.max(1, lootPackStack.count)}
+                  value={lootPackQty}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    const cap = Math.max(1, lootPackStack.count);
+                    if (!Number.isFinite(v)) {
+                      setLootPackQty(1);
+                      return;
+                    }
+                    setLootPackQty(Math.min(Math.max(1, v), cap));
+                  }}
+                  className="rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100"
+                />
+              </label>
+            </div>
+          ) : null}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-zinc-400"
+              onClick={() => setLootPackDialogOpen(false)}
+              disabled={lootOpenBusy}
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              disabled={lootOpenBusy || !lootPackStack}
+              onClick={async () => {
+                if (!lootPackStack) return;
+                const rowIds = pickUnequippedRowIds(lootPackStack, lootPackQty);
+                if (rowIds.length === 0) {
+                  toast.error("沒有可開啟的盲盒");
+                  return;
+                }
+                setLootOpenBusy(true);
+                try {
+                  const r = await openLootBoxRewardsAction(rowIds);
+                  if (!r.ok) {
+                    toast.error(r.error);
+                    return;
+                  }
+                  setLootPackDialogOpen(false);
+                  setLootPackStack(null);
+                  setLootDraws(r.draws);
+                  setLootPlaybackKey((k) => k + 1);
+                  setLootRevealOpen(true);
+                  toast.success(
+                    r.draws.length === 1
+                      ? "🎁 公會盲盒開啟中，請觀看動畫"
+                      : `🎁 已開啟 ${r.draws.length} 個公會盲盒，請觀看動畫與獎項`,
+                  );
+                  const p = await getMyRewardsAction();
+                  setRewardsPayload(p);
+                  router.refresh();
+                } finally {
+                  setLootOpenBusy(false);
+                }
+              }}
+            >
+              {lootOpenBusy ? "開啟中…" : "確認開啟"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={lootRevealOpen} onOpenChange={setLootRevealOpen}>
+        <DialogContent className="max-w-sm w-[calc(100%-2rem)] overflow-hidden rounded-3xl border border-violet-500/30 bg-zinc-950/90 p-0 text-center shadow-[0_0_28px_rgba(139,92,246,0.2)] backdrop-blur-xl text-zinc-100">
+          <div className="px-5 pb-2 pt-6">
+            <span className="inline-flex rounded-full border border-violet-400/40 bg-violet-950/60 px-4 py-1 text-xs font-semibold text-violet-200">
+              公會盲盒
+            </span>
+            <h2 className="mt-4 text-lg font-bold text-white">開獎結果</h2>
+            <p className="mt-1 text-xs text-zinc-500">
+              獎勵已發放（探險幣／經驗／造型道具等）
+            </p>
+          </div>
+          <div className="px-4 pb-2">
+            <GuildLootBoxReveal
+              playbackKey={lootPlaybackKey}
+              draws={lootDraws}
+            />
+          </div>
+          <div className="border-t border-white/10 bg-black/20 px-5 py-5">
+            <button
+              type="button"
+              onClick={() => setLootRevealOpen(false)}
+              className="w-full rounded-full bg-gradient-to-r from-violet-600 to-purple-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-violet-900/40 transition-transform active:scale-95"
+            >
+              完成
+            </button>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -1264,8 +1441,12 @@ function FloatingToolbarInner({
                   act.canResell && u
                     ? act.unit * Math.min(stackMenuQty, maxQ)
                     : 0;
+                const canOpenLoot = sm.rewardType === "loot_box";
                 const hasAnyAction =
-                  act.canGift || act.canDelete || (act.canResell && u != null);
+                  act.canGift ||
+                  act.canDelete ||
+                  (act.canResell && u != null) ||
+                  canOpenLoot;
                 return (
                   <>
                     {hasAnyAction ? (
@@ -1302,6 +1483,27 @@ function FloatingToolbarInner({
                         gap: 9,
                       }}
                     >
+                      {canOpenLoot ? (
+                        <button
+                          type="button"
+                          disabled={lootOpenBusy}
+                          onClick={() => void beginOpenLootFromMenu()}
+                          style={inventoryActionBtnStyles.giftPlayer}
+                        >
+                          <InventoryActionBtnContent
+                            icon="🎁"
+                            label={
+                              lootOpenBusy
+                                ? "開啟中…"
+                                : `開啟盲盒（${Math.min(stackMenuQty, Math.max(1, maxQ))} 個）`
+                            }
+                          />
+                        </button>
+                      ) : null}
+                      {canOpenLoot &&
+                      (act.canGift || act.canDelete || (act.canResell && u)) ? (
+                        <InventoryActionDivider />
+                      ) : null}
                       {act.canGift ? (
                         <button
                           type="button"
@@ -1377,7 +1579,7 @@ function FloatingToolbarInner({
         onOpenChange={(o) => {
           setGiftPlayerDialogOpen(o);
           if (!o) {
-            setGiftPlayerRewardId(null);
+            setGiftPlayerRewardIds([]);
             setGiftPlayerCandidates([]);
             setGiftNicknameDraft("");
             setGiftPlayerRecipientPick(null);
@@ -1389,7 +1591,9 @@ function FloatingToolbarInner({
             <DialogTitle className="text-zinc-100">贈送給誰？</DialogTitle>
             <DialogDescription className="text-zinc-400">
               {giftPlayerItemLabel
-                ? `將贈送「${giftPlayerItemLabel}」`
+                ? giftPlayerRewardIds.length > 1
+                  ? `將贈送 ${giftPlayerRewardIds.length} 個「${giftPlayerItemLabel}」`
+                  : `將贈送「${giftPlayerItemLabel}」`
                 : "搜尋冒險者暱稱"}
             </DialogDescription>
           </DialogHeader>
@@ -1409,7 +1613,7 @@ function FloatingToolbarInner({
                 disabled={
                   giftPlayerSearchBusy ||
                   giftNicknameDraft.trim().length < 1 ||
-                  !giftPlayerRewardId
+                  giftPlayerRewardIds.length === 0
                 }
                 onClick={() => void handleGiftPlayerSearch()}
               >
@@ -1471,7 +1675,9 @@ function FloatingToolbarInner({
             <AlertDialogTitle>確定贈送？</AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
               {giftPlayerRecipientPick
-                ? `確定要把「${giftPlayerItemLabel}」送給 ${giftPlayerRecipientPick.nickname} 嗎？送出後無法取回。`
+                ? giftPlayerRewardIds.length > 1
+                  ? `確定要把 ${giftPlayerRewardIds.length} 個「${giftPlayerItemLabel}」送給 ${giftPlayerRecipientPick.nickname} 嗎？送出後無法取回。`
+                  : `確定要把「${giftPlayerItemLabel}」送給 ${giftPlayerRecipientPick.nickname} 嗎？送出後無法取回。`
                 : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1485,15 +1691,17 @@ function FloatingToolbarInner({
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-violet-600 text-white hover:bg-violet-500"
-              disabled={giftPlayerConfirmBusy || !giftPlayerRewardId}
+              disabled={
+                giftPlayerConfirmBusy || giftPlayerRewardIds.length === 0
+              }
               onClick={async (e) => {
                 e.preventDefault();
                 const pick = giftPlayerRecipientPick;
-                const rid = giftPlayerRewardId;
-                if (!pick || !rid || giftPlayerConfirmBusy) return;
+                const ids = giftPlayerRewardIds;
+                if (!pick || ids.length === 0 || giftPlayerConfirmBusy) return;
                 setGiftPlayerConfirmBusy(true);
                 try {
-                  const r = await confirmGiftAction(rid, pick.id);
+                  const r = await confirmGiftsToUserBatchAction(ids, pick.id);
                   if (!r.ok) {
                     toast.error(r.error);
                     return;
@@ -1501,7 +1709,7 @@ function FloatingToolbarInner({
                   toast.success("🎁 已成功送出！");
                   setGiftPlayerRecipientPick(null);
                   setGiftPlayerDialogOpen(false);
-                  setGiftPlayerRewardId(null);
+                  setGiftPlayerRewardIds([]);
                   setGiftPlayerCandidates([]);
                   setGiftNicknameDraft("");
                   const p = await getMyRewardsAction();

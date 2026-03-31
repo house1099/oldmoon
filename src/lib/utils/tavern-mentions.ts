@@ -8,6 +8,38 @@ export function createTavernMentionNickRegex(): RegExp {
   return /@([^\s@]+)/g;
 }
 
+function isTavernMentionBoundaryWhitespace(ch: string): boolean {
+  return ch === " " || ch === "\n" || ch === "\t" || ch === "\r";
+}
+
+/** 輸入框內游標所在「進行中的 @ 提及」：`@` 至游標間不可含空白；`@` 左側須為開頭或空白。 */
+export type TavernInlineMentionState = {
+  atIndex: number;
+  query: string;
+};
+
+export function getTavernInlineMentionState(
+  text: string,
+  caret: number,
+): TavernInlineMentionState | null {
+  if (caret < 1) return null;
+  let j = caret - 1;
+  while (j >= 0) {
+    const c = text[j]!;
+    if (c === "@") {
+      if (j > 0 && !isTavernMentionBoundaryWhitespace(text[j - 1]!)) {
+        return null;
+      }
+      const query = text.slice(j + 1, caret);
+      if (query.includes("@")) return null;
+      return { atIndex: j, query };
+    }
+    if (isTavernMentionBoundaryWhitespace(c)) return null;
+    j--;
+  }
+  return null;
+}
+
 /**
  * 以目前訊息串出現過的作者暱稱對應 `user_id`。
  * 迭代順序須與前端 `messages` 陣列一致（`findTavernMessages` 為時間升冪＝舊→新）；

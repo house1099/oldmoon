@@ -26,7 +26,7 @@ import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 import type { GiftRecipientSearchRow } from "@/lib/repositories/server/rewards.repository";
 import {
   searchGiftRecipientCandidatesAction,
-  confirmGiftAction,
+  confirmGiftsToUserBatchAction,
 } from "@/services/gift.action";
 
 function resolveItemImageUrl(raw: string): string {
@@ -296,10 +296,6 @@ export default function ShopPage() {
     }
 
     if (intent === "gift_friend") {
-      if (target.item_type === "loot_box") {
-        toast.error("公會盲盒無法透過商城贈送，請自行購買開啟。");
-        return;
-      }
       if (!shopGiftRecipient) {
         toast.error("請先選擇贈送對象");
         return;
@@ -368,14 +364,11 @@ export default function ShopPage() {
   async function executeShopGiftCheckout() {
     const snap = shopGiftCheckoutSnapshot;
     if (!snap || giftCheckoutBusy) return;
-    if (snap.target.item_type === "loot_box") {
-      toast.error("公會盲盒無法透過商城贈送，請自行購買開啟。");
-      return;
-    }
     setGiftCheckoutBusy(true);
     try {
       const res = await purchaseItemAction(snap.target.id, snap.qty, {
         skipBuyerMailbox: true,
+        sealLootBoxes: snap.target.item_type === "loot_box",
       });
       if (!res.ok) {
         toast.error(ERROR_LABELS[res.error] ?? res.error);
@@ -387,12 +380,13 @@ export default function ShopPage() {
         );
         return;
       }
-      for (const rid of res.newRewardIds) {
-        const g = await confirmGiftAction(rid, snap.recipient.id);
-        if (!g.ok) {
-          toast.error(g.error);
-          return;
-        }
+      const g = await confirmGiftsToUserBatchAction(
+        res.newRewardIds,
+        snap.recipient.id,
+      );
+      if (!g.ok) {
+        toast.error(g.error);
+        return;
       }
       await notifyShopGiftBuyerRecordAction({
         itemName: snap.target.name,
@@ -643,9 +637,7 @@ export default function ShopPage() {
                     ) : null}
                   </div>
                   <div className="mt-auto flex items-center gap-2 px-3.5 pb-3.5">
-                    {item.allow_gift !== false &&
-                    isLoggedIn &&
-                    item.item_type !== "loot_box" ? (
+                    {item.allow_gift !== false && isLoggedIn ? (
                       <button
                         type="button"
                         disabled={!canAfford}

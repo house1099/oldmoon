@@ -31,6 +31,7 @@ import {
 } from "@/components/tavern/tavern-message-content";
 import { cn } from "@/lib/utils";
 import { getRoleDisplay } from "@/lib/utils/role-display";
+import { getTavernInlineMentionState } from "@/lib/utils/tavern-mentions";
 
 const STICKERS = [
   "😂",
@@ -88,7 +89,11 @@ export function TavernModal({
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [stickersOpen, setStickersOpen] = useState(false);
-  const [mentionOpen, setMentionOpen] = useState(false);
+  const [caretPos, setCaretPos] = useState(0);
+  const [mentionEscapedFor, setMentionEscapedFor] = useState<string | null>(
+    null,
+  );
+  const [mentionHighlightIndex, setMentionHighlightIndex] = useState(0);
   const [actionTarget, setActionTarget] = useState<TavernMessageDto | null>(
     null,
   );
@@ -99,6 +104,7 @@ export function TavernModal({
   );
   const [tavernProfileOpen, setTavernProfileOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const canModerate =
@@ -113,7 +119,7 @@ export function TavernModal({
 
   const mentionCandidates = useMemo(() => {
     const seen = new Set<string>();
-    const list: { id: string; nickname: string }[] = [];
+    const list: { id: string; nickname: string; level: number }[] = [];
     for (const row of messages) {
       if (row.user_id === myId) continue;
       if (seen.has(row.user_id)) continue;
@@ -121,6 +127,7 @@ export function TavernModal({
       list.push({
         id: row.user_id,
         nickname: row.user.nickname,
+        level: row.user.level,
       });
     }
     list.sort((a, b) =>
@@ -128,6 +135,39 @@ export function TavernModal({
     );
     return list;
   }, [messages, myId]);
+
+  const inlineMention = useMemo(
+    () => getTavernInlineMentionState(input, caretPos),
+    [input, caretPos],
+  );
+
+  const mentionFiltered = useMemo(() => {
+    if (!inlineMention) return [];
+    const q = inlineMention.query.trim().toLowerCase();
+    if (!q) return mentionCandidates;
+    return mentionCandidates.filter((u) =>
+      u.nickname.toLowerCase().includes(q),
+    );
+  }, [inlineMention, mentionCandidates]);
+
+  const inlineMentionKey = inlineMention
+    ? `${inlineMention.atIndex}:${inlineMention.query}`
+    : null;
+
+  const mentionPickerOpen = Boolean(
+    inlineMentionKey &&
+      inlineMentionKey !== mentionEscapedFor &&
+      !stickersOpen,
+  );
+
+  useEffect(() => {
+    setMentionHighlightIndex(0);
+  }, [inlineMention?.atIndex, inlineMention?.query]);
+
+  useEffect(() => {
+    if (mentionFiltered.length === 0) return;
+    setMentionHighlightIndex((i) => Math.min(i, mentionFiltered.length - 1));
+  }, [mentionFiltered.length]);
 
   useEffect(() => {
     if (!open) return;
@@ -139,7 +179,9 @@ export function TavernModal({
       setSending(false);
       setInput("");
       setStickersOpen(false);
-      setMentionOpen(false);
+      setCaretPos(0);
+      setMentionEscapedFor(null);
+      setMentionHighlightIndex(0);
       setActionTarget(null);
       setSelectedBanHours(null);
       setBanReason("");
@@ -179,6 +221,49 @@ export function TavernModal({
     [nicknameToUserId, openUserProfile],
   );
 
+  const insertAtCaret = useCallback(
+    (chunk: string) => {
+      const el = inputRef.current;
+      const start = el?.selectionStart ?? input.length;
+      const end = el?.selectionEnd ?? start;
+      const next = (input.slice(0, start) + chunk + input.slice(end)).slice(
+        0,
+        maxLength,
+      );
+      const pos = Math.min(start + chunk.length, next.length);
+      setInput(next);
+      setCaretPos(pos);
+      setMentionEscapedFor(null);
+      requestAnimationFrame(() => {
+        el?.focus();
+        el?.setSelectionRange(pos, pos);
+      });
+    },
+    [input, maxLength],
+  );
+
+  const applyMentionPick = useCallback(
+    (u: { nickname: string }) => {
+      const el = inputRef.current;
+      const caret = el?.selectionStart ?? caretPos;
+      const st = getTavernInlineMentionState(input, caret);
+      if (!st) return;
+      const before = input.slice(0, st.atIndex);
+      const after = input.slice(caret);
+      const insertion = `@${u.nickname} `;
+      const next = (before + insertion + after).slice(0, maxLength);
+      const pos = Math.min(before.length + insertion.length, next.length);
+      setInput(next);
+      setCaretPos(pos);
+      setMentionEscapedFor(null);
+      requestAnimationFrame(() => {
+        el?.focus();
+        el?.setSelectionRange(pos, pos);
+      });
+    },
+    [input, caretPos, maxLength],
+  );
+
   const handleSend = async (content: string, type: "text" | "emoji") => {
     const trimmed = content.trim();
     if (!trimmed || sending || isBanned) return;
@@ -188,7 +273,8 @@ export function TavernModal({
       if (result.success) {
         setInput("");
         setStickersOpen(false);
-        setMentionOpen(false);
+        setCaretPos(0);
+        setMentionEscapedFor(null);
         void mutate();
       } else {
         toast.error(result.error ?? "發送失敗");
@@ -402,35 +488,54 @@ export function TavernModal({
         </div>
 
         <div className="shrink-0 border-t border-zinc-800/50 bg-zinc-900/90 backdrop-blur-xl px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          {mentionOpen ? (
+          {mentionPickerOpen ? (
             <div
               className="mb-2 max-h-36 overflow-y-auto rounded-xl border border-zinc-700/60 bg-zinc-950/90 p-2"
               style={{ overscrollBehavior: "contain" }}
             >
               <p className="mb-1.5 px-1 text-[10px] text-zinc-500">
-                點暱稱插入 @ 提及（須與對方在酒館曾出現的暱稱一致，訊息內可點擊 @ 開啟資料）
+                輸入 @ 選擇曾出現在酒館的冒險者；可繼續打字篩選（訊息內可點擊 @
+                開啟資料）
               </p>
               {mentionCandidates.length === 0 ? (
                 <p className="px-2 py-2 text-center text-xs text-zinc-500">
                   尚無其他冒險者可選，可先和大家打聲招呼
                 </p>
+              ) : mentionFiltered.length === 0 ? (
+                <p className="px-2 py-2 text-center text-xs text-zinc-500">
+                  無符合暱稱
+                </p>
               ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {mentionCandidates.map((u) => (
-                    <button
-                      key={u.id}
-                      type="button"
-                      className="max-w-full truncate rounded-full border border-amber-600/45 bg-amber-950/50 px-2.5 py-1 text-xs text-amber-200/95 transition-colors hover:bg-amber-900/40"
-                      onClick={() => {
-                        const chunk = `@${u.nickname} `;
-                        setInput((prev) => (prev + chunk).slice(0, maxLength));
-                        setMentionOpen(false);
-                      }}
-                    >
-                      @{u.nickname}
-                    </button>
+                <ul
+                  className="flex flex-col gap-0.5"
+                  role="listbox"
+                  aria-label="提及冒險者"
+                >
+                  {mentionFiltered.map((u, idx) => (
+                    <li key={u.id}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={idx === mentionHighlightIndex}
+                        className={cn(
+                          "flex w-full min-w-0 items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors",
+                          idx === mentionHighlightIndex
+                            ? "bg-amber-900/50 text-amber-100"
+                            : "text-amber-200/95 hover:bg-amber-950/40",
+                        )}
+                        onMouseEnter={() => setMentionHighlightIndex(idx)}
+                        onClick={() => applyMentionPick(u)}
+                      >
+                        <span className="truncate font-medium">
+                          @{u.nickname}
+                        </span>
+                        <span className="shrink-0 text-[10px] text-zinc-500">
+                          Lv.{u.level}
+                        </span>
+                      </button>
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
             </div>
           ) : null}
@@ -458,10 +563,11 @@ export function TavernModal({
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-800/80 text-sm font-bold text-amber-400/95 transition-transform active:scale-95 disabled:opacity-40 disabled:active:scale-100"
               disabled={isBanned}
               onClick={() => {
-                setMentionOpen((v) => !v);
+                inputRef.current?.focus();
+                insertAtCaret("@");
                 setStickersOpen(false);
               }}
-              aria-label="提及他人"
+              aria-label="插入 @ 提及"
             >
               @
             </button>
@@ -471,17 +577,63 @@ export function TavernModal({
               disabled={isBanned}
               onClick={() => {
                 setStickersOpen((v) => !v);
-                setMentionOpen(false);
               }}
               aria-label="貼圖"
             >
               😊
             </button>
             <input
+              ref={inputRef}
               type="text"
               value={input}
-              onChange={(e) => setInput(e.target.value.slice(0, maxLength))}
+              onChange={(e) => {
+                const v = e.target.value.slice(0, maxLength);
+                setInput(v);
+                setCaretPos(e.target.selectionStart ?? v.length);
+                setStickersOpen(false);
+              }}
+              onSelect={(e) => {
+                const t = e.currentTarget;
+                setCaretPos(t.selectionStart ?? t.value.length);
+              }}
+              onClick={(e) => {
+                const t = e.currentTarget;
+                setCaretPos(t.selectionStart ?? t.value.length);
+              }}
+              onKeyUp={(e) => {
+                const t = e.currentTarget;
+                setCaretPos(t.selectionStart ?? t.value.length);
+              }}
               onKeyDown={(e) => {
+                const keyboardPick =
+                  mentionPickerOpen && mentionFiltered.length > 0;
+                if (keyboardPick && e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setMentionHighlightIndex(
+                    (i) => (i + 1) % mentionFiltered.length,
+                  );
+                  return;
+                }
+                if (keyboardPick && e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setMentionHighlightIndex(
+                    (i) =>
+                      (i - 1 + mentionFiltered.length) %
+                      mentionFiltered.length,
+                  );
+                  return;
+                }
+                if (keyboardPick && e.key === "Enter") {
+                  e.preventDefault();
+                  const u = mentionFiltered[mentionHighlightIndex];
+                  if (u) applyMentionPick(u);
+                  return;
+                }
+                if (mentionPickerOpen && inlineMentionKey && e.key === "Escape") {
+                  e.preventDefault();
+                  setMentionEscapedFor(inlineMentionKey);
+                  return;
+                }
                 if (e.key === "Enter") {
                   e.preventDefault();
                   void handleSend(input, "text");
