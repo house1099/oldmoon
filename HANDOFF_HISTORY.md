@@ -5,6 +5,15 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-04-01 — 自由市場橘點已讀與後台按鈕對比
+
+1. **背景**：自由市場 **Store** 圖示橘點原僅依「24h 內成交」判斷，使用者開過市集後仍長期顯示；後台 **`/admin/market`** 等頁在 **`dark` 根**下 **`Button variant="outline"`** 呈深底灰字，分頁「上一頁／下一頁」難辨識。
+2. **`FloatingToolbar.tsx`**：**`hasMarketNotification`** 追加條件 **`sold_at` 時間戳 > `lastMarketSheetClosedAt`**；**`MarketSheet` `onOpenChange`** 於 **`open===false`** 時 **`Date.now()`** 寫入 state 與 **`sessionStorage`** 鍵 **`ft_market_sheet_closed_at`**；**`useEffect`** mount 讀回 session；快捷列標籤膠囊改 **`text-white`／`font-medium`／`bg-zinc-800/95`／`border-zinc-600/70`**。
+3. **`components/ui/button.tsx`**：新增 **`outlineLight`** variant（**白底、灰邊、深字**，**`dark:`** 同樣維持淺色以利後台）。
+4. **後台**：**`market-admin-client.tsx`** 全部原 **`outline`** 改 **`outlineLight`**；**`shop-admin-client.tsx`**、**`prizes-client.tsx`** 對話框取消鈕同步。
+5. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+6. **Git**：**`fix(ui): market sold dot acknowledge, admin outlineLight buttons`**；**`git push`** **`origin/main`**。
+
 ### 2026-04-01 — 玩家自由市場 RLS／封號下架／後台市場
 
 1. **目標**：補齊 **`market_listings` RLS**（防禦縱深）、**封號**時自動 **cancel** 該用戶 **active** 上架、**`/admin/market`** 後台（監控／上架／成交／異常／設定）、**`market_enabled`** 總開關與前台 **create/buy** 攔截。

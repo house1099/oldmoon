@@ -558,6 +558,8 @@ function FloatingToolbarInner({
   >("free_coins");
   const [marketListPriceStr, setMarketListPriceStr] = useState("");
   const [marketListBusy, setMarketListBusy] = useState(false);
+  /** 關閉自由市場面板後視為已讀；高於此時間戳的「24h 內成交」才顯示橘點（session 內持久化） */
+  const [lastMarketSheetClosedAt, setLastMarketSheetClosedAt] = useState(0);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
 
@@ -587,9 +589,24 @@ function FloatingToolbarInner({
         l.status === "sold" &&
         (l.seller_received ?? 0) > 0 &&
         l.sold_at != null &&
-        now - new Date(l.sold_at).getTime() < day,
+        now - new Date(l.sold_at).getTime() < day &&
+        new Date(l.sold_at).getTime() > lastMarketSheetClosedAt,
     );
-  }, [myMarketRows]);
+  }, [myMarketRows, lastMarketSheetClosedAt]);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("ft_market_sheet_closed_at");
+      if (raw) {
+        const n = parseInt(raw, 10);
+        if (Number.isFinite(n) && n > 0) {
+          setLastMarketSheetClosedAt(n);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   useEffect(() => {
     openEquipRef.current = () => setEquipOpen(true);
@@ -1022,7 +1039,7 @@ function FloatingToolbarInner({
                   }
                 }
               >
-                <span className="whitespace-nowrap rounded-full border border-zinc-700/50 bg-zinc-900/90 px-3 py-1 text-xs text-zinc-200 shadow-sm backdrop-blur-sm">
+                <span className="whitespace-nowrap rounded-full border border-zinc-600/70 bg-zinc-800/95 px-3 py-1 text-xs font-medium text-white shadow-sm backdrop-blur-sm">
                   {btn.label}
                 </span>
                 <button
@@ -2315,7 +2332,21 @@ function FloatingToolbarInner({
         </AlertDialogContent>
       </AlertDialog>
 
-      <MarketSheet open={marketSheetOpen} onOpenChange={setMarketSheetOpen} />
+      <MarketSheet
+        open={marketSheetOpen}
+        onOpenChange={(open) => {
+          setMarketSheetOpen(open);
+          if (!open) {
+            const ts = Date.now();
+            setLastMarketSheetClosedAt(ts);
+            try {
+              sessionStorage.setItem("ft_market_sheet_closed_at", String(ts));
+            } catch {
+              /* ignore */
+            }
+          }
+        }}
+      />
 
       <Dialog
         open={marketListOpen}

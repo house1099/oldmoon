@@ -13,6 +13,9 @@ const buttonVariants = cva(
         default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+        /** 淺色後台／白底區塊：避免在 `dark` 根下 outline 變成深底灰字難辨識 */
+        outlineLight:
+          "border-gray-300 bg-white text-gray-900 shadow-sm hover:bg-gray-100 hover:text-gray-900 dark:border-gray-300 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 dark:hover:text-gray-900",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:

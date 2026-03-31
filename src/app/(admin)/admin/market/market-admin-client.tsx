@@ -366,7 +366,7 @@ export default function MarketAdminClient({ role }: { role: string }) {
         {showActions && row.status === "active" ? (
           <Button
             type="button"
-            variant="outline"
+            variant="outlineLight"
             size="sm"
             className="mt-2 border-red-200 text-red-700 hover:bg-red-50"
             onClick={() => setCancelTarget(row)}
@@ -461,7 +461,7 @@ export default function MarketAdminClient({ role }: { role: string }) {
                 marketEnabled ? (
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="outlineLight"
                     className="border-red-200 text-red-700 hover:bg-red-50"
                     onClick={() => setMarketCloseOpen(true)}
                   >
@@ -613,7 +613,7 @@ export default function MarketAdminClient({ role }: { role: string }) {
                 <div className="flex gap-2">
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="outlineLight"
                     size="sm"
                     disabled={listPage <= 1}
                     onClick={() => setListPage((p) => Math.max(1, p - 1))}
@@ -622,7 +622,7 @@ export default function MarketAdminClient({ role }: { role: string }) {
                   </Button>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="outlineLight"
                     size="sm"
                     disabled={listPage >= listTotalPages}
                     onClick={() =>
@@ -748,7 +748,7 @@ export default function MarketAdminClient({ role }: { role: string }) {
                 <div className="flex gap-2">
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="outlineLight"
                     size="sm"
                     disabled={soldPage <= 1}
                     onClick={() => setSoldPage((p) => Math.max(1, p - 1))}
@@ -757,7 +757,7 @@ export default function MarketAdminClient({ role }: { role: string }) {
                   </Button>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="outlineLight"
                     size="sm"
                     disabled={soldPage >= soldTotalPages}
                     onClick={() =>

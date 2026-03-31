@@ -1037,7 +1037,7 @@ export default function AdminPrizesClient() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreatePoolOpen(false)}>
+            <Button variant="outlineLight" onClick={() => setCreatePoolOpen(false)}>
               取消
             </Button>
             <Button
@@ -1245,7 +1245,7 @@ export default function AdminPrizesClient() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateItemOpen(false)}>
+            <Button variant="outlineLight" onClick={() => setCreateItemOpen(false)}>
               取消
             </Button>
             <Button

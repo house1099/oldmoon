@@ -1535,7 +1535,7 @@ export default function ShopAdminClient() {
             </label>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button variant="outlineLight" onClick={() => setDialogOpen(false)}>
               取消
             </Button>
             <Button disabled={saving} onClick={() => void handleSave()}>
