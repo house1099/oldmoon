@@ -5,6 +5,14 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-31 — 探索列表稱號遺漏：村莊 SWR 重拉、`village-v7`、卡片頂緣標籤
+
+1. **原因**：**`ExploreClient`** 村莊 **`useSWR`** 原 **`revalidateOnMount: false`**，易長期只吃 **`fallbackData`／舊 `unstable_cache`**；稱號與暱稱同列 flex 時 **`TitleBadgeRow`** 設 **`shrink`** 可能被壓成不可見。
+2. **`ExploreClient.tsx`**：村莊改 **`revalidateOnMount: true`**、**`revalidateIfStale: true`**、**`keepPreviousData: true`**（與市集行為對齊，進 **`/explore`** 即拉最新稱號欄位）。
+3. **`village.service.ts`**：**`unstable_cache`** 鍵 **`village-v6` → `village-v7`**，強制失效舊快取。
+4. **`UserCard.tsx`**：**`TitleBadgeRow`** 自暱稱列移除，改 **absolute** 置於卡片 **`rounded-2xl`** **上緣中央**（**`-translate-y-1/2`**、陰影＋邊框，像外框標籤）；內容區 **`pt-5`** 避裁切。
+5. **資料庫**：無。
+
 ### 2026-03-31 — 稱號胸章全站顯示與後台
 
 **背景**：稱號僅文字膠囊；需可選 **`shop_items`／`prize_items` 之 `image_url`** 作胸章（**16–20px**、`object-contain`、文字左側）。列表需與頭像框相同批次附掛；裝備後首頁 **`rewardsData`** 須與 **`FloatingToolbar`** 同步。
@@ -14,7 +22,7 @@
    - **`findEquippedTitlesByUserIds`**：**`user_rewards`** **`reward_type = title`**、**`is_equipped`**，**JOIN** **`prize_items`／`shop_items`**，每人一筆 **`EquippedTitleForList`**。
 
 2. **Layer 3**  
-   - **`village.service.ts`**（快取鍵 **`village-v6`**）、**`market.service.ts`**（**`market-v4`**）、**`chat.action.ts`**、**`alliance.action.ts`**、**`tavern.repository.ts`**：併 **`findEquippedTitlesByUserIds`**，型別加 **`equippedTitle`／`equippedTitleImageUrl`**。  
+   - **`village.service.ts`**（快取鍵歷經 **`village-v6` → `village-v7`**，見上則探索修復）、**`market.service.ts`**（**`market-v4`**）、**`chat.action.ts`**、**`alliance.action.ts`**、**`tavern.repository.ts`**：併 **`findEquippedTitlesByUserIds`**，型別加 **`equippedTitle`／`equippedTitleImageUrl`**。  
    - **`profile.action.ts`**：**`MemberProfileView.equippedTitleImageUrl`**。
 
 3. **Layer 5**  

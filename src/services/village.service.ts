@@ -118,7 +118,7 @@ export async function getVillageUsersAction(): Promise<{
       return scored;
     },
     // 版本後綴：欄位（如 offline_ok）變更時使舊快取失效
-    [`village-v6-${user.id}-${regionKey}`],
+    [`village-v7-${user.id}-${regionKey}`],
     { revalidate: 300 },
   );
 

@@ -26,8 +26,10 @@ export default function ExploreClient({
     {
       fallbackData: initialVillageUsers,
       revalidateOnFocus: false,
-      revalidateOnMount: false,
-      revalidateIfStale: false,
+      // 與技能市集一致：進頁即拉最新，避免 `unstable_cache`／SSR 舊資料缺稱號胸章等欄位
+      revalidateOnMount: true,
+      revalidateIfStale: true,
+      keepPreviousData: true,
     },
   );
 

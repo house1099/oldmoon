@@ -118,8 +118,18 @@ export function UserCard({
                 handleActivate();
               }
             }}
-            className="relative overflow-visible rounded-2xl bg-zinc-900/60 p-4 transition-all duration-200 hover:bg-zinc-900/80 active:scale-[0.99]"
+            className="relative overflow-visible rounded-2xl bg-zinc-900/60 p-4 pt-5 transition-all duration-200 hover:bg-zinc-900/80 active:scale-[0.99]"
           >
+        {/* 稱號貼在卡片外框上緣（避免與暱稱列 flex 擠壓導致探索列表「看不到」） */}
+        <div className="pointer-events-none absolute left-1/2 top-0 z-[25] -translate-x-1/2 -translate-y-1/2">
+          <TitleBadgeRow
+            title={user.equippedTitle}
+            imageUrl={user.equippedTitleImageUrl}
+            className="shrink-0 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]"
+            pillClassName="border border-violet-400/35 bg-violet-950/95"
+          />
+        </div>
+
         {variant === "market" && isPerfectMatch ? (
           <div
             className="pointer-events-none absolute inset-0 rounded-2xl border border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.15)]"
@@ -166,11 +176,6 @@ export function UserCard({
                 >
                   {user.nickname}
                 </span>
-                <TitleBadgeRow
-                  title={user.equippedTitle}
-                  imageUrl={user.equippedTitleImageUrl}
-                  className="max-w-[min(100%,7rem)] shrink"
-                />
                 {user.activity_status === "resting" ? (
                   <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] leading-none text-zinc-500">
                     💤 休息中
