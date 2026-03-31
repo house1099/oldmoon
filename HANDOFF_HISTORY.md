@@ -12,6 +12,7 @@
 3. **`village.service.ts`**：**`unstable_cache`** 鍵 **`village-v6` → `village-v7`**，強制失效舊快取。
 4. **`UserCard.tsx`**：**`TitleBadgeRow`** 自暱稱列移除，改 **absolute** 置於卡片 **`rounded-2xl`** **上緣中央**（**`-translate-y-1/2`**、陰影＋邊框，像外框標籤）；內容區 **`pt-5`** 避裁切。
 5. **資料庫**：無。
+6. **Git**：**`aa262f8`** — `fix(explore): 村莊列表稱號—SWR 重拉、village-v7、UserCard 頂緣標籤`
 
 ### 2026-03-31 — 稱號胸章全站顯示與後台
 
