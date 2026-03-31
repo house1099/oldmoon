@@ -398,7 +398,7 @@ export function UserDetailModal({
               : {}),
           }}
           className={cn(
-            "relative flex max-h-[88vh] min-h-0 w-full max-w-sm flex-col gap-0 overflow-hidden rounded-3xl border border-zinc-800/60 bg-zinc-950 p-0",
+            "relative flex max-h-[88vh] min-h-0 w-full max-w-sm flex-col gap-0 overflow-visible rounded-3xl border border-zinc-800/60 bg-zinc-950 p-0",
             stackAboveChatZ == null && "z-[810]",
           )}
         >
@@ -410,13 +410,8 @@ export function UserDetailModal({
             borderRadiusClass="rounded-3xl"
           />
 
-          <div
-            key={`scroll-${user?.id ?? "empty"}`}
-            data-modal-scroll-container="true"
-            className="flex min-h-0 flex-1 flex-col overflow-y-auto"
-            style={{ overscrollBehavior: "contain" }}
-          >
-          <div className="relative flex-shrink-0 overflow-visible bg-gradient-to-b from-zinc-900/80 to-zinc-950 px-5 pb-5 pt-6">
+          <div className="relative z-[2] flex min-h-0 w-full flex-1 flex-col">
+          <div className="relative flex-shrink-0 overflow-visible bg-gradient-to-b from-zinc-900/80 to-zinc-950 px-7 pb-5 pt-6">
             <button
               type="button"
               onClick={() => onOpenChange(false)}
@@ -527,6 +522,12 @@ export function UserDetailModal({
             ) : null}
           </div>
 
+          <div
+            key={`scroll-${user?.id ?? "empty"}`}
+            data-modal-scroll-container="true"
+            className="min-h-0 flex-1 overflow-y-auto"
+            style={{ overscrollBehavior: "contain" }}
+          >
           <div className="space-y-4 px-5 py-4">
             {u.bio_village?.trim() ? (
               <div>
@@ -667,6 +668,7 @@ export function UserDetailModal({
                 </div>
               </div>
             ) : null}
+          </div>
           </div>
           </div>
 

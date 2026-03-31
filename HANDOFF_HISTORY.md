@@ -5,6 +5,25 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-31 — UserDetailModal 頭像框裁切修正與前台商城種類篩選
+
+1. **背景**：他人開啟 **`UserDetailModal`** 時，**商城頭像框**（**`MasterAvatarShell`** 框圖大於錨點）左側常被 **modal `overflow-hidden`** 與包住整段的 **`overflow-y-auto`** 捲動層裁切。前台 **`/shop`** 需依 **`item_type`** 快速篩商品（純前端）。
+2. **`src/components/modals/UserDetailModal.tsx`**  
+   - **`DialogContent`**：**`overflow-hidden` → `overflow-visible`**，使裝飾可畫至圓角外（外層為暗色 **overlay**）。  
+   - **`ShopCardFrameOverlay`** 下新增 **`relative z-[2] flex min-h-0 flex-1 flex-col`**：**上段**（關閉鈕、預覽說明、頭像列、今日心情）**`flex-shrink-0 overflow-visible`**；**下段** **`data-modal-scroll-container`** **`min-h-0 flex-1 overflow-y-auto`** 僅捲動自白／標籤／IG／信譽。  
+   - Header 橫向留白 **`px-5` → `px-7`**。  
+   - 底部互動列仍 **`flex-shrink-0`**，與中層兄弟。
+3. **`src/app/(app)/shop/page.tsx`**  
+   - **`ITEM_TYPE_LABELS`**（與後台 **`ITEM_TYPE_LABELS`** 對齊）、**`SHOP_CATEGORY_KEYS`**（**`ITEM_TYPE_EMOJI`** 鍵序）。  
+   - **`shopCategoryFilter`**（**`all`／`item_type`**）、**`displayItems`**（**`useMemo`**）。  
+   - 幣別 Tab 下 **`<select>`**（深色圓角邊框）；**`switchTab`** 時 **`setShopCategoryFilter("all")`**。  
+   - **`items.length > 0` 且 `displayItems.length === 0`**：**「此分類暫無商品」**。  
+   - **`useMemo`** 由 **`react`** 匯入。
+4. **資料庫／後端**：無。
+5. **驗證**：**`npm run build`** 通過。
+6. **`HANDOFF.md`**：**「最近完成」** 置頂本項；刪去最舊一則（維持 5 則）；索引 **商城**、**`UserDetailModal`** 補述。
+7. **Git**：見本次提交 **短 hash**（推送後於本條補登）。
+
 ### 2026-03-31 — 首頁他人視角預覽與商城管理分頁／類型篩選
 
 1. **背景**：使用者需在首頁確認 **裝備／資料卡** 與他人點開 **`UserDetailModal`** 時一致；商城後台 **`/admin/shop`** 上架與下架商品混在同一列表，難以瀏覽，且需依 **商品類型**（與表單一致）篩選。

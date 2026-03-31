@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -84,6 +84,23 @@ const ITEM_TYPE_EMOJI: Record<string, string> = {
   coins_pack: "💰",
 };
 
+/** 與後台 `shop-admin-client` ITEM_TYPE_LABELS 對齊，供前台篩選顯示 */
+const ITEM_TYPE_LABELS: Record<string, string> = {
+  avatar_frame: "頭像框",
+  card_frame: "卡片外框",
+  title: "稱號",
+  broadcast: "廣播券",
+  bag_expansion: "背包擴充包",
+  loot_box: "盲盒",
+  rename_card: "改名卡",
+  fishing_bait: "釣餌",
+  fishing_rod: "釣竿",
+  exp_boost: "EXP加成券",
+  coins_pack: "探險幣包",
+};
+
+const SHOP_CATEGORY_KEYS = Object.keys(ITEM_TYPE_EMOJI);
+
 function fmtTime(iso: string) {
   return new Intl.DateTimeFormat("zh-TW", {
     timeZone: "Asia/Taipei",
@@ -121,6 +138,9 @@ export default function ShopPage() {
   const [rate, setRate] = useState(0.01);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"free_coins" | "premium_coins">("free_coins");
+  const [shopCategoryFilter, setShopCategoryFilter] = useState<"all" | string>(
+    "all",
+  );
   const [items, setItems] = useState<ShopItemDto[]>([]);
   const [itemsLoading, setItemsLoading] = useState(false);
   const [purchaseTarget, setPurchaseTarget] = useState<ShopItemDto | null>(null);
@@ -263,8 +283,14 @@ export default function ShopPage() {
 
   function switchTab(t: "free_coins" | "premium_coins") {
     setTab(t);
+    setShopCategoryFilter("all");
     void loadItems(t);
   }
+
+  const displayItems = useMemo(() => {
+    if (shopCategoryFilter === "all") return items;
+    return items.filter((i) => i.item_type === shopCategoryFilter);
+  }, [items, shopCategoryFilter]);
 
   const ERROR_LABELS: Record<string, string> = {
     daily_limit_reached: "今日已達購買上限",
@@ -542,6 +568,23 @@ export default function ShopPage() {
           </button>
         </div>
 
+        <label className="flex items-center gap-2">
+          <span className="shrink-0 text-xs text-[#71717a]">商品種類</span>
+          <select
+            value={shopCategoryFilter}
+            onChange={(e) => setShopCategoryFilter(e.target.value)}
+            className="min-w-0 flex-1 rounded-2xl border border-zinc-700/50 bg-zinc-900/80 px-3 py-2.5 text-sm text-[#f4f4f5] outline-none transition focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
+            aria-label="依商品種類篩選"
+          >
+            <option value="all">全部</option>
+            {SHOP_CATEGORY_KEYS.map((key) => (
+              <option key={key} value={key}>
+                {ITEM_TYPE_LABELS[key] ?? key}
+              </option>
+            ))}
+          </select>
+        </label>
+
         {itemsLoading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
@@ -550,9 +593,13 @@ export default function ShopPage() {
           <div className="rounded-[20px] border border-white/[0.08] p-8 text-center" style={{ background: "rgba(255,255,255,0.04)" }}>
             <p className="text-sm text-[#71717a]">暫無商品</p>
           </div>
+        ) : displayItems.length === 0 ? (
+          <div className="rounded-[20px] border border-white/[0.08] p-8 text-center" style={{ background: "rgba(255,255,255,0.04)" }}>
+            <p className="text-sm text-[#71717a]">此分類暫無商品</p>
+          </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 pb-8">
-            {items.map((item) => {
+            {displayItems.map((item) => {
               const emoji = ITEM_TYPE_EMOJI[item.item_type] ?? "📦";
               const isPrem = item.currency_type === "premium_coins";
               const balance = isPrem ? premium : free;
