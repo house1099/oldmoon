@@ -16,7 +16,7 @@
 4. **資產**：**`public/items/source-luffy-72.png`**（原圖）；**`public/items/title-luffy.png`**（邊緣 **flood-fill** 去近白像素＋**LANCZOS 1.3×** 至約 **94×94**）；**`scripts/process-title-luffy-png.py`** 可重跑。  
 5. **`public/items/README.md`**：**LUFFY** 後台填 **`/items/title-luffy.png`**。  
 6. **HANDOFF**：**`HANDOFF.md`** 索引與 **「最近完成」** 更新。  
-7. **Git**：已 **`git push`** **`origin/main`**（hash 以 **`git log -1`** 為準）。
+7. **Git**：**`ffe4103`** — **`feat(explore): UserCard title on interests row, LUFFY badge asset with transparency`**；已 **`git push`** **`origin/main`**。
 
 ### 2026-03-31 — 探索 UserCard 稱號放大與排版（Apple-like）
 
