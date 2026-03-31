@@ -5,6 +5,22 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-31 — 探索 UserCard 稱號放大與排版（Apple-like）
+
+1. **背景**：探索列表個人卡頂緣 **TitleBadgeRow** 視覺偏小；目標整體約 **1.3×**，並調整位置、字級、留白與層次（精簡 UI：髮線邊、柔影、可讀字重）。
+2. **`src/components/ui/title-badge-row.tsx`**  
+   - 新增 **`size="lg"`**：胸章圖 **1.3rem**（約 **1.3×** 原 **16px**）、**`gap-1.5`**。  
+   - 膠囊：**`text-[13px]`**、**`font-medium`**、**`tracking-tight`**、**`leading-snug`**、**`px-3 py-1.5`**；**`max-w-[min(11rem,calc(100vw-4rem))]`** 搭配 **`truncate`**，**`lg`** 不再 **8 字硬切**（完整字串在 **`title` tooltip**）。  
+   - **`sm`／`md`** 維持既有行為與 **8 字**省略。
+3. **`src/components/ui/UserCard.tsx`**  
+   - **TitleBadgeRow**：**`size="lg"`**；外層陰影略加深（**`drop-shadow`**）。  
+   - 定位：**`-translate-y-1/2` → `-translate-y-[42%]`**（光學平衡較大標籤）。  
+   - 卡片內容區：**`pt-5` → `pt-6`**，避免與放大後稱號擠壓。  
+   - **`pillClassName`**：**`border-white/[0.14]`**、**`from-violet-500/[0.22] to-violet-950/[0.92]`** 微漸層、**`inset` 頂部高光**、**`ring-violet-400/20`**。
+4. **資料庫**：無。  
+5. **HANDOFF**：**`HANDOFF.md`** 索引 **`title-badge-row`** 補 **`lg`**；**「最近完成」** 新增本項。  
+6. **Git**：**`8685516`** — **`style(explore): UserCard title badge lg (~1.3x), Apple-like pill layout`**；已 **`git push`** **`origin/main`**。
+
 ### 2026-03-31 — 探索列表稱號遺漏：村莊 SWR 重拉、`village-v7`、卡片頂緣標籤
 
 1. **原因**：**`ExploreClient`** 村莊 **`useSWR`** 原 **`revalidateOnMount: false`**，易長期只吃 **`fallbackData`／舊 `unstable_cache`**；稱號與暱稱同列 flex 時 **`TitleBadgeRow`** 設 **`shrink`** 可能被壓成不可見。

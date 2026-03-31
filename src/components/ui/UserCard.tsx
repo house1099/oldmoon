@@ -118,15 +118,16 @@ export function UserCard({
                 handleActivate();
               }
             }}
-            className="relative overflow-visible rounded-2xl bg-zinc-900/60 p-4 pt-5 transition-all duration-200 hover:bg-zinc-900/80 active:scale-[0.99]"
+            className="relative overflow-visible rounded-2xl bg-zinc-900/60 p-4 pt-6 transition-all duration-200 hover:bg-zinc-900/80 active:scale-[0.99]"
           >
-        {/* 稱號貼在卡片外框上緣（避免與暱稱列 flex 擠壓導致探索列表「看不到」） */}
-        <div className="pointer-events-none absolute left-1/2 top-0 z-[25] -translate-x-1/2 -translate-y-1/2">
+        {/* 稱號貼在卡片外框上緣；lg 約 1.3×、層次與留白比照精簡 UI（髮線邊＋柔影） */}
+        <div className="pointer-events-none absolute left-1/2 top-0 z-[25] -translate-x-1/2 -translate-y-[42%]">
           <TitleBadgeRow
             title={user.equippedTitle}
             imageUrl={user.equippedTitleImageUrl}
-            className="shrink-0 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]"
-            pillClassName="border border-violet-400/35 bg-violet-950/95"
+            size="lg"
+            className="shrink-0 drop-shadow-[0_4px_14px_rgba(0,0,0,0.45)]"
+            pillClassName="border border-white/[0.14] bg-gradient-to-b from-violet-500/[0.22] to-violet-950/[0.92] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ring-1 ring-violet-400/20"
           />
         </div>
 
