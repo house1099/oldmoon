@@ -35,7 +35,9 @@ function sourceToCategory(source: string): CoinLedgerTxCategory {
     source === "shop_purchase" ||
     source === "shop_resell" ||
     source === "topup" ||
-    source === "refund"
+    source === "refund" ||
+    source === "market_trade_buy" ||
+    source === "market_trade_sell"
   ) {
     return "purchase";
   }

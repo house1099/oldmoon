@@ -68,6 +68,8 @@ const SOURCE_LABEL: Record<CoinTransactionRow["source"], string> = {
   convert_in: "兌換入帳",
   convert_out: "兌換扣款",
   topup: "儲值",
+  market_trade_buy: "市場購買",
+  market_trade_sell: "市場售出",
 };
 
 const ITEM_TYPE_EMOJI: Record<string, string> = {

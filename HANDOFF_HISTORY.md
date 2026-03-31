@@ -5,6 +5,15 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-31 — 玩家自由市場 DB 地基
+
+1. **背景**：建立玩家自由市場之資料庫與 RPC；**`coin_transactions`** 須與既有 **`shop_purchase`／`admin_*`** 等來源並存；流水寫入須與 **`coin.repository.ts`** 一致（**`coin_type` `free`／`premium`**、**`balance_after`**）。
+2. **遷移 `supabase/migrations/20260401000000_market_listings.sql`**：**`coin_transactions_source_check`** 擴充 **`market_trade_buy`／`market_trade_sell`**（保留既有陣列，**未**改用任務稿之 **`purchase`** 等別名）；**`system_settings`** 三鍵 **`ON CONFLICT DO NOTHING`**；**`market_listing_status`** enum、**`market_listings`** 表、部分 unique／ btree 索引、**`set_updated_at`**＋trigger、**`ENABLE ROW LEVEL SECURITY`**；**`buy_market_item`**（**`FOR UPDATE`**、稅率 **`market_tax_rate`**、轉移 **`user_rewards`**、雙筆 **`coin_transactions`**）；**`cancel_market_listing`**；**`REVOKE`／`GRANT`** **`service_role`**；**`NOTIFY pgrst`**。
+3. **型別與 UI**：**`src/types/database.types.ts`** — **`market_listings`** 表、**`Functions`**、**`MarketListingStatus`／`MarketListingRow`／`MarketListingInsert`**；**`coin_transactions.source`** 聯集；**`shop/page.tsx`** **`SOURCE_LABEL`**；**`coins-admin-client.tsx`** **`sourceToCategory`**；**`coin.repository.ts`** **`sourcesForLedgerCategory('purchase')`** 補 **`shop_resell`** 與市場兩來源。
+4. **MCP**：Cursor 專案內 **user-supabase** 僅 **`SERVER_METADATA.json`**，無 **`execute_sql`／`apply_migration`** 工具描述檔；雲端 DDL 請 **`supabase db push`** 或 Dashboard SQL。
+5. **驗證**：**`npx tsc --noEmit`** 通過。
+6. **Git**：**`feat(market): DB schema, buy/cancel RPC, coin_transactions source, system_settings`**。
+
 ### 2026-03-31 — Usercard 間距、背包擴充道具化、自白換行
 
 1. **背景**：資料卡英雄區頭像與暱稱等文字過近；**`bio_village`／`bio_market`** 在 **`UserDetailModal`** 以一般段落顯示，換行被折疊；商城 **`bag_expansion`** 僅 **`updateProfile(inventory_slots)`**，滿 **48** 格時仍扣款且無 **`user_rewards`** 列，**`newRewardIds`** 為空導致「購買並贈送」流程異常。

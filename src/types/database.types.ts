@@ -3,7 +3,7 @@
  * 表：users, exp_logs, likes, alliances（雙人血盟）, conversations, chat_messages, blocks, reports, messages, notifications, ig_change_requests,
  *     admin_actions, moderator_permissions, system_settings, advertisements, ad_clicks, invitation_codes, invitation_code_uses, announcements,
  *     tavern_messages, tavern_bans, login_streaks, streak_reward_settings, prize_pools, prize_items, prize_logs, user_rewards, broadcasts,
- *     shop_items, shop_orders, shop_daily_limits, push_subscriptions
+ *     shop_items, shop_orders, shop_daily_limits, push_subscriptions, market_listings
  */
 
 export type Json =
@@ -1075,7 +1075,9 @@ export interface Database {
             | "refund"
             | "convert_in"
             | "convert_out"
-            | "topup";
+            | "topup"
+            | "market_trade_buy"
+            | "market_trade_sell";
           reference_id: string | null;
           note: string | null;
           operator_id: string | null;
@@ -1098,7 +1100,9 @@ export interface Database {
             | "refund"
             | "convert_in"
             | "convert_out"
-            | "topup";
+            | "topup"
+            | "market_trade_buy"
+            | "market_trade_sell";
           reference_id?: string | null;
           note?: string | null;
           operator_id?: string | null;
@@ -1120,7 +1124,9 @@ export interface Database {
             | "refund"
             | "convert_in"
             | "convert_out"
-            | "topup";
+            | "topup"
+            | "market_trade_buy"
+            | "market_trade_sell";
           reference_id?: string | null;
           note?: string | null;
           operator_id?: string | null;
@@ -1161,6 +1167,78 @@ export interface Database {
           {
             foreignKeyName: "login_streaks_user_id_fkey";
             columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      market_listings: {
+        Row: {
+          id: string;
+          seller_id: string;
+          user_reward_id: string;
+          shop_item_id: string;
+          price: number;
+          currency_type: "free_coins" | "premium_coins";
+          status: "active" | "sold" | "cancelled" | "expired";
+          expires_at: string;
+          buyer_id: string | null;
+          sold_at: string | null;
+          seller_received: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          seller_id: string;
+          user_reward_id: string;
+          shop_item_id: string;
+          price: number;
+          currency_type: "free_coins" | "premium_coins";
+          status?: "active" | "sold" | "cancelled" | "expired";
+          expires_at: string;
+          buyer_id?: string | null;
+          sold_at?: string | null;
+          seller_received?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          seller_id?: string;
+          user_reward_id?: string;
+          shop_item_id?: string;
+          price?: number;
+          currency_type?: "free_coins" | "premium_coins";
+          status?: "active" | "sold" | "cancelled" | "expired";
+          expires_at?: string;
+          buyer_id?: string | null;
+          sold_at?: string | null;
+          seller_received?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "market_listings_seller_id_fkey";
+            columns: ["seller_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "market_listings_user_reward_id_fkey";
+            columns: ["user_reward_id"];
+            referencedRelation: "user_rewards";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "market_listings_shop_item_id_fkey";
+            columns: ["shop_item_id"];
+            referencedRelation: "shop_items";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "market_listings_buyer_id_fkey";
+            columns: ["buyer_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
           },
@@ -1587,6 +1665,20 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      buy_market_item: {
+        Args: {
+          p_listing_id: string;
+          p_buyer_id: string;
+        };
+        Returns: Json;
+      };
+      cancel_market_listing: {
+        Args: {
+          p_listing_id: string;
+          p_user_id: string;
+        };
+        Returns: Json;
+      };
       claim_invitation_code: {
         Args: {
           p_code: string;
@@ -1628,6 +1720,40 @@ export type AnnouncementRow = PublicTables["announcements"]["Row"];
 export type CoinTransactionRow = PublicTables["coin_transactions"]["Row"];
 export type TopupOrderRow = PublicTables["topup_orders"]["Row"];
 export type LoginStreakRow = PublicTables["login_streaks"]["Row"];
+
+/** `public.market_listing_status` */
+export type MarketListingStatus = "active" | "sold" | "cancelled" | "expired";
+
+export interface MarketListingRow {
+  id: string;
+  seller_id: string;
+  user_reward_id: string;
+  shop_item_id: string;
+  price: number;
+  currency_type: "free_coins" | "premium_coins";
+  status: MarketListingStatus;
+  expires_at: string;
+  buyer_id: string | null;
+  sold_at: string | null;
+  seller_received: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MarketListingInsert {
+  id?: string;
+  seller_id: string;
+  user_reward_id: string;
+  shop_item_id: string;
+  price: number;
+  currency_type: "free_coins" | "premium_coins";
+  status?: MarketListingStatus;
+  expires_at: string;
+  buyer_id?: string | null;
+  sold_at?: string | null;
+  seller_received?: number | null;
+}
+
 export type PrizePoolRow = PublicTables["prize_pools"]["Row"];
 export type PrizeItemRow = PublicTables["prize_items"]["Row"];
 export type PrizeLogRow = PublicTables["prize_logs"]["Row"];

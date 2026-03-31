@@ -274,7 +274,14 @@ function sourcesForLedgerCategory(
     case "checkin":
       return ["checkin"];
     case "purchase":
-      return ["shop_purchase", "topup", "refund"];
+      return [
+        "shop_purchase",
+        "shop_resell",
+        "topup",
+        "refund",
+        "market_trade_buy",
+        "market_trade_sell",
+      ];
     case "admin":
       return ["admin_grant", "admin_deduct", "admin_adjust"];
     case "convert":
