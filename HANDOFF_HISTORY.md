@@ -5,6 +5,16 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-31 — 玩家自由市場 L2／L3／L5
+
+1. **目標**：玩家市集應用層與 UI（Layer 2 Repository、Layer 3 Server Actions、Layer 5 **`FloatingToolbar`**／**`MarketSheet`**），UI 不直連 Supabase；RPC **`buy_market_item`／`cancel_market_listing`** 僅經 L2；**`coin_transactions.coin_type`** 語意維持 **`free`／`premium`**（由 RPC 寫入）；上架 **`currency_type`** 為 **`free_coins`／`premium_coins`**。
+2. **Layer 2** 🗄️ **`src/lib/repositories/server/market-listing.repository.ts`**（**`createAdminClient`**）：**`MarketListingWithDetail`／`BuyMarketItemResult`**；**`createListing`**；**`findActiveListings`**（**`status=active`**、**`expires_at > now()`**、JOIN **`shop_items`** 取 **`name, image_url, item_type, effect_key`** 映射為展示 **`label`**、**`users`** 賣家 **`nickname, avatar_url`**；幣種／排序；**`findMyListings`／`findListingById`**；**`executeBuyMarketItem`／`executeCancelListing`**（**`rpc`** JSON 窄化）；**`expireMyStaleListings`**；**`findActiveListingByRewardId`**；**`countActiveListingsBySeller`**。
+3. **Layer 3** **`src/services/market-listing.action.ts`**（**`use server`**）：**`getActiveListingsAction`**（未登入回空陣列）；**`getMyListingsAction`**（**`expireMyStaleListings`** 後 **`findMyListings`**）；**`createListingAction`** — **`findSystemSettingByKey`** 上限／天數、**`countActiveListingsBySeller`**、**`findUserRewardById`**、**`findShopItemById`** 驗 **`allow_player_trade`**、**`findActiveListingByRewardId`**、裝備中則 **`unequipReward`**（L2）、**`createListing`**；**`buyListingAction`** — 買家懶惰過期、RPC 成功後賣家 **`notifyUserMailboxSilent`** 與 **`sendPushToUser`**（推播 **try** 靜默）；**`cancelListingAction`** 成功 **`revalidatePath('/')`**。
+4. **Layer 5**：**`src/components/market/MarketSheet.tsx`** — Tabs **市場大廳**（幣種／排序膠囊、列表、購買 **AlertDialog**、**`buyListingAction`**）、**我的上架**（狀態 badge、下架、**`cancelListingAction`**）；**`src/components/layout/FloatingToolbar.tsx`** — 子鈕 **Lucide `Store`「玩家市集」**（**`delayMs: 150`**）、**`useSWR(SWR_KEYS.myMarketListings, getMyListingsAction)`** 組 **`activeListingRewardIds`**、**24h 內售出且 `seller_received > 0` 橘點**；長按選單 **「上架至市集」**（條件 **`shop_item_id`、 `allow_player_trade !== false`、未使用、無 active listing**）→ 上架 **Dialog** → **`createListingAction`**；**`src/lib/swr/keys.ts`** **`myMarketListings`**。
+5. **`rewards.repository.ts`**：**`UserRewardWithEffect`** 新增 **`allow_player_trade`**（與 **`shop_allow_player_trade`** 同源）。
+6. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+7. **Git**：**`feat(market): Layer2/3/5 market listing, FloatingToolbar Store btn, MarketSheet UI`**；**`git push`** **`origin/main`**。
+
 ### 2026-03-31 — 玩家自由市場 DB 地基
 
 1. **目標**：雲端與 repo 建立玩家自由市場 schema、幣流水來源、設定鍵與交易 RPC。

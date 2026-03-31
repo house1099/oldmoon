@@ -13,4 +13,5 @@ export const SWR_KEYS = {
   unreadChatConversations: 'unread-chat-conversations',
   notifications: 'notifications',
   tavernMessages: 'tavern-messages',
+  myMarketListings: 'my-market-listings',
 } as const

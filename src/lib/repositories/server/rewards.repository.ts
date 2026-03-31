@@ -21,6 +21,8 @@ export type UserRewardWithEffect = UserRewardRow & {
   frame_layout: ShopFrameLayout | null;
   /** 以下欄位來自 `shop_items`；無 `shop_item_id` 時為 null（非商城來源） */
   shop_allow_gift: boolean | null;
+  /** 與 `shop_allow_player_trade` 同源；供 UI 條件 `allow_player_trade !== false` */
+  allow_player_trade: boolean | null;
   shop_allow_player_trade: boolean | null;
   shop_allow_resell: boolean | null;
   shop_resell_price: number | null;
@@ -147,6 +149,7 @@ export async function findMyRewards(
         (sid ? (imageByShopItemId.get(sid) ?? null) : null),
       frame_layout: sid ? (layoutByShopItemId.get(sid) ?? null) : null,
       shop_allow_gift: pol ? pol.allow_gift : null,
+      allow_player_trade: pol ? pol.allow_player_trade : null,
       shop_allow_player_trade: pol ? pol.allow_player_trade : null,
       shop_allow_resell: pol ? pol.allow_resell : null,
       shop_resell_price: pol ? pol.resell_price : null,

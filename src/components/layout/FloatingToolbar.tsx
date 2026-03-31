@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   Mail,
   Sparkles,
+  Store,
   X,
 } from "lucide-react";
 import { useTavern } from "@/hooks/useTavern";
@@ -41,7 +42,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import useSWR from "swr";
+import useSWR, { mutate as swrMutate } from "swr";
+import { SWR_KEYS } from "@/lib/swr/keys";
 import { BROADCAST_MESSAGE_MAX_LENGTH } from "@/lib/constants/broadcast";
 import { cn } from "@/lib/utils";
 import { useMyProfile } from "@/hooks/useMyProfile";
@@ -65,6 +67,11 @@ import {
   type ActiveBroadcastDto,
   type MyRewardsPayload,
 } from "@/services/rewards.action";
+import {
+  createListingAction,
+  getMyListingsAction,
+} from "@/services/market-listing.action";
+import { MarketSheet } from "@/components/market/MarketSheet";
 import type { DrawResult } from "@/services/prize-engine";
 import { GuildLootBoxReveal } from "@/components/loot-box/guild-loot-box-reveal";
 import {
@@ -203,6 +210,11 @@ const inventoryActionBtnStyles = {
     border: "0.5px solid rgba(245,158,11,0.3)",
     color: "#fbbf24",
   } satisfies CSSProperties,
+  market: {
+    ...inventoryActionBtnBase,
+    background: "linear-gradient(135deg, #0d9488, #0f766e)",
+    color: "#ecfdf5",
+  } satisfies CSSProperties,
   trash: {
     ...inventoryActionBtnBase,
     background: "transparent",
@@ -326,6 +338,18 @@ function firstManageableRewardRow(stack: RewardStack): UserRewardWithEffect | nu
 /** 只要有可操作的未裝備列（播券另計未使用）即可長按開啟選單；實際按鈕依商城／來源由 stackMenuActions 決定 */
 function stackSupportsLongPress(stack: RewardStack): boolean {
   return firstManageableRewardRow(stack) != null;
+}
+
+function canListRewardToMarket(
+  row: UserRewardWithEffect | null,
+  activeListingRewardIds: Set<string>,
+): boolean {
+  if (!row) return false;
+  if (!row.shop_item_id) return false;
+  if (row.allow_player_trade === false) return false;
+  if (row.used_at != null) return false;
+  if (activeListingRewardIds.has(row.id)) return false;
+  return true;
 }
 
 function stackMenuMaxQty(stack: RewardStack): number {
@@ -520,6 +544,20 @@ function FloatingToolbarInner({
   const [giftPlayerRecipientPick, setGiftPlayerRecipientPick] =
     useState<GiftRecipientSearchRow | null>(null);
   const [giftPlayerConfirmBusy, setGiftPlayerConfirmBusy] = useState(false);
+  const [marketSheetOpen, setMarketSheetOpen] = useState(false);
+  const [marketListOpen, setMarketListOpen] = useState(false);
+  const [marketListRewardId, setMarketListRewardId] = useState<string | null>(
+    null,
+  );
+  const [marketListLabel, setMarketListLabel] = useState("");
+  const [marketListImageUrl, setMarketListImageUrl] = useState<string | null>(
+    null,
+  );
+  const [marketListCurrency, setMarketListCurrency] = useState<
+    "free_coins" | "premium_coins"
+  >("free_coins");
+  const [marketListPriceStr, setMarketListPriceStr] = useState("");
+  const [marketListBusy, setMarketListBusy] = useState(false);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
 
@@ -528,6 +566,30 @@ function FloatingToolbarInner({
     () => getActiveBroadcastsAction(),
     { revalidateOnFocus: true },
   );
+
+  const { data: myMarketRows = [] } = useSWR(
+    SWR_KEYS.myMarketListings,
+    getMyListingsAction,
+    { revalidateOnFocus: true },
+  );
+  const activeListingRewardIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const l of myMarketRows) {
+      if (l.status === "active") s.add(l.user_reward_id);
+    }
+    return s;
+  }, [myMarketRows]);
+  const hasMarketNotification = useMemo(() => {
+    const day = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    return myMarketRows.some(
+      (l) =>
+        l.status === "sold" &&
+        (l.seller_received ?? 0) > 0 &&
+        l.sold_at != null &&
+        now - new Date(l.sold_at).getTime() < day,
+    );
+  }, [myMarketRows]);
 
   useEffect(() => {
     openEquipRef.current = () => setEquipOpen(true);
@@ -748,6 +810,28 @@ function FloatingToolbarInner({
     setGiftPlayerDialogOpen(true);
   }
 
+  function beginMarketListToMarketFromMenu() {
+    setStackMenuOpen(false);
+    if (!stackMenuTarget) return;
+    const rowIds = pickUnequippedRowIds(stackMenuTarget, 1);
+    if (rowIds.length === 0) {
+      toast.error("沒有可上架的道具");
+      return;
+    }
+    const rid = rowIds[0]!;
+    const row = stackMenuTarget.rows.find((r) => r.id === rid) ?? null;
+    if (!canListRewardToMarket(row, activeListingRewardIds)) {
+      toast.message("此道具不符合上架條件");
+      return;
+    }
+    setMarketListRewardId(rid);
+    setMarketListLabel(stackMenuTarget.label);
+    setMarketListImageUrl(row?.image_url ?? null);
+    setMarketListCurrency("free_coins");
+    setMarketListPriceStr("");
+    setMarketListOpen(true);
+  }
+
   async function handleGiftPlayerSearch() {
     if (giftPlayerRewardIds.length === 0) return;
     const q = giftNicknameDraft.trim();
@@ -876,6 +960,17 @@ function FloatingToolbarInner({
       icon: <Beer className="h-5 w-5 text-amber-200/95" strokeWidth={1.75} />,
       badge: "tavern" as const,
     },
+    {
+      id: "market" as const,
+      label: "玩家市集",
+      delayMs: 150,
+      onClick: () => {
+        setExpanded(false);
+        setMarketSheetOpen(true);
+      },
+      icon: <Store className="h-5 w-5 text-teal-200/95" strokeWidth={1.75} />,
+      badge: "market" as const,
+    },
     ...(profile?.role === "master" && activeBroadcasts.length > 0
       ? [
           {
@@ -944,6 +1039,9 @@ function FloatingToolbarInner({
                   ) : null}
                   {btn.badge === "tavern" && showTavernDot ? (
                     <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-zinc-950" />
+                  ) : null}
+                  {btn.badge === "market" && hasMarketNotification ? (
+                    <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-orange-500 ring-2 ring-zinc-950" />
                   ) : null}
                 </button>
               </div>
@@ -1529,11 +1627,15 @@ function FloatingToolbarInner({
                     ? act.unit * Math.min(stackMenuQty, maxQ)
                     : 0;
                 const canOpenLoot = sm.rewardType === "loot_box";
+                const canListMarket =
+                  u != null &&
+                  canListRewardToMarket(u, activeListingRewardIds);
                 const hasAnyAction =
                   act.canGift ||
                   act.canDelete ||
                   (act.canResell && u != null) ||
-                  canOpenLoot;
+                  canOpenLoot ||
+                  canListMarket;
                 return (
                   <>
                     {hasAnyAction ? (
@@ -1559,7 +1661,7 @@ function FloatingToolbarInner({
                       </label>
                     ) : (
                       <p className="px-1 text-sm leading-relaxed text-[#a1a1aa]">
-                        此道具依商城設定，目前未開放贈送、刪除或回賣。可先卸下或點擊格位使用／裝備。
+                        此道具依商城設定，目前未開放贈送、刪除、回賣或上架市集。可先卸下或點擊格位使用／裝備。
                       </p>
                     )}
                     <div
@@ -1603,6 +1705,18 @@ function FloatingToolbarInner({
                           />
                         </button>
                       ) : null}
+                      {canListMarket ? (
+                        <button
+                          type="button"
+                          style={inventoryActionBtnStyles.market}
+                          onClick={() => beginMarketListToMarketFromMenu()}
+                        >
+                          <InventoryActionBtnContent
+                            icon="🏪"
+                            label="上架至市集"
+                          />
+                        </button>
+                      ) : null}
                       {act.canGift ? (
                         <button
                           type="button"
@@ -1642,7 +1756,9 @@ function FloatingToolbarInner({
                       ) : null}
                       {act.canGift ||
                       (act.canResell && u) ||
-                      act.canDelete ? (
+                      act.canDelete ||
+                      canListMarket ||
+                      canOpenLoot ? (
                         <InventoryActionDivider />
                       ) : null}
                       <button
@@ -2198,6 +2314,156 @@ function FloatingToolbarInner({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <MarketSheet open={marketSheetOpen} onOpenChange={setMarketSheetOpen} />
+
+      <Dialog
+        open={marketListOpen}
+        onOpenChange={(o) => {
+          setMarketListOpen(o);
+          if (!o) {
+            setMarketListRewardId(null);
+            setMarketListLabel("");
+            setMarketListImageUrl(null);
+            setMarketListPriceStr("");
+          }
+        }}
+      >
+        <DialogContent className="border border-zinc-700 bg-zinc-950 text-zinc-100 sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>上架至市集</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              設定價格與幣種；上架後其他玩家可於市集購買。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 pt-2">
+            <div className="flex items-center gap-3">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-zinc-800/60">
+                {marketListImageUrl?.trim() ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={toThumbImageUrl(marketListImageUrl, 128, 128)}
+                    alt=""
+                    className="max-h-full max-w-full object-contain"
+                  />
+                ) : (
+                  <span className="text-2xl" aria-hidden>
+                    📦
+                  </span>
+                )}
+              </div>
+              <p className="min-w-0 flex-1 text-sm font-semibold text-zinc-100">
+                {marketListLabel}
+              </p>
+            </div>
+            <div>
+              <p className="mb-1.5 text-xs text-zinc-500">幣種</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMarketListCurrency("free_coins")}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                    marketListCurrency === "free_coins"
+                      ? "border-amber-500/50 bg-amber-500/15 text-amber-100"
+                      : "border-zinc-700 bg-zinc-900 text-zinc-400",
+                  )}
+                >
+                  探險幣
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMarketListCurrency("premium_coins")}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                    marketListCurrency === "premium_coins"
+                      ? "border-violet-500/45 bg-violet-500/15 text-violet-100"
+                      : "border-zinc-700 bg-zinc-900 text-zinc-400",
+                  )}
+                >
+                  純金
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs text-zinc-500">價格</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={marketListPriceStr}
+                onChange={(e) => {
+                  const d = e.target.value.replace(/\D/g, "");
+                  setMarketListPriceStr(d);
+                }}
+                placeholder="正整數"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
+              />
+            </div>
+            <p className="text-xs text-zinc-500">
+              賣家實收：
+              <span className="font-semibold text-zinc-300">
+                {(() => {
+                  const n = parseInt(marketListPriceStr, 10);
+                  return Number.isFinite(n) && n >= 1 ? n : "—";
+                })()}
+              </span>
+              幣（目前手續費 0%）
+            </p>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="ghost"
+                className="text-zinc-400"
+                onClick={() => setMarketListOpen(false)}
+              >
+                取消
+              </Button>
+              <Button
+                type="button"
+                disabled={
+                  marketListBusy ||
+                  !marketListRewardId ||
+                  !/^[1-9]\d*$/.test(marketListPriceStr.trim())
+                }
+                onClick={async () => {
+                  if (!marketListRewardId || marketListBusy) return;
+                  const price = parseInt(marketListPriceStr.trim(), 10);
+                  if (!Number.isFinite(price) || price < 1) {
+                    toast.error("請輸入至少 1 的正整數價格");
+                    return;
+                  }
+                  setMarketListBusy(true);
+                  try {
+                    const r = await createListingAction({
+                      rewardId: marketListRewardId,
+                      price,
+                      currencyType: marketListCurrency,
+                    });
+                    if (!r.ok) {
+                      toast.error(r.error ?? "上架失敗");
+                      return;
+                    }
+                    toast.success("已上架至玩家市集");
+                    setMarketListOpen(false);
+                    setMarketListRewardId(null);
+                    setMarketListLabel("");
+                    setMarketListImageUrl(null);
+                    setMarketListPriceStr("");
+                    await swrMutate(SWR_KEYS.myMarketListings);
+                    const p = await getMyRewardsAction();
+                    setRewardsPayload(p);
+                    router.refresh();
+                  } finally {
+                    setMarketListBusy(false);
+                  }
+                }}
+              >
+                {marketListBusy ? "上架中…" : "確認上架"}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </>
   );
