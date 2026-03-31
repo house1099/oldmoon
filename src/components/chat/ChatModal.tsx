@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Fragment,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -21,6 +22,10 @@ import { TitleBadgeRow } from "@/components/ui/title-badge-row";
 import { createClient } from "@/lib/supabase/client";
 import { SWR_KEYS } from "@/lib/swr/keys";
 import { cn } from "@/lib/utils";
+import {
+  taipeiCalendarDateKey,
+  taipeiCalendarDaysBetween,
+} from "@/lib/utils/date";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import type { ShopFrameLayout } from "@/lib/utils/avatar-frame-layout";
 
@@ -29,6 +34,31 @@ const UserDetailModal = dynamic(
     import("@/components/modals/UserDetailModal").then((m) => m.UserDetailModal),
   { ssr: false },
 );
+
+function formatPrivateChatDayDivider(iso: string, now = new Date()): string {
+  const msgKey = taipeiCalendarDateKey(new Date(iso));
+  const todayKey = taipeiCalendarDateKey(now);
+  if (msgKey === todayKey) return "今天";
+  const daysAgo = taipeiCalendarDaysBetween(msgKey, todayKey);
+  if (daysAgo === 1) return "昨天";
+  const msgDate = new Date(`${msgKey}T12:00:00+08:00`);
+  const showYear = msgKey.slice(0, 4) !== todayKey.slice(0, 4);
+  return new Intl.DateTimeFormat("zh-TW", {
+    timeZone: "Asia/Taipei",
+    ...(showYear
+      ? {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          weekday: "short",
+        }
+      : {
+          month: "long",
+          day: "numeric",
+          weekday: "short",
+        }),
+  }).format(msgDate);
+}
 
 export interface ChatModalProps {
   open: boolean;
@@ -230,8 +260,20 @@ export default function ChatModal({
       </div>
 
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
-        {messages.map((msg) => {
+        {messages.map((msg, idx) => {
           const isMe = msg.sender_id === currentUserId;
+          const prev = idx > 0 ? messages[idx - 1] : null;
+          const showDayDivider =
+            !prev ||
+            taipeiCalendarDateKey(new Date(prev.created_at)) !==
+              taipeiCalendarDateKey(new Date(msg.created_at));
+          const dayDivider = showDayDivider ? (
+            <div className="flex justify-center py-1" role="separator">
+              <span className="rounded-full bg-zinc-800/80 px-3 py-1 text-[11px] text-zinc-500">
+                {formatPrivateChatDayDivider(msg.created_at)}
+              </span>
+            </div>
+          ) : null;
           const bubble = (
             <div
               className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
@@ -256,31 +298,30 @@ export default function ChatModal({
 
           if (isMe) {
             return (
-              <div
-                key={msg.id}
-                className="flex items-end justify-end gap-2"
-              >
-                {bubble}
-                <div className="shrink-0 overflow-visible" aria-hidden>
-                  <MasterAvatarShell
-                    role={myProfile?.role}
-                    src={myProfile?.avatar_url}
-                    nickname={myProfile?.nickname ?? "我"}
-                    size={36}
-                    frameImageUrl={myEquippedAvatar?.image_url ?? null}
-                    frameEffectKey={myEquippedAvatar?.effect_key ?? null}
-                    frameLayout={myEquippedAvatar?.frame_layout ?? null}
-                  />
+              <Fragment key={msg.id}>
+                {dayDivider}
+                <div className="flex items-end justify-end gap-2">
+                  {bubble}
+                  <div className="shrink-0 overflow-visible" aria-hidden>
+                    <MasterAvatarShell
+                      role={myProfile?.role}
+                      src={myProfile?.avatar_url}
+                      nickname={myProfile?.nickname ?? "我"}
+                      size={36}
+                      frameImageUrl={myEquippedAvatar?.image_url ?? null}
+                      frameEffectKey={myEquippedAvatar?.effect_key ?? null}
+                      frameLayout={myEquippedAvatar?.frame_layout ?? null}
+                    />
+                  </div>
                 </div>
-              </div>
+              </Fragment>
             );
           }
 
           return (
-            <div
-              key={msg.id}
-              className="flex items-end justify-start gap-2"
-            >
+            <Fragment key={msg.id}>
+              {dayDivider}
+              <div className="flex items-end justify-start gap-2">
               <button
                 type="button"
                 onClick={() => void handlePeerAvatarClick(msg.sender_id)}
@@ -302,7 +343,8 @@ export default function ChatModal({
                 />
               </button>
               {bubble}
-            </div>
+              </div>
+            </Fragment>
           );
         })}
         <div ref={bottomRef} />

@@ -57,6 +57,24 @@ const REWARD_TYPE_OPTIONS = [
   { value: "broadcast", label: "廣播券 broadcast" },
 ] as const;
 
+/** 權重輸入字串 → 用於機率加總；空或非法時回退伺服器權重。 */
+function resolvedPrizeItemWeight(weightStr: string, serverWeight: number): number {
+  const raw = weightStr.replace(/[^0-9]/g, "");
+  if (raw === "") return Math.max(1, serverWeight);
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1) return Math.max(1, serverWeight);
+  return n;
+}
+
+/** 儲存前解析；空或非法回傳 null。 */
+function parsePrizeWeightForSave(weightStr: string): number | null {
+  const raw = weightStr.replace(/[^0-9]/g, "");
+  if (raw === "") return null;
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1) return null;
+  return n;
+}
+
 function fmtTaipei(iso: string) {
   return new Intl.DateTimeFormat("zh-TW", {
     timeZone: "Asia/Taipei",
@@ -80,7 +98,7 @@ type DraftItem = Pick<
   | "is_active"
   | "effect_key"
   | "image_url"
->;
+> & { weightStr: string };
 
 export default function AdminPrizesClient() {
   const [tab, setTab] = useState<Tab>("items");
@@ -158,6 +176,7 @@ export default function AdminPrizesClient() {
         id: it.id,
         label: it.label,
         weight: it.weight,
+        weightStr: String(it.weight),
         min_value: it.min_value,
         max_value: it.max_value,
         reward_type: it.reward_type,
@@ -206,21 +225,36 @@ export default function AdminPrizesClient() {
 
   const totalWeight = useMemo(() => {
     return items.reduce((s, it) => {
-      const w = drafts[it.id]?.weight ?? it.weight;
-      return s + Math.max(1, w);
+      const d = drafts[it.id];
+      const w = d
+        ? resolvedPrizeItemWeight(d.weightStr, it.weight)
+        : Math.max(1, it.weight);
+      return s + w;
     }, 0);
   }, [items, drafts]);
 
   async function saveAllWeights() {
     if (!selectedPoolId) return;
+    for (const it of items) {
+      const d = drafts[it.id];
+      if (!d) continue;
+      const parsed = parsePrizeWeightForSave(d.weightStr);
+      if (parsed == null) {
+        toast.error(
+          `「${d.label.trim() || "未命名獎項"}」權重須為 ≥1 的整數`,
+        );
+        return;
+      }
+    }
     setSavingAll(true);
     const results = await Promise.allSettled(
       items.map((it) => {
         const d = drafts[it.id];
         if (!d) return Promise.resolve({ ok: true as const });
+        const weight = parsePrizeWeightForSave(d.weightStr)!;
         return updatePrizeItemAction(it.id, {
           label: d.label,
-          weight: d.weight,
+          weight,
           min_value: d.min_value,
           max_value: d.max_value,
           reward_type: d.reward_type,
@@ -269,7 +303,11 @@ export default function AdminPrizesClient() {
 
   async function submitCreateItem() {
     if (!selectedPoolId) return;
-    const w = parseInt(newItemWeight, 10);
+    const w = parsePrizeWeightForSave(newItemWeight);
+    if (w == null) {
+      toast.error("權重須為 ≥1 的整數");
+      return;
+    }
     const minV =
       newItemType === "coins" || newItemType === "exp"
         ? newItemMin === ""
@@ -287,7 +325,7 @@ export default function AdminPrizesClient() {
       const r = await createPrizeItemAction(selectedPoolId, {
         reward_type: newItemType,
         label: newItemLabel,
-        weight: Number.isFinite(w) ? w : 1,
+        weight: w,
         min_value: minV,
         max_value: maxV,
         effect_key:
@@ -477,7 +515,7 @@ export default function AdminPrizesClient() {
                   {items.map((it) => {
                     const d = drafts[it.id];
                     if (!d) return null;
-                    const w = Math.max(1, d.weight);
+                    const w = resolvedPrizeItemWeight(d.weightStr, it.weight);
                     const pct = ((w / totalWeight) * 100).toFixed(1);
                     return (
                       <div
@@ -597,14 +635,14 @@ export default function AdminPrizesClient() {
                             <input
                               type="text"
                               inputMode="numeric"
-                              value={String(d.weight)}
+                              value={d.weightStr}
                               onChange={(e) => {
                                 const v = e.target.value.replace(/[^0-9]/g, "");
                                 setDrafts((prev) => ({
                                   ...prev,
                                   [it.id]: {
                                     ...d,
-                                    weight: v === "" ? 1 : parseInt(v, 10) || 1,
+                                    weightStr: v,
                                   },
                                 }));
                               }}
@@ -1083,7 +1121,7 @@ export default function AdminPrizesClient() {
                 inputMode="numeric"
                 value={newItemWeight}
                 onChange={(e) =>
-                  setNewItemWeight(e.target.value.replace(/[^0-9]/g, "") || "1")
+                  setNewItemWeight(e.target.value.replace(/[^0-9]/g, ""))
                 }
                 className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
               />

@@ -5,6 +5,23 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-31 — 獎池權重輸入與私訊日期
+
+1. **背景**：後台獎項「權重」欄 **`onChange`** 將空字串或 **`parseInt` 失敗** 立即寫回 **`1`**（新增表單另有 **`|| "1"`**），導致無法先清空再輸入兩位數以上，體感像數字被鎖在 **1** 開頭。私訊 **`ChatModal`** 氣泡僅 **`toLocaleTimeString`**，跨日對話看不出日期。
+2. **`src/app/(admin)/admin/prizes/prizes-client.tsx`**  
+   - **`DraftItem`** 新增 **`weightStr`**；**`loadItems`** 初始化 **`weightStr: String(it.weight)`**。  
+   - 權重輸入 **`value={d.weightStr}`**，**`onChange`** 只更新數字過濾後字串（**允許空**）。  
+   - **`resolvedPrizeItemWeight`**／**`parsePrizeWeightForSave`**：加總與列上機率用前者（空或非法暫以伺服器 **`it.weight`**）；儲存前後者為 **null** 則 **toast** 並中止。  
+   - **`saveAllWeights`**：迴圈驗證後再 **`updatePrizeItemAction`** 傳解析後整數。  
+   - **新增獎項**：權重 **`onChange`** 允許空；**`submitCreateItem`** 開頭驗證 **≥1**，否則 **toast** 並 **return**（不再靜默 **1**）。
+3. **`src/components/chat/ChatModal.tsx`**  
+   - 匯入 **`taipeiCalendarDateKey`**、**`taipeiCalendarDaysBetween`**（**`src/lib/utils/date.ts`**）。  
+   - **`formatPrivateChatDayDivider`**：**今天**／**昨天**／其餘 **`Intl`**（**`Asia/Taipei`**；同年省略 **年**）。  
+   - **`messages.map`**：與前一則曆日不同則在該則上方顯示置中分隔列；氣泡內仍僅時間。
+4. **資料庫**：無（後端 **`validatePrizeItemRewardFields`** 仍要求權重 **≥1**）。
+5. **架構**：僅 Layer 5 與既有 Action；無跨層違規。
+6. **`HANDOFF.md`**：**「最近完成」** 置頂本項並刪去最舊一則（維持 5 則）。
+
 ### 2026-03-31 — 贈禮單則通知與共用信件文案
 
 1. **背景**：同一批次贈送多件時，收件者應只收到 **一則** 站內信與 **一次** Web Push（**`notifyUserMailboxSilent`**）；背包贈一般玩家與血盟批次須與商城批次對齊。
