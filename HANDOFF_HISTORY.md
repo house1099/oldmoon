@@ -5,6 +5,19 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-31 — 探索 UserCard 稱號底列與 LUFFY 胸章
+
+1. **背景**：稱號自卡片頂緣改為 **興趣／技能列右下**（與標籤 **垂直置中**）；提供 **LUFFY** 範例胸章（白底圖 **去背**、略放大）。  
+2. **`src/components/ui/UserCard.tsx`**  
+   - 移除頂緣 **absolute** **`TitleBadgeRow`**；**`pt-6` → `pt-5`**。  
+   - **村莊**：**`flex items-center justify-between`**，左 **興趣標籤**、右 **稱號**（**`self-center`**）。  
+   - **市集**：左欄 **能教／想學**、右側同 **稱號**（**`self-center`**）。  
+3. **`src/components/ui/title-badge-row.tsx`**：**`size="xl"`**（胸章 **1.65rem**、字 **sm**、與 **`lg`** 同 **CSS truncate**）。  
+4. **資產**：**`public/items/source-luffy-72.png`**（原圖）；**`public/items/title-luffy.png`**（邊緣 **flood-fill** 去近白像素＋**LANCZOS 1.3×** 至約 **94×94**）；**`scripts/process-title-luffy-png.py`** 可重跑。  
+5. **`public/items/README.md`**：**LUFFY** 後台填 **`/items/title-luffy.png`**。  
+6. **HANDOFF**：**`HANDOFF.md`** 索引與 **「最近完成」** 更新。  
+7. **Git**：已 **`git push`** **`origin/main`**（hash 以 **`git log -1`** 為準）。
+
 ### 2026-03-31 — 探索 UserCard 稱號放大與排版（Apple-like）
 
 1. **背景**：探索列表個人卡頂緣 **TitleBadgeRow** 視覺偏小；目標整體約 **1.3×**，並調整位置、字級、留白與層次（精簡 UI：髮線邊、柔影、可讀字重）。

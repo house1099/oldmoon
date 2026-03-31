@@ -100,6 +100,10 @@ export function UserCard({
       cardFrameLayout: user.equippedCardFrameLayout ?? null,
     };
 
+  const showEquippedTitle =
+    Boolean(user.equippedTitle?.trim()) ||
+    Boolean(user.equippedTitleImageUrl?.trim());
+
   return (
     <>
       <LevelCardEffect
@@ -118,19 +122,8 @@ export function UserCard({
                 handleActivate();
               }
             }}
-            className="relative overflow-visible rounded-2xl bg-zinc-900/60 p-4 pt-6 transition-all duration-200 hover:bg-zinc-900/80 active:scale-[0.99]"
+            className="relative overflow-visible rounded-2xl bg-zinc-900/60 p-4 pt-5 transition-all duration-200 hover:bg-zinc-900/80 active:scale-[0.99]"
           >
-        {/* 稱號貼在卡片外框上緣；lg 約 1.3×、層次與留白比照精簡 UI（髮線邊＋柔影） */}
-        <div className="pointer-events-none absolute left-1/2 top-0 z-[25] -translate-x-1/2 -translate-y-[42%]">
-          <TitleBadgeRow
-            title={user.equippedTitle}
-            imageUrl={user.equippedTitleImageUrl}
-            size="lg"
-            className="shrink-0 drop-shadow-[0_4px_14px_rgba(0,0,0,0.45)]"
-            pillClassName="border border-white/[0.14] bg-gradient-to-b from-violet-500/[0.22] to-violet-950/[0.92] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ring-1 ring-violet-400/20"
-          />
-        </div>
-
         {variant === "market" && isPerfectMatch ? (
           <div
             className="pointer-events-none absolute inset-0 rounded-2xl border border-amber-500/40 shadow-[0_0_20px_rgba(245,158,11,0.15)]"
@@ -278,75 +271,101 @@ export function UserCard({
 
         <div className="mt-2.5 space-y-1.5">
           {variant === "village" ? (
-            <div className="flex flex-wrap gap-1.5">
-              {(user.interests ?? []).slice(0, 4).map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full border border-violet-700/30 bg-violet-950/60 px-2.5 py-0.5 text-[11px] text-violet-300"
-                >
-                  {tagLabel(tag)}
-                </span>
-              ))}
-              {(user.interests ?? []).length > 4 ? (
-                <span className="rounded-full bg-zinc-800 px-2.5 py-0.5 text-[11px] text-zinc-500">
-                  +{(user.interests ?? []).length - 4}
-                </span>
-              ) : null}
-              {(user.interests ?? []).length === 0 ? (
-                <span className="text-xs italic text-zinc-600">
-                  尚未設定興趣
-                </span>
+            <div className="flex items-center justify-between gap-x-2 gap-y-1.5">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+                {(user.interests ?? []).slice(0, 4).map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full border border-violet-700/30 bg-violet-950/60 px-2.5 py-0.5 text-[11px] text-violet-300"
+                  >
+                    {tagLabel(tag)}
+                  </span>
+                ))}
+                {(user.interests ?? []).length > 4 ? (
+                  <span className="rounded-full bg-zinc-800 px-2.5 py-0.5 text-[11px] text-zinc-500">
+                    +{(user.interests ?? []).length - 4}
+                  </span>
+                ) : null}
+                {(user.interests ?? []).length === 0 ? (
+                  <span className="text-xs italic text-zinc-600">
+                    尚未設定興趣
+                  </span>
+                ) : null}
+              </div>
+              {showEquippedTitle ? (
+                <div className="pointer-events-none shrink-0 self-center">
+                  <TitleBadgeRow
+                    title={user.equippedTitle}
+                    imageUrl={user.equippedTitleImageUrl}
+                    size="xl"
+                    className="shrink-0 drop-shadow-[0_3px_12px_rgba(0,0,0,0.45)]"
+                    pillClassName="border border-white/[0.12] bg-zinc-800/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] ring-1 ring-violet-500/15"
+                  />
+                </div>
               ) : null}
             </div>
           ) : null}
 
           {variant === "market" ? (
-            <div className="space-y-1">
-              {(user.skills_offer ?? []).length > 0 ? (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="shrink-0 text-[10px] text-amber-500">
-                    能教
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1 space-y-1">
+                {(user.skills_offer ?? []).length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="shrink-0 text-[10px] text-amber-500">
+                      能教
+                    </span>
+                    {(user.skills_offer ?? []).slice(0, 3).map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full border border-amber-700/30 bg-amber-950/50 px-2.5 py-0.5 text-[11px] text-amber-300"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                    {(user.skills_offer ?? []).length > 3 ? (
+                      <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-500">
+                        +{(user.skills_offer ?? []).length - 3}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
+                {(user.skills_want ?? []).length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="shrink-0 text-[10px] text-sky-500">
+                      想學
+                    </span>
+                    {(user.skills_want ?? []).slice(0, 3).map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full border border-sky-700/30 bg-sky-950/50 px-2.5 py-0.5 text-[11px] text-sky-300"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                    {(user.skills_want ?? []).length > 3 ? (
+                      <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-500">
+                        +{(user.skills_want ?? []).length - 3}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
+                {(user.skills_offer ?? []).length === 0 &&
+                (user.skills_want ?? []).length === 0 ? (
+                  <span className="text-xs italic text-zinc-600">
+                    尚未設定技能
                   </span>
-                  {(user.skills_offer ?? []).slice(0, 3).map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full border border-amber-700/30 bg-amber-950/50 px-2.5 py-0.5 text-[11px] text-amber-300"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                  {(user.skills_offer ?? []).length > 3 ? (
-                    <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-500">
-                      +{(user.skills_offer ?? []).length - 3}
-                    </span>
-                  ) : null}
+                ) : null}
+              </div>
+              {showEquippedTitle ? (
+                <div className="pointer-events-none shrink-0 self-center">
+                  <TitleBadgeRow
+                    title={user.equippedTitle}
+                    imageUrl={user.equippedTitleImageUrl}
+                    size="xl"
+                    className="shrink-0 drop-shadow-[0_3px_12px_rgba(0,0,0,0.45)]"
+                    pillClassName="border border-white/[0.12] bg-zinc-800/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.07)] ring-1 ring-violet-500/15"
+                  />
                 </div>
-              ) : null}
-              {(user.skills_want ?? []).length > 0 ? (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="shrink-0 text-[10px] text-sky-500">
-                    想學
-                  </span>
-                  {(user.skills_want ?? []).slice(0, 3).map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full border border-sky-700/30 bg-sky-950/50 px-2.5 py-0.5 text-[11px] text-sky-300"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                  {(user.skills_want ?? []).length > 3 ? (
-                    <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] text-zinc-500">
-                      +{(user.skills_want ?? []).length - 3}
-                    </span>
-                  ) : null}
-                </div>
-              ) : null}
-              {(user.skills_offer ?? []).length === 0 &&
-              (user.skills_want ?? []).length === 0 ? (
-                <span className="text-xs italic text-zinc-600">
-                  尚未設定技能
-                </span>
               ) : null}
             </div>
           ) : null}
