@@ -15,7 +15,14 @@ import {
   deletePrizePoolAction,
   createPrizeItemAction,
   deletePrizeItemAction,
+  getShopItemsAdminAction,
 } from "@/services/admin.action";
+import type { ShopItemRow } from "@/lib/repositories/server/shop.repository";
+import {
+  LocalFrameImagePicker,
+  fetchLocalFrameBuckets,
+  type LocalFrameImageBuckets,
+} from "@/components/admin/local-frame-image-picker";
 import type { PrizeLogWithUser } from "@/lib/repositories/server/prize.repository";
 import {
   Dialog,
@@ -106,6 +113,19 @@ export default function AdminPrizesClient() {
   const [newItemImageUrl, setNewItemImageUrl] = useState("");
   const [creatingItem, setCreatingItem] = useState(false);
   const [prizeTypeHelpOpen, setPrizeTypeHelpOpen] = useState(false);
+  const [localFrameBuckets, setLocalFrameBuckets] =
+    useState<LocalFrameImageBuckets>({
+      framesRoot: [],
+      framesAvatars: [],
+      framesCards: [],
+    });
+  const [shopItemsForTemplates, setShopItemsForTemplates] = useState<
+    ShopItemRow[]
+  >([]);
+  const [itemTemplateNonce, setItemTemplateNonce] = useState<
+    Record<string, number>
+  >({});
+  const [newItemShopTemplateNonce, setNewItemShopTemplateNonce] = useState(0);
 
   const loadPools = useCallback(async () => {
     setLoadingPools(true);
@@ -171,6 +191,17 @@ export default function AdminPrizesClient() {
   useEffect(() => {
     if (tab === "logs") void loadLogs();
   }, [tab, loadLogs]);
+
+  useEffect(() => {
+    if (tab !== "items") return;
+    void (async () => {
+      const b = await fetchLocalFrameBuckets();
+      if (b) setLocalFrameBuckets(b);
+      const s = await getShopItemsAdminAction();
+      if (s.ok) setShopItemsForTemplates(s.data);
+      else toast.error(s.error);
+    })();
+  }, [tab]);
 
   const totalWeight = useMemo(() => {
     return items.reduce((s, it) => {
@@ -645,6 +676,70 @@ export default function AdminPrizesClient() {
                             <div className="grid w-full min-w-[12rem] max-w-2xl grid-cols-1 gap-3 md:grid-cols-2">
                               <div className="space-y-2">
                                 <div>
+                                  <label
+                                    className="text-xs text-gray-500"
+                                    htmlFor={`shop-tpl-${it.id}`}
+                                  >
+                                    從商城商品帶入
+                                  </label>
+                                  <select
+                                    id={`shop-tpl-${it.id}`}
+                                    key={`shop-tpl-k-${it.id}-${itemTemplateNonce[it.id] ?? 0}`}
+                                    defaultValue=""
+                                    aria-label="從商城商品帶入名稱與框架設定"
+                                    onChange={(e) => {
+                                      const sid = e.target.value;
+                                      if (!sid) return;
+                                      const row = shopItemsForTemplates.find(
+                                        (x) => x.id === sid,
+                                      );
+                                      if (
+                                        !row ||
+                                        row.item_type !== d.reward_type
+                                      )
+                                        return;
+                                      setDrafts((prev) => {
+                                        const cur = prev[it.id];
+                                        if (!cur) return prev;
+                                        return {
+                                          ...prev,
+                                          [it.id]: {
+                                            ...cur,
+                                            label:
+                                              row.name.trim() || cur.label,
+                                            effect_key:
+                                              row.effect_key?.trim() || null,
+                                            image_url:
+                                              row.image_url?.trim() || null,
+                                          },
+                                        };
+                                      });
+                                      setItemTemplateNonce((p) => ({
+                                        ...p,
+                                        [it.id]: (p[it.id] ?? 0) + 1,
+                                      }));
+                                    }}
+                                    className="mt-0.5 w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
+                                  >
+                                    <option value="">
+                                      （選擇商城商品帶入名稱／effect_key／主圖）
+                                    </option>
+                                    {shopItemsForTemplates
+                                      .filter(
+                                        (s) => s.item_type === d.reward_type,
+                                      )
+                                      .map((s) => (
+                                        <option key={s.id} value={s.id}>
+                                          {s.name}（{s.sku}）
+                                        </option>
+                                      ))}
+                                  </select>
+                                  <p className="mt-0.5 text-[10px] text-gray-500">
+                                    僅寫入獎項可存欄位；卡框商品之背景／角圖等
+                                    metadata 不會寫入獎項。
+                                  </p>
+                                </div>
+                                <div>
                                   <label className="text-xs text-gray-500">
                                     特效代碼（effect_key）
                                   </label>
@@ -667,38 +762,30 @@ export default function AdminPrizesClient() {
                                     className="mt-0.5 w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
                                   />
                                 </div>
-                                <div>
-                                  <label className="text-xs text-gray-500">
-                                    框架圖片路徑
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={d.image_url ?? ""}
-                                    onChange={(e) =>
-                                      setDrafts((prev) => ({
+                                <LocalFrameImagePicker
+                                  rewardType={d.reward_type}
+                                  imageUrl={d.image_url ?? ""}
+                                  onImageUrlChange={(url) =>
+                                    setDrafts((prev) => {
+                                      const cur = prev[it.id];
+                                      if (!cur) return prev;
+                                      return {
                                         ...prev,
                                         [it.id]: {
-                                          ...d,
+                                          ...cur,
                                           image_url:
-                                            e.target.value.trim() === ""
+                                            url.trim() === ""
                                               ? null
-                                              : e.target.value.trim(),
+                                              : url.trim(),
                                         },
-                                      }))
-                                    }
-                                    placeholder={
-                                      d.reward_type === "avatar_frame"
-                                        ? "/frames/star-frame.png"
-                                        : "/cards/dragon-card.png"
-                                    }
-                                    className="mt-0.5 w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
-                                  />
-                                  <p className="mt-0.5 text-[10px] text-gray-500">
-                                    {d.reward_type === "avatar_frame"
-                                      ? "PNG 透明背景，512x512px，放入 public/frames/"
-                                      : "PNG 透明背景，400x560px，放入 public/cards/"}
-                                  </p>
-                                </div>
+                                      };
+                                    })
+                                  }
+                                  buckets={localFrameBuckets}
+                                  onBucketsChange={setLocalFrameBuckets}
+                                  selectId={`frame-sel-${it.id}`}
+                                  manualInputId={`frame-manual-${it.id}`}
+                                />
                               </div>
                               <div>
                                 <p className="mb-1 text-xs text-gray-500">
@@ -910,10 +997,12 @@ export default function AdminPrizesClient() {
                   </p>
                   <p>稱號（title）：填寫標籤名稱，用戶可在裝備背包裝備</p>
                   <p>
-                    頭像框（avatar_frame）：需填特效代碼，套用到頭像外圈
+                    頭像框（avatar_frame）：可從商城帶入或選 public
+                    frames/avatars；需 effect_key 與主圖路徑
                   </p>
                   <p>
-                    卡片外框（card_frame）：需填特效代碼，套用到用戶卡片
+                    卡片外框（card_frame）：可從商城帶入或選 public
+                    frames/cards；需 effect_key 與主圖（metadata 圖層不寫入獎項）
                   </p>
                   <p>
                     廣播券（broadcast）：用戶可發送全站廣播，有效 24 小時
@@ -997,6 +1086,48 @@ export default function AdminPrizesClient() {
               newItemType === "card_frame") && (
               <div className="space-y-2">
                 <div>
+                  <label
+                    className="text-xs text-gray-500"
+                    htmlFor="new-item-shop-tpl"
+                  >
+                    從商城商品帶入
+                  </label>
+                  <select
+                    id="new-item-shop-tpl"
+                    key={`new-shop-tpl-${newItemShopTemplateNonce}`}
+                    defaultValue=""
+                    aria-label="從商城商品帶入名稱與框架設定"
+                    onChange={(e) => {
+                      const sid = e.target.value;
+                      if (!sid) return;
+                      const row = shopItemsForTemplates.find(
+                        (x) => x.id === sid,
+                      );
+                      if (!row || row.item_type !== newItemType) return;
+                      setNewItemLabel(row.name.trim() || "");
+                      setNewItemEffectKey(row.effect_key?.trim() ?? "");
+                      setNewItemImageUrl(row.image_url?.trim() ?? "");
+                      setNewItemShopTemplateNonce((n) => n + 1);
+                    }}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  >
+                    <option value="">
+                      （選擇商城商品帶入名稱／effect_key／主圖）
+                    </option>
+                    {shopItemsForTemplates
+                      .filter((s) => s.item_type === newItemType)
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}（{s.sku}）
+                        </option>
+                      ))}
+                  </select>
+                  <p className="mt-0.5 text-[10px] text-gray-500">
+                    僅寫入獎項可存欄位；卡框商品之背景／角圖等 metadata
+                    不會寫入獎項。
+                  </p>
+                </div>
+                <div>
                   <label className="text-xs text-gray-500">
                     特效代碼（effect_key）
                   </label>
@@ -1008,25 +1139,19 @@ export default function AdminPrizesClient() {
                     className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                   />
                 </div>
-                <div>
-                  <label className="text-xs text-gray-500">框架圖片路徑</label>
-                  <input
-                    type="text"
-                    value={newItemImageUrl}
-                    onChange={(e) => setNewItemImageUrl(e.target.value)}
-                    placeholder={
-                      newItemType === "avatar_frame"
-                        ? "/frames/star-frame.png"
-                        : "/cards/dragon-card.png"
-                    }
-                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                  />
-                  <p className="mt-0.5 text-[10px] text-gray-500">
-                    {newItemType === "avatar_frame"
-                      ? "PNG 透明背景，512x512px，放入 public/frames/"
-                      : "PNG 透明背景，400x560px，放入 public/cards/"}
-                  </p>
-                </div>
+                <LocalFrameImagePicker
+                  rewardType={
+                    newItemType === "avatar_frame"
+                      ? "avatar_frame"
+                      : "card_frame"
+                  }
+                  imageUrl={newItemImageUrl}
+                  onImageUrlChange={setNewItemImageUrl}
+                  buckets={localFrameBuckets}
+                  onBucketsChange={setLocalFrameBuckets}
+                  selectId="new-item-frame-sel"
+                  manualInputId="new-item-frame-manual"
+                />
               </div>
             )}
           </div>

@@ -5,6 +5,28 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-31 — 後台獎項：框架類連動商城選圖
+
+**背景**：獎池 **`prize_items`** 之 **`avatar_frame`／`card_frame`** 原僅能手打 **`effect_key`** 與 **`image_url`**；後台希望與 **商城** 相同，可自 **`public/frames`** 掃描清單下拉選圖，並可自 **`shop_items`** 一鍵帶入欄位。
+
+1. **`src/components/admin/local-frame-image-picker.tsx`**（client）  
+   - **`fetchLocalFrameBuckets()`**：呼叫既有 **`getShopLocalImageOptionsAction`**（**`admin.action.ts`**），回傳 **`framesRoot`／`framesAvatars`／`framesCards`**。  
+   - **`LocalFrameImagePicker`**：**`<select>`** **`optgroup`** 與 **`shop-admin-client`** 一致（頭像框 **avatars + root**；卡框 **cards + root**）；**`value`** 僅在路徑屬掃描清單時綁定，否則空字串（**Cloudinary** 等用手動輸入）；**重新掃描** 更新 buckets；**`aria-label`**／**`sr-only`** 手動欄標籤。
+
+2. **`src/app/(admin)/admin/prizes/prizes-client.tsx`**  
+   - **「獎項設定」** tab：**`useEffect`** 載入 **`fetchLocalFrameBuckets`** 與 **`getShopItemsAdminAction`**（失敗 toast）。  
+   - 編輯列與 **新增獎項** Dialog：**「從商城商品帶入」** **`select`**（**`item_type`** 與當前 **`reward_type`** 一致），**`onChange`** 寫入 **`label`／`effect_key`／`image_url`**；**`key`／nonce** 選後重置下拉。  
+   - 類型說明改述 **public/frames/avatars**、**frames/cards**；註明商城卡框 **metadata**（背景／角圖等）**不寫入** **`prize_items`**。
+
+3. **資料庫**  
+   - 無 DDL；**`prize_items`** 欄位不變。
+
+4. **架構**  
+   - 僅 L5；重用 L3 既有 **master** actions，無新 **`admin.action`** API。
+
+5. **建置／Git**  
+   - **`npm run build`** 通過；已 **`git push`** **`origin/main`**；訊息 **`feat(admin): prize frame picker from public frames and shop templates, handoff docs`**（hash 以 **`git log -1`** 為準）。
+
 ### 2026-03-31 — PWA 首頁安裝引導
 
 **背景**：提升黏著度，引導已審核通過使用者將公會安裝至主畫面；須避免已安裝（standalone）仍看到條、避免一進站就蓋台，並與 Chrome **`beforeinstallprompt`** 整合。
