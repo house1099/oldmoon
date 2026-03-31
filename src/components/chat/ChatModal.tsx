@@ -322,27 +322,27 @@ export default function ChatModal({
             <Fragment key={msg.id}>
               {dayDivider}
               <div className="flex items-end justify-start gap-2">
-              <button
-                type="button"
-                onClick={() => void handlePeerAvatarClick(msg.sender_id)}
-                className={cn(
-                  "shrink-0 cursor-pointer overflow-visible rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
-                  avatarLoadingId !== null && "pointer-events-none",
-                  avatarLoadingId === msg.sender_id && "opacity-60",
-                )}
-                aria-label={`查看 ${targetUser.nickname} 的資料`}
-              >
-                <MasterAvatarShell
-                  role={targetUser.role}
-                  src={targetUser.avatar_url}
-                  nickname={targetUser.nickname}
-                  size={36}
-                  frameImageUrl={targetUser.equippedAvatarFrameImageUrl ?? null}
-                  frameEffectKey={targetUser.equippedAvatarFrameEffectKey ?? null}
-                  frameLayout={targetUser.equippedAvatarFrameLayout ?? null}
-                />
-              </button>
-              {bubble}
+                <button
+                  type="button"
+                  onClick={() => void handlePeerAvatarClick(msg.sender_id)}
+                  className={cn(
+                    "shrink-0 cursor-pointer overflow-visible rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
+                    avatarLoadingId !== null && "pointer-events-none",
+                    avatarLoadingId === msg.sender_id && "opacity-60",
+                  )}
+                  aria-label={`查看 ${targetUser.nickname} 的資料`}
+                >
+                  <MasterAvatarShell
+                    role={targetUser.role}
+                    src={targetUser.avatar_url}
+                    nickname={targetUser.nickname}
+                    size={36}
+                    frameImageUrl={targetUser.equippedAvatarFrameImageUrl ?? null}
+                    frameEffectKey={targetUser.equippedAvatarFrameEffectKey ?? null}
+                    frameLayout={targetUser.equippedAvatarFrameLayout ?? null}
+                  />
+                </button>
+                {bubble}
               </div>
             </Fragment>
           );
