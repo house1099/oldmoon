@@ -18,7 +18,7 @@
 5. **資料庫**：無。  
 6. **`HANDOFF.md`**：索引 **贈禮／`FloatingToolbar`**／**`rewards.action`** 補述；**「最近完成」** 新增本項。  
 7. **活躍度補述**（同次對話釐清，無程式變更）：探索列表 **`findVillageUsers`／`findMarketUsers`** 排除 **`activity_status = hidden`**；**`UserCard`** **`active`** 綠點、否則灰點、**`resting`** 顯示 **「休息中」**；**7／15 天** 轉 **`resting`／`hidden`** 以 **`HANDOFF_DB.md`**／雲端排程（**`last_checkin_at`**）為準；簽到 **`restoreActivityOnCheckin`** 設回 **`active`**。**`last_seen_at`** 與簽到語意不同，若採用需節流寫入。  
-8. **Git**：提交訊息 **`feat(gifts,tavern): batch gift single notify; inline @ mentions; handoff`**（程式＋**`HANDOFF.md`**／**`HANDOFF_HISTORY.md`** 首兩則條目）；已 **`git push`** **`origin/main`**（與下則酒館 @ 同提交；**`git log -1 --oneline`** 可查 hash）。
+8. **Git**：**`9558f63`** — **`feat(gifts,tavern): batch gift single notify; inline @ mentions; handoff`**（程式＋**`HANDOFF.md`**／**`HANDOFF_HISTORY.md`** 首兩則條目）；已 **`git push`** **`origin/main`**（與下則酒館 @ 同提交）。
 
 ### 2026-03-31 — 酒館 @ 提及輸入觸發與篩選
 
@@ -32,7 +32,7 @@
    - 選人：**`applyMentionPick`** 自 **`@` 至游標** 替換為 **`@暱稱 `**，遵守 **`maxLength`**。  
 4. **資料庫／後端**：無；**`tavern.action`** 仍以訊息串暱稱解析 **`@`**。  
 5. **`HANDOFF.md`**：索引 **酒館** 更新。  
-6. **Git**：與「贈禮單則通知」同一提交；已 **`git push`** **`origin/main`**。
+6. **Git**：與「贈禮單則通知」同提交 **`9558f63`**；已 **`git push`** **`origin/main`**。
 
 ### 2026-03-31 — 探索 UserCard 底列稱號縮小（`card` ≈ sm×1.1）
 
