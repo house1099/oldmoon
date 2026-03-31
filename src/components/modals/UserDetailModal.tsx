@@ -76,6 +76,8 @@ export type UserDetailModalProps = {
    * 自抬高 z-index 的 ChatModal（面板 z ≈ 此值）內開啟時傳入，使本 Modal 疊在聊天層之上（overlay +10、content +20）。
    */
   stackAboveChatZ?: number;
+  /** 首頁「他人視角」預覽：隱藏互動與管理員專屬區，且不載入社交狀態 */
+  publicPreview?: boolean;
 };
 
 export function UserDetailModal({
@@ -83,6 +85,7 @@ export function UserDetailModal({
   open,
   onOpenChange,
   stackAboveChatZ,
+  publicPreview = false,
 }: UserDetailModalProps) {
   const { mutate: globalMutate } = useSWRConfig();
   const { profile: myProfile } = useMyProfile();
@@ -125,6 +128,10 @@ export function UserDetailModal({
 
   useEffect(() => {
     if (!open) return;
+    if (publicPreview) {
+      setSocialLoading(false);
+      return;
+    }
     setSocialLoading(true);
     let cancelled = false;
     void getModalSocialStatusAction(user.id).then((status) => {
@@ -135,7 +142,7 @@ export function UserDetailModal({
     return () => {
       cancelled = true;
     };
-  }, [open, user.id]);
+  }, [open, user.id, publicPreview]);
 
   const u = resolvedProfile ?? user;
 
@@ -178,7 +185,8 @@ export function UserDetailModal({
       }).format(new Date(u.mood_at))
     : "";
 
-  const isCurrentUserMaster = myProfile?.role === "master";
+  const isCurrentUserMaster =
+    !publicPreview && myProfile?.role === "master";
 
   const likeLoading = likePending;
 
@@ -307,7 +315,7 @@ export function UserDetailModal({
   }
 
   let allianceButton: ReactNode = null;
-  if (isMutualLike) {
+  if (!publicPreview && isMutualLike) {
     allianceButton = (
       <div className="w-full">
         {socialLoading ? (
@@ -417,6 +425,12 @@ export function UserDetailModal({
             >
               <X className="h-4 w-4" />
             </button>
+
+            {publicPreview ? (
+              <p className="mb-3 pr-10 text-center text-[11px] leading-snug text-zinc-500">
+                以下為其他冒險者看到的內容
+              </p>
+            ) : null}
 
             <div className="flex items-start gap-5 pr-2">
               <div className="relative shrink-0 overflow-visible">
@@ -656,70 +670,72 @@ export function UserDetailModal({
           </div>
           </div>
 
-          <div className="flex-shrink-0 space-y-2.5 border-t border-zinc-800/60 bg-zinc-950 px-5 py-4">
-            <div className="flex gap-2.5">
-              <button
-                type="button"
-                onClick={() => void handleChat()}
-                disabled={chatOpening}
-                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-zinc-800/80 py-3 text-sm font-medium text-zinc-200 transition-colors hover:bg-zinc-700/80 active:scale-95 disabled:pointer-events-none disabled:opacity-60"
-              >
-                {chatOpening ? (
-                  <>
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-400/30 border-t-zinc-200" />
-                    開啟中…
-                  </>
-                ) : (
-                  <>
-                    <MessageCircle className="h-4 w-4" />
-                    聊聊
-                  </>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={handleToggleLike}
-                disabled={likeLoading || socialLoading}
-                className={cn(
-                  "flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium transition-all active:scale-95 disabled:opacity-60",
-                  isLiked
-                    ? "bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-lg shadow-pink-900/30"
-                    : "bg-zinc-800/80 text-zinc-200 hover:bg-zinc-700/80",
-                )}
-              >
-                {socialLoading || likeLoading ? (
-                  <span className="flex items-center gap-2">
-                    <span
-                      className={cn(
-                        "h-4 w-4 animate-spin rounded-full border-2",
-                        isLiked
-                          ? "border-white/30 border-t-white"
-                          : "border-zinc-400/30 border-t-zinc-200",
-                      )}
-                    />
-                    處理中…
-                  </span>
-                ) : isLiked ? (
-                  "💖 已送出緣分"
-                ) : (
-                  "🤍 送出緣分"
-                )}
-              </button>
+          {!publicPreview ? (
+            <div className="flex-shrink-0 space-y-2.5 border-t border-zinc-800/60 bg-zinc-950 px-5 py-4">
+              <div className="flex gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => void handleChat()}
+                  disabled={chatOpening}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-zinc-800/80 py-3 text-sm font-medium text-zinc-200 transition-colors hover:bg-zinc-700/80 active:scale-95 disabled:pointer-events-none disabled:opacity-60"
+                >
+                  {chatOpening ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-400/30 border-t-zinc-200" />
+                      開啟中…
+                    </>
+                  ) : (
+                    <>
+                      <MessageCircle className="h-4 w-4" />
+                      聊聊
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleToggleLike}
+                  disabled={likeLoading || socialLoading}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium transition-all active:scale-95 disabled:opacity-60",
+                    isLiked
+                      ? "bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-lg shadow-pink-900/30"
+                      : "bg-zinc-800/80 text-zinc-200 hover:bg-zinc-700/80",
+                  )}
+                >
+                  {socialLoading || likeLoading ? (
+                    <span className="flex items-center gap-2">
+                      <span
+                        className={cn(
+                          "h-4 w-4 animate-spin rounded-full border-2",
+                          isLiked
+                            ? "border-white/30 border-t-white"
+                            : "border-zinc-400/30 border-t-zinc-200",
+                        )}
+                      />
+                      處理中…
+                    </span>
+                  ) : isLiked ? (
+                    "💖 已送出緣分"
+                  ) : (
+                    "🤍 送出緣分"
+                  )}
+                </button>
+              </div>
+
+              {allianceButton}
+
+              {isCurrentUserMaster ? (
+                <button
+                  type="button"
+                  onClick={openLeaderTools}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-700/40 bg-gradient-to-r from-amber-900/60 to-orange-900/60 py-3 text-sm font-medium text-amber-300 transition-all hover:border-amber-600/60 active:scale-95"
+                >
+                  <Zap className="h-4 w-4" />
+                  領袖工具
+                </button>
+              ) : null}
             </div>
-
-            {allianceButton}
-
-            {isCurrentUserMaster ? (
-              <button
-                type="button"
-                onClick={openLeaderTools}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-700/40 bg-gradient-to-r from-amber-900/60 to-orange-900/60 py-3 text-sm font-medium text-amber-300 transition-all hover:border-amber-600/60 active:scale-95"
-              >
-                <Zap className="h-4 w-4" />
-                領袖工具
-              </button>
-            ) : null}
-          </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 

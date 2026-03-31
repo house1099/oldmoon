@@ -244,6 +244,8 @@ export default function ShopAdminClient() {
     cards: string[];
   }>({ root: [], avatars: [], cards: [] });
   const [localItems, setLocalItems] = useState<string[]>([]);
+  const [listTab, setListTab] = useState<"listed" | "delisted">("listed");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
   const shopImageInputRef = useRef<HTMLInputElement>(null);
   const framePreviewDragRef = useRef<{
     active: boolean;
@@ -484,6 +486,22 @@ export default function ShopAdminClient() {
     void load();
   }
 
+  const tabItems = useMemo(
+    () =>
+      items.filter((item) =>
+        listTab === "listed" ? item.is_active : !item.is_active,
+      ),
+    [items, listTab],
+  );
+
+  const filteredItems = useMemo(() => {
+    if (typeFilter === "all") return tabItems;
+    return tabItems.filter((item) => item.item_type === typeFilter);
+  }, [tabItems, typeFilter]);
+
+  const tabEmpty = tabItems.length === 0;
+  const filterEmpty = !tabEmpty && filteredItems.length === 0;
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -499,6 +517,48 @@ export default function ShopAdminClient() {
         <Button size="sm" onClick={openCreate}>
           <Plus className="mr-1 h-4 w-4" /> 新增商品
         </Button>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex max-w-md rounded-full bg-gray-100 p-1">
+          <button
+            type="button"
+            onClick={() => setListTab("listed")}
+            className={`flex-1 rounded-full px-3 py-2 text-sm font-medium transition-colors sm:flex-none sm:px-4 ${
+              listTab === "listed"
+                ? "bg-white text-emerald-700 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            上架中
+          </button>
+          <button
+            type="button"
+            onClick={() => setListTab("delisted")}
+            className={`flex-1 rounded-full px-3 py-2 text-sm font-medium transition-colors sm:flex-none sm:px-4 ${
+              listTab === "delisted"
+                ? "bg-white text-gray-700 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            已下架
+          </button>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-gray-600">
+          <span className="shrink-0">商品類型</span>
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-800 sm:max-w-xs sm:flex-none"
+          >
+            <option value="all">全部</option>
+            {ITEM_TYPE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {/* Desktop table */}
@@ -517,7 +577,7 @@ export default function ShopAdminClient() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {items.map((item) => (
+            {filteredItems.map((item) => (
               <tr key={item.id} className="hover:bg-gray-50/60">
                 <td className="px-3 py-2 font-mono text-xs text-gray-600">{item.sku}</td>
                 <td className="px-3 py-2 font-medium text-gray-900">{item.name}</td>
@@ -585,13 +645,29 @@ export default function ShopAdminClient() {
                 </td>
               </tr>
             )}
+            {items.length > 0 && tabEmpty && (
+              <tr>
+                <td colSpan={8} className="py-8 text-center text-gray-400">
+                  {listTab === "listed"
+                    ? "此分頁尚無上架中商品"
+                    : "此分頁尚無下架商品"}
+                </td>
+              </tr>
+            )}
+            {filterEmpty && (
+              <tr>
+                <td colSpan={8} className="py-8 text-center text-gray-400">
+                  此類型下沒有商品，請改選其他類型
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
 
       {/* Mobile cards */}
       <div className="md:hidden space-y-3">
-        {items.map((item) => (
+        {filteredItems.map((item) => (
           <div
             key={item.id}
             className="rounded-xl border border-gray-200 bg-white p-3 space-y-2"
@@ -649,6 +725,18 @@ export default function ShopAdminClient() {
         ))}
         {items.length === 0 && (
           <p className="py-8 text-center text-gray-400">尚無商品</p>
+        )}
+        {items.length > 0 && tabEmpty && (
+          <p className="py-8 text-center text-gray-400">
+            {listTab === "listed"
+              ? "此分頁尚無上架中商品"
+              : "此分頁尚無下架商品"}
+          </p>
+        )}
+        {filterEmpty && (
+          <p className="py-8 text-center text-gray-400">
+            此類型下沒有商品，請改選其他類型
+          </p>
         )}
       </div>
 

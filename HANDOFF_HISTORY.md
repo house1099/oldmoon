@@ -5,6 +5,27 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-31 — 首頁他人視角預覽與商城管理分頁／類型篩選
+
+1. **背景**：使用者需在首頁確認 **裝備／資料卡** 與他人點開 **`UserDetailModal`** 時一致；商城後台 **`/admin/shop`** 上架與下架商品混在同一列表，難以瀏覽，且需依 **商品類型**（與表單一致）篩選。
+2. **`src/components/modals/UserDetailModal.tsx`**  
+   - 新增可選 **`publicPreview?: boolean`**（預設 **`false`**）。  
+   - **`publicPreview === true`**：**不呼叫** **`getModalSocialStatusAction`**（**`useEffect`** 早退、**`socialLoading`** 視為結束）；**`isCurrentUserMaster`** 強制為 false，故不顯示 **信譽分**、**領袖工具**；血盟區僅在非預覽且 **`isMutualLike`** 時建置；底部 **聊聊／緣分** 整塊不渲染。  
+   - 頂部加淡色說明：**「以下為其他冒險者看到的內容」**。  
+   - 資料仍經 **`getMemberProfileByIdAction`**（與他人開卡相同 **`MemberProfileView`／`findEquippedRewardLabels`**）。
+3. **`src/components/profile/guild-profile-home.tsx`**  
+   - 大頭貼外層改 **`relative` 120×120**；內層 **`absolute inset-0`** 維持換頭像點擊區。  
+   - 右下角 **`Eye`** 圓鈕（**`z-[25]`**、邊框／**`bg-zinc-800/90`**／琥珀色圖示，對齊 **`FloatingToolbar`** 子鈕風格）；**`stopPropagation`**；上傳／裁切中 **disabled**。  
+   - **`UserDetailModal`**：**`user={profile}`**、**`publicPreview`**、**`open`／`onOpenChange`** 由本地 state 控制。
+4. **`src/app/(admin)/admin/shop/shop-admin-client.tsx`**  
+   - 狀態：**`listTab`** **`'listed' | 'delisted'`**（**`is_active`**）；**`typeFilter`** **`'all'`** 或 **`item_type`**。  
+   - **`useMemo`**：**`tabItems`** → **`filteredItems`**；桌機 **`<table>`** 與手機卡片皆 **`filteredItems.map`**。  
+   - 空狀態：**尚無商品**、**此分頁尚無上架中／下架商品**、**此類型下沒有商品**。  
+   - **後端**：無變更；仍 **`getShopItemsAdminAction`** 全量、**`findAllShopItems`** **`sort_order` 升序**。
+5. **驗證**：**`npm run build`**（Next **14.2.35**）通過；既有 **`no-img-element`** 警告與本次無關。
+6. **`HANDOFF.md`**：**「最近完成」** 置頂本項並刪去最舊一則（維持 5 則）；索引 **首頁**、**`UserDetailModal`**、**`shop-admin-client`** 補述。
+7. **Git**：本次提交訊息建議 **`feat(home,admin): public profile preview; shop listed/delisted tabs and type filter`**；**`git push`** **`origin/main`**。
+
 ### 2026-03-31 — 獎池權重輸入與私訊日期
 
 1. **背景**：後台獎項「權重」欄 **`onChange`** 將空字串或 **`parseInt` 失敗** 立即寫回 **`1`**（新增表單另有 **`|| "1"`**），導致無法先清空再輸入兩位數以上，體感像數字被鎖在 **1** 開頭。私訊 **`ChatModal`** 氣泡僅 **`toLocaleTimeString`**，跨日對話看不出日期。

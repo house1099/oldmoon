@@ -43,6 +43,7 @@ import { ShopCardFrameOverlay } from "@/components/ui/ShopCardFrameOverlay";
 import { TitleBadgeRow } from "@/components/ui/title-badge-row";
 import {
   ChevronRight,
+  Eye,
   LogOut,
   PencilLine,
   Settings,
@@ -89,6 +90,7 @@ import {
 } from "@/services/rewards.action";
 import { Textarea } from "@/components/ui/textarea";
 import { useOpenEquipmentSheet } from "@/components/layout/FloatingToolbar";
+import { UserDetailModal } from "@/components/modals/UserDetailModal";
 import { PushNotifyGuildRow } from "@/components/profile/PushNotifyGuildRow";
 import { clearPwaAppBadge } from "@/lib/utils/app-badge";
 
@@ -371,6 +373,7 @@ export function GuildProfileHome({
   const [savingMood, setSavingMood] = useState(false);
   const [countdown, setCountdown] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [publicPreviewOpen, setPublicPreviewOpen] = useState(false);
   const [igSaving, setIgSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(() =>
@@ -986,59 +989,76 @@ export function GuildProfileHome({
         />
 
         <div className="relative flex w-full flex-col items-center gap-5 overflow-visible text-center">
-          <div
-            className={cn(
-              "relative z-0 mx-auto overflow-visible rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
-              uploading || cropOpen
-                ? "cursor-not-allowed opacity-80"
-                : "cursor-pointer",
-            )}
-            style={{ width: 120, height: 120 }}
-            role="button"
-            tabIndex={uploading || cropOpen ? -1 : 0}
-            aria-label="更換大頭貼"
-            aria-disabled={uploading || cropOpen}
-            onClick={() => {
-              if (uploading || cropOpen) return;
-              fileInputRef.current?.click();
-            }}
-            onKeyDown={(e) => {
-              if (uploading || cropOpen) return;
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
+          <div className="relative z-0 mx-auto h-[120px] w-[120px] shrink-0 overflow-visible">
+            <div
+              className={cn(
+                "absolute inset-0 z-0 overflow-visible rounded-full border-2 border-white/20 bg-gradient-to-b from-zinc-800 to-zinc-950 shadow-[inset_0_2px_14px_rgba(255,255,255,0.1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/50",
+                uploading || cropOpen
+                  ? "cursor-not-allowed opacity-80"
+                  : "cursor-pointer",
+              )}
+              role="button"
+              tabIndex={uploading || cropOpen ? -1 : 0}
+              aria-label="更換大頭貼"
+              aria-disabled={uploading || cropOpen}
+              onClick={() => {
+                if (uploading || cropOpen) return;
                 fileInputRef.current?.click();
-              }
-            }}
-          >
-            <MasterAvatarShell
-              role={profile.role}
-              size={120}
-              src={avatarUrl}
-              nickname={profile?.nickname}
-              frameImageUrl={equippedHomeAvatar?.image_url ?? null}
-              frameEffectKey={equippedHomeAvatarEffectKey}
-              frameLayout={equippedHomeAvatar?.frame_layout ?? null}
-            />
+              }}
+              onKeyDown={(e) => {
+                if (uploading || cropOpen) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  fileInputRef.current?.click();
+                }
+              }}
+            >
+              <MasterAvatarShell
+                role={profile.role}
+                size={120}
+                src={avatarUrl}
+                nickname={profile?.nickname}
+                frameImageUrl={equippedHomeAvatar?.image_url ?? null}
+                frameEffectKey={equippedHomeAvatarEffectKey}
+                frameLayout={equippedHomeAvatar?.frame_layout ?? null}
+              />
 
-            {uploading && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center rounded-full bg-black/60">
-                <span className="text-xs text-white">上傳中…</span>
-              </div>
-            )}
+              {uploading && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center rounded-full bg-black/60">
+                  <span className="text-xs text-white">上傳中…</span>
+                </div>
+              )}
 
-            {!uploading && (
-              <div className="absolute inset-0 z-20 hidden items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity md:flex md:hover:opacity-100">
-                <span className="text-xs font-medium text-white">更換</span>
-              </div>
-            )}
+              {!uploading && (
+                <div className="absolute inset-0 z-20 hidden items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity md:flex md:hover:opacity-100">
+                  <span className="text-xs font-medium text-white">更換</span>
+                </div>
+              )}
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => void handleAvatarChange(e)}
-            />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => void handleAvatarChange(e)}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setPublicPreviewOpen(true);
+              }}
+              disabled={uploading || cropOpen}
+              className={cn(
+                "absolute bottom-0 right-0 z-[25] flex h-9 w-9 items-center justify-center rounded-full border border-zinc-700/40 bg-zinc-800/90 text-amber-200/95 shadow-md backdrop-blur-sm transition-transform hover:bg-zinc-700/90 active:scale-95",
+                uploading || cropOpen ? "pointer-events-none opacity-50" : null,
+              )}
+              aria-label="以他人視角檢視個人資料"
+              title="他人視角檢視"
+            >
+              <Eye className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden />
+            </button>
           </div>
 
           <div
@@ -2125,6 +2145,13 @@ export function GuildProfileHome({
           </div>
         </DialogContent>
       </Dialog>
+
+      <UserDetailModal
+        user={profile}
+        open={publicPreviewOpen}
+        onOpenChange={setPublicPreviewOpen}
+        publicPreview
+      />
 
       {/* Portal 到 body + absolute 上中下：避免 react-easy-crop 的 9999em box-shadow 在 iOS/WebKit 蓋過 flex 底部按鈕 */}
       {cropSrc &&
