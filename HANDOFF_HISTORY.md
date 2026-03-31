@@ -19,7 +19,7 @@
    - **`pillClassName`**：**`border-white/[0.14]`**、**`from-violet-500/[0.22] to-violet-950/[0.92]`** 微漸層、**`inset` 頂部高光**、**`ring-violet-400/20`**。
 4. **資料庫**：無。  
 5. **HANDOFF**：**`HANDOFF.md`** 索引 **`title-badge-row`** 補 **`lg`**；**「最近完成」** 新增本項。  
-6. **Git**：**`8685516`** — **`style(explore): UserCard title badge lg (~1.3x), Apple-like pill layout`**；已 **`git push`** **`origin/main`**。
+6. **Git**：**`f3906f9`** — **`style(explore): UserCard title badge lg (~1.3x), Apple-like pill layout`**；已 **`git push`** **`origin/main`**。
 
 ### 2026-03-31 — 探索列表稱號遺漏：村莊 SWR 重拉、`village-v7`、卡片頂緣標籤
 
