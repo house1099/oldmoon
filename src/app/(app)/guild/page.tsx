@@ -43,6 +43,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getRoleDisplay } from "@/lib/utils/role-display";
+import { markPwaInstallEngaged } from "@/lib/pwa-install-engagement";
 
 const tabs = ["血盟", "聊天", "信件"] as const;
 
@@ -112,6 +113,10 @@ export default function GuildPage() {
     const next = guildTabCtx?.takePendingGuildSubTab();
     if (next) setTab(next);
   }, [guildTabCtx, guildTabCtx?.guildNavTick, guildTabCtx?.takePendingGuildSubTab]);
+
+  useEffect(() => {
+    markPwaInstallEngaged();
+  }, []);
 
   const { data: pendingData } = useSWR(
     SWR_KEYS.pendingAlliances,

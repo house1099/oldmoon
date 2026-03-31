@@ -5,6 +5,45 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-31 — PWA 首頁安裝引導
+
+**背景**：提升黏著度，引導已審核通過使用者將公會安裝至主畫面；須避免已安裝（standalone）仍看到條、避免一進站就蓋台，並與 Chrome **`beforeinstallprompt`** 整合。
+
+1. **`src/hooks/usePwaInstall.ts`**（client）  
+   - 監聽 **`beforeinstallprompt`**：**`preventDefault`**，保存事件（**`ref` + `hasDeferredPrompt` state**）。  
+   - **`handleInstallClick`**：**`prompt()`**、**`await userChoice`**，用完清除。  
+   - **`appinstalled`**：清除 deferred，避免殘留。
+
+2. **`src/lib/pwa-install-prompt.ts`**  
+   - **`pwa_prompt_dismissed`**：**`localStorage`** 存 **`Date.now()`** 字串。  
+   - **`isPwaPromptInCooldown()`**／**`dismissPwaPrompt()`**：**3 日**內不顯示。
+
+3. **`src/lib/pwa-install-engagement.ts`**  
+   - **`sessionStorage`** 鍵 **`pwa_install_engaged`**；**`markPwaInstallEngaged()`**、**`hasPwaInstallEngaged()`**、**`subscribePwaInstallEngaged()`**（**`CustomEvent`** **`pwa-install-engaged`**，首頁 overlay 可即時顯示）。
+
+4. **`src/components/shared/PwaInstallOverlay.tsx`**  
+   - **隱藏**：**`matchMedia('(display-mode: standalone)')`** 或 **`fullscreen`**；**`navigator.standalone === true`**（iOS）；**iOS UA** 另含 **iPadOS（MacIntel + touch）** 補強。  
+   - **顯示條件**：已 engaged、非冷卻、非 standalone；**iOS** 顯示「分享 → 加入主畫面」+ **`Share2`／`ChevronDown`** **`animate-pulse`**；**非 iOS** 僅在 **`hasDeferredPrompt`** 時顯示 Android 文案與「立即安裝」。  
+   - **UI**：底部 **Bottom Sheet**（**`bg-zinc-950/90 backdrop-blur-xl border-t border-violet-500/30`**、**`z-50`**）、約 **1.7s** 延遲後滑入；「下次再說」呼叫 **`dismissPwaPrompt`**。
+
+5. **`src/app/(app)/home-page-client.tsx`**  
+   - 主內容末端掛 **`<PwaInstallOverlay />`**（僅首頁客端；**`page.tsx`** 已擋未完成註冊／待審核）。
+
+6. **`src/components/profile/guild-profile-home.tsx`**  
+   - **`useEffect`**：**`checkinDone`** 為真時 **`markPwaInstallEngaged()`**（含今日已簽）。
+
+7. **`src/app/(app)/guild/page.tsx`**  
+   - **`useEffect`** mount：**`markPwaInstallEngaged()`**（私訊入口 **`/inbox` → `/guild`** 已 redirect，無需改 inbox）。
+
+8. **資料庫**  
+   - 無。
+
+9. **架構**  
+   - 純 L5 + client hook + 小工具模組；無 Layer 2／3 變更。
+
+10. **建置／Git**  
+    - **`npm run build`** 通過；**`git push`**：**`51eb217`** **`feat(pwa): home install overlay, engagement gate, handoff docs`**。
+
 ### 2026-03-31 — 公會盲盒：商城與簽到一致、Lottie 開箱與獎項展示
 
 **背景**：商城 **`loot_box`** 與第 7 天簽到皆呼叫 **`drawFromPool('loot_box')`**；使用者易誤以為獎勵應進背包。另需以 Lottie 寶箱動畫取代 CSS 翻面，並在開箱後於中央展示獎項。

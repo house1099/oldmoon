@@ -15,6 +15,7 @@ import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { BROADCAST_MESSAGE_MAX_LENGTH } from "@/lib/constants/broadcast";
 import { DAILY_CHECKIN_ALREADY_CLAIMED } from "@/lib/constants/daily-checkin";
+import { markPwaInstallEngaged } from "@/lib/pwa-install-engagement";
 import {
   claimDailyCheckin,
   getMyStreakAction,
@@ -556,6 +557,10 @@ export function GuildProfileHome({
       : null;
     setCheckinDone(lastKey === todayKey);
   }, [profile.last_checkin_at]);
+
+  useEffect(() => {
+    if (checkinDone) markPwaInstallEngaged();
+  }, [checkinDone]);
 
   const showStreakDeadlineWarning = useMemo(() => {
     if (checkinDone || currentStreak <= 0) return false;
