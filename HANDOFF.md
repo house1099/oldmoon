@@ -95,11 +95,11 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 - `shop_items` — 商城商品
 - `shop_orders` — 商城訂單
 - `shop_daily_limits` — 商城每日限購
-- `market_listings` — 玩家自由市場上架（**`buy_market_item`／`cancel_market_listing`** RPC；**`system_settings`** **`market_*`**）
+- `market_listings` — 玩家自由市場上架（`buy_market_item`／`cancel_market_listing` RPC）
 
 ## ✅ 最近完成（最新 5 次任務）
 
-1. **2026-03-31 — 玩家自由市場 DB 地基**：遷移 **`20260401000000_market_listings.sql`** — **`coin_transactions.source`** 保留既有值並新增 **`market_trade_buy`／`market_trade_sell`**；**`system_settings`** **`market_tax_rate`／`market_max_listings_per_user`／`market_listing_days`**；**`market_listings`** 表（enum、索引、**`updated_at`** trigger、**RLS**）；**`buy_market_item`**（**`coin_type` `free`／`premium`**、**`balance_after`** 與 L2 一致）、**`cancel_market_listing`**（**`service_role` EXECUTE**）。**`database.types.ts`** 表與 **`MarketListingRow`／`MarketListingInsert`**；商城／後台金流標籤與 **`findCoinTransactionsWithFilters`**「購買」類含市場與 **`shop_resell`**。**Supabase MCP** 本機未掛 **`execute_sql`／`apply_migration`**，雲端請 **`supabase db push`** 或 Dashboard 套用遷移。**`npx tsc --noEmit`** 通過。詳見 **`HANDOFF_HISTORY.md`**（**「玩家自由市場 DB 地基（2026-03-31）」**）。
+1. **2026-03-31 — 玩家自由市場 DB 地基**：**`coin_transactions.source`** 擴充 **`market_trade_buy`／`market_trade_sell`**（保留既有 **`shop_purchase`** 等）；**`system_settings`** **`market_tax_rate`／`market_max_listings_per_user`／`market_listing_days`**；**`market_listings`** 表與 **`buy_market_item`／`cancel_market_listing`**（**`SECURITY DEFINER`**、**`search_path`**、**`balance_after`**／**`free`／`premium`** 流水幣別與上架 **`free_coins`／`premium_coins`** 對齊）；遷移 **`20260401000000_market_listings.sql`**；**`database.types.ts`**；商城／後台金流標籤與 **`findCoinTransactionsWithFilters`** 購買類別納入市場來源。**`npx tsc --noEmit`**、**`npm run build`** 通過。詳見 **`HANDOFF_HISTORY.md`**（**「玩家自由市場 DB 地基（2026-03-31）」**）。
 2. **2026-03-31 — Usercard 間距、背包擴充道具化、自白換行**：**`UserDetailModal`** 英雄區 **頭像／資訊** **`gap-6`／`pl-2`**；**`bio_village`／`bio_market`** **`whitespace-pre-wrap break-words`**。**`shop.action.ts`** **`bag_expansion`** 改 **`insertUserReward`**（**`reward_type: bag_expansion`**），修正滿格仍扣款且無背包列／商城贈送 **`newRewardIds`** 為空之問題。**`rewards.action.ts`** **`consumeBagExpansionAction`**（欄位已 **48** 則提示改贈送）。**`FloatingToolbar`** **🎒** 樣式、點選 **AlertDialog** 確認後使用。**無 DB 遷移**。**`npm run build`** 通過。詳見 **`HANDOFF_HISTORY.md`**（**「Usercard 間距、背包擴充道具化、自白換行（2026-03-31）」**）。
 3. **2026-03-31 — 資料卡頭像框裁切修正 + 前台商城種類篩選**：**`UserDetailModal`** **`DialogContent` `overflow-visible`**；**`relative z-[2]`** 內 **頭像／心情** 與 **`flex-1 overflow-y-auto`** 捲動區**分離**（商城頭像框翅膀不再被捲動層裁切）；header **`px-7`**。**`(app)/shop/page.tsx`** **`shopCategoryFilter`**、**`ITEM_TYPE_LABELS`**／**`SHOP_CATEGORY_KEYS`**、**`displayItems`** **`useMemo`**；幣別 Tab 下種類 **`select`**；**`switchTab`** 重設 **全部**；空態 **「此分類暫無商品」**。**`npm run build`** 通過。詳見 **`HANDOFF_HISTORY.md`**（**「UserDetailModal 頭像框裁切修正與前台商城種類篩選（2026-03-31）」**）。
 4. **2026-03-31 — 首頁他人視角預覽 + 商城管理分頁／類型篩選**：**`UserDetailModal`** 新增 **`publicPreview`**（略過 **`getModalSocialStatusAction`**、隱藏聊聊／緣分／血盟／信譽／領袖工具、頂部說明文案）；**`guild-profile-home.tsx`** 大頭貼右下角 **Lucide `Eye`** 開預覽（**`stopPropagation`**，與快捷列同風格圓鈕）；**`shop-admin-client.tsx`** **上架中／已下架** 分頁（**`is_active`**）+ **商品類型** 下拉（**`ITEM_TYPE_OPTIONS`**／**item_type**，桌機表與手機卡片共用 **`filteredItems`**）。詳見 **`HANDOFF_HISTORY.md`**（**「首頁他人視角預覽與商城管理分頁／類型篩選（2026-03-31）」**）。
@@ -116,10 +116,11 @@ Layer 1（連線）→ Layer 2（Repository）→ Layer 3（Action）→ Layer 4
 
 ## 🔲 下一步待辦
 
-1. **Phase 2.2／雲端**：`alliances`、私訊、`likes` 等政策與 **`HANDOFF_DB.md` RLS 規範**一致化；production 測試；Schema 與 `database.types.ts` 對齊。
-2. **產品／UX**：`/explore` 篩選與技能供需編輯；登入心跳 `last_seen_at`。
-3. **維運**：雲端缺獎池時補種子；重大 DDL 後 Reload schema。
-4. **功能規劃深查**：模組 ✅/🔲、視覺待辦見 `HANDOFF_FEATURES.md`。
+1. **玩家市場**：上架／瀏覽 UI 與 Layer 2–3；**`market_listings`** **RLS**（對照 **`HANDOFF_DB.md`**）；master 下架權限若需請擴充 **`cancel_market_listing`** 或僅應用層呼叫 service_role。
+2. **Phase 2.2／雲端**：`alliances`、私訊、`likes` 等政策與 **`HANDOFF_DB.md` RLS 規範**一致化；production 測試；Schema 與 `database.types.ts` 對齊。
+3. **產品／UX**：`/explore` 篩選與技能供需編輯；登入心跳 `last_seen_at`。
+4. **維運**：雲端缺獎池時補種子；重大 DDL 後 Reload schema。
+5. **功能規劃深查**：模組 ✅/🔲、視覺待辦見 `HANDOFF_FEATURES.md`。
 
 ## 📚 子檔案說明
 

@@ -1,6 +1,7 @@
 -- =============================================
--- 玩家自由市場：coin_transactions.source、system_settings、market_listings、RPC
--- coin_transactions.source 沿用既有值並新增 market_trade_buy / market_trade_sell（勿改用 purchase 等別名，以免破壞現有流水）。
+-- 玩家自由市場：coin_transactions.source 擴充、system_settings、market_listings、RPC
+-- 註：source 約束保留既有值（shop_purchase、topup 等），並新增 market_trade_*。
+-- coin_transactions.coin_type 仍為 free / premium（與 user 欄位 free_coins / premium_coins 分離）。
 -- =============================================
 
 ALTER TABLE public.coin_transactions DROP CONSTRAINT IF EXISTS coin_transactions_source_check;
@@ -33,7 +34,10 @@ INSERT INTO public.system_settings (key, value) VALUES
   ('market_listing_days',          '7')
 ON CONFLICT (key) DO NOTHING;
 
--- status enum
+-- =============================================
+-- 玩家自由市場：market_listings 資料表
+-- =============================================
+
 DO $$ BEGIN
   CREATE TYPE public.market_listing_status AS ENUM
     ('active', 'sold', 'cancelled', 'expired');
@@ -67,8 +71,6 @@ CREATE INDEX IF NOT EXISTS market_listings_seller_idx
 CREATE INDEX IF NOT EXISTS market_listings_shop_item_idx
   ON public.market_listings (shop_item_id);
 
-ALTER TABLE public.market_listings ENABLE ROW LEVEL SECURITY;
-
 CREATE OR REPLACE FUNCTION public.set_updated_at()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
@@ -80,10 +82,10 @@ $$;
 DROP TRIGGER IF EXISTS market_listings_updated_at ON public.market_listings;
 CREATE TRIGGER market_listings_updated_at
   BEFORE UPDATE ON public.market_listings
-  FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- =============================================
--- RPC：buy_market_item（coin_transactions 使用 coin_type free/premium 與 balance_after，與 L2 coin.repository 一致）
+-- RPC：buy_market_item
 -- =============================================
 CREATE OR REPLACE FUNCTION public.buy_market_item(
   p_listing_id uuid,
@@ -95,14 +97,14 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_listing       public.market_listings%ROWTYPE;
-  v_buyer_coins   integer;
-  v_tax_rate      numeric;
-  v_tax_amount    integer;
-  v_seller_gets   integer;
-  v_coin_pg       text;
-  v_buyer_after   integer;
-  v_seller_after  integer;
+  v_listing              public.market_listings%ROWTYPE;
+  v_buyer_coins          integer;
+  v_tax_rate             numeric;
+  v_tax_amount           integer;
+  v_seller_gets          integer;
+  v_ledger_coin          text;
+  v_buyer_balance_after  integer;
+  v_seller_balance_after integer;
 BEGIN
   SELECT * INTO v_listing
   FROM public.market_listings
@@ -129,11 +131,9 @@ BEGIN
   END IF;
 
   IF v_listing.currency_type = 'free_coins' THEN
-    v_coin_pg := 'free';
-  ELSIF v_listing.currency_type = 'premium_coins' THEN
-    v_coin_pg := 'premium';
+    v_ledger_coin := 'free';
   ELSE
-    RETURN jsonb_build_object('ok', false, 'error', 'invalid_currency');
+    v_ledger_coin := 'premium';
   END IF;
 
   IF v_listing.currency_type = 'free_coins' THEN
@@ -151,7 +151,7 @@ BEGIN
   SELECT COALESCE(value::numeric, 0) INTO v_tax_rate
   FROM public.system_settings WHERE key = 'market_tax_rate';
 
-  v_tax_amount  := FLOOR(v_listing.price * v_tax_rate / 100)::integer;
+  v_tax_amount  := FLOOR(v_listing.price * v_tax_rate / 100);
   v_seller_gets := v_listing.price - v_tax_amount;
 
   IF v_listing.currency_type = 'free_coins' THEN
@@ -173,11 +173,11 @@ BEGIN
   END IF;
 
   IF v_listing.currency_type = 'free_coins' THEN
-    SELECT free_coins INTO v_buyer_after FROM public.users WHERE id = p_buyer_id;
-    SELECT free_coins INTO v_seller_after FROM public.users WHERE id = v_listing.seller_id;
+    SELECT free_coins INTO v_buyer_balance_after FROM public.users WHERE id = p_buyer_id;
+    SELECT free_coins INTO v_seller_balance_after FROM public.users WHERE id = v_listing.seller_id;
   ELSE
-    SELECT premium_coins INTO v_buyer_after FROM public.users WHERE id = p_buyer_id;
-    SELECT premium_coins INTO v_seller_after FROM public.users WHERE id = v_listing.seller_id;
+    SELECT premium_coins INTO v_buyer_balance_after FROM public.users WHERE id = p_buyer_id;
+    SELECT premium_coins INTO v_seller_balance_after FROM public.users WHERE id = v_listing.seller_id;
   END IF;
 
   UPDATE public.user_rewards
@@ -195,26 +195,26 @@ BEGIN
   WHERE id = p_listing_id;
 
   INSERT INTO public.coin_transactions
-    (user_id, amount, coin_type, balance_after, source, reference_id, note)
+    (user_id, amount, coin_type, balance_after, source, note, reference_id)
   VALUES
     (p_buyer_id,
      -v_listing.price,
-     v_coin_pg,
-     v_buyer_after,
+     v_ledger_coin,
+     v_buyer_balance_after,
      'market_trade_buy',
-     p_listing_id,
-     '購買市場道具，訂單 ' || p_listing_id::text);
+     '購買市場道具，訂單 ' || p_listing_id::text,
+     p_listing_id::text);
 
   INSERT INTO public.coin_transactions
-    (user_id, amount, coin_type, balance_after, source, reference_id, note)
+    (user_id, amount, coin_type, balance_after, source, note, reference_id)
   VALUES
     (v_listing.seller_id,
      v_seller_gets,
-     v_coin_pg,
-     v_seller_after,
+     v_ledger_coin,
+     v_seller_balance_after,
      'market_trade_sell',
-     p_listing_id,
-     '市場道具售出，訂單 ' || p_listing_id::text);
+     '市場道具售出，訂單 ' || p_listing_id::text,
+     p_listing_id::text);
 
   RETURN jsonb_build_object(
     'ok',           true,
@@ -271,9 +271,9 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.buy_market_item(uuid, uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.buy_market_item(uuid, uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.buy_market_item(uuid, uuid) TO authenticated, service_role;
 
 REVOKE ALL ON FUNCTION public.cancel_market_listing(uuid, uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.cancel_market_listing(uuid, uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.cancel_market_listing(uuid, uuid) TO authenticated, service_role;
 
 NOTIFY pgrst, 'reload schema';

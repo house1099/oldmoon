@@ -7,12 +7,15 @@
 
 ### 2026-03-31 — 玩家自由市場 DB 地基
 
-1. **背景**：建立玩家自由市場之資料庫與 RPC；**`coin_transactions`** 須與既有 **`shop_purchase`／`admin_*`** 等來源並存；流水寫入須與 **`coin.repository.ts`** 一致（**`coin_type` `free`／`premium`**、**`balance_after`**）。
-2. **遷移 `supabase/migrations/20260401000000_market_listings.sql`**：**`coin_transactions_source_check`** 擴充 **`market_trade_buy`／`market_trade_sell`**（保留既有陣列，**未**改用任務稿之 **`purchase`** 等別名）；**`system_settings`** 三鍵 **`ON CONFLICT DO NOTHING`**；**`market_listing_status`** enum、**`market_listings`** 表、部分 unique／ btree 索引、**`set_updated_at`**＋trigger、**`ENABLE ROW LEVEL SECURITY`**；**`buy_market_item`**（**`FOR UPDATE`**、稅率 **`market_tax_rate`**、轉移 **`user_rewards`**、雙筆 **`coin_transactions`**）；**`cancel_market_listing`**；**`REVOKE`／`GRANT`** **`service_role`**；**`NOTIFY pgrst`**。
-3. **型別與 UI**：**`src/types/database.types.ts`** — **`market_listings`** 表、**`Functions`**、**`MarketListingStatus`／`MarketListingRow`／`MarketListingInsert`**；**`coin_transactions.source`** 聯集；**`shop/page.tsx`** **`SOURCE_LABEL`**；**`coins-admin-client.tsx`** **`sourceToCategory`**；**`coin.repository.ts`** **`sourcesForLedgerCategory('purchase')`** 補 **`shop_resell`** 與市場兩來源。
-4. **MCP**：Cursor 專案內 **user-supabase** 僅 **`SERVER_METADATA.json`**，無 **`execute_sql`／`apply_migration`** 工具描述檔；雲端 DDL 請 **`supabase db push`** 或 Dashboard SQL。
-5. **驗證**：**`npx tsc --noEmit`** 通過。
-6. **Git**：**`feat(market): DB schema, buy/cancel RPC, coin_transactions source, system_settings`**。
+1. **目標**：雲端與 repo 建立玩家自由市場 schema、幣流水來源、設定鍵與交易 RPC。
+2. **Supabase MCP**：查詢 **`coin_transactions`** CHECK；**`execute_sql`** 擴充 **`source`**（保留既有 **`shop_purchase`／`topup`／`admin_*` 等**，新增 **`market_trade_buy`／`market_trade_sell`**）；**`system_settings`** 三鍵 **`ON CONFLICT DO NOTHING`**；**`apply_migration`**（**`market_listings`**）套用與 repo 遷移檔一致之 DDL／RPC。
+3. **遷移** 🗄️ **`supabase/migrations/20260401000000_market_listings.sql`**：**`market_listing_status`** enum、**`market_listings`** 表與索引（**`user_reward_id`** 單一 **active**）、**`set_updated_at`** trigger、**`buy_market_item`／`cancel_market_listing`**（**`SECURITY DEFINER`**、**`SET search_path = public`**）；買賣流水寫入 **`coin_transactions`** 時 **`coin_type`** 為 **`free`／`premium`**（與 **`users.free_coins`／`premium_coins`** 欄位語意區隔）、必填 **`balance_after`**、**`reference_id`**；**`GRANT EXECUTE`** 予 **`authenticated`／`service_role`**。
+4. **與規格稿差異**：未採用僅含 **`purchase`** 之 **`source`** 白名單（會與現有 **`shop_purchase`** 等衝突）；上架幣別維持 **`free_coins`／`premium_coins`**，流水表維持 **`free`／`premium`**。
+5. **TypeScript**：**`database.types.ts`** — **`MarketListingStatus`／`MarketListingRow`／`MarketListingInsert`**、**`market_listings`** 表、**`coin_transactions.source`**、**Functions**；**`market_listings`** 之 **`Row`／`Insert`** 採內聯定義（**`Row: MarketListingRow`** 會導致 Supabase Client 推斷 **`never`**，故避免）。
+6. **其餘**：**`shop/page.tsx`** **`SOURCE_LABEL`**；**`coin.repository.ts`** **`sourcesForLedgerCategory`**（**`purchase`** 含 **`shop_resell`** 與市場來源）；**`coins-admin-client.tsx`** **`sourceToCategory`**。
+7. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+8. **架構**：僅型別與標籤／篩選對齊；無 UI 跨層直連 DB。
+9. **`HANDOFF.md`**：表清單、最近完成、下一步待辦（市場 RLS／UI）。
 
 ### 2026-03-31 — Usercard 間距、背包擴充道具化、自白換行
 
