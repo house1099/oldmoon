@@ -336,15 +336,17 @@ export function MarketSheet({
       const r = await buyListingAction(buyTarget.id);
       if (!r.ok) {
         toast.error(
-          r.error === "insufficient_balance"
-            ? "餘額不足"
-            : r.error === "cannot_buy_own_listing"
-              ? "無法購買自己的上架"
-              : r.error === "listing_expired"
-                ? "此上架已過期"
-                : r.error === "listing_not_active"
-                  ? "此上架已失效"
-                  : r.error ?? "購買失敗",
+          r.error === "market_disabled"
+            ? "拍賣場目前已關閉"
+            : r.error === "insufficient_balance"
+              ? "餘額不足"
+              : r.error === "cannot_buy_own_listing"
+                ? "無法購買自己的上架"
+                : r.error === "listing_expired"
+                  ? "此上架已過期"
+                  : r.error === "listing_not_active"
+                    ? "此上架已失效"
+                    : r.error ?? "購買失敗",
         );
         return;
       }
@@ -397,7 +399,11 @@ export function MarketSheet({
         currencyType: uploadCurrency,
       });
       if (!r.ok) {
-        toast.error(r.error ?? "上架失敗");
+        toast.error(
+          r.error === "market_disabled"
+            ? "拍賣場目前已關閉"
+            : (r.error ?? "上架失敗"),
+        );
         return;
       }
       toast.success("上架成功！");

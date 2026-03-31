@@ -53,6 +53,7 @@ import {
   findSystemSettingByKey,
   findInvitationUsesByCodeId,
 } from "@/lib/repositories/server/invitation.repository";
+import { cancelAllActiveListingsByUser } from "@/lib/repositories/server/market-listing.repository";
 import {
   creditCoins,
   getCoinStats,
@@ -108,7 +109,7 @@ type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
-async function requireRole(allowedRoles: ("master" | "moderator")[]) {
+export async function requireRole(allowedRoles: ("master" | "moderator")[]) {
   const supabase = createClient();
   const {
     data: { user },
@@ -222,6 +223,11 @@ export async function banUserAction(
     const { user, profile: operator } = await requireRole(["master", "moderator"]);
     const { target } = await checkOperationPermission(user.id, userId);
     await updateUserStatus(userId, "banned", reason);
+    try {
+      await cancelAllActiveListingsByUser(userId);
+    } catch (e) {
+      console.error("封號自動下架失敗:", e);
+    }
     await insertAdminAction({
       admin_id: user.id,
       target_user_id: userId,

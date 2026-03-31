@@ -11,6 +11,7 @@ import {
   Gift,
   Megaphone,
   ShoppingBag,
+  Store,
   Coins,
   Lock,
   Settings,
@@ -91,6 +92,12 @@ export function AdminShell({
       label: "商城管理",
       Icon: ShoppingBag,
       show: isMaster,
+    },
+    {
+      href: "/admin/market",
+      label: "市場管理",
+      Icon: Store,
+      show: isMaster || role === "moderator",
     },
     {
       href: "/admin/coins",

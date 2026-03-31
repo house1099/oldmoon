@@ -5,6 +5,16 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-04-01 — 玩家自由市場 RLS／封號下架／後台市場
+
+1. **目標**：補齊 **`market_listings` RLS**（防禦縱深）、**封號**時自動 **cancel** 該用戶 **active** 上架、**`/admin/market`** 後台（監控／上架／成交／異常／設定）、**`market_enabled`** 總開關與前台 **create/buy** 攔截。
+2. **資料庫** 🗄️：**`supabase/migrations/20260401100000_market_listings_rls.sql`** — **`ENABLE ROW LEVEL SECURITY`**；**Policy** **`anyone can view active listings`**（**`authenticated`**、**`status=active` AND `expires_at>now()`**）；**`seller can view own listings`**（**`seller_id=auth.uid()`**）；無 **INSERT／UPDATE／DELETE** policy（寫入走 **service_role**／RPC）；**`NOTIFY pgrst`**。**`20260401100500_market_enabled_setting.sql`** — **`system_settings`** **`market_enabled`** **`'true'`** **`ON CONFLICT DO NOTHING`**。雲端以 **Supabase MCP `execute_sql`** 套用 RLS 與 **`market_enabled`** 種子。
+3. **Layer 2** **`market-listing.repository.ts`**：**`ACTIVE_LISTING_SELECT`** 增 **`buyer:users!market_listings_buyer_id_fkey`**；**`mapRawToDetail`** **`buyer`**；**`cancelAllActiveListingsByUser`**；**`getMarketStats`**（**上架中**、**台北曆日** **今日成交**、**已售出**加總 **free/premium**、**異常筆數**）；**`findAllListingsForAdmin`／`findSoldListingsForAdmin`**（暱稱／道具名 **ilike** 子查詢 **id**、分頁 **20**）；**`adminCancelListing`**（**`active`→`cancelled`**、**`.select` 驗證列數**）；**`findSuspiciousListings`**（**`price<=1 OR >99999`**、**`active|sold`**、**LIMIT 50**）。
+4. **Layer 3** **`admin.action.ts`**：**`export requireRole`**；**`banUserAction`** 於 **`updateUserStatus(…,banned)`** 後 **`try/catch`** **`cancelAllActiveListingsByUser`**。**`market-listing.action.ts`**：**`findSystemSettingByKey('market_enabled')`** 於 **`createListingAction`／`buyListingAction`**（**`=== 'false'`** → **`market_disabled`**）；**`getMarketStatsAction`／`getAllListingsForAdminAction`／`getSoldListingsForAdminAction`／`adminCancelListingAction`／`getSuspiciousListingsAction`／`getMarketSettingsSnapshotAction`**（**master|moderator**）；**`updateMarketSettingsAction`**（**master**、**`repoUpdateSystemSetting`**、範圍驗證、**`revalidateTag('system_settings')`**）；**`adminCancelListingAction`** 成功 **`revalidateTag('market_sold')`**、**`revalidatePath('/')`**。
+5. **Layer 5**：**`src/app/(admin)/admin/market/page.tsx`**（**`getAuthStatus`**、**master／moderator**）；**`market-admin-client.tsx`** — 五 **Tab**（統計卡、**拍賣場**開關 **AlertDialog**、異常條、上架表／強制下架、成交唯讀、異常表、系統設定 **master** 儲存／**snapshot** 現值）；**`admin-shell.tsx`** **Store「市場管理」**；**`middleware.ts`** **`moderatorAllowedPrefixes`** **`/admin/market`**；**`MarketSheet.tsx`／`FloatingToolbar.tsx`** **`market_disabled`** **toast**。
+6. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+7. **Git**：**`feat(market): RLS policy, ban auto-delist, admin market page`**；**`git push`** **`origin/main`**。
+
 ### 2026-03-31 — 自由市場 UI 補齊
 
 1. **目標**：補齊玩家自由市場 UI（工具列子鈕排版、**「自由市場」** 產品用語、**`MarketSheet`** 標題列與返回、Tab **拍賣市集**、最近成交行情跑馬燈、列表道具預覽與價格樣式、**`MarketSheet`** 內 **＋ 上架** Dialog）；L2／L3 提供 **`getRecentSoldListingsAction`**；購買成功後使行情快取失效。

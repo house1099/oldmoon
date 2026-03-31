@@ -2440,7 +2440,11 @@ function FloatingToolbarInner({
                       currencyType: marketListCurrency,
                     });
                     if (!r.ok) {
-                      toast.error(r.error ?? "上架失敗");
+                      toast.error(
+                        r.error === "market_disabled"
+                          ? "拍賣場目前已關閉"
+                          : (r.error ?? "上架失敗"),
+                      );
                       return;
                     }
                     toast.success("已上架至自由市場");
