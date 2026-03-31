@@ -22,7 +22,7 @@
 4. **資料庫／後端**：無。
 5. **驗證**：**`npm run build`** 通過。
 6. **`HANDOFF.md`**：**「最近完成」** 置頂本項；刪去最舊一則（維持 5 則）；索引 **商城**、**`UserDetailModal`** 補述。
-7. **Git**：見本次提交 **短 hash**（推送後於本條補登）。
+7. **Git**：**`84fa018`** — **`fix(ui): UserDetailModal avatar frame overflow; shop category filter`**；已 **`git push`** **`origin/main`**。
 
 ### 2026-03-31 — 首頁他人視角預覽與商城管理分頁／類型篩選
 
