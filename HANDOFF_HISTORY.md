@@ -24,7 +24,7 @@
    - **後端**：無變更；仍 **`getShopItemsAdminAction`** 全量、**`findAllShopItems`** **`sort_order` 升序**。
 5. **驗證**：**`npm run build`**（Next **14.2.35**）通過；既有 **`no-img-element`** 警告與本次無關。
 6. **`HANDOFF.md`**：**「最近完成」** 置頂本項並刪去最舊一則（維持 5 則）；索引 **首頁**、**`UserDetailModal`**、**`shop-admin-client`** 補述。
-7. **Git**：本次提交訊息建議 **`feat(home,admin): public profile preview; shop listed/delisted tabs and type filter`**；**`git push`** **`origin/main`**。
+7. **Git**：**`30e0f8c`** — **`feat(home,admin): public profile preview; shop listed/delisted tabs and type filter`**；已 **`git push`** **`origin/main`**。
 
 ### 2026-03-31 — 獎池權重輸入與私訊日期
 
