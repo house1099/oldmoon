@@ -14,7 +14,7 @@
    - **`lg`／`xl`** 仍保留供其他版面。  
 3. **`src/components/ui/UserCard.tsx`**：村莊／市集底列 **TitleBadgeRow** **`xl` → `card`**。  
 4. **`HANDOFF.md`**：索引 **`title-badge-row`** 補 **`card`**；**「最近完成」** 新增本項。  
-5. **Git**：**`b2d4a01`** — **`style(explore): UserCard title badge card size (~sm x1.1) to avoid crowding tags`**（程式）；**`27e398d`** — **`docs(handoff): UserCard card title row HISTORY + LUFFY section sync`**；**`441e4b4`** — **`docs(handoff): record doc commit hash for card title task`**；皆已 **`git push`** **`origin/main`**。
+5. **Git**：**`b2d4a01`** — **`style(explore): UserCard title badge card size (~sm x1.1) to avoid crowding tags`**（程式）；**HANDOFF**／**HISTORY** 補登與 LUFFY 條目校正 — 見 **`origin/main`** 上 **`docs(handoff): UserCard card title row`** 起之連續提交（含 **`27e398d`**）；皆已 **`git push`** **`origin/main`**。
 
 ### 2026-03-31 — 探索 UserCard 稱號底列與 LUFFY 胸章
 
