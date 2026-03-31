@@ -427,7 +427,7 @@ export function UserDetailModal({
               </p>
             ) : null}
 
-            <div className="flex items-start gap-5 pr-2">
+            <div className="flex items-start gap-6 pr-2">
               <div className="relative shrink-0 overflow-visible">
                 <MasterAvatarShell
                   role={u.role}
@@ -451,7 +451,7 @@ export function UserDetailModal({
                 </MasterAvatarShell>
               </div>
 
-              <div className="min-w-0 flex-1 space-y-2 pl-0.5">
+              <div className="min-w-0 flex-1 space-y-2 pl-2">
                 <div className="flex flex-wrap items-center gap-1.5">
                   {roleCrown ? <span aria-hidden>{roleCrown}</span> : null}
                   <h2
@@ -534,7 +534,7 @@ export function UserDetailModal({
                 <p className="mb-1.5 text-[10px] font-medium text-violet-400">
                   🏡 興趣自白
                 </p>
-                <p className="text-sm leading-relaxed text-zinc-300">
+                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zinc-300">
                   {u.bio_village}
                 </p>
               </div>
@@ -545,7 +545,7 @@ export function UserDetailModal({
                 <p className="mb-1.5 text-[10px] font-medium text-amber-400">
                   ⚔️ 技能自白
                 </p>
-                <p className="text-sm leading-relaxed text-zinc-300">
+                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zinc-300">
                   {u.bio_market}
                 </p>
               </div>

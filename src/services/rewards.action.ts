@@ -3,7 +3,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidateTag, unstable_cache } from "next/cache";
 import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
-import { findProfileById } from "@/lib/repositories/server/user.repository";
+import {
+  findProfileById,
+  updateProfile,
+} from "@/lib/repositories/server/user.repository";
 import { updateMyProfile } from "@/services/profile-update.action";
 import {
   BROADCAST_MESSAGE_LENGTH_ERROR,
@@ -327,6 +330,65 @@ export async function consumeRenameCardAction(
   await markUserRewardConsumed(card.id);
   revalidateTag(profileCacheTag(user.id));
   return { ok: true, newNickname: parsed.data };
+}
+
+const MAX_INVENTORY_SLOTS = 48;
+
+export async function consumeBagExpansionAction(
+  rewardId: string,
+): Promise<{ ok: true; newSlots: number } | { ok: false; error: string }> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "未登入" };
+
+  const row = await findUserRewardById(rewardId);
+  if (!row || row.user_id !== user.id) {
+    return { ok: false, error: "找不到道具" };
+  }
+  if (row.reward_type !== "bag_expansion") {
+    return { ok: false, error: "不是背包擴充包" };
+  }
+  if (row.used_at != null) {
+    return { ok: false, error: "此擴充包已使用" };
+  }
+  if (row.is_equipped) {
+    return { ok: false, error: "請先卸下再使用" };
+  }
+
+  const profile = await findProfileById(user.id);
+  const currentSlots =
+    profile && typeof profile.inventory_slots === "number"
+      ? Math.min(MAX_INVENTORY_SLOTS, Math.max(0, profile.inventory_slots))
+      : 16;
+  if (currentSlots >= MAX_INVENTORY_SLOTS) {
+    return {
+      ok: false,
+      error: "背包欄位已全開，無法再使用；可贈送給其他冒險者。",
+    };
+  }
+
+  const newSlots = Math.min(MAX_INVENTORY_SLOTS, currentSlots + 4);
+  try {
+    await updateProfile(user.id, { inventory_slots: newSlots });
+  } catch (e) {
+    console.error("consumeBagExpansionAction updateProfile:", e);
+    return { ok: false, error: "解鎖失敗，請稍後再試" };
+  }
+
+  try {
+    await markUserRewardConsumed(rewardId);
+  } catch (e) {
+    console.error("consumeBagExpansionAction mark consumed:", e);
+    await updateProfile(user.id, { inventory_slots: currentSlots }).catch(
+      () => {},
+    );
+    return { ok: false, error: "標記道具失敗，請稍後再試" };
+  }
+
+  revalidateTag(profileCacheTag(user.id));
+  return { ok: true, newSlots };
 }
 
 export async function getActiveBroadcastsAction(): Promise<ActiveBroadcastDto[]> {

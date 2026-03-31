@@ -5,6 +5,17 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-31 — Usercard 間距、背包擴充道具化、自白換行
+
+1. **背景**：資料卡英雄區頭像與暱稱等文字過近；**`bio_village`／`bio_market`** 在 **`UserDetailModal`** 以一般段落顯示，換行被折疊；商城 **`bag_expansion`** 僅 **`updateProfile(inventory_slots)`**，滿 **48** 格時仍扣款且無 **`user_rewards`** 列，**`newRewardIds`** 為空導致「購買並贈送」流程異常。
+2. **`src/components/modals/UserDetailModal.tsx`**：頭像列 **`gap-5` → `gap-6`**；右欄 **`pl-0.5` → `pl-2`**；興趣／技能自白 **`whitespace-pre-wrap break-words`**。
+3. **`src/services/shop.action.ts`**：**`dispatchItemToUser`** 之 **`bag_expansion`** 改 **`insertUserReward`**（**`reward_type: "bag_expansion"`**、**`shop_item_id`**、**`label`**）；移除 **`findProfileById`／`updateProfile`** 於此 case（**`updateProfile`** import 已刪）。
+4. **`src/services/rewards.action.ts`**：新增 **`consumeBagExpansionAction(rewardId)`** — 驗證擁有者與類型、**`used_at`**、未裝備；**`inventory_slots >= 48`** 回錯（提示可贈送）；否則 **`inventory_slots + 4`**（上限 **48**）、**`markUserRewardConsumed`**；標記失敗時嘗試還原格數。
+5. **`src/components/layout/FloatingToolbar.tsx`**：**`rewardAccent`／`stackActionHint`** 納入 **`bag_expansion`**；**`handleStackEquip`** 開 **AlertDialog**；確認後呼叫 **`consumeBagExpansionAction`** 並刷新背包／profile。
+6. **資料庫**：無遷移；**`user_rewards.reward_type`** 沿用文字欄位。
+7. **驗證**：**`npm run build`** 通過（必要時清除 **`.next`** 避免 Windows rename 競態）。
+8. **`HANDOFF.md`**：**「最近完成」** 置頂本項並刪去最舊一則（維持 **5** 則）；索引 **商城**、**`rewards.action`**、**`UserDetailModal`** 補述。
+
 ### 2026-03-31 — UserDetailModal 頭像框裁切修正與前台商城種類篩選
 
 1. **背景**：他人開啟 **`UserDetailModal`** 時，**商城頭像框**（**`MasterAvatarShell`** 框圖大於錨點）左側常被 **modal `overflow-hidden`** 與包住整段的 **`overflow-y-auto`** 捲動層裁切。前台 **`/shop`** 需依 **`item_type`** 快速篩商品（純前端）。

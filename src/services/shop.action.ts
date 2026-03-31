@@ -16,7 +16,6 @@ import { creditCoins } from "@/lib/repositories/server/coin.repository";
 import { insertUserReward } from "@/lib/repositories/server/prize.repository";
 import { drawFromPool, type DrawResult } from "@/services/prize-engine";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
-import { updateProfile } from "@/lib/repositories/server/user.repository";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
 import { taipeiCalendarDateKey } from "@/lib/utils/date";
 import { insertExpLog } from "@/lib/repositories/server/exp.repository";
@@ -257,13 +256,17 @@ async function dispatchItemToUser(
         );
         break;
 
-      case "bag_expansion": {
-        const p = await findProfileById(userId);
-        const currentSlots = p?.inventory_slots ?? 16;
-        const newSlots = Math.min(48, currentSlots + 4);
-        await updateProfile(userId, { inventory_slots: newSlots });
+      case "bag_expansion":
+        newRewardIds.push(
+          await insertUserReward({
+            user_id: userId,
+            reward_type: "bag_expansion",
+            shop_item_id: item.id,
+            label: item.name,
+            is_equipped: false,
+          }),
+        );
         break;
-      }
 
       case "rename_card":
         newRewardIds.push(

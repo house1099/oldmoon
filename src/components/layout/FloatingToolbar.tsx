@@ -57,6 +57,7 @@ import {
   expireBroadcastAction,
   useBroadcastAction as submitBroadcastAction,
   consumeRenameCardAction,
+  consumeBagExpansionAction,
   deleteUserRewardsBatchAction,
   giftUserRewardsToAlliancePartnerBatchAction,
   resellUserRewardsBatchAction,
@@ -259,6 +260,12 @@ function rewardAccent(rewardType: string): {
         border: "border-violet-500/45",
         bg: "bg-violet-950/40",
       };
+    case "bag_expansion":
+      return {
+        emoji: "🎒",
+        border: "border-amber-500/45",
+        bg: "bg-amber-950/35",
+      };
     case "fishing_bait":
       return {
         emoji: "🪱",
@@ -389,6 +396,7 @@ function stackActionHint(stack: RewardStack): string {
   if (
     rt === "broadcast" ||
     rt === "rename_card" ||
+    rt === "bag_expansion" ||
     rt === "fishing_bait" ||
     rt === "fishing_rod"
   ) {
@@ -455,6 +463,11 @@ function FloatingToolbarInner({
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameDraft, setRenameDraft] = useState("");
   const [renameSaving, setRenameSaving] = useState(false);
+  const [bagExpandOpen, setBagExpandOpen] = useState(false);
+  const [bagExpandStack, setBagExpandStack] = useState<RewardStack | null>(
+    null,
+  );
+  const [bagExpandBusy, setBagExpandBusy] = useState(false);
   const [broadcastManageOpen, setBroadcastManageOpen] = useState(false);
   const [expireTarget, setExpireTarget] = useState<ActiveBroadcastDto | null>(null);
   const [expiring, setExpiring] = useState(false);
@@ -593,6 +606,17 @@ function FloatingToolbarInner({
     if (rt === "rename_card") {
       setRenameDraft("");
       setRenameDialogOpen(true);
+      return;
+    }
+
+    if (rt === "bag_expansion") {
+      const row = firstManageableRewardRow(stack);
+      if (!row) {
+        toast.error("沒有可用的背包擴充包");
+        return;
+      }
+      setBagExpandStack(stack);
+      setBagExpandOpen(true);
       return;
     }
 
@@ -1230,6 +1254,69 @@ function FloatingToolbarInner({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={bagExpandOpen}
+        onOpenChange={(open) => {
+          setBagExpandOpen(open);
+          if (!open) {
+            setBagExpandStack(null);
+            setBagExpandBusy(false);
+          }
+        }}
+      >
+        <AlertDialogContent className="border-zinc-700 bg-zinc-950 text-zinc-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle>使用背包擴充包？</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              將消耗一個擴充包並解鎖 4 格背包空間（上限 48 格）。欄位已全開時無法使用，可贈送給其他冒險者。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              variant="outline"
+              className="border-zinc-700 bg-zinc-900 text-zinc-200"
+              disabled={bagExpandBusy}
+            >
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-600 text-white hover:bg-amber-500"
+              disabled={bagExpandBusy || !bagExpandStack}
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!bagExpandStack || bagExpandBusy) return;
+                const row = firstManageableRewardRow(bagExpandStack);
+                if (!row) {
+                  toast.error("沒有可用的背包擴充包");
+                  setBagExpandOpen(false);
+                  setBagExpandStack(null);
+                  return;
+                }
+                setBagExpandBusy(true);
+                try {
+                  const r = await consumeBagExpansionAction(row.id);
+                  if (!r.ok) {
+                    toast.error(r.error);
+                    return;
+                  }
+                  toast.success(`✅ 已解鎖，目前開放 ${r.newSlots} 格`);
+                  setBagExpandOpen(false);
+                  setBagExpandStack(null);
+                  void mutateProfile();
+                  const p = await getMyRewardsAction();
+                  setRewardsPayload(p);
+                  router.refresh();
+                } finally {
+                  setBagExpandBusy(false);
+                }
+              }}
+            >
+              {bagExpandBusy ? "處理中…" : "確認使用"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Sheet open={equipOpen} onOpenChange={setEquipOpen}>
         <SheetContent
