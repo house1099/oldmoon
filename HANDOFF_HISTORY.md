@@ -15,7 +15,7 @@
 6. **`src/app/globals.css`**：**`@keyframes market-ticker`**、**`.animate-market-ticker`**。
 7. **`FloatingToolbar.tsx`**：展開區 **`flex flex-col items-end gap-3`**；每列 **`w-[min(100vw-2rem,220px)] justify-end gap-2`**；子鈕文案 **自由市場**；上架成功 toast **已上架至自由市場**。
 8. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
-9. **Git**：**`2af82fb`** — **`feat(market): ticker bar, item preview, list UI, upload dialog, toolbar fix`**；**`git push`** **`origin/main`**。
+9. **Git**：**`23175e6`** — **`feat(market): ticker bar, item preview, list UI, upload dialog, toolbar fix`**；已 **`git push`** **`origin/main`**。
 
 ### 2026-03-31 — 玩家自由市場 L2／L3／L5
 
