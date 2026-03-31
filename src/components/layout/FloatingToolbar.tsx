@@ -962,7 +962,7 @@ function FloatingToolbarInner({
     },
     {
       id: "market" as const,
-      label: "玩家市集",
+      label: "自由市場",
       delayMs: 150,
       onClick: () => {
         setExpanded(false);
@@ -1008,14 +1008,14 @@ function FloatingToolbarInner({
       >
         {expanded ? (
           <div
-            className="flex flex-col gap-3 pb-1"
+            className="flex flex-col items-end gap-3 pb-1"
             role="toolbar"
             aria-label="快捷功能"
           >
             {subButtons.map((btn) => (
               <div
                 key={btn.id}
-                className="ft-toolbar-pop flex flex-row items-center gap-2.5"
+                className="ft-toolbar-pop flex w-[min(100vw-2rem,220px)] shrink-0 flex-row items-center justify-end gap-2"
                 style={
                   { "--ft-delay": `${btn.delayMs}ms` } as CSSProperties & {
                     "--ft-delay"?: string;
@@ -2443,7 +2443,7 @@ function FloatingToolbarInner({
                       toast.error(r.error ?? "上架失敗");
                       return;
                     }
-                    toast.success("已上架至玩家市集");
+                    toast.success("已上架至自由市場");
                     setMarketListOpen(false);
                     setMarketListRewardId(null);
                     setMarketListLabel("");

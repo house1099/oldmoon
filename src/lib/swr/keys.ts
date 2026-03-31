@@ -14,4 +14,5 @@ export const SWR_KEYS = {
   notifications: 'notifications',
   tavernMessages: 'tavern-messages',
   myMarketListings: 'my-market-listings',
+  marketRecentSold: 'market-recent-sold',
 } as const

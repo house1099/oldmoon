@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { findSystemSettingByKey } from "@/lib/repositories/server/invitation.repository";
 import {
@@ -12,9 +12,11 @@ import {
   findActiveListingByRewardId,
   findActiveListings,
   findMyListings,
+  findRecentSoldListings,
   type ActiveListingsFilters,
   type BuyMarketItemResult,
   type MarketListingWithDetail,
+  type RecentSoldItem,
 } from "@/lib/repositories/server/market-listing.repository";
 import {
   findUserRewardById,
@@ -25,7 +27,7 @@ import { notifyUserMailboxSilent } from "@/services/notification.action";
 import { sendPushToUser } from "@/lib/push/send-push";
 
 export type { BuyMarketItemResult, MarketListingWithDetail };
-export type { ActiveListingsFilters };
+export type { ActiveListingsFilters, RecentSoldItem };
 
 function parsePositiveInt(raw: string | null, fallback: number): number {
   if (raw == null || !raw.trim()) return fallback;
@@ -62,6 +64,21 @@ export async function getMyListingsAction(): Promise<MarketListingWithDetail[]> 
   if (!user) return [];
   await expireMyStaleListings(user.id);
   return findMyListings(user.id);
+}
+
+export async function getRecentSoldListingsAction(): Promise<RecentSoldItem[]> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const cached = unstable_cache(
+    async () => findRecentSoldListings(),
+    ["market-recent-sold"],
+    { revalidate: 60, tags: ["market_sold"] },
+  );
+  return cached();
 }
 
 export async function createListingAction(input: {
@@ -176,6 +193,7 @@ export async function buyListingAction(
     }
   }
 
+  revalidateTag("market_sold");
   return result;
 }
 

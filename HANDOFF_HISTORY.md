@@ -5,6 +5,18 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-31 — 自由市場 UI 補齊
+
+1. **目標**：補齊玩家自由市場 UI（工具列子鈕排版、**「自由市場」** 產品用語、**`MarketSheet`** 標題列與返回、Tab **拍賣市集**、最近成交行情跑馬燈、列表道具預覽與價格樣式、**`MarketSheet`** 內 **＋ 上架** Dialog）；L2／L3 提供 **`getRecentSoldListingsAction`**；購買成功後使行情快取失效。
+2. **Layer 2** 🗄️ **`src/lib/repositories/server/market-listing.repository.ts`**：**`RecentSoldItem`** 型別；**`findRecentSoldListings`** — **`status=sold`**、**`sold_at` not null**、**`ORDER BY sold_at DESC LIMIT 20`**、JOIN **`shop_items(name, item_type)`** 映射 **`itemLabel`／`itemType`／`price`／`currencyType`／`soldAt`**。
+3. **Layer 3** **`src/services/market-listing.action.ts`**：**`getRecentSoldListingsAction`**（未登入回 `[]`；**`unstable_cache`** **`['market-recent-sold']`**、**`revalidate: 60`**、**`tags: ['market_sold']`**）；**`buyListingAction`** 於 RPC 成功並完成賣家通知後 **`revalidateTag('market_sold')`**；**`export type RecentSoldItem`**。
+4. **Layer 4** **`src/lib/swr/keys.ts`**：**`marketRecentSold`**。
+5. **Layer 5 — `MarketSheet.tsx`**：頂列 **`flex items-center justify-between px-4 pt-4 pb-2`**（**`X` 關閉**、**🏪 自由市場**、**＋ 上架**）；**`Tabs`** 受控 **`hall`／`mine`**；**拍賣市集** 內行情列（**`h-8`、📊 行情、雙份內容 + `animate-market-ticker`**）；**`useSWR(SWR_KEYS.marketRecentSold, …, refreshInterval: 60000)`** 僅 **`open && mainTab==='hall'`**；購買成功 **`globalMutate(marketRecentSold)`**；列表 **40×40** **`next/image`／`rewardEffectClassName(effect_key)`／emoji**（型別對照規格）；**`by @暱稱`**；價格 **amber-400／violet-400**；**Dialog** 選道具（**`getMyRewardsAction`**、**`allow_player_trade===true`**、排除 **`myListings` active `user_reward_id`**）→ 定價 → **`createListingAction`**。
+6. **`src/app/globals.css`**：**`@keyframes market-ticker`**、**`.animate-market-ticker`**。
+7. **`FloatingToolbar.tsx`**：展開區 **`flex flex-col items-end gap-3`**；每列 **`w-[min(100vw-2rem,220px)] justify-end gap-2`**；子鈕文案 **自由市場**；上架成功 toast **已上架至自由市場**。
+8. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+9. **Git**：**`2af82fb`** — **`feat(market): ticker bar, item preview, list UI, upload dialog, toolbar fix`**；**`git push`** **`origin/main`**。
+
 ### 2026-03-31 — 玩家自由市場 L2／L3／L5
 
 1. **目標**：玩家市集應用層與 UI（Layer 2 Repository、Layer 3 Server Actions、Layer 5 **`FloatingToolbar`**／**`MarketSheet`**），UI 不直連 Supabase；RPC **`buy_market_item`／`cancel_market_listing`** 僅經 L2；**`coin_transactions.coin_type`** 語意維持 **`free`／`premium`**（由 RPC 寫入）；上架 **`currency_type`** 為 **`free_coins`／`premium_coins`**。

@@ -121,6 +121,65 @@ export type ActiveListingsFilters = {
   sortBy?: "price_asc" | "price_desc" | "newest";
 };
 
+export interface RecentSoldItem {
+  id: string;
+  itemLabel: string;
+  itemType: string;
+  price: number;
+  currencyType: "free_coins" | "premium_coins";
+  soldAt: string;
+}
+
+const RECENT_SOLD_SELECT = `
+  id,
+  price,
+  currency_type,
+  sold_at,
+  shop_items!market_listings_shop_item_id_fkey(name, item_type)
+`;
+
+type RawRecentSoldRow = Pick<
+  MarketListingRow,
+  "id" | "price" | "currency_type" | "sold_at"
+> & {
+  shop_items:
+    | { name: string; item_type: string }
+    | { name: string; item_type: string }[]
+    | null;
+};
+
+function mapRawToRecentSold(raw: RawRecentSoldRow): RecentSoldItem | null {
+  const si = embedOne(raw.shop_items);
+  const soldAt = raw.sold_at;
+  if (!soldAt) return null;
+  const cur = raw.currency_type;
+  if (cur !== "free_coins" && cur !== "premium_coins") return null;
+  return {
+    id: raw.id,
+    itemLabel: si?.name ?? "（未命名）",
+    itemType: si?.item_type ?? "",
+    price: raw.price,
+    currencyType: cur,
+    soldAt,
+  };
+}
+
+export async function findRecentSoldListings(): Promise<RecentSoldItem[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("market_listings")
+    .select(RECENT_SOLD_SELECT)
+    .eq("status", "sold")
+    .not("sold_at", "is", null)
+    .order("sold_at", { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as RawRecentSoldRow[];
+  return rows
+    .map(mapRawToRecentSold)
+    .filter((x): x is RecentSoldItem => x != null);
+}
+
 export async function createListing(
   data: MarketListingInsert,
 ): Promise<MarketListingRow> {
