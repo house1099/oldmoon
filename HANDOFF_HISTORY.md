@@ -37,7 +37,7 @@
    - 無 DDL。
 
 7. **建置／Git**  
-   - **`npm run build`** 通過後 **`git push`**（commit 訊息與 hash 以 **`git log -1`** 為準）。
+   - **`npm run build`** 通過；**`git push`** **`origin/main`**：**`feat: title badge images site-wide, admin pickers, equip sync`**（**`ce8a370`**）。
 
 ### 2026-03-31 — 後台獎項：框架類連動商城選圖
 
