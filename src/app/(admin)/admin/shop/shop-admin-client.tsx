@@ -787,6 +787,16 @@ export default function ShopAdminClient() {
                               </optgroup>
                             ) : null}
                           </>
+                        ) : form.item_type === "title" ? (
+                          localItems.length > 0 ? (
+                            <optgroup label="items/（稱號胸章建議）">
+                              {localItems.map((opt) => (
+                                <option key={opt} value={opt}>
+                                  {opt}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ) : null
                         ) : (
                           localImageOptions.map((opt) => (
                             <option key={opt} value={opt}>
@@ -833,16 +843,30 @@ export default function ShopAdminClient() {
                         ? "頭像框建議放 public/frames/avatars/（或 legacy：frames 根目錄）。路徑與 item_type 分開管理，查詢以資料庫欄位為準，不會混淆。"
                         : form.item_type === "card_frame"
                           ? "卡框建議放 public/frames/cards/（或 legacy：frames 根目錄）。與頭像框分資料夾僅為資產整理，image_url 仍為完整路徑字串。"
-                          : "一般商品請放 public/items，建議直接用上方下拉選。"}
+                          : form.item_type === "title"
+                            ? "稱號胸章建議放 public/items/，透明底 PNG／WebP、正方形構圖；與頭像框分開管理。"
+                            : "一般商品請放 public/items，建議直接用上方下拉選。"}
                     </p>
                   </div>
-                  <div className="h-20 w-20 rounded-xl border border-gray-200 bg-gray-50">
+                  <div
+                    className={cn(
+                      "rounded-xl border border-gray-200 bg-gray-50",
+                      form.item_type === "title"
+                        ? "flex h-11 w-11 items-center justify-center"
+                        : "h-20 w-20",
+                    )}
+                  >
                     {form.image_url.trim().startsWith("/") && !imagePreviewError ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={form.image_url.trim()}
                         alt=""
-                        className="h-full w-full rounded-xl object-cover"
+                        className={cn(
+                          "rounded-xl",
+                          form.item_type === "title"
+                            ? "max-h-9 max-w-9 object-contain"
+                            : "h-full w-full object-cover",
+                        )}
                         onError={() => setImagePreviewError(true)}
                       />
                     ) : (

@@ -7,9 +7,12 @@ import { createClient } from "@/lib/supabase/server";
 import {
   findEquippedAvatarFramesByUserIds,
   findEquippedCardFramesByUserIds,
+  findEquippedTitlesByUserIds,
 } from "@/lib/repositories/server/rewards.repository";
 import { findMarketUsers } from "@/lib/repositories/server/user.repository";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
+import type { ShopFrameLayout } from "@/lib/utils/avatar-frame-layout";
+import type { CardDecorationConfig } from "@/lib/utils/card-decoration";
 import { calcSkillScore } from "@/lib/utils/matching";
 
 type MySkillsRow = Pick<UserRow, "skills_offer" | "skills_want">;
@@ -38,6 +41,15 @@ export type MarketUserWithScores = UserRow & {
   _complementScore: number;
   _similarScore: number;
   isPerfectMatch: boolean;
+  equippedTitle: string | null;
+  equippedTitleImageUrl: string | null;
+  equippedAvatarFrameEffectKey: string | null;
+  equippedAvatarFrameImageUrl: string | null;
+  equippedAvatarFrameLayout: ShopFrameLayout | null;
+  equippedCardFrameEffectKey: string | null;
+  equippedCardFrameImageUrl: string | null;
+  equippedCardFrameLayout: ShopFrameLayout | null;
+  cardDecoration: CardDecorationConfig;
 };
 
 export async function getMarketUsersAction(
@@ -55,15 +67,19 @@ export async function getMarketUsersAction(
     async () => {
       const base = await findMarketUsers({ currentUserId: user.id });
       const userIds = base.map((u) => u.id);
-      const [frameMap, cardFrameMap] = await Promise.all([
+      const [frameMap, cardFrameMap, titleMap] = await Promise.all([
         findEquippedAvatarFramesByUserIds(userIds),
         findEquippedCardFramesByUserIds(userIds),
+        findEquippedTitlesByUserIds(userIds),
       ]);
       return base.map((u) => {
         const f = frameMap.get(u.id);
         const deco = cardFrameMap.get(u.id);
+        const t = titleMap.get(u.id);
         return {
           ...u,
+          equippedTitle: t?.equippedTitle ?? null,
+          equippedTitleImageUrl: t?.equippedTitleImageUrl ?? null,
           equippedAvatarFrameEffectKey: f?.equippedAvatarFrameEffectKey ?? null,
           equippedAvatarFrameImageUrl: f?.equippedAvatarFrameImageUrl ?? null,
           equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
@@ -74,7 +90,7 @@ export async function getMarketUsersAction(
         };
       });
     },
-    [`market-v3-${user.id}`],
+    [`market-v4-${user.id}`],
     { revalidate: 300 },
   );
 

@@ -118,6 +118,7 @@ export default function AdminPrizesClient() {
       framesRoot: [],
       framesAvatars: [],
       framesCards: [],
+      items: [],
     });
   const [shopItemsForTemplates, setShopItemsForTemplates] = useState<
     ShopItemRow[]
@@ -290,11 +291,15 @@ export default function AdminPrizesClient() {
         min_value: minV,
         max_value: maxV,
         effect_key:
-          newItemType === "avatar_frame" || newItemType === "card_frame"
+          newItemType === "avatar_frame" ||
+          newItemType === "card_frame" ||
+          newItemType === "title"
             ? newItemEffectKey.trim() || null
             : null,
         image_url:
-          newItemType === "avatar_frame" || newItemType === "card_frame"
+          newItemType === "avatar_frame" ||
+          newItemType === "card_frame" ||
+          newItemType === "title"
             ? newItemImageUrl.trim() || null
             : null,
       });
@@ -500,12 +505,14 @@ export default function AdminPrizesClient() {
                                       : null,
                                   effect_key:
                                     e.target.value === "avatar_frame" ||
-                                    e.target.value === "card_frame"
+                                    e.target.value === "card_frame" ||
+                                    e.target.value === "title"
                                       ? d.effect_key
                                       : null,
                                   image_url:
                                     e.target.value === "avatar_frame" ||
-                                    e.target.value === "card_frame"
+                                    e.target.value === "card_frame" ||
+                                    e.target.value === "title"
                                       ? d.image_url
                                       : null,
                                 },
@@ -672,7 +679,8 @@ export default function AdminPrizesClient() {
                             </>
                           )}
                           {(d.reward_type === "avatar_frame" ||
-                            d.reward_type === "card_frame") && (
+                            d.reward_type === "card_frame" ||
+                            d.reward_type === "title") && (
                             <div className="grid w-full min-w-[12rem] max-w-2xl grid-cols-1 gap-3 md:grid-cols-2">
                               <div className="space-y-2">
                                 <div>
@@ -735,8 +743,9 @@ export default function AdminPrizesClient() {
                                       ))}
                                   </select>
                                   <p className="mt-0.5 text-[10px] text-gray-500">
-                                    僅寫入獎項可存欄位；卡框商品之背景／角圖等
-                                    metadata 不會寫入獎項。
+                                    {d.reward_type === "title"
+                                      ? "帶入商城稱號之名稱、effect_key、胸章圖路徑。"
+                                      : "僅寫入獎項可存欄位；卡框商品之背景／角圖等 metadata 不會寫入獎項。"}
                                   </p>
                                 </div>
                                 <div>
@@ -758,12 +767,22 @@ export default function AdminPrizesClient() {
                                         },
                                       }))
                                     }
-                                    placeholder="如：star_frame、rainbow_frame"
+                                    placeholder={
+                                      d.reward_type === "title"
+                                        ? "選填，與商城稱號一致時可留空"
+                                        : "如：star_frame、rainbow_frame"
+                                    }
                                     className="mt-0.5 w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
                                   />
                                 </div>
                                 <LocalFrameImagePicker
-                                  rewardType={d.reward_type}
+                                  rewardType={
+                                    d.reward_type === "title"
+                                      ? "title"
+                                      : d.reward_type === "avatar_frame"
+                                        ? "avatar_frame"
+                                        : "card_frame"
+                                  }
                                   imageUrl={d.image_url ?? ""}
                                   onImageUrlChange={(url) =>
                                     setDrafts((prev) => {
@@ -789,35 +808,56 @@ export default function AdminPrizesClient() {
                               </div>
                               <div>
                                 <p className="mb-1 text-xs text-gray-500">
-                                  特效預覽
+                                  {d.reward_type === "title"
+                                    ? "胸章預覽"
+                                    : "特效預覽"}
                                 </p>
                                 <div className="rounded-lg border border-gray-200 bg-white p-2">
-                                  <div
-                                    className={
-                                      d.reward_type === "avatar_frame"
-                                        ? `relative mx-auto h-20 w-20 overflow-visible rounded-full bg-zinc-700 ${d.effect_key ? `effect-${d.effect_key}` : ""}`
-                                        : `relative mx-auto h-28 w-20 overflow-visible rounded-xl bg-zinc-700 ${d.effect_key ? `effect-${d.effect_key}` : ""}`
-                                    }
-                                  >
-                                    {d.reward_type === "avatar_frame" ? (
-                                      <div className="absolute inset-[22%] rounded-full bg-zinc-500" />
-                                    ) : (
-                                      <div className="absolute inset-[18%] rounded-lg bg-zinc-500" />
-                                    )}
-                                    {d.image_url ? (
-                                      // eslint-disable-next-line @next/next/no-img-element
-                                      <img
-                                        src={d.image_url}
-                                        alt=""
-                                        className="pointer-events-none absolute inset-0 h-full w-full object-contain"
-                                      />
-                                    ) : null}
-                                  </div>
-                                  {!d.effect_key ? (
-                                    <p className="mt-2 text-center text-[10px] text-gray-400">
-                                      （無特效）
-                                    </p>
-                                  ) : null}
+                                  {d.reward_type === "title" ? (
+                                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-lg border border-gray-100 bg-zinc-50">
+                                      {d.image_url ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                          src={d.image_url}
+                                          alt=""
+                                          className="max-h-10 max-w-10 object-contain"
+                                        />
+                                      ) : (
+                                        <span className="text-center text-[10px] text-gray-400">
+                                          無圖
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div
+                                        className={
+                                          d.reward_type === "avatar_frame"
+                                            ? `relative mx-auto h-20 w-20 overflow-visible rounded-full bg-zinc-700 ${d.effect_key ? `effect-${d.effect_key}` : ""}`
+                                            : `relative mx-auto h-28 w-20 overflow-visible rounded-xl bg-zinc-700 ${d.effect_key ? `effect-${d.effect_key}` : ""}`
+                                        }
+                                      >
+                                        {d.reward_type === "avatar_frame" ? (
+                                          <div className="absolute inset-[22%] rounded-full bg-zinc-500" />
+                                        ) : (
+                                          <div className="absolute inset-[18%] rounded-lg bg-zinc-500" />
+                                        )}
+                                        {d.image_url ? (
+                                          // eslint-disable-next-line @next/next/no-img-element
+                                          <img
+                                            src={d.image_url}
+                                            alt=""
+                                            className="pointer-events-none absolute inset-0 h-full w-full object-contain"
+                                          />
+                                        ) : null}
+                                      </div>
+                                      {!d.effect_key ? (
+                                        <p className="mt-2 text-center text-[10px] text-gray-400">
+                                          （無特效）
+                                        </p>
+                                      ) : null}
+                                    </>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -995,7 +1035,10 @@ export default function AdminPrizesClient() {
                   <p>
                     經驗值（exp）：填寫 min/max 範圍，直接加到 total_exp
                   </p>
-                  <p>稱號（title）：填寫標籤名稱，用戶可在裝備背包裝備</p>
+                  <p>
+                    稱號（title）：填寫標籤名稱；可選胸章圖（public/items，與商城稱號一致）、可選
+                    effect_key
+                  </p>
                   <p>
                     頭像框（avatar_frame）：可從商城帶入或選 public
                     frames/avatars；需 effect_key 與主圖路徑
@@ -1083,7 +1126,8 @@ export default function AdminPrizesClient() {
               </div>
             )}
             {(newItemType === "avatar_frame" ||
-              newItemType === "card_frame") && (
+              newItemType === "card_frame" ||
+              newItemType === "title") && (
               <div className="space-y-2">
                 <div>
                   <label
@@ -1123,8 +1167,9 @@ export default function AdminPrizesClient() {
                       ))}
                   </select>
                   <p className="mt-0.5 text-[10px] text-gray-500">
-                    僅寫入獎項可存欄位；卡框商品之背景／角圖等 metadata
-                    不會寫入獎項。
+                    {newItemType === "title"
+                      ? "帶入商城稱號之名稱、effect_key、胸章圖。"
+                      : "僅寫入獎項可存欄位；卡框商品之背景／角圖等 metadata 不會寫入獎項。"}
                   </p>
                 </div>
                 <div>
@@ -1135,15 +1180,21 @@ export default function AdminPrizesClient() {
                     type="text"
                     value={newItemEffectKey}
                     onChange={(e) => setNewItemEffectKey(e.target.value)}
-                    placeholder="如：star_frame、rainbow_frame"
+                    placeholder={
+                      newItemType === "title"
+                        ? "選填，與商城稱號一致時可留空"
+                        : "如：star_frame、rainbow_frame"
+                    }
                     className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                   />
                 </div>
                 <LocalFrameImagePicker
                   rewardType={
-                    newItemType === "avatar_frame"
-                      ? "avatar_frame"
-                      : "card_frame"
+                    newItemType === "title"
+                      ? "title"
+                      : newItemType === "avatar_frame"
+                        ? "avatar_frame"
+                        : "card_frame"
                   }
                   imageUrl={newItemImageUrl}
                   onImageUrlChange={setNewItemImageUrl}

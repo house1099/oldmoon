@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { getMarketUsersAction } from "@/services/market.service";
 import type { VillageUserWithScore } from "@/services/village.service";
+import type { MarketUserWithScores } from "@/services/market.service";
 import { getVillageUsersAction } from "@/services/village.service";
 import { MarketContent } from "@/components/explore/MarketContent";
 import { VillageContent } from "@/components/explore/VillageContent";
@@ -46,31 +47,52 @@ export default function ExploreClient({
   }, []);
 
   const villageList = villageUsers ?? initialVillageUsers;
-  const marketList = marketUsers ?? [];
+  const marketList = useMemo(() => marketUsers ?? [], [marketUsers]);
 
   const villageFramePreloadKey = villageList
     .map(
       (u) =>
-        `${u.id}:${u.equippedAvatarFrameImageUrl ?? ""}:${u.cardDecoration?.cardFrameImageUrl ?? ""}:${u.equippedCardFrameImageUrl ?? ""}`,
+        `${u.id}:${u.equippedTitleImageUrl ?? ""}:${u.equippedAvatarFrameImageUrl ?? ""}:${u.cardDecoration?.cardFrameImageUrl ?? ""}:${u.equippedCardFrameImageUrl ?? ""}`,
     )
     .join(";");
 
+  const marketFramePreloadKey = marketList
+    .map(
+      (u: MarketUserWithScores) =>
+        `${u.id}:${u.equippedTitleImageUrl ?? ""}:${u.equippedAvatarFrameImageUrl ?? ""}:${u.cardDecoration?.cardFrameImageUrl ?? ""}:${u.equippedCardFrameImageUrl ?? ""}`,
+    )
+    .join(";");
+
+  function preloadUserRewardImages(
+    user: VillageUserWithScore | MarketUserWithScores,
+  ) {
+    if (user.equippedTitleImageUrl) {
+      const img = new Image();
+      img.src = user.equippedTitleImageUrl;
+    }
+    if (user.equippedAvatarFrameImageUrl) {
+      const img = new Image();
+      img.src = user.equippedAvatarFrameImageUrl;
+    }
+    const cardUrl =
+      user.cardDecoration?.cardFrameImageUrl ?? user.equippedCardFrameImageUrl;
+    if (cardUrl) {
+      const img = new Image();
+      img.src = cardUrl;
+    }
+  }
+
   useEffect(() => {
-    const list = villageUsers ?? initialVillageUsers;
-    if (!list.length) return;
-    list.forEach((user) => {
-      if (user.equippedAvatarFrameImageUrl) {
-        const img = new Image();
-        img.src = user.equippedAvatarFrameImageUrl;
-      }
-      const cardUrl =
-        user.cardDecoration?.cardFrameImageUrl ?? user.equippedCardFrameImageUrl;
-      if (cardUrl) {
-        const img = new Image();
-        img.src = cardUrl;
-      }
-    });
-  }, [villageFramePreloadKey, villageUsers, initialVillageUsers]);
+    const village = villageUsers ?? initialVillageUsers;
+    village.forEach(preloadUserRewardImages);
+    marketList.forEach(preloadUserRewardImages);
+  }, [
+    villageFramePreloadKey,
+    marketFramePreloadKey,
+    villageUsers,
+    initialVillageUsers,
+    marketList,
+  ]);
 
   return (
     <div className="min-h-[100dvh] bg-zinc-950">

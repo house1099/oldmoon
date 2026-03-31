@@ -1870,10 +1870,10 @@ export async function createPrizeItemAction(
     if (!v.ok) return v;
     const effectKeyRaw = data.effect_key?.trim() || null;
     const imageUrlRaw = data.image_url?.trim() || null;
-    const effect_key =
-      rt === "avatar_frame" || rt === "card_frame" ? effectKeyRaw : null;
-    const image_url =
-      rt === "avatar_frame" || rt === "card_frame" ? imageUrlRaw : null;
+    const keepsFrameOrTitleVisual =
+      rt === "avatar_frame" || rt === "card_frame" || rt === "title";
+    const effect_key = keepsFrameOrTitleVisual ? effectKeyRaw : null;
+    const image_url = keepsFrameOrTitleVisual ? imageUrlRaw : null;
     const row = await insertPrizeItem({
       pool_id: poolId,
       reward_type: rt,
@@ -1948,7 +1948,11 @@ export async function updatePrizeItemAction(
       min_value = null;
       max_value = null;
     }
-    if (reward_type !== "avatar_frame" && reward_type !== "card_frame") {
+    if (
+      reward_type !== "avatar_frame" &&
+      reward_type !== "card_frame" &&
+      reward_type !== "title"
+    ) {
       effect_key = null;
       image_url = null;
     }

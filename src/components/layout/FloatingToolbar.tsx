@@ -596,6 +596,9 @@ function FloatingToolbarInner({
       }
       toast.success("已裝備");
     }
+    if (rt === "title" || rt === "avatar_frame" || rt === "card_frame") {
+      window.dispatchEvent(new CustomEvent("guild-rewards-invalidate"));
+    }
     const p = await getMyRewardsAction();
     setRewardsPayload(p);
     router.refresh();

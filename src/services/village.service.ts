@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   findEquippedAvatarFramesByUserIds,
   findEquippedCardFramesByUserIds,
+  findEquippedTitlesByUserIds,
 } from "@/lib/repositories/server/rewards.repository";
 import {
   findVillageStaffUsersGlobally,
@@ -17,6 +18,8 @@ import { calcInterestScore, isOrientationMatch } from "@/lib/utils/matching";
 
 export type VillageUserWithScore = UserRow & {
   _score: number;
+  equippedTitle: string | null;
+  equippedTitleImageUrl: string | null;
   equippedAvatarFrameEffectKey: string | null;
   equippedAvatarFrameImageUrl: string | null;
   equippedAvatarFrameLayout: ShopFrameLayout | null;
@@ -60,15 +63,19 @@ export async function getVillageUsersAction(): Promise<{
       for (const u of staffRows) byId.set(u.id, u);
       const candidates = Array.from(byId.values());
       const userIds = candidates.map((u) => u.id);
-      const [frameMap, cardFrameMap] = await Promise.all([
+      const [frameMap, cardFrameMap, titleMap] = await Promise.all([
         findEquippedAvatarFramesByUserIds(userIds),
         findEquippedCardFramesByUserIds(userIds),
+        findEquippedTitlesByUserIds(userIds),
       ]);
       const withFrames = candidates.map((u) => {
         const f = frameMap.get(u.id);
         const deco = cardFrameMap.get(u.id);
+        const t = titleMap.get(u.id);
         return {
           ...u,
+          equippedTitle: t?.equippedTitle ?? null,
+          equippedTitleImageUrl: t?.equippedTitleImageUrl ?? null,
           equippedAvatarFrameEffectKey: f?.equippedAvatarFrameEffectKey ?? null,
           equippedAvatarFrameImageUrl: f?.equippedAvatarFrameImageUrl ?? null,
           equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
@@ -111,7 +118,7 @@ export async function getVillageUsersAction(): Promise<{
       return scored;
     },
     // 版本後綴：欄位（如 offline_ok）變更時使舊快取失效
-    [`village-v5-${user.id}-${regionKey}`],
+    [`village-v6-${user.id}-${regionKey}`],
     { revalidate: 300 },
   );
 

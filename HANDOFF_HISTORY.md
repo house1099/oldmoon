@@ -5,6 +5,40 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-03-31 — 稱號胸章全站顯示與後台
+
+**背景**：稱號僅文字膠囊；需可選 **`shop_items`／`prize_items` 之 `image_url`** 作胸章（**16–20px**、`object-contain`、文字左側）。列表需與頭像框相同批次附掛；裝備後首頁 **`rewardsData`** 須與 **`FloatingToolbar`** 同步。
+
+1. **Layer 2 `src/lib/repositories/server/rewards.repository.ts`**  
+   - **`findEquippedRewardLabels`**：補 **`equippedTitleImageUrl`**（**`title`** 列之 **`image_url`**）；迴圈內 **`rt === "title"`** 時寫入。  
+   - **`findEquippedTitlesByUserIds`**：**`user_rewards`** **`reward_type = title`**、**`is_equipped`**，**JOIN** **`prize_items`／`shop_items`**，每人一筆 **`EquippedTitleForList`**。
+
+2. **Layer 3**  
+   - **`village.service.ts`**（快取鍵 **`village-v6`**）、**`market.service.ts`**（**`market-v4`**）、**`chat.action.ts`**、**`alliance.action.ts`**、**`tavern.repository.ts`**：併 **`findEquippedTitlesByUserIds`**，型別加 **`equippedTitle`／`equippedTitleImageUrl`**。  
+   - **`profile.action.ts`**：**`MemberProfileView.equippedTitleImageUrl`**。
+
+3. **Layer 5**  
+   - **`title-badge-row.tsx`**：**`TitleBadgeRow`**。  
+   - **`UserCard.tsx`／`UserDetailModal.tsx`／`guild-profile-home.tsx`／`ExploreClient.tsx`**（村莊＋市集預載胸章）、**`ChatModal.tsx`／`guild/page.tsx`／`TavernModal.tsx`**。  
+   - **`src/types/database.types.ts`**：**`TavernMessageDto.user`** 加稱號欄位。  
+   - **`page.tsx`**：**`preloadImageUrls`** 納入 **`equippedTitleImageUrl`**。
+
+4. **裝備同步**  
+   - **`FloatingToolbar.tsx`**：裝卸 **`title`／`avatar_frame`／`card_frame`** 成功後 **`window.dispatchEvent(new CustomEvent('guild-rewards-invalidate'))`**。  
+   - **`guild-profile-home.tsx`**：監聽後 **`loadRewards()`**。
+
+5. **後台**  
+   - **`shop-admin-client.tsx`**：**`item_type === title`** 時本機下拉 **`<optgroup label="items/（稱號胸章建議）">`**；說明與 **44px** 槽位 **`object-contain`** 小預覽。  
+   - **`local-frame-image-picker.tsx`**：**`LocalFrameImageBuckets.items`**、**`rewardType: 'title'`**、**`fetchLocalFrameBuckets`** 帶 **`items`**。  
+   - **`prizes-client.tsx`**：**`title`** 編輯／新增與框類同級（商城帶入、選圖、胸章預覽）。  
+   - **`admin.action.ts`**：**`createPrizeItemAction`／`updatePrizeItemAction`**：**`title`** 保留 **`effect_key`／`image_url`**。
+
+6. **資料庫**  
+   - 無 DDL。
+
+7. **建置／Git**  
+   - **`npm run build`** 通過後 **`git push`**（commit 訊息與 hash 以 **`git log -1`** 為準）。
+
 ### 2026-03-31 — 後台獎項：框架類連動商城選圖
 
 **背景**：獎池 **`prize_items`** 之 **`avatar_frame`／`card_frame`** 原僅能手打 **`effect_key`** 與 **`image_url`**；後台希望與 **商城** 相同，可自 **`public/frames`** 掃描清單下拉選圖，並可自 **`shop_items`** 一鍵帶入欄位。

@@ -419,6 +419,7 @@ export async function expireBroadcast(broadcastId: string): Promise<void> {
 
 export async function findEquippedRewardLabels(userId: string): Promise<{
   equippedTitle: string | null;
+  equippedTitleImageUrl: string | null;
   equippedFrame: string | null;
   equippedAvatarFrameEffectKey: string | null;
   equippedAvatarFrameImageUrl: string | null;
@@ -489,6 +490,7 @@ export async function findEquippedRewardLabels(userId: string): Promise<{
   }
 
   let equippedTitle: string | null = null;
+  let equippedTitleImageUrl: string | null = null;
   let equippedFrame: string | null = null;
   let equippedAvatarFrameEffectKey: string | null = null;
   let equippedAvatarFrameImageUrl: string | null = null;
@@ -511,7 +513,10 @@ export async function findEquippedRewardLabels(userId: string): Promise<{
       : row.shop_item_id
         ? imageByShopItemId.get(row.shop_item_id)?.trim() || null
         : null;
-    if (rt === "title" && lb) equippedTitle = lb;
+    if (rt === "title") {
+      if (lb) equippedTitle = lb;
+      equippedTitleImageUrl = imageUrl;
+    }
     if (rt === "avatar_frame" && lb) {
       equippedFrame = lb;
       equippedAvatarFrameEffectKey = ek;
@@ -539,6 +544,7 @@ export async function findEquippedRewardLabels(userId: string): Promise<{
   }
   return {
     equippedTitle,
+    equippedTitleImageUrl,
     equippedFrame,
     equippedAvatarFrameEffectKey,
     equippedAvatarFrameImageUrl,
@@ -584,6 +590,54 @@ type JoinedUserRewardRow = RawUserRewardRow & {
       }>
     | null;
 };
+
+/** 列表／探索等批次附掛：已裝備稱號文字 + 胸章圖 */
+export type EquippedTitleForList = {
+  equippedTitle: string | null;
+  equippedTitleImageUrl: string | null;
+};
+
+function equippedTitleFromJoinedRow(
+  row: JoinedUserRewardRow,
+): EquippedTitleForList {
+  const lb = row.label?.trim() || null;
+  const refId = prizeItemRefId(row);
+  const pi = embeddedSingle(row.prize_items);
+  const si = embeddedSingle(row.shop_items);
+  let imageUrl: string | null = null;
+  if (refId && pi) {
+    imageUrl = pi.image_url?.trim() || null;
+  } else if (si) {
+    imageUrl = si.image_url?.trim() || null;
+  }
+  return { equippedTitle: lb, equippedTitleImageUrl: imageUrl };
+}
+
+/**
+ * 一次查多個使用者的已裝備稱號（每人最多取一筆）。
+ */
+export async function findEquippedTitlesByUserIds(
+  userIds: string[],
+): Promise<Map<string, EquippedTitleForList>> {
+  const out = new Map<string, EquippedTitleForList>();
+  if (userIds.length === 0) return out;
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("user_rewards")
+    .select(USER_REWARD_ITEM_JOIN_SELECT)
+    .in("user_id", userIds)
+    .eq("reward_type", "title")
+    .eq("is_equipped", true);
+  if (error) throw error;
+  const list = (data ?? []) as JoinedUserRewardRow[];
+  for (const row of list) {
+    const uid = row.user_id as string;
+    if (out.has(uid)) continue;
+    out.set(uid, equippedTitleFromJoinedRow(row));
+  }
+  return out;
+}
 
 function equippedAvatarFrameFromJoinedRow(
   row: JoinedUserRewardRow,

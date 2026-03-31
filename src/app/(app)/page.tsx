@@ -43,6 +43,7 @@ export default async function HomePage() {
 
   const equipped = await findEquippedRewardLabels(authStatus.profile.id);
   const preloadImageUrls = [
+    equipped.equippedTitleImageUrl,
     equipped.equippedAvatarFrameImageUrl,
     equipped.equippedCardFrameImageUrl,
   ].filter((u): u is string => Boolean(u?.trim()));

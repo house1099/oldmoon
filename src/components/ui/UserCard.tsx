@@ -22,6 +22,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { TitleBadgeRow } from "@/components/ui/title-badge-row";
 
 function tagLabel(slug: string): string {
   return INTEREST_TAG_OPTIONS.find((o) => o.value === slug)?.label ?? slug;
@@ -30,6 +31,7 @@ function tagLabel(slug: string): string {
 export type UserCardProps = {
   user: UserRow & {
     equippedTitle?: string | null;
+    equippedTitleImageUrl?: string | null;
     equippedAvatarFrameEffectKey?: string | null;
     equippedAvatarFrameImageUrl?: string | null;
     equippedAvatarFrameLayout?: ShopFrameLayout | null;
@@ -164,16 +166,11 @@ export function UserCard({
                 >
                   {user.nickname}
                 </span>
-                {user.equippedTitle?.trim() ? (
-                  <span
-                    className="max-w-[5.5rem] truncate rounded-full bg-violet-600/60 px-2 py-0.5 text-[10px] leading-none text-violet-200"
-                    title={user.equippedTitle.trim()}
-                  >
-                    {user.equippedTitle.trim().length > 8
-                      ? `${user.equippedTitle.trim().slice(0, 8)}…`
-                      : user.equippedTitle.trim()}
-                  </span>
-                ) : null}
+                <TitleBadgeRow
+                  title={user.equippedTitle}
+                  imageUrl={user.equippedTitleImageUrl}
+                  className="max-w-[min(100%,7rem)] shrink"
+                />
                 {user.activity_status === "resting" ? (
                   <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[10px] leading-none text-zinc-500">
                     💤 休息中

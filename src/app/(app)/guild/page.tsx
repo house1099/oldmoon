@@ -22,6 +22,7 @@ import {
 import type { NotificationListItem } from "@/services/notification.action";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
+import { TitleBadgeRow } from "@/components/ui/title-badge-row";
 import ChatModal from "@/components/chat/ChatModal";
 import { UserDetailModal } from "@/components/modals/UserDetailModal";
 import { SWR_KEYS } from "@/lib/swr/keys";
@@ -250,6 +251,11 @@ function AllianceList() {
                       role={r.requester.role}
                     />
                   </p>
+                  <TitleBadgeRow
+                    title={r.requester.equippedTitle}
+                    imageUrl={r.requester.equippedTitleImageUrl}
+                    className="mt-0.5 min-w-0"
+                  />
                   <p className="text-xs text-zinc-500">申請成為血盟</p>
                 </div>
               </div>
@@ -334,6 +340,11 @@ function AllianceList() {
                       role={a.partner.role}
                     />
                   </p>
+                  <TitleBadgeRow
+                    title={a.partner.equippedTitle}
+                    imageUrl={a.partner.equippedTitleImageUrl}
+                    className="mt-0.5 min-w-0"
+                  />
                   {a.partner.instagram_handle ? (
                     <p className="text-xs text-violet-400">
                       @{a.partner.instagram_handle}
@@ -437,6 +448,11 @@ function ChatList() {
                   role={conv.partner?.role}
                 />
               </p>
+              <TitleBadgeRow
+                title={conv.partner?.equippedTitle}
+                imageUrl={conv.partner?.equippedTitleImageUrl}
+                className="mt-0.5 min-w-0"
+              />
               <p className="truncate text-xs text-zinc-500">
                 {formatConversationPreview(
                   currentUserId,
@@ -485,6 +501,9 @@ function ChatList() {
             nickname: activeConv.partner?.nickname ?? "未知用戶",
             avatar_url: activeConv.partner?.avatar_url ?? null,
             role: activeConv.partner?.role ?? null,
+            equippedTitle: activeConv.partner?.equippedTitle ?? null,
+            equippedTitleImageUrl:
+              activeConv.partner?.equippedTitleImageUrl ?? null,
             equippedAvatarFrameEffectKey:
               activeConv.partner?.equippedAvatarFrameEffectKey ?? null,
             equippedAvatarFrameImageUrl:

@@ -38,6 +38,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
+import { TitleBadgeRow } from "@/components/ui/title-badge-row";
 import { LevelBadge } from "@/components/ui/LevelBadge";
 import { ShopCardFrameOverlay } from "@/components/ui/ShopCardFrameOverlay";
 import { cn } from "@/lib/utils";
@@ -60,6 +61,7 @@ function tagLabel(slug: string): string {
 export type UserDetailModalProps = {
   user: UserRow & {
     equippedTitle?: string | null;
+    equippedTitleImageUrl?: string | null;
     equippedFrame?: string | null;
     equippedAvatarFrameEffectKey?: string | null;
     equippedAvatarFrameImageUrl?: string | null;
@@ -175,8 +177,6 @@ export function UserDetailModal({
         minute: "2-digit",
       }).format(new Date(u.mood_at))
     : "";
-
-  const equippedTitle = u.equippedTitle?.trim() || null;
 
   const isCurrentUserMaster = myProfile?.role === "master";
 
@@ -453,16 +453,15 @@ export function UserDetailModal({
                   >
                     {u.nickname}
                   </h2>
-                  {equippedTitle ? (
-                    <span
-                      className="max-w-[10rem] truncate rounded-full bg-violet-600/60 px-2 py-0.5 text-xs text-violet-200"
-                      title={equippedTitle}
-                    >
-                      {equippedTitle.length > 8
-                        ? `${equippedTitle.slice(0, 8)}…`
-                        : equippedTitle}
-                    </span>
-                  ) : null}
+                  <TitleBadgeRow
+                    title={u.equippedTitle}
+                    imageUrl={
+                      (u as MemberProfileView).equippedTitleImageUrl ??
+                      user.equippedTitleImageUrl
+                    }
+                    size="md"
+                    className="max-w-[min(100%,12rem)]"
+                  />
                 </div>
                 <div className="flex items-center gap-2">
                   <LevelBadge level={u.level} />
@@ -792,6 +791,11 @@ export function UserDetailModal({
             nickname: user.nickname,
             avatar_url: user.avatar_url,
             role: user.role,
+            equippedTitle: u.equippedTitle ?? null,
+            equippedTitleImageUrl:
+              (u as MemberProfileView).equippedTitleImageUrl ??
+              user.equippedTitleImageUrl ??
+              null,
             equippedAvatarFrameEffectKey:
               user.equippedAvatarFrameEffectKey ?? null,
             equippedAvatarFrameImageUrl:

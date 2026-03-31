@@ -10,6 +10,7 @@ import type { CardDecorationConfig } from "@/lib/utils/card-decoration";
 
 export type MemberProfileView = UserRow & {
   equippedTitle: string | null;
+  equippedTitleImageUrl: string | null;
   equippedFrame: string | null;
   equippedAvatarFrameEffectKey: string | null;
   equippedAvatarFrameImageUrl: string | null;
@@ -47,6 +48,7 @@ export async function getMemberProfileByIdAction(
     if (!profile) return null;
     const {
       equippedTitle,
+      equippedTitleImageUrl,
       equippedFrame,
       equippedAvatarFrameEffectKey,
       equippedAvatarFrameImageUrl,
@@ -59,6 +61,7 @@ export async function getMemberProfileByIdAction(
     return {
       ...profile,
       equippedTitle,
+      equippedTitleImageUrl,
       equippedFrame,
       equippedAvatarFrameEffectKey,
       equippedAvatarFrameImageUrl,

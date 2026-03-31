@@ -1648,6 +1648,8 @@ export type TavernMessageDto = TavernMessageRow & {
     avatar_url: string | null;
     level: number;
     role: string;
+    equippedTitle: string | null;
+    equippedTitleImageUrl: string | null;
     /** 已裝備頭像框（與探索列表／`MasterAvatarShell` 一致） */
     equippedAvatarFrameEffectKey: string | null;
     equippedAvatarFrameImageUrl: string | null;

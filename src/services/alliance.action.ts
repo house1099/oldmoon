@@ -15,6 +15,7 @@ import { insertNotification } from "@/lib/repositories/server/notification.repos
 import {
   findEquippedAvatarFramesByUserIds,
   findEquippedCardFramesByUserIds,
+  findEquippedTitlesByUserIds,
 } from "@/lib/repositories/server/rewards.repository";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
 import type { ShopFrameLayout } from "@/lib/utils/avatar-frame-layout";
@@ -225,6 +226,8 @@ export type MyAllianceListItem = {
     avatar_url: string | null;
     instagram_handle: string | null;
     role: string;
+    equippedTitle: string | null;
+    equippedTitleImageUrl: string | null;
     equippedAvatarFrameEffectKey: string | null;
     equippedAvatarFrameImageUrl: string | null;
     equippedAvatarFrameLayout: ShopFrameLayout | null;
@@ -247,17 +250,21 @@ export async function getMyAlliancesAction(): Promise<MyAllianceListItem[]> {
   try {
     const rows = await findAcceptedAlliancesWithPartners(user.id);
     const userIds = rows.map((r) => r.partner.id);
-    const [frameMap, cardFrameMap] = await Promise.all([
+    const [frameMap, cardFrameMap, titleMap] = await Promise.all([
       findEquippedAvatarFramesByUserIds(userIds),
       findEquippedCardFramesByUserIds(userIds),
+      findEquippedTitlesByUserIds(userIds),
     ]);
     return rows.map((r) => {
       const f = frameMap.get(r.partner.id);
       const cf = cardFrameMap.get(r.partner.id);
+      const t = titleMap.get(r.partner.id);
       return {
         id: r.id,
         partner: {
           ...r.partner,
+          equippedTitle: t?.equippedTitle ?? null,
+          equippedTitleImageUrl: t?.equippedTitleImageUrl ?? null,
           equippedAvatarFrameEffectKey: f?.equippedAvatarFrameEffectKey ?? null,
           equippedAvatarFrameImageUrl: f?.equippedAvatarFrameImageUrl ?? null,
           equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
@@ -281,6 +288,8 @@ export type PendingAllianceRequestItem = {
     avatar_url: string | null;
     instagram_handle: string | null;
     role: string;
+    equippedTitle: string | null;
+    equippedTitleImageUrl: string | null;
     equippedAvatarFrameEffectKey: string | null;
     equippedAvatarFrameImageUrl: string | null;
     equippedAvatarFrameLayout: ShopFrameLayout | null;
@@ -305,17 +314,21 @@ export async function getPendingRequestsAction(): Promise<
   try {
     const rows = await findPendingIncomingWithRequester(user.id);
     const userIds = rows.map((r) => r.requester.id);
-    const [frameMap, cardFrameMap] = await Promise.all([
+    const [frameMap, cardFrameMap, titleMap] = await Promise.all([
       findEquippedAvatarFramesByUserIds(userIds),
       findEquippedCardFramesByUserIds(userIds),
+      findEquippedTitlesByUserIds(userIds),
     ]);
     return rows.map((r) => {
       const f = frameMap.get(r.requester.id);
       const cf = cardFrameMap.get(r.requester.id);
+      const t = titleMap.get(r.requester.id);
       return {
         id: r.id,
         requester: {
           ...r.requester,
+          equippedTitle: t?.equippedTitle ?? null,
+          equippedTitleImageUrl: t?.equippedTitleImageUrl ?? null,
           equippedAvatarFrameEffectKey: f?.equippedAvatarFrameEffectKey ?? null,
           equippedAvatarFrameImageUrl: f?.equippedAvatarFrameImageUrl ?? null,
           equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,

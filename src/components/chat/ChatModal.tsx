@@ -17,6 +17,7 @@ import { sendMessageAction, submitReportAction } from "@/services/chat.action";
 import { getMemberProfileByIdAction } from "@/services/profile.action";
 import { getMyRewardsAction } from "@/services/rewards.action";
 import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
+import { TitleBadgeRow } from "@/components/ui/title-badge-row";
 import { createClient } from "@/lib/supabase/client";
 import { SWR_KEYS } from "@/lib/swr/keys";
 import { cn } from "@/lib/utils";
@@ -38,6 +39,8 @@ export interface ChatModalProps {
     nickname: string;
     avatar_url?: string | null;
     role?: string | null;
+    equippedTitle?: string | null;
+    equippedTitleImageUrl?: string | null;
     equippedAvatarFrameEffectKey?: string | null;
     equippedAvatarFrameImageUrl?: string | null;
     equippedAvatarFrameLayout?: ShopFrameLayout | null;
@@ -207,8 +210,15 @@ export default function ChatModal({
           frameEffectKey={targetUser.equippedAvatarFrameEffectKey ?? null}
           frameLayout={targetUser.equippedAvatarFrameLayout ?? null}
         />
-        <span className="flex-1 font-medium text-white">
-          {targetUser.nickname}
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="truncate font-medium text-white">
+            {targetUser.nickname}
+          </span>
+          <TitleBadgeRow
+            title={targetUser.equippedTitle}
+            imageUrl={targetUser.equippedTitleImageUrl}
+            className="min-w-0 self-start"
+          />
         </span>
         <button
           type="button"

@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   findEquippedAvatarFramesByUserIds,
   findEquippedCardFramesByUserIds,
+  findEquippedTitlesByUserIds,
 } from "@/lib/repositories/server/rewards.repository";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import type {
@@ -37,9 +38,10 @@ export async function findTavernMessages(): Promise<TavernMessageDto[]> {
     throw usersErr;
   }
 
-  const [frameMap, cardFrameMap] = await Promise.all([
+  const [frameMap, cardFrameMap, titleMap] = await Promise.all([
     findEquippedAvatarFramesByUserIds(userIds),
     findEquippedCardFramesByUserIds(userIds),
+    findEquippedTitlesByUserIds(userIds),
   ]);
 
   const userMap = new Map(
@@ -50,6 +52,7 @@ export async function findTavernMessages(): Promise<TavernMessageDto[]> {
       >;
       const f = frameMap.get(row.id);
       const cf = cardFrameMap.get(row.id);
+      const t = titleMap.get(row.id);
       return [
         row.id,
         {
@@ -58,6 +61,8 @@ export async function findTavernMessages(): Promise<TavernMessageDto[]> {
           avatar_url: row.avatar_url,
           level: row.level,
           role: row.role ?? "member",
+          equippedTitle: t?.equippedTitle ?? null,
+          equippedTitleImageUrl: t?.equippedTitleImageUrl ?? null,
           equippedAvatarFrameEffectKey: f?.equippedAvatarFrameEffectKey ?? null,
           equippedAvatarFrameImageUrl: f?.equippedAvatarFrameImageUrl ?? null,
           equippedAvatarFrameLayout: f?.equippedAvatarFrameLayout ?? null,
@@ -80,6 +85,8 @@ export async function findTavernMessages(): Promise<TavernMessageDto[]> {
           avatar_url: null,
           level: 1,
           role: "member",
+          equippedTitle: null,
+          equippedTitleImageUrl: null,
           equippedAvatarFrameEffectKey: null,
           equippedAvatarFrameImageUrl: null,
           equippedAvatarFrameLayout: null,

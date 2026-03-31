@@ -40,6 +40,7 @@ import LoadingButton, { PendingLabel } from "@/components/ui/LoadingButton";
 import { GuildLootBoxReveal } from "@/components/loot-box/guild-loot-box-reveal";
 import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
 import { ShopCardFrameOverlay } from "@/components/ui/ShopCardFrameOverlay";
+import { TitleBadgeRow } from "@/components/ui/title-badge-row";
 import {
   ChevronRight,
   LogOut,
@@ -487,6 +488,12 @@ export function GuildProfileHome({
   }, [loadRewards, profile.id, profile.updated_at]);
 
   useEffect(() => {
+    const onInv = () => loadRewards();
+    window.addEventListener("guild-rewards-invalidate", onInv);
+    return () => window.removeEventListener("guild-rewards-invalidate", onInv);
+  }, [loadRewards]);
+
+  useEffect(() => {
     if (!editOpen) return;
     setIgInput("");
     setShowIgChangeInput(false);
@@ -829,18 +836,12 @@ export function GuildProfileHome({
   const bannerAds = homeAds.filter((ad) => ad.position === "banner");
   const cardAds = homeAds.filter((ad) => ad.position === "card");
 
-  const equippedHomeTitle = rewardsData?.titles.find((t) => t.is_equipped)?.label;
+  const equippedHomeTitleRow = rewardsData?.titles.find((t) => t.is_equipped);
   const equippedHomeAvatar = rewardsData?.avatarFrames.find((f) => f.is_equipped);
   const equippedHomeAvatarEffectKey = equippedHomeAvatar?.effect_key;
   const equippedHomeCard = rewardsData?.cardFrames.find((f) => f.is_equipped);
 
   const renameCardUnusedCount = rewardsData?.renameCardUnusedCount ?? 0;
-
-  const titleCapsuleText = (raw: string) => {
-    const t = raw.trim();
-    if (t.length <= 8) return t;
-    return `${t.slice(0, 8)}…`;
-  };
 
   return (
     <main className="flex w-full flex-col gap-6">
@@ -1049,14 +1050,14 @@ export function GuildProfileHome({
             <p className="font-serif text-xl tracking-wide text-zinc-100 sm:text-2xl">
               {profile.nickname}
             </p>
-            {equippedHomeTitle ? (
+            {equippedHomeTitleRow ? (
               <p className="flex justify-center">
-                <span
-                  className="max-w-[90%] truncate rounded-full bg-violet-600/60 px-2 py-0.5 text-[10px] text-violet-200"
-                  title={equippedHomeTitle}
-                >
-                  {titleCapsuleText(equippedHomeTitle)}
-                </span>
+                <TitleBadgeRow
+                  title={equippedHomeTitleRow.label}
+                  imageUrl={equippedHomeTitleRow.image_url}
+                  className="max-w-[90%]"
+                  pillClassName="text-[10px]"
+                />
               </p>
             ) : null}
             <div className="flex flex-wrap items-center justify-center gap-2.5 text-sm">

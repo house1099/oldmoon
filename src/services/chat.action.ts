@@ -18,6 +18,7 @@ import {
 import {
   findEquippedAvatarFramesByUserIds,
   findEquippedCardFramesByUserIds,
+  findEquippedTitlesByUserIds,
 } from "@/lib/repositories/server/rewards.repository";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
@@ -25,6 +26,8 @@ import type { ShopFrameLayout } from "@/lib/utils/avatar-frame-layout";
 import type { ChatMessageRow } from "@/types/database.types";
 
 export type ConversationPartnerDto = UserRow & {
+  equippedTitle: string | null;
+  equippedTitleImageUrl: string | null;
   equippedAvatarFrameEffectKey: string | null;
   equippedAvatarFrameImageUrl: string | null;
   equippedAvatarFrameLayout: ShopFrameLayout | null;
@@ -159,9 +162,10 @@ export async function getMyConversationsAction(): Promise<
     const partnerIds = conversations.map((conv) =>
       conv.user_a === user.id ? conv.user_b : conv.user_a,
     );
-    const [frameMap, cardFrameMap] = await Promise.all([
+    const [frameMap, cardFrameMap, titleMap] = await Promise.all([
       findEquippedAvatarFramesByUserIds(partnerIds),
       findEquippedCardFramesByUserIds(partnerIds),
+      findEquippedTitlesByUserIds(partnerIds),
     ]);
 
     const enriched = await Promise.all(
@@ -174,8 +178,11 @@ export async function getMyConversationsAction(): Promise<
           if (base) {
             const f = frameMap.get(partnerId);
             const cf = cardFrameMap.get(partnerId);
+            const tt = titleMap.get(partnerId);
             partner = {
               ...base,
+              equippedTitle: tt?.equippedTitle ?? null,
+              equippedTitleImageUrl: tt?.equippedTitleImageUrl ?? null,
               equippedAvatarFrameEffectKey:
                 f?.equippedAvatarFrameEffectKey ?? null,
               equippedAvatarFrameImageUrl:

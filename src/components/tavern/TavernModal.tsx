@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Send } from "lucide-react";
 import useSWR from "swr";
 import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
+import { TitleBadgeRow } from "@/components/ui/title-badge-row";
 import { useMyProfile } from "@/hooks/useMyProfile";
 import { useTavern } from "@/hooks/useTavern";
 import {
@@ -346,18 +347,25 @@ export function TavernModal({
                     {avatarEl}
                   </button>
                   <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="mb-0.5 flex min-w-0 items-center gap-1 text-xs text-zinc-400">
-                      {msgRole.crown ? (
-                        <span className="shrink-0" aria-hidden>
-                          {msgRole.crown}
+                    <span className="mb-0.5 flex min-w-0 flex-col gap-0.5">
+                      <span className="flex min-w-0 items-center gap-1 text-xs text-zinc-400">
+                        {msgRole.crown ? (
+                          <span className="shrink-0" aria-hidden>
+                            {msgRole.crown}
+                          </span>
+                        ) : null}
+                        <span
+                          className={cn("min-w-0 truncate", msgRole.nameClass)}
+                        >
+                          {m.user.nickname}
                         </span>
-                      ) : null}
-                      <span
-                        className={cn("min-w-0 truncate", msgRole.nameClass)}
-                      >
-                        {m.user.nickname}
+                        <span className="shrink-0">· Lv.{m.user.level}</span>
                       </span>
-                      <span className="shrink-0">· Lv.{m.user.level}</span>
+                      <TitleBadgeRow
+                        title={m.user.equippedTitle}
+                        imageUrl={m.user.equippedTitleImageUrl}
+                        className="min-w-0 self-start"
+                      />
                     </span>
                     <div
                       role={canOpenActionMenu ? "button" : undefined}
