@@ -57,6 +57,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   GENDER_OPTIONS,
   INTEREST_TAG_OPTIONS,
   LEGACY_ORIENTATION_MAP,
@@ -93,6 +102,12 @@ import { useOpenEquipmentSheet } from "@/components/layout/FloatingToolbar";
 import { UserDetailModal } from "@/components/modals/UserDetailModal";
 import { PushNotifyGuildRow } from "@/components/profile/PushNotifyGuildRow";
 import { clearPwaAppBadge } from "@/lib/utils/app-badge";
+import {
+  ALL_TAIWAN_CITIES,
+  formatRegionPrefSummary,
+  parseRegionPref,
+  TAIWAN_REGIONS,
+} from "@/lib/utils/matchmaker-region";
 
 const IOS_TEXTAREA_CLASS =
   "w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-base text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none";
@@ -411,6 +426,19 @@ export function GuildProfileHome({
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameDraft, setRenameDraft] = useState("");
   const [renameSaving, setRenameSaving] = useState(false);
+  const [relationshipConfirmOpen, setRelationshipConfirmOpen] = useState(false);
+  const [pendingRelationshipStatus, setPendingRelationshipStatus] = useState<
+    "single" | "not_single"
+  >("single");
+  const [savingRelationship, setSavingRelationship] = useState(false);
+  const [matchmakerAgeInput, setMatchmakerAgeInput] = useState("");
+  const [savingAgePref, setSavingAgePref] = useState(false);
+  const [regionPrefModalOpen, setRegionPrefModalOpen] = useState(false);
+  const [regionDraftAll, setRegionDraftAll] = useState(true);
+  const [regionDraftSet, setRegionDraftSet] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [savingRegionPref, setSavingRegionPref] = useState(false);
 
   const { data: streakPayload, mutate: mutateStreak } = useSWR(
     SWR_KEYS.myStreak,
@@ -500,7 +528,99 @@ export function GuildProfileHome({
     if (!editOpen) return;
     setIgInput("");
     setShowIgChangeInput(false);
-  }, [editOpen, profile.instagram_handle]);
+    setMatchmakerAgeInput(String(profile.matchmaker_age_range ?? 10));
+  }, [editOpen, profile.instagram_handle, profile.matchmaker_age_range]);
+
+  function openRegionPrefModal() {
+    const prefs = parseRegionPref(
+      profile.matchmaker_region_pref ?? '["all"]',
+    );
+    if (prefs.includes("all") || prefs.length === 0) {
+      setRegionDraftAll(true);
+      setRegionDraftSet(new Set());
+    } else {
+      setRegionDraftAll(false);
+      const next = new Set<string>();
+      const allowed = ALL_TAIWAN_CITIES as readonly string[];
+      for (const p of prefs) {
+        if (typeof p === "string" && allowed.includes(p)) next.add(p);
+      }
+      setRegionDraftSet(next);
+    }
+    setRegionPrefModalOpen(true);
+  }
+
+  function toggleRegionCity(city: string) {
+    setRegionDraftAll(false);
+    setRegionDraftSet((prev) => {
+      const n = new Set(prev);
+      if (n.has(city)) n.delete(city);
+      else n.add(city);
+      return n;
+    });
+  }
+
+  async function confirmRelationshipChange() {
+    setSavingRelationship(true);
+    try {
+      const result = await updateMyProfile({
+        relationship_status: pendingRelationshipStatus,
+      });
+      if (result.ok === false) {
+        toast.error(result.error ?? "❌ 操作失敗，請稍後再試");
+        return;
+      }
+      toast.success("感情狀態已更新");
+      setRelationshipConfirmOpen(false);
+      await mutateProfile();
+      router.refresh();
+    } finally {
+      setSavingRelationship(false);
+    }
+  }
+
+  async function confirmAgePref() {
+    const digits = matchmakerAgeInput.replace(/\D/g, "");
+    const n = parseInt(digits, 10);
+    if (!Number.isFinite(n) || n < 1 || n > 50) {
+      toast.error("請輸入 1～50 的正整數");
+      return;
+    }
+    setSavingAgePref(true);
+    try {
+      const result = await updateMyProfile({ matchmaker_age_range: n });
+      if (result.ok === false) {
+        toast.error(result.error ?? "❌ 操作失敗，請稍後再試");
+        return;
+      }
+      toast.success("年齡偏好已更新");
+      await mutateProfile();
+      router.refresh();
+    } finally {
+      setSavingAgePref(false);
+    }
+  }
+
+  async function saveRegionPref() {
+    const json =
+      regionDraftAll || regionDraftSet.size === 0
+        ? '["all"]'
+        : JSON.stringify(Array.from(regionDraftSet));
+    setSavingRegionPref(true);
+    try {
+      const result = await updateMyProfile({ matchmaker_region_pref: json });
+      if (result.ok === false) {
+        toast.error(result.error ?? "❌ 操作失敗，請稍後再試");
+        return;
+      }
+      toast.success("地區偏好已更新");
+      setRegionPrefModalOpen(false);
+      await mutateProfile();
+      router.refresh();
+    } finally {
+      setSavingRegionPref(false);
+    }
+  }
 
   const handleIosTextareaFocus = useCallback(
     (e: React.FocusEvent<HTMLTextAreaElement>) => {
@@ -1965,6 +2085,122 @@ export function GuildProfileHome({
               )}
             </div>
 
+            <div className="space-y-4 rounded-2xl border border-white/10 bg-zinc-900/40 p-4">
+              <p className="text-sm font-medium text-white">🎣 月老釣魚偏好</p>
+
+              <div className="space-y-2">
+                <p className="text-xs text-zinc-400">感情狀態</p>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    disabled={
+                      savingRelationship ||
+                      savingInstagram ||
+                      igRequestSubmitting ||
+                      savingAgePref ||
+                      savingRegionPref
+                    }
+                    onClick={() => {
+                      if (profile.relationship_status === "single") return;
+                      setPendingRelationshipStatus("single");
+                      setRelationshipConfirmOpen(true);
+                    }}
+                    className={cn(
+                      "flex-1 rounded-full px-3 py-2.5 text-sm font-medium transition-colors disabled:opacity-50",
+                      profile.relationship_status === "single"
+                        ? "bg-violet-600 text-white"
+                        : "bg-zinc-800 text-zinc-400",
+                    )}
+                  >
+                    💚 單身中
+                  </button>
+                  <button
+                    type="button"
+                    disabled={
+                      savingRelationship ||
+                      savingInstagram ||
+                      igRequestSubmitting ||
+                      savingAgePref ||
+                      savingRegionPref
+                    }
+                    onClick={() => {
+                      if (profile.relationship_status === "not_single") return;
+                      setPendingRelationshipStatus("not_single");
+                      setRelationshipConfirmOpen(true);
+                    }}
+                    className={cn(
+                      "flex-1 rounded-full px-3 py-2.5 text-sm font-medium transition-colors disabled:opacity-50",
+                      profile.relationship_status === "not_single"
+                        ? "bg-violet-600 text-white"
+                        : "bg-zinc-800 text-zinc-400",
+                    )}
+                  >
+                    💔 非單身
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs text-zinc-400">可接受年齡差距（歲）</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={matchmakerAgeInput}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, "").slice(0, 2);
+                      setMatchmakerAgeInput(raw);
+                    }}
+                    placeholder="1–50"
+                    className="min-w-0 flex-1 rounded-full border border-white/10 bg-zinc-900/60 px-4 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-white/30"
+                  />
+                  <button
+                    type="button"
+                    disabled={
+                      savingAgePref ||
+                      savingInstagram ||
+                      igRequestSubmitting ||
+                      savingRelationship ||
+                      savingRegionPref
+                    }
+                    onClick={() => void confirmAgePref()}
+                    className="shrink-0 rounded-full bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500 disabled:opacity-50"
+                  >
+                    確認
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-zinc-400">地區偏好</p>
+                  <p className="text-sm text-zinc-200">
+                    {formatRegionPrefSummary(
+                      profile.matchmaker_region_pref ?? '["all"]',
+                    )}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={
+                    savingRegionPref ||
+                    savingInstagram ||
+                    igRequestSubmitting ||
+                    savingRelationship ||
+                    savingAgePref
+                  }
+                  onClick={openRegionPrefModal}
+                  className="shrink-0 rounded-full border border-white/15 px-3 py-1.5 text-sm text-violet-300 transition hover:bg-white/5 disabled:opacity-50"
+                >
+                  設定 ›
+                </button>
+              </div>
+
+              <p className="text-xs text-zinc-500">
+                以上設定僅用於月老釣魚配對，不會公開顯示在你的個人卡片上
+              </p>
+            </div>
+
             <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-4">
               <div className="min-w-0 pr-3">
                 <p className="text-sm font-medium text-white">
@@ -1986,7 +2222,10 @@ export function GuildProfileHome({
                   igRequestSubmitting ||
                   savingMood ||
                   savingBioVillage ||
-                  savingBioMarket
+                  savingBioMarket ||
+                  savingRelationship ||
+                  savingAgePref ||
+                  savingRegionPref
                 }
                 onClick={handleIgToggle}
                 className={cn(
@@ -2032,6 +2271,107 @@ export function GuildProfileHome({
             >
               關閉
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={relationshipConfirmOpen}
+        onOpenChange={setRelationshipConfirmOpen}
+      >
+        <AlertDialogContent className="border-zinc-700 bg-zinc-950 text-zinc-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle>確認變更感情狀態？</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              {pendingRelationshipStatus === "single"
+                ? "將設為 💚 單身中。"
+                : "將設為 💔 非單身。"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-zinc-600 bg-zinc-900 text-zinc-200 hover:bg-zinc-800">
+              取消
+            </AlertDialogCancel>
+            <button
+              type="button"
+              disabled={savingRelationship}
+              onClick={() => void confirmRelationshipChange()}
+              className="inline-flex h-10 items-center justify-center rounded-md bg-violet-600 px-4 text-sm font-medium text-white transition-colors hover:bg-violet-500 disabled:pointer-events-none disabled:opacity-50"
+            >
+              {savingRelationship ? "處理中…" : "確認"}
+            </button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={regionPrefModalOpen} onOpenChange={setRegionPrefModalOpen}>
+        <DialogContent className="flex max-h-[min(85vh,560px)] max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden border-zinc-700 bg-zinc-950 p-0 text-zinc-100 sm:max-w-md">
+          <DialogHeader className="shrink-0 border-b border-white/10 px-4 pb-3 pt-4">
+            <DialogTitle className="text-zinc-100">選擇偏好地區</DialogTitle>
+            <DialogDescription className="text-xs text-zinc-400">
+              可複選，未選擇任何地區視為全台不限
+            </DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+            <button
+              type="button"
+              onClick={() => {
+                setRegionDraftAll(true);
+                setRegionDraftSet(new Set());
+              }}
+              className={cn(
+                "w-full rounded-full border px-4 py-3 text-sm font-medium transition-colors",
+                regionDraftAll
+                  ? "border-violet-400 bg-violet-600/80 text-white"
+                  : "border-zinc-700 bg-zinc-800/60 text-zinc-400",
+              )}
+            >
+              全台不限
+            </button>
+
+            {(
+              [
+                ["north", "北部", TAIWAN_REGIONS.north],
+                ["central", "中部", TAIWAN_REGIONS.central],
+                ["south", "南部", TAIWAN_REGIONS.south],
+                ["east", "東部／離島", TAIWAN_REGIONS.east],
+              ] as const
+            ).map(([key, label, cities]) => (
+              <div key={key} className="space-y-2">
+                <p className="text-xs text-zinc-500">{label}</p>
+                <div className="flex flex-wrap gap-2">
+                  {cities.map((city) => {
+                    const selected =
+                      !regionDraftAll && regionDraftSet.has(city);
+                    return (
+                      <button
+                        key={city}
+                        type="button"
+                        onClick={() => toggleRegionCity(city)}
+                        className={cn(
+                          "rounded-full border px-3 py-2 text-xs transition-colors",
+                          selected
+                            ? "border-violet-400 bg-violet-600/80 text-white"
+                            : "border-zinc-700 bg-zinc-800/60 text-zinc-400",
+                        )}
+                      >
+                        {city}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="shrink-0 border-t border-white/10 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+            <LoadingButton
+              className="w-full rounded-full bg-violet-600 py-2.5 text-white hover:bg-violet-500"
+              loading={savingRegionPref}
+              loadingText="儲存中…"
+              onClick={() => void saveRegionPref()}
+            >
+              確認儲存
+            </LoadingButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>

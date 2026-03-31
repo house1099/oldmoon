@@ -72,6 +72,14 @@ export interface Database {
           orientation: string;
           /** 是否願意線下／實體聚會（尚未決定時以 false 表示未承諾實體） */
           offline_ok: boolean;
+          /** 感情狀態：single/not_single，月老魚篩選用，不公開顯示 */
+          relationship_status: "single" | "not_single" | null;
+          /** 出生年份，月老魚年齡差篩選用，不公開顯示 */
+          birth_year: number | null;
+          /** 月老魚可接受年齡差距（歲），預設 10 */
+          matchmaker_age_range: number;
+          /** 月老魚地區偏好 JSON 陣列字串，例如 '["all"]' */
+          matchmaker_region_pref: string;
           avatar_url: string | null;
           /** active / suspended / banned / pending */
           status: "pending" | "active" | "suspended" | "banned";
@@ -139,6 +147,10 @@ export interface Database {
           region: string;
           orientation: string;
           offline_ok?: boolean;
+          relationship_status?: "single" | "not_single" | null;
+          birth_year?: number | null;
+          matchmaker_age_range?: number;
+          matchmaker_region_pref?: string;
           avatar_url?: string | null;
           status?: "pending" | "active" | "suspended" | "banned";
           /** 累積經驗值，欄位名 `total_exp`（Postgres int4／int8 → TS `number`） */
@@ -179,6 +191,10 @@ export interface Database {
           region?: string;
           orientation?: string;
           offline_ok?: boolean;
+          relationship_status?: "single" | "not_single" | null;
+          birth_year?: number | null;
+          matchmaker_age_range?: number;
+          matchmaker_region_pref?: string;
           avatar_url?: string | null;
           status?: "pending" | "active" | "suspended" | "banned";
           /** 累積經驗值，欄位名 `total_exp`（Postgres int4／int8 → TS `number`） */

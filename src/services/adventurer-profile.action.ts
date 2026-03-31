@@ -36,6 +36,10 @@ export async function completeAdventurerProfile(input: {
   coreValues: string[];
   /** 興趣 slug 列表；建檔時傳空陣列，須於 `/register/interests` → **`completeRegistration`** 寫入至少 1 筆 */
   interests: string[];
+  /** 出生年份（月老魚年齡差篩選） */
+  birth_year: number;
+  /** 感情狀態（月老魚篩選） */
+  relationship_status: "single" | "not_single";
   /**
    * OAuth（如 Google）略過註冊 Step1 時，`user_metadata` 可能無 IG；
    * 此時由 Profile 表單補填。若 metadata 已有 `instagram_handle` 則優先採用 metadata。
@@ -86,6 +90,15 @@ export async function completeAdventurerProfile(input: {
     return { ok: false, error: "興趣標籤最多 12 個。" };
   }
 
+  const by = input.birth_year;
+  if (!Number.isInteger(by) || by < 1940 || by > 2006) {
+    return { ok: false, error: "出生年份無效。" };
+  }
+  const rs = input.relationship_status;
+  if (rs !== "single" && rs !== "not_single") {
+    return { ok: false, error: "感情狀態無效。" };
+  }
+
   const q = input.questionnaire;
   const regionTrimmed = q.region.trim();
   if (regionTrimmed.length === 0) {
@@ -105,6 +118,8 @@ export async function completeAdventurerProfile(input: {
       region: regionTrimmed,
       orientation: q.orientation,
       offline_ok: offlineIntentToOfflineOk(q.offlineIntent),
+      birth_year: by,
+      relationship_status: rs,
       status: "pending", // 雙重保險：與 DB `users.status` DEFAULT 一致（見遷移／Supabase）
       total_exp: 0, // users 表欄位名為 total_exp，非 exp
       level: 1,

@@ -48,6 +48,10 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
   const [offlineIntent, setOfflineIntent] = useState<OfflineIntentValue | "">(
     "",
   );
+  const [birthYear, setBirthYear] = useState<number | "">("");
+  const [relationshipStatus, setRelationshipStatus] = useState<
+    "" | "single" | "not_single"
+  >("");
   const [coreValues, setCoreValues] = useState<[string, string, string]>([
     "",
     "",
@@ -126,6 +130,14 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
         toast.error("請選擇線下意願。");
         return;
       }
+      if (!birthYear) {
+        toast.error("請選擇出生年份");
+        return;
+      }
+      if (!relationshipStatus) {
+        toast.error("請選擇感情狀態");
+        return;
+      }
     }
     if (step === 2 && !step2Ok) {
       toast.error("請完成三題核心價值觀。");
@@ -166,6 +178,16 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
       else setStep(2);
       return;
     }
+    if (!birthYear) {
+      toast.error("請選擇出生年份");
+      setStep(2);
+      return;
+    }
+    if (!relationshipStatus) {
+      toast.error("請選擇感情狀態");
+      setStep(2);
+      return;
+    }
     const resolvedRegion = resolveRegionForSubmit();
     if (!resolvedRegion) {
       toast.error(
@@ -174,6 +196,11 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
           : "請選擇地區。",
       );
       setStep(1);
+      return;
+    }
+    if (!step2Ok) {
+      toast.error("請完成三題核心價值觀。");
+      setStep(2);
       return;
     }
     setLoading(true);
@@ -188,6 +215,8 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
         },
         coreValues: [...coreValues],
         interests: [],
+        birth_year: birthYear as number,
+        relationship_status: relationshipStatus,
         instagramHandleFromForm: needsProfileInstagram
           ? instagramHandle
           : undefined,
@@ -463,6 +492,74 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div className="space-y-2">
+              <label
+                htmlFor="birth-year"
+                className="text-sm font-medium text-zinc-100"
+              >
+                出生年份
+              </label>
+              <div className="relative">
+                <select
+                  id="birth-year"
+                  name="birthYear"
+                  value={birthYear === "" ? "" : String(birthYear)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setBirthYear(v === "" ? "" : Number(v));
+                  }}
+                  className={cn(
+                    basicProfileSelectClass,
+                    birthYear !== "" ? "text-white" : "text-zinc-600",
+                  )}
+                  style={{ colorScheme: "dark" }}
+                >
+                  <option value="" disabled>
+                    請選擇出生年份
+                  </option>
+                  {Array.from({ length: 67 }, (_, i) => 2006 - i).map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+                  aria-hidden
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-zinc-100">感情狀態</p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRelationshipStatus("single")}
+                  className={cn(
+                    "flex-1 rounded-full px-4 py-3 text-sm font-medium transition-colors",
+                    relationshipStatus === "single"
+                      ? "bg-violet-600 text-white"
+                      : "bg-zinc-800 text-zinc-400",
+                  )}
+                >
+                  💚 單身中
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRelationshipStatus("not_single")}
+                  className={cn(
+                    "flex-1 rounded-full px-4 py-3 text-sm font-medium transition-colors",
+                    relationshipStatus === "not_single"
+                      ? "bg-violet-600 text-white"
+                      : "bg-zinc-800 text-zinc-400",
+                  )}
+                >
+                  💔 非單身
+                </button>
+              </div>
             </div>
 
             <div className="glass-panel space-y-4 rounded-2xl border border-white/10 p-4 pt-5">

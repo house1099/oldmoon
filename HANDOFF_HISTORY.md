@@ -5,6 +5,18 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-04-01 — 釣魚系統地基（月老偏好）
+
+1. **目標**：**`public.users`** 新增月老釣魚用四欄（不公開顯示於個人卡片）；註冊名冊收集 **出生年**、**感情狀態**；帳號設定可編 **感情狀態**、**可接受年齡差距**、**地區偏好**（複選縣市或全台）；共用 **`matchmaker-region.ts`** 解析／摘要／配對輔助。
+2. **資料庫** 🗄️：**`supabase/migrations/20260401200000_users_fishing_fields.sql`** — **`relationship_status`**（**`single`／`not_single`**）、**`birth_year`**（**1940–2006**）、**`matchmaker_age_range`**（**1–50**，預設 **10**）、**`matchmaker_region_pref`**（**text**，預設 **`'["all"]'`**）、**`COMMENT`**、**`NOTIFY pgrst`**。雲端以 **Supabase MCP `execute_sql`** 同步。
+3. **型別**：**`src/types/database.types.ts`** — **`users` Row／Insert／Update** 補齊四欄。
+4. **Layer 3**：**`adventurer-profile.action.ts`** — **`completeAdventurerProfile`** 必填 **`birth_year`**、**`relationship_status`**，伺服端範圍／枚舉驗證；**`createProfile`** 寫入兩欄。**`profile-update.action.ts`** — **`updateMyProfile`** 可選 **`relationship_status`**、**`matchmaker_age_range`**、**`matchmaker_region_pref`**（**`JSON.parse`** 須為 **字串陣列**）。
+5. **Layer 5**：**`profile-form.tsx`** — Step2「線下意願」後 **出生年份** **`<select>`**（**2006→1940**）、**感情狀態**兩膠囊；**`goNext`／`onSubmit`** 驗證與 **`completeAdventurerProfile`** 傳參。**`guild-profile-home.tsx`** — 帳號設定捲動區 **IG** 區塊後 **「🎣 月老釣魚偏好」**；感情狀態 **AlertDialog** 確認後 **`updateMyProfile`**；年齡 **確認** 膠囊；地區 **Dialog**（**全台不限**、分組縣市膠囊、**確認儲存**）。
+6. **工具**：**`src/lib/utils/matchmaker-region.ts`** — **`TAIWAN_REGIONS`**、**`ALL_TAIWAN_CITIES`**、**`parseRegionPref`**、**`isRegionMatch`**、**`formatRegionPrefSummary`**。
+7. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+8. **文件**：**`HANDOFF.md`** 最近完成、**DB SSOT** 補月老欄位、索引 **`matchmaker-region.ts`**。
+9. **Git**：**`feat(fishing): DB fields, registration birth_year/relationship, matchmaker region multi-select UI`**；**`git push`** **`origin/main`**。
+
 ### 2026-04-01 — 自由市場橘點已讀與後台按鈕對比
 
 1. **背景**：自由市場 **Store** 圖示橘點原僅依「24h 內成交」判斷，使用者開過市集後仍長期顯示；後台 **`/admin/market`** 等頁在 **`dark` 根**下 **`Button variant="outline"`** 呈深底灰字，分頁「上一頁／下一頁」難辨識。

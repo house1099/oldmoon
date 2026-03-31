@@ -55,6 +55,10 @@ export async function updateMyProfile(input: {
   interests?: string[];
   skills_offer?: string[];
   skills_want?: string[];
+  relationship_status?: "single" | "not_single";
+  matchmaker_age_range?: number;
+  /** JSON 陣列字串，例如 '["all"]' */
+  matchmaker_region_pref?: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   if (
     input.bio === undefined &&
@@ -67,7 +71,10 @@ export async function updateMyProfile(input: {
     input.avatar_url === undefined &&
     input.interests === undefined &&
     input.skills_offer === undefined &&
-    input.skills_want === undefined
+    input.skills_want === undefined &&
+    input.relationship_status === undefined &&
+    input.matchmaker_age_range === undefined &&
+    input.matchmaker_region_pref === undefined
   ) {
     return { ok: false, error: "沒有要更新的項目。" };
   }
@@ -177,6 +184,36 @@ export async function updateMyProfile(input: {
   }
   if (input.skills_want !== undefined) {
     patch.skills_want = input.skills_want;
+  }
+  if (input.relationship_status !== undefined) {
+    const v = input.relationship_status;
+    if (v !== "single" && v !== "not_single") {
+      return { ok: false, error: "感情狀態無效。" };
+    }
+    patch.relationship_status = v;
+  }
+  if (input.matchmaker_age_range !== undefined) {
+    const n = input.matchmaker_age_range;
+    if (!Number.isInteger(n) || n < 1 || n > 50) {
+      return { ok: false, error: "年齡偏好須為 1～50 的整數。" };
+    }
+    patch.matchmaker_age_range = n;
+  }
+  if (input.matchmaker_region_pref !== undefined) {
+    try {
+      const parsed = JSON.parse(input.matchmaker_region_pref) as unknown;
+      if (!Array.isArray(parsed)) {
+        return { ok: false, error: "地區偏好格式錯誤。" };
+      }
+      for (const item of parsed) {
+        if (typeof item !== "string") {
+          return { ok: false, error: "地區偏好格式錯誤。" };
+        }
+      }
+      patch.matchmaker_region_pref = input.matchmaker_region_pref;
+    } catch {
+      return { ok: false, error: "地區偏好格式錯誤。" };
+    }
   }
 
   try {
