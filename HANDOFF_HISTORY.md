@@ -5,6 +5,17 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-04-01 — 釣魚獎品系統 Phase 1（`fishing_rewards`／維護開關）
+
+1. **目標**：釣魚獎品表與 **`fish_type`** enum（含 **`leviathan`**）；**`fishing_logs.fish_type`** 與 DB 對齊；月老魚 **`collectFishAction`** 改由 **`fishing_rewards`** 加權抽獎（tier：small 60%／medium 30%／large 10%，降級 medium→small）；無設定列時預設 **10 免費幣 + 5 EXP**；**`coin_transactions.source`** **`fishing`**；**`system_settings`** **`fishing_enabled`／`fishing_age_max`**；**`getFishingStatusAction`** 回傳 **`FishingStatusResult`**（關閉時 **`fishing_disabled`**）；**`fishing-panel`** 維護文案；後台 **`admin.action.ts`** 統計／CRUD／日誌／設定；限量庫存以 **`consume_fishing_reward_stock`** RPC 原子扣減。
+2. **資料庫** 🗄️：**`supabase/migrations/20260401700000_fishing_rewards.sql`** — **`CREATE TYPE fish_type`**；**`fishing_logs`** 欄位改型；**`fishing_reward_tier`／`fishing_reward_type`**；**`fishing_rewards`**；**`consume_fishing_reward_stock`**（**`REVOKE PUBLIC`／`GRANT service_role`**）；**`coin_transactions_source_check`** 補 **`fishing`**；**`system_settings`** INSERT；**`NOTIFY pgrst`**。雲端需 **`apply_migration`**。
+3. **型別**：**`database.types.ts`** — **`FishType`／`FishingRewardTier`／`FishingRewardType`**、**`fishing_rewards`** 表、**`coin_transactions.source`**、**`Functions.consume_fishing_reward_stock`**。
+4. **Layer 2**：**`fishing.repository.ts`** — **`findActiveRewards`／`pickReward`／`consumeRewardStock`／`findAllRewardsForAdmin`／`createReward`／`updateReward`／`deleteReward`／`getFishingStats`／`findFishingLogsForAdmin`／`findMatchmakerLogsForAdmin`**。
+5. **Layer 3**：**`fishing.action.ts`** — **`resolveMatchmakerRewards`**、**`findSystemSettingByKey('fishing_enabled')`**；**`admin.action.ts`** — **`getFishingStatsAction`／`getFishingRewardsAction`／`createFishingRewardAction`／`updateFishingRewardAction`／`deleteFishingRewardAction`／`updateFishingSettingsAction`／`getFishingLogsAdminAction`／`getMatchmakerLogsAction`**（權限：**master** 或 **master+moderator** 依函式）。
+6. **Layer 4／5**：**`fishing-panel.tsx`**；**`shop/page.tsx`** **`SOURCE_LABEL.fishing`**；**`coins-admin-client.tsx`** **`fishing`→consume**；**`coin.repository.ts`** **`sourcesForLedgerCategory`**。
+7. **未接線（下一階段）**：五魚種拋竿機率、非 matchmaker 分支、**`/admin/fishing`** UI。
+8. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+
 ### 2026-04-01 — `/matchmaking` 全頁重構（魚池／魚獲／設定）
 
 1. **目標**：底部導航 **魚池**；**`/matchmaking`** 三大 Tab **魚池／魚獲／設定**；**魚獲** 子 Tab **月老魚／釣獲物**；釣魚日誌改 **SWR + `getFishingLogsAction`**；**`fishing_logs`** 持久化；**FishingPanel** 湖景／Lottie 佔位／拋竿→等待→收竿→開魚覆蓋層；**`globals.css`** **`rod-sway`／`animate-fish-fly-in`**；設定 Tab 獨立卡片與 **`MatchmakerSettingsPanel`** 別名；此頁移除緣分列表 Tab。

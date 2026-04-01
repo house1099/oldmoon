@@ -100,7 +100,22 @@ import type {
   PrizePoolRow,
   PrizeItemRow,
   Json,
+  FishType,
+  FishingRewardInsert,
 } from "@/types/database.types";
+import type {
+  FishingLogAdminRow,
+  FishingRewardWithItem,
+} from "@/lib/repositories/server/fishing.repository";
+import {
+  createReward as createFishingRewardRepo,
+  updateReward as updateFishingRewardRepo,
+  deleteReward as deleteFishingRewardRepo,
+  findAllRewardsForAdmin,
+  getFishingStats,
+  findFishingLogsForAdmin,
+  findMatchmakerLogsForAdmin,
+} from "@/lib/repositories/server/fishing.repository";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
 import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
 import { isTavernBanned } from "@/lib/repositories/server/tavern.repository";
@@ -2295,6 +2310,187 @@ export async function deleteShopItemAction(
     await repoDeleteShopItem(id);
     revalidateTag("shop_items");
     return { ok: true, data: { success: true } };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+function buildFishingRewardSummary(row: FishingLogAdminRow): string {
+  const parts: string[] = [];
+  if (row.fish_coins != null && row.fish_coins > 0) {
+    parts.push(`🪙${row.fish_coins}`);
+  }
+  if (row.fish_exp != null && row.fish_exp > 0) {
+    parts.push(`EXP+${row.fish_exp}`);
+  }
+  const item = row.fish_item;
+  if (item && typeof item === "object" && item !== null && "name" in item) {
+    const name = (item as { name?: string }).name;
+    if (name) parts.push(`道具：${name}`);
+  }
+  if (row.no_match_found) parts.push("無配對");
+  if (parts.length === 0) return row.fish_type;
+  return parts.join(" · ");
+}
+
+export type FishingStats = Awaited<ReturnType<typeof getFishingStats>>;
+
+export interface FishingLogAdminItem {
+  id: string;
+  cast_at: string;
+  fish_type: FishType;
+  reward_summary: string;
+  fisher: { nickname: string; avatar_url: string | null };
+  fish_user: { nickname: string } | null;
+}
+
+export interface MatchmakerLogItem {
+  id: string;
+  cast_at: string;
+  fisher: { nickname: string; avatar_url: string | null };
+  target: { nickname: string; avatar_url: string | null } | null;
+  no_match: boolean;
+}
+
+export async function getFishingStatsAction(): Promise<
+  ActionResult<FishingStats>
+> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const data = await getFishingStats();
+    return { ok: true, data };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function getFishingRewardsAction(filters?: {
+  fishType?: FishType;
+  isActive?: boolean;
+}): Promise<ActionResult<FishingRewardWithItem[]>> {
+  try {
+    await requireRole(["master"]);
+    const data = await findAllRewardsForAdmin(filters);
+    return { ok: true, data };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function createFishingRewardAction(
+  data: FishingRewardInsert,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    await requireRole(["master"]);
+    const row = await createFishingRewardRepo(data);
+    return { ok: true, data: { id: row.id } };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function updateFishingRewardAction(
+  id: string,
+  data: Partial<FishingRewardInsert> & {
+    is_active?: boolean;
+    stock?: number | null;
+    weight?: number;
+  },
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    await requireRole(["master"]);
+    const row = await updateFishingRewardRepo(id, data);
+    return { ok: true, data: { id: row.id } };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function deleteFishingRewardAction(
+  id: string,
+): Promise<ActionResult<{ success: boolean }>> {
+  try {
+    await requireRole(["master"]);
+    await deleteFishingRewardRepo(id);
+    return { ok: true, data: { success: true } };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function updateFishingSettingsAction(settings: {
+  fishing_enabled?: boolean;
+  fishing_age_max?: number;
+}): Promise<ActionResult<{ success: boolean }>> {
+  try {
+    const { user } = await requireRole(["master"]);
+    if (settings.fishing_enabled !== undefined) {
+      await repoUpdateSystemSetting(
+        "fishing_enabled",
+        settings.fishing_enabled ? "true" : "false",
+        user.id,
+      );
+    }
+    if (settings.fishing_age_max !== undefined) {
+      await repoUpdateSystemSetting(
+        "fishing_age_max",
+        String(settings.fishing_age_max),
+        user.id,
+      );
+    }
+    revalidateTag("system_settings");
+    return { ok: true, data: { success: true } };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function getFishingLogsAdminAction(filters?: {
+  nickname?: string;
+  fishType?: FishType;
+  page?: number;
+}): Promise<ActionResult<{ data: FishingLogAdminItem[]; total: number }>> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const { rows, total } = await findFishingLogsForAdmin({
+      nickname: filters?.nickname,
+      fishType: filters?.fishType,
+      page: filters?.page,
+    });
+    const data: FishingLogAdminItem[] = rows.map((r) => ({
+      id: r.id,
+      cast_at: r.created_at,
+      fish_type: r.fish_type,
+      reward_summary: buildFishingRewardSummary(r),
+      fisher: r.fisher,
+      fish_user: r.fish_user,
+    }));
+    return { ok: true, data: { data, total } };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function getMatchmakerLogsAction(filters?: {
+  fisherNickname?: string;
+  targetNickname?: string;
+  page?: number;
+}): Promise<ActionResult<{ data: MatchmakerLogItem[]; total: number }>> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const { rows, total } = await findMatchmakerLogsForAdmin({
+      fisherNickname: filters?.fisherNickname,
+      targetNickname: filters?.targetNickname,
+      page: filters?.page,
+    });
+    const data: MatchmakerLogItem[] = rows.map((r) => ({
+      id: r.id,
+      cast_at: r.created_at,
+      fisher: r.fisher,
+      target: r.target,
+      no_match: r.no_match,
+    }));
+    return { ok: true, data: { data, total } };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
   }

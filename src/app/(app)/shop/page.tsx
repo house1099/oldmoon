@@ -70,6 +70,7 @@ const SOURCE_LABEL: Record<CoinTransactionRow["source"], string> = {
   topup: "儲值",
   market_trade_buy: "玩家市場購買",
   market_trade_sell: "玩家市場售出",
+  fishing: "釣魚",
 };
 
 const ITEM_TYPE_EMOJI: Record<string, string> = {

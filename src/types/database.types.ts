@@ -3,7 +3,7 @@
  * 表：users, exp_logs, likes, alliances（雙人血盟）, conversations, chat_messages, blocks, reports, messages, notifications, ig_change_requests,
  *     admin_actions, moderator_permissions, system_settings, advertisements, ad_clicks, invitation_codes, invitation_code_uses, announcements,
  *     tavern_messages, tavern_bans, login_streaks, streak_reward_settings, prize_pools, prize_items, prize_logs, user_rewards, broadcasts,
- *     shop_items, shop_orders, shop_daily_limits, push_subscriptions, market_listings, profile_change_requests, fishing_logs
+ *     shop_items, shop_orders, shop_daily_limits, push_subscriptions, market_listings, profile_change_requests, fishing_logs, fishing_rewards
  */
 
 export type Json =
@@ -13,6 +13,24 @@ export type Json =
   | null
   | { [key: string]: Json | undefined }
   | Json[];
+
+/** `public.fish_type` enum */
+export type FishType =
+  | "common"
+  | "rare"
+  | "legendary"
+  | "matchmaker"
+  | "leviathan";
+
+/** `public.fishing_reward_tier` enum */
+export type FishingRewardTier = "small" | "medium" | "large";
+
+/** `public.fishing_reward_type` enum */
+export type FishingRewardType =
+  | "coins_free"
+  | "coins_premium"
+  | "exp"
+  | "shop_item";
 
 /** `public.market_listing_status` enum */
 export type MarketListingStatus =
@@ -429,7 +447,7 @@ export interface Database {
           id: string;
           user_id: string;
           created_at: string;
-          fish_type: "common" | "rare" | "legendary" | "matchmaker";
+          fish_type: FishType;
           fish_user_id: string | null;
           no_match_found: boolean | null;
           fish_coins: number | null;
@@ -445,7 +463,7 @@ export interface Database {
           id?: string;
           user_id: string;
           created_at?: string;
-          fish_type: "common" | "rare" | "legendary" | "matchmaker";
+          fish_type: FishType;
           fish_user_id?: string | null;
           no_match_found?: boolean | null;
           fish_coins?: number | null;
@@ -461,7 +479,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           created_at?: string;
-          fish_type?: "common" | "rare" | "legendary" | "matchmaker";
+          fish_type?: FishType;
           fish_user_id?: string | null;
           no_match_found?: boolean | null;
           fish_coins?: number | null;
@@ -484,6 +502,63 @@ export interface Database {
             foreignKeyName: "fishing_logs_fish_user_id_fkey";
             columns: ["fish_user_id"];
             referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      fishing_rewards: {
+        Row: {
+          id: string;
+          fish_type: FishType;
+          reward_tier: FishingRewardTier;
+          reward_type: FishingRewardType;
+          shop_item_id: string | null;
+          coins_amount: number | null;
+          exp_amount: number | null;
+          weight: number;
+          stock: number | null;
+          stock_used: number;
+          is_active: boolean;
+          note: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          fish_type: FishType;
+          reward_tier: FishingRewardTier;
+          reward_type: FishingRewardType;
+          shop_item_id?: string | null;
+          coins_amount?: number | null;
+          exp_amount?: number | null;
+          weight?: number;
+          stock?: number | null;
+          stock_used?: number;
+          is_active?: boolean;
+          note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          fish_type?: FishType;
+          reward_tier?: FishingRewardTier;
+          reward_type?: FishingRewardType;
+          shop_item_id?: string | null;
+          coins_amount?: number | null;
+          exp_amount?: number | null;
+          weight?: number;
+          stock?: number | null;
+          stock_used?: number;
+          is_active?: boolean;
+          note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "fishing_rewards_shop_item_id_fkey";
+            columns: ["shop_item_id"];
+            referencedRelation: "shop_items";
             referencedColumns: ["id"];
           },
         ];
@@ -1268,7 +1343,8 @@ export interface Database {
             | "convert_out"
             | "topup"
             | "market_trade_buy"
-            | "market_trade_sell";
+            | "market_trade_sell"
+            | "fishing";
           reference_id: string | null;
           note: string | null;
           operator_id: string | null;
@@ -1293,7 +1369,8 @@ export interface Database {
             | "convert_out"
             | "topup"
             | "market_trade_buy"
-            | "market_trade_sell";
+            | "market_trade_sell"
+            | "fishing";
           reference_id?: string | null;
           note?: string | null;
           operator_id?: string | null;
@@ -1317,7 +1394,8 @@ export interface Database {
             | "convert_out"
             | "topup"
             | "market_trade_buy"
-            | "market_trade_sell";
+            | "market_trade_sell"
+            | "fishing";
           reference_id?: string | null;
           note?: string | null;
           operator_id?: string | null;
@@ -1881,6 +1959,12 @@ export interface Database {
         };
         Returns: Json;
       };
+      consume_fishing_reward_stock: {
+        Args: {
+          p_id: string;
+        };
+        Returns: boolean;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
@@ -1973,3 +2057,7 @@ export type InvitationCodeDto = InvitationCodeRow & {
 export type AnnouncementDto = AnnouncementRow & {
   creator?: { id: string; nickname: string; avatar_url: string | null };
 };
+
+export type FishingRewardRow = PublicTables["fishing_rewards"]["Row"];
+export type FishingRewardInsert = PublicTables["fishing_rewards"]["Insert"];
+export type FishingRewardUpdate = PublicTables["fishing_rewards"]["Update"];

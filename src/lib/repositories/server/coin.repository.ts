@@ -287,7 +287,7 @@ function sourcesForLedgerCategory(
     case "convert":
       return ["convert_in", "convert_out"];
     case "consume":
-      return ["loot_box"];
+      return ["loot_box", "fishing"];
     default:
       return null;
   }

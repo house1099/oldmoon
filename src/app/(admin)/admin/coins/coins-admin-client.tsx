@@ -49,7 +49,7 @@ function sourceToCategory(source: string): CoinLedgerTxCategory {
     return "admin";
   }
   if (source === "convert_in" || source === "convert_out") return "convert";
-  if (source === "loot_box") return "consume";
+  if (source === "loot_box" || source === "fishing") return "consume";
   return "all";
 }
 

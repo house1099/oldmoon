@@ -24,6 +24,7 @@ import {
   getFishingStatusAction,
   type CollectFishResult,
   type FishingStatusDto,
+  type FishingStatusResult,
 } from "@/services/fishing.action";
 import { getMemberProfileByIdAction } from "@/services/profile.action";
 import type { MemberProfileView } from "@/services/profile.action";
@@ -150,11 +151,16 @@ function LottiePlaceholder() {
 
 export function FishingPanel() {
   const router = useRouter();
-  const { data: status } = useSWR<FishingStatusDto>(
+  const { data: status } = useSWR<FishingStatusResult>(
     SWR_KEYS.fishingStatus,
     getFishingStatusAction,
     { refreshInterval: 10_000, revalidateOnFocus: true },
   );
+
+  const statusDto: FishingStatusDto | undefined =
+    status?.ok === true ? status.data : undefined;
+  const fishingDisabled =
+    status?.ok === false && status.error === "fishing_disabled";
 
   const [uiPhase, setUiPhase] = useState<UiPhase>("idle");
   const [castProgress, setCastProgress] = useState(0);
@@ -168,12 +174,14 @@ export function FishingPanel() {
   const castTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const flyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const phase = status?.phase ?? "no_rod";
-  const rodName = status?.equippedRodName ?? "命運釣竿";
-  const baitName = status?.defaultBaitName ?? "釣餌";
-  const remaining = status?.todayRemainingCasts ?? status?.baitCount ?? 0;
+  const phase = statusDto?.phase ?? "no_rod";
+  const rodName = statusDto?.equippedRodName ?? "命運釣竿";
+  const baitName = statusDto?.defaultBaitName ?? "釣餌";
+  const remaining =
+    statusDto?.todayRemainingCasts ?? statusDto?.baitCount ?? 0;
 
   const showLottie =
+    !fishingDisabled &&
     (phase === "no_rod" || phase === "no_bait" || phase === "can_cast") &&
     uiPhase === "idle";
 
@@ -216,6 +224,11 @@ export function FishingPanel() {
       setLastResult(res);
       void swrMutate(SWR_KEYS.fishingStatus);
       void swrMutate(SWR_KEYS.fishingLogs);
+      if (!res.ok && res.error === "fishing_disabled") {
+        setResultOverlay(true);
+        setFishStep("detail");
+        return;
+      }
       if (res.ok) {
         setResultOverlay(true);
         setFishStep("fly");
@@ -263,6 +276,21 @@ export function FishingPanel() {
     if (lastResult.matchmakerUser) return "❤️";
     return "🐟";
   }, [lastResult]);
+
+  if (fishingDisabled) {
+    return (
+      <div className="flex flex-col gap-4 px-4 py-4">
+        <div className="rounded-2xl border border-amber-500/35 bg-zinc-900/80 p-6 text-center">
+          <p className="text-3xl" aria-hidden>
+            🔧
+          </p>
+          <p className="mt-3 text-sm font-medium text-zinc-100">
+            釣魚系統維護中，請稍後再試
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4 px-4 py-4">
@@ -543,7 +571,11 @@ export function FishingPanel() {
           ) : (
             <div className="w-full max-w-sm space-y-4 text-center">
               <p className="text-rose-300">
-                {!lastResult.ok ? lastResult.error : ""}
+                {!lastResult.ok
+                  ? lastResult.error === "fishing_disabled"
+                    ? "🔧 釣魚系統維護中，請稍後再試"
+                    : lastResult.error
+                  : ""}
               </p>
               <Button
                 type="button"
