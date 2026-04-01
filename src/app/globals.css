@@ -74,6 +74,37 @@
   animation-delay: var(--ft-delay, 0ms);
 }
 
+/** 月老釣魚：拋竿輕微搖擺 */
+@keyframes rod-sway-kf {
+  0%,
+  100% {
+    transform: translateX(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateX(4px) rotate(2deg);
+  }
+}
+
+.rod-sway {
+  animation: rod-sway-kf 1.6s ease-in-out infinite;
+}
+
+/** 月老釣魚：開魚圖示自下方飛入 */
+@keyframes fish-fly-in-kf {
+  from {
+    opacity: 0;
+    transform: translateY(120%) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fish-fly-in {
+  animation: fish-fly-in-kf 0.8s ease-out both;
+}
+
 @keyframes market-ticker {
   0% {
     transform: translateX(0);

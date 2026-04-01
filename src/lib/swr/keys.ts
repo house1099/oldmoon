@@ -19,4 +19,6 @@ export const SWR_KEYS = {
   profileBannerSettings: 'profile-banner-settings',
   /** 釣魚：釣竿／釣餌持有狀態 */
   fishingStatus: 'fishing-status',
+  /** 釣魚日誌（月老魚／釣獲物列表） */
+  fishingLogs: 'fishing-logs',
 } as const

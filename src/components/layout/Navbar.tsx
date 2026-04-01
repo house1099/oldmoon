@@ -18,7 +18,7 @@ const navItems = [
   { label: "首頁", href: "/", icon: Home },
   { label: "探索", href: "/explore", icon: Compass },
   { label: "冒險團", href: "/guild", icon: Swords },
-  { label: "月老", href: "/matchmaking", icon: Fish },
+  { label: "魚池", href: "/matchmaking", icon: Fish },
   { label: "商店", href: "/shop", icon: ShoppingBag },
 ] as const;
 

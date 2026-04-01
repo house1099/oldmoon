@@ -5,6 +5,18 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-04-01 — `/matchmaking` 全頁重構（魚池／魚獲／設定）
+
+1. **目標**：底部導航 **魚池**；**`/matchmaking`** 三大 Tab **魚池／魚獲／設定**；**魚獲** 子 Tab **月老魚／釣獲物**；釣魚日誌改 **SWR + `getFishingLogsAction`**；**`fishing_logs`** 持久化；**FishingPanel** 湖景／Lottie 佔位／拋竿→等待→收竿→開魚覆蓋層；**`globals.css`** **`rod-sway`／`animate-fish-fly-in`**；設定 Tab 獨立卡片與 **`MatchmakerSettingsPanel`** 別名；此頁移除緣分列表 Tab。
+2. **資料庫** 🗄️：**`supabase/migrations/20260401600000_fishing_logs.sql`** — **`fishing_logs`**（**`fish_type` CHECK**、**`fish_user_id`**、快照欄位、**INDEX**）；**RLS** **SELECT／INSERT** **本人**；**`NOTIFY pgrst`**。
+3. **型別**：**`database.types.ts`** — **`fishing_logs`** 表。
+4. **Layer 2**：**`fishing.repository.ts`** — **`insertFishingLog`／`findFishingLogsForUser`／`findFirstFishingRodDisplayName`／`findFirstFishingBaitDisplayName`**；**`like.repository.ts`** — **`findMutualLikeFlags`**（批次互有緣分）。
+5. **Layer 3**：**`fishing.action.ts`** — **`FishingStatusDto`** 增 **`todayRemainingCasts`／`equippedRodName`／`defaultBaitName`**；**`getFishingLogsAction`**；**`collectFishAction`** 成功路徑 **`tryInsertMatchmakerLog`**（**`findProfileById`** 快照）。
+6. **Layer 4**：**`SWR_KEYS.fishingLogs`**。
+7. **Layer 5**：**`Navbar.tsx`** **魚池**；**`matchmaking/page.tsx`**；**`catch-panel.tsx`**；**`fishing-panel.tsx`**；**`matchmaker-settings-tab.tsx`**。
+8. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+9. **Git**：**`feat(matchmaking): full page redesign, catch panel, lottie placeholder, navbar fishing label`**；**`git push`** **`origin/main`**。
+
 ### 2026-04-01 — 月老年齡三欄位與月老頁重構
 
 1. **目標**：**`users`** 年齡偏好改三欄（**`matchmaker_age_mode`／older／younger**）；**`system_settings.matchmaker_age_max`**；**`isAgeMatch`** 雙向篩選；**`collectFishAction`** 月老魚（無候選 **`noMatchFound`**、不降級稀有魚）；**`/matchmaking`** 三 Tab（魚池／緣分列表／配對設定）；帳號設定月老區改導向月老頁；**`FloatingToolbar`** 釣竿／釣餌導向 **`/matchmaking`**；**`Navbar`** 月老圖示 **Fish**。

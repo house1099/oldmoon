@@ -263,14 +263,14 @@ export function MatchmakerSettingsTab() {
     savingRegionPref;
 
   return (
-    <div className="space-y-6 pb-8">
-      <div className="space-y-4 rounded-2xl border border-white/10 bg-zinc-900/40 p-4">
-        <p className="text-sm font-medium text-white">🎣 月老釣魚偏好</p>
-
-        <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/5 bg-zinc-900/30 px-3 py-3">
-          <div className="min-w-0 pr-2">
-            <p className="text-sm font-medium text-white">月老配對池</p>
-            <p className="mt-0.5 text-xs text-zinc-400">
+    <div className="space-y-3 px-4 pb-8">
+      <div className="mb-3 rounded-2xl border border-zinc-800/40 bg-zinc-900/60 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <div className="flex min-w-0 flex-1 items-baseline gap-2">
+            <p className="whitespace-nowrap text-sm font-medium text-white">
+              月老配對池
+            </p>
+            <p className="text-xs text-zinc-500">
               關閉後將不會出現在其他人的月老魚結果中
             </p>
           </div>
@@ -294,9 +294,16 @@ export function MatchmakerSettingsTab() {
             />
           </button>
         </div>
+      </div>
 
+      <div className="mb-3 rounded-2xl border border-zinc-800/40 bg-zinc-900/60 p-4">
+        <div className="mb-2 flex flex-wrap items-baseline gap-2">
+          <p className="whitespace-nowrap text-sm font-medium text-white">
+            感情狀態
+          </p>
+          <p className="text-xs text-zinc-500">僅用於月老配對，不公開顯示</p>
+        </div>
         <div className="space-y-2">
-          <p className="text-xs text-zinc-400">感情狀態</p>
           <div className="flex gap-3">
             <button
               type="button"
@@ -334,9 +341,16 @@ export function MatchmakerSettingsTab() {
             </button>
           </div>
         </div>
+      </div>
 
+      <div className="mb-3 rounded-2xl border border-zinc-800/40 bg-zinc-900/60 p-4">
+        <div className="mb-2 flex flex-wrap items-baseline gap-2">
+          <p className="whitespace-nowrap text-sm font-medium text-white">
+            年齡偏好
+          </p>
+          <p className="text-xs text-zinc-500">後台設定最大差距為 {ageMax} 歲</p>
+        </div>
         <div className="space-y-3">
-          <p className="text-xs text-zinc-400">年齡偏好</p>
           <div className="flex flex-wrap gap-2">
             {(
               [
@@ -457,16 +471,16 @@ export function MatchmakerSettingsTab() {
               </div>
             </div>
           ) : null}
-
-          <p className="text-xs text-zinc-400">
-            後台設定最大差距為 {ageMax} 歲
-          </p>
         </div>
+      </div>
 
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs text-zinc-400">地區偏好</p>
-            <p className="text-sm text-zinc-200">
+      <div className="mb-3 rounded-2xl border border-zinc-800/40 bg-zinc-900/60 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <p className="whitespace-nowrap text-sm font-medium text-white">
+              地區偏好
+            </p>
+            <p className="text-xs text-zinc-500">
               {formatRegionPrefSummary(
                 profile.matchmaker_region_pref ?? '["all"]',
               )}
@@ -476,16 +490,19 @@ export function MatchmakerSettingsTab() {
             type="button"
             disabled={busyBase}
             onClick={openRegionPrefModal}
-            className="shrink-0 rounded-full border border-white/15 px-3 py-1.5 text-sm text-violet-300 transition hover:bg-white/5 disabled:opacity-50"
+            className="shrink-0 whitespace-nowrap rounded-full border border-zinc-700/60 px-3 py-1.5 text-sm text-violet-300 transition hover:bg-white/5 disabled:opacity-50"
           >
             設定 ›
           </button>
         </div>
-
-        <p className="text-xs text-zinc-500">
+        <p className="mt-2 text-xs text-zinc-500">
           以上設定僅用於月老釣魚配對，不會公開顯示在你的個人卡片上
         </p>
       </div>
+
+      <p className="mt-2 px-4 text-center text-xs text-zinc-600">
+        更多篩選條件即將推出
+      </p>
 
       <AlertDialog
         open={relationshipConfirmOpen}
@@ -590,3 +607,5 @@ export function MatchmakerSettingsTab() {
     </div>
   );
 }
+
+export const MatchmakerSettingsPanel = MatchmakerSettingsTab;

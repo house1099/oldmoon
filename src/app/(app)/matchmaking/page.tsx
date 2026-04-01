@@ -1,50 +1,75 @@
 "use client";
 
+import { useState } from "react";
+
+import { CatchPanel } from "@/components/matchmaking/catch-panel";
 import { FishingPanel } from "@/components/matchmaking/fishing-panel";
-import { LikesListPanel } from "@/components/matchmaking/likes-list-panel";
-import { MatchmakerSettingsTab } from "@/components/matchmaking/matchmaker-settings-tab";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MatchmakerSettingsPanel } from "@/components/matchmaking/matchmaker-settings-tab";
+
+type MainTab = "fishing" | "catch" | "settings";
+type CatchSubTab = "matchmaker" | "items";
+
+function TabBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-1 text-center py-2 text-xs border-b-2 transition-colors ${
+        active
+          ? "text-violet-400 border-violet-500"
+          : "text-zinc-500 border-transparent"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
 
 export default function MatchmakingPage() {
+  const [mainTab, setMainTab] = useState<MainTab>("fishing");
+  const [catchTab, setCatchTab] = useState<CatchSubTab>("matchmaker");
+
   return (
-    <div className="min-h-screen bg-zinc-950 pb-24">
-      <div className="sticky top-0 z-10 border-b border-white/10 bg-zinc-950/90 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top,0px))] backdrop-blur-xl">
-        <h1 className="mb-3 text-center text-base font-bold text-white">月老</h1>
+    <div className="flex h-[100dvh] flex-col bg-zinc-950 pb-[max(5rem,env(safe-area-inset-bottom))]">
+      <div className="pb-1 pt-3 text-center text-base font-medium text-white">
+        月老
       </div>
 
-      <div className="px-4 pt-4">
-        <Tabs defaultValue="fish" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 gap-1 rounded-full bg-zinc-900/60 p-1">
-            <TabsTrigger
-              value="fish"
-              className="rounded-full text-xs data-[state=active]:bg-white/15 data-[state=active]:text-white"
-            >
-              🎣 月老魚池
-            </TabsTrigger>
-            <TabsTrigger
-              value="likes"
-              className="rounded-full text-xs data-[state=active]:bg-white/15 data-[state=active]:text-white"
-            >
-              💖 緣分列表
-            </TabsTrigger>
-            <TabsTrigger
-              value="prefs"
-              className="rounded-full text-xs data-[state=active]:bg-white/15 data-[state=active]:text-white"
-            >
-              ⚙️ 配對設定
-            </TabsTrigger>
-          </TabsList>
+      <div className="mx-4 flex border-b border-zinc-800/60">
+        <TabBtn
+          active={mainTab === "fishing"}
+          onClick={() => setMainTab("fishing")}
+        >
+          🎣 魚池
+        </TabBtn>
+        <TabBtn
+          active={mainTab === "catch"}
+          onClick={() => setMainTab("catch")}
+        >
+          🐟 魚獲
+        </TabBtn>
+        <TabBtn
+          active={mainTab === "settings"}
+          onClick={() => setMainTab("settings")}
+        >
+          ⚙️ 設定
+        </TabBtn>
+      </div>
 
-          <TabsContent value="fish" className="mt-6 outline-none">
-            <FishingPanel />
-          </TabsContent>
-          <TabsContent value="likes" className="mt-6 outline-none">
-            <LikesListPanel />
-          </TabsContent>
-          <TabsContent value="prefs" className="mt-6 outline-none">
-            <MatchmakerSettingsTab />
-          </TabsContent>
-        </Tabs>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {mainTab === "fishing" ? <FishingPanel /> : null}
+        {mainTab === "catch" ? (
+          <CatchPanel subTab={catchTab} onSubTabChange={setCatchTab} />
+        ) : null}
+        {mainTab === "settings" ? <MatchmakerSettingsPanel /> : null}
       </div>
     </div>
   );

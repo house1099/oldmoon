@@ -15,8 +15,17 @@ import {
   findMatchmakerPoolCandidates,
   findProfileById,
 } from "@/lib/repositories/server/user.repository";
+import {
+  findFishingLogsForUser,
+  findFirstFishingBaitDisplayName,
+  findFirstFishingRodDisplayName,
+  insertFishingLog,
+} from "@/lib/repositories/server/fishing.repository";
+import { findMutualLikeFlags } from "@/lib/repositories/server/like.repository";
 import { getMatchmakerAgeMaxAction } from "@/services/system-settings.action";
 import { isAgeMatch, isRegionMatch } from "@/lib/utils/matchmaker-region";
+import type { Json } from "@/types/database.types";
+import type { UserRow } from "@/lib/repositories/server/user.repository";
 
 export type FishingPhase = "no_rod" | "no_bait" | "can_cast";
 
@@ -24,6 +33,11 @@ export type FishingStatusDto = {
   phase: FishingPhase;
   rodCount: number;
   baitCount: number;
+  /** 今日可拋竿次數（目前等同持有釣餌數） */
+  todayRemainingCasts: number;
+  equippedRodName: string | null;
+  /** 預設選中之釣餌顯示名（單一餌種時） */
+  defaultBaitName: string | null;
 };
 
 export type CollectFishResult =
@@ -41,11 +55,77 @@ export type CollectFishResult =
     }
   | { ok: false; error: string };
 
+export type FishingLogListItemDto = {
+  id: string;
+  created_at: string;
+  fish_type: "common" | "rare" | "legendary" | "matchmaker";
+  fish_user_id: string | null;
+  no_match_found: boolean | null;
+  fish_coins: number | null;
+  fish_exp: number | null;
+  fish_item: Json | null;
+  peer_nickname: string | null;
+  peer_avatar_url: string | null;
+  peer_region: string | null;
+  peer_interests: string[] | null;
+  peer_bio: string | null;
+  mutual_like: boolean;
+};
+
 function clampAgeFields(older: number, younger: number, ageMax: number) {
   return {
     matchmaker_age_older: Math.min(older, ageMax),
     matchmaker_age_younger: Math.min(younger, ageMax),
   };
+}
+
+function peerSnapshotFromProfile(p: UserRow | null) {
+  if (!p) {
+    return {
+      peer_nickname: null as string | null,
+      peer_avatar_url: null as string | null,
+      peer_region: null as string | null,
+      peer_interests: null as string[] | null,
+      peer_bio: null as string | null,
+    };
+  }
+  const bio =
+    [p.bio_village, p.bio].find((b) => typeof b === "string" && b.trim()) ??
+    "";
+  return {
+    peer_nickname: p.nickname,
+    peer_avatar_url: p.avatar_url,
+    peer_region: p.region,
+    peer_interests: p.interests?.length ? p.interests.slice(0, 8) : null,
+    peer_bio: bio.trim() ? bio.trim() : null,
+  };
+}
+
+async function tryInsertMatchmakerLog(
+  userId: string,
+  payload: {
+    fish_user_id: string | null;
+    no_match_found: boolean | null;
+    fish_coins: number | null;
+    fish_exp: number | null;
+    peer: UserRow | null;
+  },
+) {
+  try {
+    const snap = peerSnapshotFromProfile(payload.peer);
+    await insertFishingLog({
+      user_id: userId,
+      fish_type: "matchmaker",
+      fish_user_id: payload.fish_user_id,
+      no_match_found: payload.no_match_found,
+      fish_coins: payload.fish_coins,
+      fish_exp: payload.fish_exp,
+      fish_item: null,
+      ...snap,
+    });
+  } catch (e) {
+    console.error("fishing_logs insert failed", e);
+  }
 }
 
 /** 釣魚列狀態（未登入時視為無釣竿） */
@@ -55,18 +135,90 @@ export async function getFishingStatusAction(): Promise<FishingStatusDto> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { phase: "no_rod", rodCount: 0, baitCount: 0 };
+    return {
+      phase: "no_rod",
+      rodCount: 0,
+      baitCount: 0,
+      todayRemainingCasts: 0,
+      equippedRodName: null,
+      defaultBaitName: null,
+    };
   }
 
   const rodCount = await countUserRewardsByType(user.id, "fishing_rod");
   const baitCount = await countUserRewardsByType(user.id, "fishing_bait");
+  const [equippedRodName, defaultBaitName] = await Promise.all([
+    findFirstFishingRodDisplayName(user.id),
+    findFirstFishingBaitDisplayName(user.id),
+  ]);
+  const todayRemainingCasts = baitCount;
+
   if (rodCount < 1) {
-    return { phase: "no_rod", rodCount, baitCount };
+    return {
+      phase: "no_rod",
+      rodCount,
+      baitCount,
+      todayRemainingCasts,
+      equippedRodName,
+      defaultBaitName,
+    };
   }
   if (baitCount < 1) {
-    return { phase: "no_bait", rodCount, baitCount };
+    return {
+      phase: "no_bait",
+      rodCount,
+      baitCount,
+      todayRemainingCasts,
+      equippedRodName,
+      defaultBaitName,
+    };
   }
-  return { phase: "can_cast", rodCount, baitCount };
+  return {
+    phase: "can_cast",
+    rodCount,
+    baitCount,
+    todayRemainingCasts,
+    equippedRodName,
+    defaultBaitName,
+  };
+}
+
+/** Layer 3：釣魚日誌列表（含互有緣分標記）。 */
+export async function getFishingLogsAction(): Promise<
+  { ok: true; logs: FishingLogListItemDto[] } | { ok: false; error: string }
+> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "請先登入。" };
+
+  const rows = await findFishingLogsForUser(user.id);
+  const peerIds = rows
+    .map((r) => r.fish_user_id)
+    .filter((id): id is string => Boolean(id));
+  const mutualMap = await findMutualLikeFlags(user.id, peerIds);
+
+  const logs: FishingLogListItemDto[] = rows.map((r) => ({
+    id: r.id,
+    created_at: r.created_at,
+    fish_type: r.fish_type,
+    fish_user_id: r.fish_user_id,
+    no_match_found: r.no_match_found,
+    fish_coins: r.fish_coins,
+    fish_exp: r.fish_exp,
+    fish_item: r.fish_item,
+    peer_nickname: r.peer_nickname,
+    peer_avatar_url: r.peer_avatar_url,
+    peer_region: r.peer_region,
+    peer_interests: r.peer_interests,
+    peer_bio: r.peer_bio,
+    mutual_like: r.fish_user_id
+      ? (mutualMap.get(r.fish_user_id) ?? false)
+      : false,
+  }));
+
+  return { ok: true, logs };
 }
 
 export async function collectFishAction(): Promise<CollectFishResult> {
@@ -147,6 +299,13 @@ export async function collectFishAction(): Promise<CollectFishResult> {
 
   if (pool.length === 0) {
     revalidateTag(profileCacheTag(user.id));
+    await tryInsertMatchmakerLog(user.id, {
+      fish_user_id: null,
+      no_match_found: true,
+      fish_coins: null,
+      fish_exp: null,
+      peer: null,
+    });
     return {
       ok: true,
       fishType: "matchmaker",
@@ -168,6 +327,14 @@ export async function collectFishAction(): Promise<CollectFishResult> {
   });
   if (!coinResult.success) {
     revalidateTag(profileCacheTag(user.id));
+    const peerFull = await findProfileById(pick.id);
+    await tryInsertMatchmakerLog(user.id, {
+      fish_user_id: pick.id,
+      no_match_found: false,
+      fish_coins: 0,
+      fish_exp: 0,
+      peer: peerFull,
+    });
     return {
       ok: true,
       fishType: "matchmaker",
@@ -191,6 +358,15 @@ export async function collectFishAction(): Promise<CollectFishResult> {
   });
 
   revalidateTag(profileCacheTag(user.id));
+
+  const peerFull = await findProfileById(pick.id);
+  await tryInsertMatchmakerLog(user.id, {
+    fish_user_id: pick.id,
+    no_match_found: false,
+    fish_coins: fishCoins,
+    fish_exp: fishExp,
+    peer: peerFull,
+  });
 
   return {
     ok: true,

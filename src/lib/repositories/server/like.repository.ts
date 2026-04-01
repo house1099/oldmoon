@@ -119,6 +119,46 @@ export async function checkMutualLike(
   return Boolean(ab && ba);
 }
 
+/**
+ * 批次：對多個 peerId 是否與 userId **互有緣分**（雙向 likes 皆存在）。
+ */
+export async function findMutualLikeFlags(
+  userId: string,
+  peerIds: string[],
+): Promise<Map<string, boolean>> {
+  const unique = Array.from(new Set(peerIds.filter(Boolean)));
+  const result = new Map<string, boolean>();
+  if (unique.length === 0) return result;
+
+  const admin = createAdminClient();
+
+  const { data: outRows, error: errOut } = await admin
+    .from("likes")
+    .select("to_user")
+    .eq("from_user", userId)
+    .in("to_user", unique);
+  if (errOut) throw errOut;
+
+  const { data: inRows, error: errIn } = await admin
+    .from("likes")
+    .select("from_user")
+    .eq("to_user", userId)
+    .in("from_user", unique);
+  if (errIn) throw errIn;
+
+  const sent = new Set(
+    (outRows ?? []).map((r) => r.to_user as string),
+  );
+  const recv = new Set(
+    (inRows ?? []).map((r) => r.from_user as string),
+  );
+
+  for (const pid of unique) {
+    result.set(pid, sent.has(pid) && recv.has(pid));
+  }
+  return result;
+}
+
 export type LikePeerListItem = {
   peerId: string;
   nickname: string;

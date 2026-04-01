@@ -3,7 +3,7 @@
  * 表：users, exp_logs, likes, alliances（雙人血盟）, conversations, chat_messages, blocks, reports, messages, notifications, ig_change_requests,
  *     admin_actions, moderator_permissions, system_settings, advertisements, ad_clicks, invitation_codes, invitation_code_uses, announcements,
  *     tavern_messages, tavern_bans, login_streaks, streak_reward_settings, prize_pools, prize_items, prize_logs, user_rewards, broadcasts,
- *     shop_items, shop_orders, shop_daily_limits, push_subscriptions, market_listings, profile_change_requests
+ *     shop_items, shop_orders, shop_daily_limits, push_subscriptions, market_listings, profile_change_requests, fishing_logs
  */
 
 export type Json =
@@ -419,6 +419,70 @@ export interface Database {
           {
             foreignKeyName: "exp_logs_user_id_fkey";
             columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      fishing_logs: {
+        Row: {
+          id: string;
+          user_id: string;
+          created_at: string;
+          fish_type: "common" | "rare" | "legendary" | "matchmaker";
+          fish_user_id: string | null;
+          no_match_found: boolean | null;
+          fish_coins: number | null;
+          fish_exp: number | null;
+          fish_item: Json | null;
+          peer_nickname: string | null;
+          peer_avatar_url: string | null;
+          peer_region: string | null;
+          peer_interests: string[] | null;
+          peer_bio: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          created_at?: string;
+          fish_type: "common" | "rare" | "legendary" | "matchmaker";
+          fish_user_id?: string | null;
+          no_match_found?: boolean | null;
+          fish_coins?: number | null;
+          fish_exp?: number | null;
+          fish_item?: Json | null;
+          peer_nickname?: string | null;
+          peer_avatar_url?: string | null;
+          peer_region?: string | null;
+          peer_interests?: string[] | null;
+          peer_bio?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          created_at?: string;
+          fish_type?: "common" | "rare" | "legendary" | "matchmaker";
+          fish_user_id?: string | null;
+          no_match_found?: boolean | null;
+          fish_coins?: number | null;
+          fish_exp?: number | null;
+          fish_item?: Json | null;
+          peer_nickname?: string | null;
+          peer_avatar_url?: string | null;
+          peer_region?: string | null;
+          peer_interests?: string[] | null;
+          peer_bio?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "fishing_logs_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "fishing_logs_fish_user_id_fkey";
+            columns: ["fish_user_id"];
             referencedRelation: "users";
             referencedColumns: ["id"];
           },
