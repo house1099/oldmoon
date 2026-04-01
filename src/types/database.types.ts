@@ -514,6 +514,8 @@ export interface Database {
           taipei_date_key: string;
           casts_used: number;
           last_cast_at: string | null;
+          pending_cast_started_at: string | null;
+          pending_bait_shop_item_id: string | null;
           updated_at: string;
         };
         Insert: {
@@ -523,12 +525,16 @@ export interface Database {
           taipei_date_key: string;
           casts_used?: number;
           last_cast_at?: string | null;
+          pending_cast_started_at?: string | null;
+          pending_bait_shop_item_id?: string | null;
           updated_at?: string;
         };
         Update: {
           taipei_date_key?: string;
           casts_used?: number;
           last_cast_at?: string | null;
+          pending_cast_started_at?: string | null;
+          pending_bait_shop_item_id?: string | null;
           updated_at?: string;
         };
         Relationships: [

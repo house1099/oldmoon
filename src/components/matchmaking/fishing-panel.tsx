@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR, { mutate as swrMutate } from "swr";
 
@@ -21,18 +21,15 @@ import { FishingRewardModal } from "@/components/matchmaking/fishing-reward-moda
 import { SWR_KEYS } from "@/lib/swr/keys";
 import { INTEREST_TAG_OPTIONS } from "@/lib/constants/adventurer-questionnaire";
 import {
-  collectFishAction,
+  castFishAction,
   getFishingStatusAction,
+  harvestFishAction,
   type CollectFishResult,
   type FishingStatusDto,
   type FishingStatusResult,
 } from "@/services/fishing.action";
 import { getMemberProfileByIdAction } from "@/services/profile.action";
 import type { MemberProfileView } from "@/services/profile.action";
-
-const CAST_MS = 2_200;
-/** AlertDialog 文案用（實際等待為 CAST_MS） */
-const CAST_COPY_MINUTES = 2;
 
 const FISH_TYPE_LABEL: Record<string, string> = {
   common: "普通魚",
@@ -42,10 +39,18 @@ const FISH_TYPE_LABEL: Record<string, string> = {
   leviathan: "深海巨獸",
 };
 
-type UiPhase = "idle" | "casting" | "ready";
+type LakeUiPhase = "idle" | "casting" | "ready";
 
 function tagLabel(slug: string): string {
   return INTEREST_TAG_OPTIONS.find((o) => o.value === slug)?.label ?? slug;
+}
+
+function formatWaitHuman(sec: number): string {
+  if (sec <= 0) return "即將可收";
+  const h = Math.floor(sec / 3600);
+  const m = Math.ceil((sec % 3600) / 60);
+  if (h >= 1) return `約 ${h} 小時 ${m > 0 ? `${m} 分` : ""}`;
+  return `約 ${Math.max(1, m)} 分鐘`;
 }
 
 export function FishingPanel() {
@@ -53,7 +58,11 @@ export function FishingPanel() {
   const { data: status } = useSWR<FishingStatusResult>(
     SWR_KEYS.fishingStatus,
     getFishingStatusAction,
-    { refreshInterval: 10_000, revalidateOnFocus: true },
+    {
+      refreshInterval: (d) =>
+        d?.ok === true && d.data.hasPendingHarvest ? 1_000 : 10_000,
+      revalidateOnFocus: true,
+    },
   );
 
   const statusDto: FishingStatusDto | undefined =
@@ -61,10 +70,8 @@ export function FishingPanel() {
   const fishingDisabled =
     status?.ok === false && status.error === "fishing_disabled";
 
-  const [uiPhase, setUiPhase] = useState<UiPhase>("idle");
-  const [castProgress, setCastProgress] = useState(0);
-  const [castRemainMs, setCastRemainMs] = useState(CAST_MS);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [castBusy, setCastBusy] = useState(false);
   const [resultOverlay, setResultOverlay] = useState(false);
   const [revealPlaybackKey, setRevealPlaybackKey] = useState(0);
   const [lastResult, setLastResult] = useState<CollectFishResult | null>(null);
@@ -72,7 +79,6 @@ export function FishingPanel() {
   const [peerExtra, setPeerExtra] = useState<MemberProfileView | null>(null);
   const [selectedRodId, setSelectedRodId] = useState<string | null>(null);
   const [selectedBaitId, setSelectedBaitId] = useState<string | null>(null);
-  const castTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!statusDto?.rods.length) return;
@@ -91,55 +97,60 @@ export function FishingPanel() {
   }, [statusDto]);
 
   const phase = statusDto?.phase ?? "no_rod";
-  const activeRod = statusDto?.rods.find((r) => r.id === selectedRodId) ?? statusDto?.rods[0];
-  const activeBait = statusDto?.baits.find((b) => b.id === selectedBaitId) ?? statusDto?.baits[0];
+  const activeRod =
+    statusDto?.rods.find((r) => r.id === selectedRodId) ?? statusDto?.rods[0];
+  const activeBait =
+    statusDto?.baits.find((b) => b.id === selectedBaitId) ?? statusDto?.baits[0];
   const rodName = activeRod?.name ?? statusDto?.equippedRodName ?? "命運釣竿";
   const baitName = activeBait?.name ?? statusDto?.defaultBaitName ?? "釣餌";
+
+  const lakeUiPhase: LakeUiPhase = useMemo(() => {
+    if (!activeRod?.hasPendingCast) return "idle";
+    if (activeRod.pendingHarvestRemainSec > 0) return "casting";
+    return "ready";
+  }, [activeRod]);
+
   const remaining = useMemo(() => {
     if (!statusDto || !activeRod) {
       return statusDto?.todayRemainingCasts ?? statusDto?.baitCount ?? 0;
     }
-    if (activeRod.cooldownRemainingSec > 0) return 0;
+    if (activeRod.hasPendingCast) return 0;
+    if (activeRod.cooldownAfterHarvestRemainingSec > 0) return 0;
     return Math.min(statusDto.baitCount, activeRod.castsRemainingToday);
   }, [statusDto, activeRod]);
 
-  const clearCastTimer = useCallback(() => {
-    if (castTimerRef.current) {
-      clearInterval(castTimerRef.current);
-      castTimerRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      clearCastTimer();
-    };
-  }, [clearCastTimer]);
-
-  const startCasting = useCallback(() => {
-    setUiPhase("casting");
-    setCastProgress(0);
-    setCastRemainMs(CAST_MS);
-    const start = Date.now();
-    clearCastTimer();
-    castTimerRef.current = setInterval(() => {
-      const elapsed = Date.now() - start;
-      const p = Math.min(1, elapsed / CAST_MS);
-      setCastProgress(p);
-      setCastRemainMs(Math.max(0, CAST_MS - elapsed));
-      if (elapsed >= CAST_MS) {
-        clearCastTimer();
-        setUiPhase("ready");
-      }
-    }, 50);
-  }, [clearCastTimer]);
-
-  const runCollect = useCallback(async () => {
-    setUiPhase("idle");
+  const runCast = useCallback(async () => {
+    setCastBusy(true);
     try {
-      const res = await collectFishAction({
+      const res = await castFishAction({
         rodUserRewardId: selectedRodId ?? undefined,
         baitUserRewardId: selectedBaitId ?? undefined,
+      });
+      void swrMutate(SWR_KEYS.fishingStatus);
+      if (!res.ok) {
+        if (res.error === "fishing_disabled") {
+          setLastResult({ ok: false, error: res.error });
+          setRevealPlaybackKey((k) => k + 1);
+          setResultOverlay(true);
+        } else {
+          setLastResult({ ok: false, error: res.error });
+          setRevealPlaybackKey((k) => k + 1);
+          setResultOverlay(true);
+        }
+      }
+    } catch {
+      setLastResult({ ok: false, error: "拋竿失敗，請稍後再試。" });
+      setRevealPlaybackKey((k) => k + 1);
+      setResultOverlay(true);
+    } finally {
+      setCastBusy(false);
+    }
+  }, [selectedRodId, selectedBaitId]);
+
+  const runHarvest = useCallback(async () => {
+    try {
+      const res = await harvestFishAction({
+        rodUserRewardId: selectedRodId ?? undefined,
       });
       setLastResult(res);
       void swrMutate(SWR_KEYS.fishingStatus);
@@ -158,7 +169,7 @@ export function FishingPanel() {
       setRevealPlaybackKey((k) => k + 1);
       setResultOverlay(true);
     }
-  }, [selectedRodId, selectedBaitId]);
+  }, [selectedRodId]);
 
   const openPeerDetail = useCallback(async (userId: string) => {
     const p = await getMemberProfileByIdAction(userId);
@@ -207,9 +218,8 @@ export function FishingPanel() {
 
   return (
     <div className="flex flex-col gap-4 px-4 py-4">
-      <FishingLakeVisual serverPhase={phase} uiPhase={uiPhase} />
+      <FishingLakeVisual serverPhase={phase} uiPhase={lakeUiPhase} />
 
-      {/* StatusSection */}
       {phase === "no_rod" ? (
         <div className="glass-panel rounded-2xl border border-zinc-800/40 p-4 text-center">
           <p className="text-4xl" aria-hidden>
@@ -260,7 +270,7 @@ export function FishingPanel() {
         </>
       ) : null}
 
-      {phase === "can_cast" && uiPhase === "idle" ? (
+      {phase === "can_cast" && lakeUiPhase === "idle" ? (
         <>
           <div className="rounded-xl bg-zinc-900/60 p-3 space-y-2">
             <p className="text-xs font-medium text-zinc-400">選擇釣竿</p>
@@ -273,8 +283,8 @@ export function FishingPanel() {
                 {statusDto.rods.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.name}
-                    {r.cooldownRemainingSec > 0
-                      ? `（冷卻 ${Math.ceil(r.cooldownRemainingSec / 60)} 分）`
+                    {r.cooldownAfterHarvestRemainingSec > 0
+                      ? `（收竿後冷卻 ${Math.ceil(r.cooldownAfterHarvestRemainingSec / 60)} 分）`
                       : `（今日剩 ${r.castsRemainingToday}）`}
                   </option>
                 ))}
@@ -319,7 +329,9 @@ export function FishingPanel() {
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm text-white">{baitName}</span>
-                <span className="text-xs text-zinc-500">等待約 {CAST_COPY_MINUTES} 分鐘</span>
+                <span className="text-xs text-zinc-500">
+                  拋竿後依釣竿設定等待再收竿
+                </span>
               </div>
               <p className="mt-1 text-xs text-zinc-500">
                 魚種機率由該魚餌在商城後台設定
@@ -329,26 +341,24 @@ export function FishingPanel() {
           <Button
             type="button"
             className="h-12 w-full rounded-xl bg-violet-600 text-base font-semibold"
+            disabled={castBusy || remaining < 1}
             onClick={() => setConfirmOpen(true)}
           >
-            拋竿！🎣
+            {castBusy ? "拋竿中…" : "拋竿！🎣"}
           </Button>
         </>
       ) : null}
 
-      {phase === "can_cast" && uiPhase === "casting" ? (
+      {phase === "can_cast" && lakeUiPhase === "casting" ? (
         <div className="glass-panel rounded-2xl border border-zinc-800/40 p-4 text-center">
           <p className="text-2xl font-semibold tabular-nums text-violet-400">
-            {Math.ceil(castRemainMs / 1000)}s
+            {formatWaitHuman(activeRod?.pendingHarvestRemainSec ?? 0)}
           </p>
           <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-zinc-800">
-            <div
-              className="h-full rounded-full bg-violet-500 transition-all"
-              style={{ width: `${castProgress * 100}%` }}
-            />
+            <div className="h-full w-full animate-pulse rounded-full bg-violet-500/80" />
           </div>
           <p className="mt-3 text-xs text-zinc-500">
-            {baitName} · 等待中
+            {baitName} · 等待中（由釣竿 metadata 決定等待時間）
           </p>
           <p className="mt-4 rounded-xl border border-zinc-800/60 bg-zinc-900/50 px-3 py-2 text-xs text-zinc-500">
             離開此畫面不影響釣魚，稍後回來收竿即可
@@ -356,7 +366,7 @@ export function FishingPanel() {
         </div>
       ) : null}
 
-      {phase === "can_cast" && uiPhase === "ready" ? (
+      {phase === "can_cast" && lakeUiPhase === "ready" ? (
         <div className="space-y-3">
           <div className="rounded-2xl border border-orange-400/60 bg-orange-950/20 p-4 text-center animate-pulse">
             <p className="text-lg font-semibold text-orange-200">
@@ -366,7 +376,7 @@ export function FishingPanel() {
           <Button
             type="button"
             className="h-12 w-full rounded-xl bg-orange-500 text-base font-semibold text-white hover:bg-orange-600"
-            onClick={() => void runCollect()}
+            onClick={() => void runHarvest()}
           >
             收竿！
           </Button>
@@ -378,11 +388,9 @@ export function FishingPanel() {
           <AlertDialogHeader>
             <AlertDialogTitle>確認拋竿</AlertDialogTitle>
             <AlertDialogDescription className="space-y-2 text-zinc-400">
-              <p>
-                消耗【{baitName}】，等待約 {CAST_COPY_MINUTES} 分鐘
-              </p>
+              <p>消耗【{baitName}】。拋竿後須依釣竿設定的時間等待，時間到才可收竿結算。</p>
               <p className="text-amber-200/90">
-                ⚠️ 若命運之湖找不到符合條件的有緣人，將自動釣中稀有魚 🐠
+                ⚠️ 月老魚須符合配對條件；若無符合對象將記為未配對成功。
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -394,7 +402,7 @@ export function FishingPanel() {
               className="bg-violet-600"
               onClick={() => {
                 setConfirmOpen(false);
-                startCasting();
+                void runCast();
               }}
             >
               確認

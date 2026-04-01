@@ -1547,16 +1547,23 @@ export default function ShopAdminClient() {
                 釣竿機率加成等（框類商品的對齊會另存為 frame_layout，不須手寫）
               </span>
               {form.item_type === "fishing_bait" ? (
-                <p className="mt-1 text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5">
-                  釣餌必填：<code className="text-[11px]">bait_common_rate</code>～
-                  <code className="text-[11px]">bait_leviathan_rate</code> 五項百分比，加總須為 100。
-                  可選 <code className="text-[11px]">bait_wait_minutes</code>（演出用等待分鐘）。
+                <p className="mt-1 text-xs text-amber-900 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5">
+                  一般餌：四項
+                  <code className="text-[11px] text-gray-900">bait_common_rate</code>～
+                  <code className="text-[11px] text-gray-900">bait_matchmaker_rate</code>
+                  加總 100，<code className="text-[11px] text-gray-900">bait_leviathan_rate</code>
+                  ＝0。章魚餌：加 <code className="text-[11px] text-gray-900">bait_octopus</code>
+                  : true 時五項加總 100。
                 </p>
               ) : null}
               {form.item_type === "fishing_rod" ? (
-                <p className="mt-1 text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5">
-                  釣竿必填：<code className="text-[11px]">rod_max_casts_per_day</code>（每日可拋次數）、
-                  <code className="text-[11px]">rod_cooldown_minutes</code>（收竿後冷卻分鐘，後台可調）。
+                <p className="mt-1 text-xs text-amber-900 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5">
+                  釣竿必填：
+                  <code className="text-[11px] text-gray-900">rod_max_casts_per_day</code>（每日可拋）、
+                  <code className="text-[11px] text-gray-900">rod_wait_until_harvest_minutes</code>
+                  （拋竿後至可收成之分鐘）、
+                  <code className="text-[11px] text-gray-900">rod_cooldown_minutes</code>
+                  （收竿後再拋冷卻分鐘，可填 0）。
                 </p>
               ) : null}
               <textarea

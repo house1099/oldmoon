@@ -71,6 +71,13 @@ const FISH_TABS: { value: FishType; label: string }[] = [
   { value: "leviathan", label: "深海巨獸" },
 ];
 
+/** 小／中／大 tier 僅適用普通／稀有／傳說魚 */
+const TIER_SETTINGS_FISH_TABS: { value: FishType; label: string }[] = [
+  { value: "common", label: "普通魚" },
+  { value: "rare", label: "稀有魚" },
+  { value: "legendary", label: "傳說魚" },
+];
+
 const FISH_DISTRIBUTION_ROWS: {
   type: FishType;
   emoji: string;
@@ -1110,6 +1117,7 @@ export default function FishingAdminClient({
               小／中／大獎 tier 抽選（每魚種）
             </h3>
             <p className="text-xs text-gray-500 leading-relaxed">
+              僅適用普通／稀有／傳說魚。月老魚獎勵由配對成功與否決定；深海巨獸僅限量大獎，不適用本表。
               決定玩家釣到該魚種後，獎品落在「最小獎／中等獎／大獎」哪一層（與獎品列的 tier
               對齊）。
               <span className="font-mono text-[11px] bg-gray-50 px-1 rounded">
@@ -1134,7 +1142,7 @@ export default function FishingAdminClient({
                     value={tierFish}
                     onChange={(e) => setTierFish(e.target.value as FishType)}
                   >
-                    {FISH_TABS.map((f) => (
+                    {TIER_SETTINGS_FISH_TABS.map((f) => (
                       <option key={f.value} value={f.value}>
                         {f.label}
                       </option>
@@ -1219,40 +1227,29 @@ export default function FishingAdminClient({
             <h3 className="text-sm font-semibold text-gray-900">
               魚餌機率設定說明
             </h3>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              以下機率在商城後台的「魚餌」商品 metadata 中設定：
-              <br />
-              <code className="text-[11px] bg-white/80 px-1 rounded">
-                bait_wait_minutes
-              </code>
-              ：等待分鐘數
-              <br />
-              <code className="text-[11px] bg-white/80 px-1 rounded">
+            <p className="text-xs text-gray-700 leading-relaxed">
+              一般魚餌：<code className="text-[11px] bg-white px-1 rounded text-gray-900">
                 bait_common_rate
               </code>
-              ：普通魚機率（%）
-              <br />
-              <code className="text-[11px] bg-white/80 px-1 rounded">
-                bait_rare_rate
-              </code>
-              ：稀有魚機率（%）
-              <br />
-              <code className="text-[11px] bg-white/80 px-1 rounded">
-                bait_legendary_rate
-              </code>
-              ：傳說魚機率（%）
-              <br />
-              <code className="text-[11px] bg-white/80 px-1 rounded">
+              ～
+              <code className="text-[11px] bg-white px-1 rounded text-gray-900">
                 bait_matchmaker_rate
               </code>
-              ：月老魚機率（%）
-              <br />
-              <code className="text-[11px] bg-white/80 px-1 rounded">
+              四項加總須為 100，且
+              <code className="text-[11px] bg-white px-1 rounded text-gray-900">
                 bait_leviathan_rate
               </code>
-              ：深海巨獸機率（%）
+              須為 0。
               <br />
-              五種機率加總須等於 100。
+              章魚餌：設{" "}
+              <code className="text-[11px] bg-white px-1 rounded text-gray-900">
+                bait_octopus
+              </code>
+              為 true 時，五魚種（含
+              <code className="text-[11px] bg-white px-1 rounded text-gray-900">
+                bait_leviathan_rate
+              </code>
+              ）加總須為 100。
             </p>
             {canAccessShopAdmin ? (
               <Button
@@ -1342,6 +1339,7 @@ export default function FishingAdminClient({
                   {(shopItems ?? []).map((it) => (
                     <option key={it.id} value={it.id}>
                       {it.name} [{ITEM_TYPE_BADGE[it.item_type] ?? it.item_type}]
+                      {!it.is_active ? "（已下架）" : ""}
                     </option>
                   ))}
                 </select>
@@ -1679,7 +1677,7 @@ function RewardTierCard({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="border-gray-200"
+                  className="border-gray-300 bg-white text-gray-900 hover:bg-gray-50"
                   onClick={() => onEdit(row)}
                 >
                   編輯
@@ -1688,7 +1686,7 @@ function RewardTierCard({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="border-gray-200"
+                  className="border-gray-300 bg-white text-gray-900 hover:bg-gray-50"
                   onClick={() => onToggle(row)}
                 >
                   {row.is_active ? "停用" : "啟用"}
@@ -1697,7 +1695,7 @@ function RewardTierCard({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="border-red-200 text-red-600"
+                  className="border-red-300 bg-white text-red-700 hover:bg-red-50"
                   onClick={() => onDelete(row)}
                 >
                   刪除

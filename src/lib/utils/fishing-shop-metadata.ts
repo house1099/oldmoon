@@ -18,10 +18,45 @@ function num(v: unknown): number | null {
   return null;
 }
 
-/** 解析釣餌 metadata：五魚種百分比加總應為 100。 */
+function isBaitOctopus(metadata: Record<string, unknown>): boolean {
+  return metadata.bait_octopus === true;
+}
+
+/** 解析釣餌 metadata：章魚餌五項加總 100；一般餌四項加總 100 且 leviathan=0。 */
 export function validateFishingBaitMetadata(
   metadata: Record<string, unknown>,
 ): string | null {
+  const octopus = isBaitOctopus(metadata);
+  const lev = num(metadata.bait_leviathan_rate);
+
+  if (!octopus) {
+    if (lev != null && lev !== 0) {
+      return "非章魚餌請將 bait_leviathan_rate 設為 0，或設定 bait_octopus: true";
+    }
+    const keys = [
+      "bait_common_rate",
+      "bait_rare_rate",
+      "bait_legendary_rate",
+      "bait_matchmaker_rate",
+    ] as const;
+    let sum = 0;
+    for (const key of keys) {
+      const n = num(metadata[key]);
+      if (n == null) continue;
+      if (n < 0 || n > 100) {
+        return `${key} 須為 0–100 的數字`;
+      }
+      sum += n;
+    }
+    if (sum === 0) {
+      return "釣餌須設定 bait_common_rate～bait_matchmaker_rate 至少一項，且四項加總為 100";
+    }
+    if (Math.round(sum) !== 100) {
+      return `一般魚餌四魚種機率加總須為 100（目前 ${sum}）`;
+    }
+    return null;
+  }
+
   let sum = 0;
   for (const { key } of FISH_RATE_KEYS) {
     const n = num(metadata[key]);
@@ -32,25 +67,29 @@ export function validateFishingBaitMetadata(
     sum += n;
   }
   if (sum === 0) {
-    return "釣餌機率須設定 bait_common_rate 等至少一項，且加總為 100";
+    return "章魚餌須設定五魚種機率且加總為 100";
   }
   if (Math.round(sum) !== 100) {
-    return `釣餌五魚種機率加總須為 100（目前 ${sum}）`;
+    return `章魚餌五魚種機率加總須為 100（目前 ${sum}）`;
   }
   return null;
 }
 
-/** 解析釣竿 metadata：每日上限與冷卻（分鐘）。 */
+/** 解析釣竿 metadata：每日上限、拋竿後至可收成之分鐘、收竿後再拋冷卻（可為 0）。 */
 export function validateFishingRodMetadata(
   metadata: Record<string, unknown>,
 ): string | null {
   const max = num(metadata.rod_max_casts_per_day);
-  const cool = num(metadata.rod_cooldown_minutes);
+  const wait = num(metadata.rod_wait_until_harvest_minutes);
+  const after = num(metadata.rod_cooldown_minutes);
   if (max == null || !Number.isInteger(max) || max < 1) {
     return "rod_max_casts_per_day 須為 ≥1 的整數";
   }
-  if (cool == null || !Number.isInteger(cool) || cool < 1) {
-    return "rod_cooldown_minutes 須為 ≥1 的整數（分鐘）";
+  if (wait == null || !Number.isInteger(wait) || wait < 1) {
+    return "rod_wait_until_harvest_minutes 須為 ≥1 的整數（拋竿後至可收成之分鐘）";
+  }
+  if (after != null && (!Number.isInteger(after) || after < 0)) {
+    return "rod_cooldown_minutes 須為 ≥0 的整數（收竿後再拋冷卻分鐘，可填 0）";
   }
   return null;
 }
@@ -93,27 +132,48 @@ export function baitHasMatchmakerChance(metadata: Json | null | undefined): bool
   return v != null && v > 0;
 }
 
-export function parseRodCastRules(metadata: Json | null | undefined): {
+/** 拋竿／收成規則；舊欄位僅 rod_cooldown_minutes 時無法解析（須補 rod_wait_until_harvest_minutes）。 */
+export function parseRodFishingRules(metadata: Json | null | undefined): {
   maxPerDay: number;
-  cooldownMinutes: number;
+  waitUntilHarvestMinutes: number;
+  cooldownAfterHarvestMinutes: number;
 } | null {
   const m =
     metadata && typeof metadata === "object" && !Array.isArray(metadata)
       ? (metadata as Record<string, unknown>)
       : {};
   const max = num(m.rod_max_casts_per_day);
-  const cool = num(m.rod_cooldown_minutes);
-  if (
-    max == null ||
-    !Number.isInteger(max) ||
-    max < 1 ||
-    cool == null ||
-    !Number.isInteger(cool) ||
-    cool < 1
-  ) {
+  const wait = num(m.rod_wait_until_harvest_minutes);
+  const after = num(m.rod_cooldown_minutes);
+  if (max == null || !Number.isInteger(max) || max < 1) {
     return null;
   }
-  return { maxPerDay: max, cooldownMinutes: cool };
+  if (wait == null || !Number.isInteger(wait) || wait < 1) {
+    return null;
+  }
+  const cooldownAfter =
+    after == null ? 0 : Number.isInteger(after) && after >= 0 ? after : null;
+  if (cooldownAfter === null) {
+    return null;
+  }
+  return {
+    maxPerDay: max,
+    waitUntilHarvestMinutes: wait,
+    cooldownAfterHarvestMinutes: cooldownAfter,
+  };
+}
+
+/** @deprecated 使用 parseRodFishingRules；保留供舊程式路徑。 */
+export function parseRodCastRules(metadata: Json | null | undefined): {
+  maxPerDay: number;
+  cooldownMinutes: number;
+} | null {
+  const r = parseRodFishingRules(metadata);
+  if (!r) return null;
+  return {
+    maxPerDay: r.maxPerDay,
+    cooldownMinutes: r.cooldownAfterHarvestMinutes,
+  };
 }
 
 /** 依權重抽魚種（加總不必為 100，會內部正規化）。 */

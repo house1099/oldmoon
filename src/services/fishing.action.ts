@@ -31,14 +31,16 @@ import type { TierPickResult } from "@/lib/utils/fishing-tier-pick";
 import {
   getRodCastSnapshot,
   getRodCastState,
-  peekRodCastAllowed,
-  recordRodCastSuccess,
+  peekCanStartCast,
+  peekHarvestReady,
+  recordHarvestSuccess,
+  setPendingCast,
 } from "@/lib/repositories/server/fishing-cast.repository";
 import { findShopItemById } from "@/lib/repositories/server/shop.repository";
 import {
   baitHasMatchmakerChance,
   parseBaitFishWeights,
-  parseRodCastRules,
+  parseRodFishingRules,
   rollFishTypeFromWeights,
 } from "@/lib/utils/fishing-shop-metadata";
 import { findMutualLikeFlags } from "@/lib/repositories/server/like.repository";
@@ -53,6 +55,10 @@ import type {
 } from "@/types/database.types";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 
+export type CastFishResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
 export type FishingPhase = "no_rod" | "no_bait" | "can_cast";
 
 export type FishingStatusDto = {
@@ -64,12 +70,18 @@ export type FishingStatusDto = {
   equippedRodName: string | null;
   /** 預設選中之釣餌顯示名（單一餌種時） */
   defaultBaitName: string | null;
+  /** 任一支釣竿有進行中拋竿（已消耗魚餌、等待收成） */
+  hasPendingHarvest: boolean;
   rods: Array<{
     id: string;
     name: string;
     shopItemId: string | null;
     castsRemainingToday: number;
-    cooldownRemainingSec: number;
+    /** 收竿後距下次可拋竿的冷卻（秒） */
+    cooldownAfterHarvestRemainingSec: number;
+    hasPendingCast: boolean;
+    /** 拋竿後至可收成剩餘秒（無 pending 為 0） */
+    pendingHarvestRemainSec: number;
   }>;
   baits: Array<{ id: string; name: string; shopItemId: string | null }>;
 };
@@ -182,12 +194,9 @@ async function pickTierForFishType(fishType: FishType): Promise<TierPickResult> 
   );
 }
 
+/** 月老魚：配對成功後依獎池加權抽選（不依小／中／大 tier）。 */
 async function pickMatchmakerRewardFromTable() {
-  const tierRoll = await pickTierForFishType("matchmaker");
-  let reward: FishingRewardRow | null = null;
-  if (tierRoll !== "miss") {
-    reward = await pickReward("matchmaker", tierRoll);
-  }
+  let reward: FishingRewardRow | null = await pickReward("matchmaker", "large");
   if (!reward) reward = await pickReward("matchmaker", "medium");
   if (!reward) reward = await pickReward("matchmaker", "small");
   return reward;
@@ -522,6 +531,7 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
         todayRemainingCasts: 0,
         equippedRodName: null,
         defaultBaitName: null,
+        hasPendingHarvest: false,
         rods: [],
         baits: [],
       },
@@ -544,19 +554,24 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
   const rodsOut: FishingStatusDto["rods"] = [];
   for (const r of bundle.rods) {
     let castsRemainingToday = 0;
-    let cooldownRemainingSec = 0;
+    let cooldownAfterHarvestRemainingSec = 0;
+    let hasPendingCast = false;
+    let pendingHarvestRemainSec = 0;
     if (r.shop_item_id) {
       const si = await findShopItemById(r.shop_item_id);
-      const rules = parseRodCastRules(si?.metadata ?? null);
+      const rules = parseRodFishingRules(si?.metadata ?? null);
       if (rules) {
         const snap = await getRodCastSnapshot({
           userId: user.id,
           rodUserRewardId: r.id,
           maxPerDay: rules.maxPerDay,
-          cooldownMinutes: rules.cooldownMinutes,
+          waitUntilHarvestMinutes: rules.waitUntilHarvestMinutes,
+          cooldownAfterHarvestMinutes: rules.cooldownAfterHarvestMinutes,
         });
         castsRemainingToday = snap.castsRemainingToday;
-        cooldownRemainingSec = snap.cooldownRemainingSec;
+        cooldownAfterHarvestRemainingSec = snap.cooldownAfterHarvestRemainingSec;
+        hasPendingCast = snap.hasPendingCast;
+        pendingHarvestRemainSec = snap.pendingHarvestRemainSec;
       }
     }
     rodsOut.push({
@@ -564,7 +579,9 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
       name: r.displayName,
       shopItemId: r.shop_item_id,
       castsRemainingToday,
-      cooldownRemainingSec,
+      cooldownAfterHarvestRemainingSec,
+      hasPendingCast,
+      pendingHarvestRemainSec,
     });
   }
 
@@ -574,14 +591,17 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
     shopItemId: b.shop_item_id,
   }));
 
+  const hasPendingHarvest = rodsOut.some((r) => r.hasPendingCast);
   const firstRod = rodsOut[0];
-  const canUseFirstRod =
+  const canStartNewCastOnFirst =
     firstRod != null &&
+    !firstRod.hasPendingCast &&
     firstRod.castsRemainingToday > 0 &&
-    firstRod.cooldownRemainingSec === 0;
-  const todayRemainingCasts = canUseFirstRod
-    ? Math.min(baitCount, firstRod.castsRemainingToday)
-    : 0;
+    firstRod.cooldownAfterHarvestRemainingSec === 0;
+  const todayRemainingCasts =
+    canStartNewCastOnFirst && !hasPendingHarvest
+      ? Math.min(baitCount, firstRod.castsRemainingToday)
+      : 0;
 
   if (rodCount < 1) {
     return {
@@ -593,12 +613,13 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
         todayRemainingCasts: 0,
         equippedRodName,
         defaultBaitName,
+        hasPendingHarvest: false,
         rods: rodsOut,
         baits: baitsOut,
       },
     };
   }
-  if (baitCount < 1) {
+  if (baitCount < 1 && !hasPendingHarvest) {
     return {
       ok: true,
       data: {
@@ -608,6 +629,7 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
         todayRemainingCasts: 0,
         equippedRodName,
         defaultBaitName,
+        hasPendingHarvest,
         rods: rodsOut,
         baits: baitsOut,
       },
@@ -622,6 +644,7 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
       todayRemainingCasts,
       equippedRodName,
       defaultBaitName,
+      hasPendingHarvest,
       rods: rodsOut,
       baits: baitsOut,
     },
@@ -666,10 +689,11 @@ export async function getFishingLogsAction(): Promise<
   return { ok: true, logs };
 }
 
-export async function collectFishAction(opts?: {
+/** 拋竿：消耗魚餌並記錄等待收成（魚種於收成時抽選）。 */
+export async function castFishAction(opts?: {
   baitUserRewardId?: string | null;
   rodUserRewardId?: string | null;
-}): Promise<CollectFishResult> {
+}): Promise<CastFishResult> {
   const supabase = createClient();
   const {
     data: { user },
@@ -705,12 +729,12 @@ export async function collectFishAction(opts?: {
   const rodShop = rodRow.shop_item_id
     ? await findShopItemById(rodRow.shop_item_id)
     : null;
-  const rodRules = parseRodCastRules(rodShop?.metadata ?? null);
+  const rodRules = parseRodFishingRules(rodShop?.metadata ?? null);
   if (!rodRules) {
     return {
       ok: false,
       error:
-        "此釣竿尚未設定 rod_max_casts_per_day／rod_cooldown_minutes，請洽管理員。",
+        "此釣竿尚未設定 rod_max_casts_per_day／rod_wait_until_harvest_minutes 等，請洽管理員。",
     };
   }
 
@@ -725,23 +749,50 @@ export async function collectFishAction(opts?: {
   }
 
   const castRow = await getRodCastState(user.id, rodId);
-  const peek = peekRodCastAllowed({
+  const peek = peekCanStartCast({
     row: castRow,
     maxPerDay: rodRules.maxPerDay,
-    cooldownMinutes: rodRules.cooldownMinutes,
+    cooldownAfterHarvestMinutes: rodRules.cooldownAfterHarvestMinutes,
   });
   if (!peek.ok) {
+    if (peek.error === "pending_harvest") {
+      return { ok: false, error: "請先收成上一輪拋竿，或稍後再試。" };
+    }
     if (peek.error === "cooldown") {
       const m = peek.cooldownMinutesLeft ?? 1;
       return {
         ok: false,
-        error: `釣竿冷卻中，約 ${m} 分鐘後可再收竿。`,
+        error: `釣竿冷卻中，約 ${m} 分鐘後可再拋竿。`,
       };
     }
     return { ok: false, error: "今日此釣竿拋竿次數已用完。" };
   }
 
-  const weights = parseBaitFishWeights(baitShop?.metadata ?? null);
+  if (!baitRow.shop_item_id) {
+    return { ok: false, error: "魚餌缺少商城商品關聯，無法拋竿。" };
+  }
+
+  const consumed = await deleteUserRewardForOwner(baitId, user.id);
+  if (!consumed) {
+    return { ok: false, error: "消耗釣餌失敗，請稍後再試。" };
+  }
+
+  await setPendingCast({
+    userId: user.id,
+    rodUserRewardId: rodId,
+    baitShopItemId: baitRow.shop_item_id,
+  });
+
+  return { ok: true };
+}
+
+async function runFishingHarvestCore(
+  userId: string,
+  rodId: string,
+  baitShopMetadata: Json | null,
+  fisher: UserRow,
+): Promise<CollectFishResult> {
+  const weights = parseBaitFishWeights(baitShopMetadata);
   const rolledFish = rollFishTypeFromWeights(weights);
 
   if (rolledFish === "matchmaker" && fisher.birth_year == null) {
@@ -751,23 +802,18 @@ export async function collectFishAction(opts?: {
     };
   }
 
-  const consumed = await deleteUserRewardForOwner(baitId, user.id);
-  if (!consumed) {
-    return { ok: false, error: "消耗釣餌失敗，請稍後再試。" };
-  }
-
   const finishRod = async () => {
-    await recordRodCastSuccess({
-      userId: user.id,
+    await recordHarvestSuccess({
+      userId,
       rodUserRewardId: rodId,
     });
   };
 
   if (rolledFish !== "matchmaker") {
     const { fishCoins, fishExp, coinFailure, fishItemJson, rewardTier } =
-      await resolveNonMatchmakerFishRewards(user.id, rolledFish);
-    revalidateTag(profileCacheTag(user.id));
-    await tryInsertStandardFishLog(user.id, rolledFish, {
+      await resolveNonMatchmakerFishRewards(userId, rolledFish);
+    revalidateTag(profileCacheTag(userId));
+    await tryInsertStandardFishLog(userId, rolledFish, {
       fish_coins: coinFailure ? 0 : fishCoins,
       fish_exp: fishExp,
       fish_item: fishItemJson,
@@ -783,8 +829,8 @@ export async function collectFishAction(opts?: {
   }
 
   const ageMax = await getMatchmakerAgeMaxAction();
-  const blocked = new Set(await findUserIdsInBlockRelation(user.id));
-  const candidatesRaw = await findMatchmakerPoolCandidates(user.id);
+  const blocked = new Set(await findUserIdsInBlockRelation(userId));
+  const candidatesRaw = await findMatchmakerPoolCandidates(userId);
 
   const fisherBirthYear = fisher.birth_year!;
   const fisherAge = clampAgeFields(
@@ -833,8 +879,8 @@ export async function collectFishAction(opts?: {
   }
 
   if (pool.length === 0) {
-    revalidateTag(profileCacheTag(user.id));
-    await tryInsertMatchmakerLog(user.id, {
+    revalidateTag(profileCacheTag(userId));
+    await tryInsertMatchmakerLog(userId, {
       fish_user_id: null,
       no_match_found: true,
       fish_coins: null,
@@ -854,12 +900,12 @@ export async function collectFishAction(opts?: {
   const pick = pool[Math.floor(Math.random() * pool.length)]!;
 
   const { fishCoins, fishExp, coinFailure, fishItemJson, rewardTier } =
-    await resolveMatchmakerRewards(user.id, pick.nickname);
+    await resolveMatchmakerRewards(userId, pick.nickname);
 
   if (coinFailure) {
-    revalidateTag(profileCacheTag(user.id));
+    revalidateTag(profileCacheTag(userId));
     const peerFull = await findProfileById(pick.id);
-    await tryInsertMatchmakerLog(user.id, {
+    await tryInsertMatchmakerLog(userId, {
       fish_user_id: pick.id,
       no_match_found: false,
       fish_coins: 0,
@@ -882,10 +928,10 @@ export async function collectFishAction(opts?: {
     };
   }
 
-  revalidateTag(profileCacheTag(user.id));
+  revalidateTag(profileCacheTag(userId));
 
   const peerFull = await findProfileById(pick.id);
-  await tryInsertMatchmakerLog(user.id, {
+  await tryInsertMatchmakerLog(userId, {
     fish_user_id: pick.id,
     no_match_found: false,
     fish_coins: fishCoins,
@@ -908,3 +954,73 @@ export async function collectFishAction(opts?: {
     fishExp,
   };
 }
+
+/** 收竿：結算上一輪拋竿（須已達等待時間）。 */
+export async function harvestFishAction(opts?: {
+  rodUserRewardId?: string | null;
+}): Promise<CollectFishResult> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "請先登入。" };
+
+  const fishingEnabled = await findSystemSettingByKey("fishing_enabled");
+  if (fishingEnabled === "false") {
+    return { ok: false, error: "fishing_disabled" };
+  }
+
+  const fisher = await findProfileById(user.id);
+  if (!fisher) return { ok: false, error: "找不到冒險者資料。" };
+
+  const bundle = await listFishingRodsAndBaits(user.id);
+  const rodId = opts?.rodUserRewardId?.trim() || bundle.rods[0]?.id || null;
+  if (!rodId) return { ok: false, error: "需要釣竿才能釣魚。" };
+
+  const rodRow = await findUserRewardById(rodId);
+  if (!rodRow || rodRow.user_id !== user.id || rodRow.reward_type !== "fishing_rod") {
+    return { ok: false, error: "釣竿資料無效。" };
+  }
+
+  const rodShop = rodRow.shop_item_id
+    ? await findShopItemById(rodRow.shop_item_id)
+    : null;
+  const rodRules = parseRodFishingRules(rodShop?.metadata ?? null);
+  if (!rodRules) {
+    return {
+      ok: false,
+      error:
+        "此釣竿尚未設定 rod_max_casts_per_day／rod_wait_until_harvest_minutes 等，請洽管理員。",
+    };
+  }
+
+  const castRow = await getRodCastState(user.id, rodId);
+  const ready = peekHarvestReady({
+    row: castRow,
+    waitUntilHarvestMinutes: rodRules.waitUntilHarvestMinutes,
+  });
+  if (!ready.ok) {
+    if (ready.error === "no_pending") {
+      return { ok: false, error: "請先拋竿，或上一輪已收成。" };
+    }
+    const m = Math.max(1, Math.ceil(ready.remainSec / 60));
+    return {
+      ok: false,
+      error: `還需等待約 ${m} 分鐘才能收竿。`,
+    };
+  }
+
+  const baitShopId = castRow?.pending_bait_shop_item_id;
+  if (!baitShopId) {
+    return { ok: false, error: "收成資料異常，請聯絡管理員。" };
+  }
+
+  const baitShop = await findShopItemById(baitShopId);
+  return runFishingHarvestCore(
+    user.id,
+    rodId,
+    baitShop?.metadata ?? null,
+    fisher,
+  );
+}
+
