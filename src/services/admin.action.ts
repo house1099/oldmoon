@@ -2129,7 +2129,7 @@ export async function getShopItemsAdminAction(): Promise<
   ActionResult<ShopItemRow[]>
 > {
   try {
-    await requireRole(["master"]);
+    await requireRole(["master", "moderator"]);
     const items = await findAllShopItems();
     return { ok: true, data: items };
   } catch (e: unknown) {
@@ -2364,12 +2364,33 @@ export async function getFishingStatsAction(): Promise<
   }
 }
 
+export async function getFishingAdminSettingsAction(): Promise<
+  ActionResult<{
+    fishing_enabled: boolean;
+    fishing_age_max: number;
+  }>
+> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const [enabledRaw, ageRaw] = await Promise.all([
+      findSystemSettingByKey("fishing_enabled"),
+      findSystemSettingByKey("fishing_age_max"),
+    ]);
+    const fishing_enabled = enabledRaw !== "false";
+    const parsed = ageRaw != null && ageRaw !== "" ? Number.parseInt(ageRaw, 10) : NaN;
+    const fishing_age_max = Number.isFinite(parsed) ? parsed : 10;
+    return { ok: true, data: { fishing_enabled, fishing_age_max } };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 export async function getFishingRewardsAction(filters?: {
   fishType?: FishType;
   isActive?: boolean;
 }): Promise<ActionResult<FishingRewardWithItem[]>> {
   try {
-    await requireRole(["master"]);
+    await requireRole(["master", "moderator"]);
     const data = await findAllRewardsForAdmin(filters);
     return { ok: true, data };
   } catch (e: unknown) {
@@ -2381,7 +2402,7 @@ export async function createFishingRewardAction(
   data: FishingRewardInsert,
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    await requireRole(["master"]);
+    await requireRole(["master", "moderator"]);
     const row = await createFishingRewardRepo(data);
     return { ok: true, data: { id: row.id } };
   } catch (e: unknown) {
@@ -2398,7 +2419,7 @@ export async function updateFishingRewardAction(
   },
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    await requireRole(["master"]);
+    await requireRole(["master", "moderator"]);
     const row = await updateFishingRewardRepo(id, data);
     return { ok: true, data: { id: row.id } };
   } catch (e: unknown) {
@@ -2410,7 +2431,7 @@ export async function deleteFishingRewardAction(
   id: string,
 ): Promise<ActionResult<{ success: boolean }>> {
   try {
-    await requireRole(["master"]);
+    await requireRole(["master", "moderator"]);
     await deleteFishingRewardRepo(id);
     return { ok: true, data: { success: true } };
   } catch (e: unknown) {
@@ -2423,7 +2444,7 @@ export async function updateFishingSettingsAction(settings: {
   fishing_age_max?: number;
 }): Promise<ActionResult<{ success: boolean }>> {
   try {
-    const { user } = await requireRole(["master"]);
+    const { user } = await requireRole(["master", "moderator"]);
     if (settings.fishing_enabled !== undefined) {
       await repoUpdateSystemSetting(
         "fishing_enabled",

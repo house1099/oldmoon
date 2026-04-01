@@ -10,8 +10,10 @@ import {
   Swords,
   Instagram,
   Loader2,
+  Fish,
 } from "lucide-react";
 import { getDashboardStatsAction } from "@/services/admin.action";
+import type { DashboardStats } from "@/lib/repositories/server/admin.repository";
 
 const STAT_CARDS = [
   {
@@ -63,9 +65,14 @@ const STAT_CARDS = [
     color: "bg-violet-100 text-violet-600",
     href: "/admin/profile-changes?filter=pending",
   },
+  {
+    key: "todayFishingCount",
+    label: "今日釣魚",
+    icon: Fish,
+    color: "bg-cyan-100 text-cyan-600",
+    href: "/admin/fishing",
+  },
 ] as const;
-
-type DashboardStats = Record<string, number>;
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -75,7 +82,7 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     /** `pendingUsers` = **`COUNT(*) WHERE users.status = 'pending'`**（`getDashboardStats`） */
     getDashboardStatsAction().then((result) => {
-      if (result.ok) setStats(result.data as DashboardStats);
+      if (result.ok) setStats(result.data);
       setLoading(false);
     });
   }, []);
@@ -115,6 +122,26 @@ export default function AdminDashboardPage() {
               </div>
             );
           })}
+          {stats.leviathanStockAlert ? (
+            <div
+              onClick={() => router.push("/admin/fishing")}
+              className="bg-orange-50 rounded-2xl shadow-sm border border-orange-200 p-5 flex items-start gap-4 cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-150"
+            >
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-orange-100 text-orange-600">
+                <span className="text-2xl" aria-hidden>
+                  🦈
+                </span>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-orange-900">
+                  深海巨獸庫存不足
+                </p>
+                <p className="text-sm text-orange-800/90 mt-1">
+                  大獎限量庫存剩餘 ≤5，請前往釣魚管理
+                </p>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
     </div>

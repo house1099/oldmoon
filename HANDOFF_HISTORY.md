@@ -5,6 +5,15 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-04-01 — 釣魚後台 `/admin/fishing`
+
+1. **目標**：後台路由 **`/admin/fishing`**（**master**／**moderator**）：統計看板（**`getFishingStatsAction`**＋**`SWR_KEYS.fishingStats`**）、釣魚日誌（**`getFishingLogsAdminAction`**，篩選暱稱／魚種，分頁 20）、月老配對紀錄（**`getMatchmakerLogsAction`**）、獎品 CRUD（**`getFishingRewardsAction`**＋**`SWR_KEYS.fishingRewards`**，五魚種膠囊／三 tier，**`getShopItemsAdminAction`** 道具下拉）、系統設定（**`getFishingAdminSettingsAction`**＋**`updateFishingSettingsAction`**，釣魚開關／年齡上限，魚餌 metadata 說明與商城連結）。儀表板 **`getDashboardStats`** 增 **`todayFishingCount`**（台北日 **`taipeiCalendarDateKey`** + **`fishing_logs`**）與 **`leviathanStockAlert`**（**`leviathan`** **`large`** 限量剩餘 ≤5）；側欄 **Fish**、**`middleware.ts`** **`/admin/fishing`**。
+2. **Layer 2**：**`admin.repository.ts`** **`DashboardStats`** 擴充；**`fishing.repository.ts`** **`ADMIN_LOG_PAGE`** **20**。
+3. **Layer 3**：**`admin.action.ts`** — **`getFishingAdminSettingsAction`**；**`getFishingRewardsAction`／`createFishingRewardAction`／`updateFishingRewardAction`／`deleteFishingRewardAction`／`updateFishingSettingsAction`／`getShopItemsAdminAction`** **`requireRole(['master','moderator'])`**。
+4. **Layer 5**：**`src/app/(admin)/admin/fishing/page.tsx`**、**`fishing-admin-client.tsx`**；**`admin/page.tsx`** 今日釣魚卡＋橘色警示卡；**`admin-shell.tsx`**。
+5. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+6. **Git**：**`feat(fishing-admin): /admin/fishing stats, logs, matchmaker records, reward CRUD, system settings`**；**`git push`** **`origin/main`**。
+
 ### 2026-04-01 — 釣魚獎品系統 Phase 1（`fishing_rewards`／維護開關）
 
 1. **目標**：釣魚獎品表與 **`fish_type`** enum（含 **`leviathan`**）；**`fishing_logs.fish_type`** 與 DB 對齊；月老魚 **`collectFishAction`** 改由 **`fishing_rewards`** 加權抽獎（tier：small 60%／medium 30%／large 10%，降級 medium→small）；無設定列時預設 **10 免費幣 + 5 EXP**；**`coin_transactions.source`** **`fishing`**；**`system_settings`** **`fishing_enabled`／`fishing_age_max`**；**`getFishingStatusAction`** 回傳 **`FishingStatusResult`**（關閉時 **`fishing_disabled`**）；**`fishing-panel`** 維護文案；後台 **`admin.action.ts`** 統計／CRUD／日誌／設定；限量庫存以 **`consume_fishing_reward_stock`** RPC 原子扣減。

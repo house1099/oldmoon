@@ -339,7 +339,7 @@ export async function getFishingStats(): Promise<{
   };
 }
 
-const ADMIN_LOG_PAGE = 30;
+const ADMIN_LOG_PAGE = 20;
 
 export type FishingLogAdminRow = {
   id: string;

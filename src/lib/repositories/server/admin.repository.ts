@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { taipeiCalendarDateKey } from "@/lib/utils/date";
 import type {
   UserRow,
   ExpLogRow,
@@ -16,6 +17,8 @@ export type DashboardStats = {
   weekNewAlliances: number;
   pendingIgRequests: number;
   pendingProfileChangeCount: number;
+  todayFishingCount: number;
+  leviathanStockAlert: boolean;
 };
 
 export async function getDashboardStats(): Promise<DashboardStats> {
@@ -29,6 +32,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   weekAgo.setDate(weekAgo.getDate() - 7);
   const weekISO = weekAgo.toISOString();
 
+  const todayFishingStart = `${taipeiCalendarDateKey()}T00:00:00+08:00`;
+
   const [
     todayNewRes,
     pendingUsersRes,
@@ -37,6 +42,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     weekAlliancesRes,
     pendingIgRes,
     pendingProfileChangeRes,
+    todayFishingRes,
+    leviathanRewardsRes,
   ] = await Promise.all([
     admin
       .from("users")
@@ -66,7 +73,29 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       .from("profile_change_requests")
       .select("*", { count: "exact", head: true })
       .eq("status", "pending"),
+    admin
+      .from("fishing_logs")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", todayFishingStart),
+    admin
+      .from("fishing_rewards")
+      .select("stock, stock_used")
+      .eq("fish_type", "leviathan")
+      .eq("reward_tier", "large")
+      .eq("is_active", true)
+      .not("stock", "is", null),
   ]);
+
+  const levRewards = leviathanRewardsRes.data as
+    | { stock: number | null; stock_used: number }[]
+    | null;
+  const leviathanStockAlert =
+    levRewards?.some(
+      (r) =>
+        r.stock !== null &&
+        Number.isFinite(r.stock) &&
+        r.stock - r.stock_used <= 5,
+    ) ?? false;
 
   return {
     todayNewUsers: todayNewRes.count ?? 0,
@@ -76,6 +105,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     weekNewAlliances: weekAlliancesRes.count ?? 0,
     pendingIgRequests: pendingIgRes.count ?? 0,
     pendingProfileChangeCount: pendingProfileChangeRes.count ?? 0,
+    todayFishingCount: todayFishingRes.count ?? 0,
+    leviathanStockAlert,
   };
 }
 

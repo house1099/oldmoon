@@ -21,6 +21,7 @@ import {
   ChevronLeft,
   Sparkles,
   ClipboardList,
+  Fish,
 } from "lucide-react";
 import useSWR from "swr";
 import { getPendingProfileChangeCountAction } from "@/services/profile-change.action";
@@ -120,6 +121,12 @@ export function AdminShell({
       Icon: ClipboardList,
       show: isMaster || role === "moderator",
       badge: pendingProfileChangeCount,
+    },
+    {
+      href: "/admin/fishing",
+      label: "釣魚管理",
+      Icon: Fish,
+      show: isMaster || role === "moderator",
     },
     {
       href: "/admin/coins",

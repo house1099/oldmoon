@@ -248,6 +248,7 @@ export async function middleware(request: NextRequest) {
       "/admin/reports",
       "/admin/market",
       "/admin/profile-changes",
+      "/admin/fishing",
     ];
     const moderatorCanAccess =
       pathname === "/admin" ||

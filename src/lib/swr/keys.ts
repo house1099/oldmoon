@@ -21,4 +21,8 @@ export const SWR_KEYS = {
   fishingStatus: 'fishing-status',
   /** 釣魚日誌（月老魚／釣獲物列表） */
   fishingLogs: 'fishing-logs',
+  /** 後台：釣魚統計 */
+  fishingStats: 'fishing-stats',
+  /** 後台：釣魚獎品設定 */
+  fishingRewards: 'fishing-rewards',
 } as const
