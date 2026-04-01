@@ -342,29 +342,54 @@ function stackSupportsLongPress(stack: RewardStack): boolean {
 
 function canListRewardToMarket(
   row: UserRewardWithEffect | null,
-  activeListingRewardIds: Set<string>,
+  listedRewardIds: Set<string>,
 ): boolean {
   if (!row) return false;
   if (!row.shop_item_id) return false;
   if (row.allow_player_trade === false) return false;
   if (row.used_at != null) return false;
-  if (activeListingRewardIds.has(row.id)) return false;
+  if (listedRewardIds.has(row.id)) return false;
   return true;
 }
 
-function stackMenuMaxQty(stack: RewardStack): number {
+/** 未上架且可操作（未裝備／廣播券須未使用） */
+function firstManageableUnlistedRow(
+  stack: RewardStack,
+  listed: Set<string>,
+): UserRewardWithEffect | null {
   if (stack.rewardType === "broadcast") {
-    return stack.rows.filter((r) => !r.is_equipped && r.used_at == null)
-      .length;
+    return (
+      stack.rows.find(
+        (r) => !r.is_equipped && r.used_at == null && !listed.has(r.id),
+      ) ?? null
+    );
   }
-  return stack.rows.filter((r) => !r.is_equipped).length;
+  return stack.rows.find((r) => !r.is_equipped && !listed.has(r.id)) ?? null;
 }
 
-function pickUnequippedRowIds(stack: RewardStack, n: number): string[] {
+function stackMenuMaxQtyUnlisted(
+  stack: RewardStack,
+  listed: Set<string>,
+): number {
+  if (stack.rewardType === "broadcast") {
+    return stack.rows.filter(
+      (r) => !r.is_equipped && r.used_at == null && !listed.has(r.id),
+    ).length;
+  }
+  return stack.rows.filter((r) => !r.is_equipped && !listed.has(r.id)).length;
+}
+
+function pickUnequippedUnlistedRowIds(
+  stack: RewardStack,
+  n: number,
+  listed: Set<string>,
+): string[] {
   const rows =
     stack.rewardType === "broadcast"
-      ? stack.rows.filter((r) => !r.is_equipped && r.used_at == null)
-      : stack.rows.filter((r) => !r.is_equipped);
+      ? stack.rows.filter(
+          (r) => !r.is_equipped && r.used_at == null && !listed.has(r.id),
+        )
+      : stack.rows.filter((r) => !r.is_equipped && !listed.has(r.id));
   const cap = rows.length;
   if (cap === 0) return [];
   const take = Math.min(Math.max(1, n), cap);
@@ -574,13 +599,20 @@ function FloatingToolbarInner({
     getMyListingsAction,
     { revalidateOnFocus: true },
   );
-  const activeListingRewardIds = useMemo(() => {
+  /** 後端 getMyRewardsAction.listedRewardIds 與 SWR 市集列表合併，並排除已過期仍為 active 的列 */
+  const listedRewardIdSet = useMemo(() => {
     const s = new Set<string>();
+    for (const id of rewardsPayload?.listedRewardIds ?? []) {
+      s.add(id);
+    }
+    const now = Date.now();
     for (const l of myMarketRows) {
-      if (l.status === "active") s.add(l.user_reward_id);
+      if (l.status !== "active") continue;
+      if (l.expires_at && new Date(l.expires_at).getTime() <= now) continue;
+      s.add(l.user_reward_id);
     }
     return s;
-  }, [myMarketRows]);
+  }, [rewardsPayload?.listedRewardIds, myMarketRows]);
   const hasMarketNotification = useMemo(() => {
     const day = 24 * 60 * 60 * 1000;
     const now = Date.now();
@@ -634,6 +666,15 @@ function FloatingToolbarInner({
     };
   }, [equipOpen]);
 
+  useEffect(() => {
+    const refresh = () => {
+      if (!equipOpen) return;
+      void getMyRewardsAction().then((p) => setRewardsPayload(p));
+    };
+    window.addEventListener("guild-rewards-invalidate", refresh);
+    return () => window.removeEventListener("guild-rewards-invalidate", refresh);
+  }, [equipOpen]);
+
   const showTavernDot = useMemo(() => {
     if (tavernOpen) return false;
     const last = messages[messages.length - 1];
@@ -672,8 +713,8 @@ function FloatingToolbarInner({
     }
 
     if (rt === "loot_box") {
-      if (!firstManageableRewardRow(stack)) {
-        toast.error("沒有可開啟的盲盒");
+      if (!firstManageableUnlistedRow(stack, listedRewardIdSet)) {
+        toast.error("沒有可開啟的盲盒（上架中的需先下架）");
         return;
       }
       setLootPackStack(stack);
@@ -762,8 +803,8 @@ function FloatingToolbarInner({
     setStackMenuOpen(true);
   }
 
-  function stackMenuActions(stack: RewardStack) {
-    const sample = firstManageableRewardRow(stack);
+  function stackMenuActions(stack: RewardStack, listed: Set<string>) {
+    const sample = firstManageableUnlistedRow(stack, listed);
     if (!sample) {
       return { canGift: false, canDelete: false, canResell: false, unit: 0 };
     }
@@ -793,7 +834,11 @@ function FloatingToolbarInner({
   async function beginGiftFromMenu() {
     setStackMenuOpen(false);
     if (!stackMenuTarget) return;
-    const rowIds = pickUnequippedRowIds(stackMenuTarget, stackMenuQty);
+    const rowIds = pickUnequippedUnlistedRowIds(
+      stackMenuTarget,
+      stackMenuQty,
+      listedRewardIdSet,
+    );
     if (rowIds.length === 0) {
       toast.error("沒有可贈送的數量");
       return;
@@ -815,7 +860,11 @@ function FloatingToolbarInner({
   function beginGiftToPlayerFromMenu() {
     setStackMenuOpen(false);
     if (!stackMenuTarget) return;
-    const rowIds = pickUnequippedRowIds(stackMenuTarget, stackMenuQty);
+    const rowIds = pickUnequippedUnlistedRowIds(
+      stackMenuTarget,
+      stackMenuQty,
+      listedRewardIdSet,
+    );
     if (rowIds.length === 0) {
       toast.error("沒有可贈送的道具");
       return;
@@ -831,14 +880,18 @@ function FloatingToolbarInner({
   function beginMarketListToMarketFromMenu() {
     setStackMenuOpen(false);
     if (!stackMenuTarget) return;
-    const rowIds = pickUnequippedRowIds(stackMenuTarget, 1);
+    const rowIds = pickUnequippedUnlistedRowIds(
+      stackMenuTarget,
+      1,
+      listedRewardIdSet,
+    );
     if (rowIds.length === 0) {
       toast.error("沒有可上架的道具");
       return;
     }
     const rid = rowIds[0]!;
     const row = stackMenuTarget.rows.find((r) => r.id === rid) ?? null;
-    if (!canListRewardToMarket(row, activeListingRewardIds)) {
+    if (!canListRewardToMarket(row, listedRewardIdSet)) {
       toast.message("此道具不符合上架條件");
       return;
     }
@@ -880,7 +933,11 @@ function FloatingToolbarInner({
   function beginDeleteFromMenu() {
     setStackMenuOpen(false);
     if (!stackMenuTarget) return;
-    const rowIds = pickUnequippedRowIds(stackMenuTarget, stackMenuQty);
+    const rowIds = pickUnequippedUnlistedRowIds(
+      stackMenuTarget,
+      stackMenuQty,
+      listedRewardIdSet,
+    );
     if (rowIds.length === 0) {
       toast.error("沒有可刪除的數量");
       return;
@@ -891,14 +948,21 @@ function FloatingToolbarInner({
   function beginResellFromMenu() {
     setStackMenuOpen(false);
     if (!stackMenuTarget) return;
-    const sample = firstManageableRewardRow(stackMenuTarget);
+    const sample = firstManageableUnlistedRow(stackMenuTarget, listedRewardIdSet);
     if (!sample) return;
-    const rowIds = pickUnequippedRowIds(stackMenuTarget, stackMenuQty);
+    const rowIds = pickUnequippedUnlistedRowIds(
+      stackMenuTarget,
+      stackMenuQty,
+      listedRewardIdSet,
+    );
     if (rowIds.length === 0) {
       toast.error("沒有可回賣的數量");
       return;
     }
-    const { canResell, unit } = stackMenuActions(stackMenuTarget);
+    const { canResell, unit } = stackMenuActions(
+      stackMenuTarget,
+      listedRewardIdSet,
+    );
     if (!canResell) return;
     const payout = unit * rowIds.length;
     setResellDialog({
@@ -914,7 +978,7 @@ function FloatingToolbarInner({
     const target = stackMenuTarget;
     const qty = stackMenuQty;
     if (!target || target.rewardType !== "loot_box") return;
-    const rowIds = pickUnequippedRowIds(target, qty);
+    const rowIds = pickUnequippedUnlistedRowIds(target, qty, listedRewardIdSet);
     if (rowIds.length === 0) {
       toast.error("沒有可開啟的盲盒");
       return;
@@ -1205,7 +1269,13 @@ function FloatingToolbarInner({
             <DialogTitle>開啟公會盲盒</DialogTitle>
             <DialogDescription className="text-zinc-500">
               {lootPackStack
-                ? `持有 ${lootPackStack.count} 個，選擇本次要開啟的數量`
+                ? (() => {
+                    const openable = stackMenuMaxQtyUnlisted(
+                      lootPackStack,
+                      listedRewardIdSet,
+                    );
+                    return `共 ${lootPackStack.count} 個，可開啟 ${openable} 個（上架中需先下架）`;
+                  })()
                 : ""}
             </DialogDescription>
           </DialogHeader>
@@ -1216,11 +1286,17 @@ function FloatingToolbarInner({
                 <input
                   type="number"
                   min={1}
-                  max={Math.max(1, lootPackStack.count)}
+                  max={Math.max(
+                    1,
+                    stackMenuMaxQtyUnlisted(lootPackStack, listedRewardIdSet),
+                  )}
                   value={lootPackQty}
                   onChange={(e) => {
                     const v = parseInt(e.target.value, 10);
-                    const cap = Math.max(1, lootPackStack.count);
+                    const cap = Math.max(
+                      1,
+                      stackMenuMaxQtyUnlisted(lootPackStack, listedRewardIdSet),
+                    );
                     if (!Number.isFinite(v)) {
                       setLootPackQty(1);
                       return;
@@ -1244,10 +1320,20 @@ function FloatingToolbarInner({
             </Button>
             <Button
               type="button"
-              disabled={lootOpenBusy || !lootPackStack}
+              disabled={
+                lootOpenBusy ||
+                !lootPackStack ||
+                (lootPackStack
+                  ? stackMenuMaxQtyUnlisted(lootPackStack, listedRewardIdSet) < 1
+                  : true)
+              }
               onClick={async () => {
                 if (!lootPackStack) return;
-                const rowIds = pickUnequippedRowIds(lootPackStack, lootPackQty);
+                const rowIds = pickUnequippedUnlistedRowIds(
+                  lootPackStack,
+                  lootPackQty,
+                  listedRewardIdSet,
+                );
                 if (rowIds.length === 0) {
                   toast.error("沒有可開啟的盲盒");
                   return;
@@ -1505,6 +1591,9 @@ function FloatingToolbarInner({
                   const showEquippedBadge =
                     EQUIPPED_BADGE_REWARD_TYPES.has(stack.rewardType) &&
                     stack.rows.some((r) => r.is_equipped);
+                  const showListedBadge = stack.rows.some((r) =>
+                    listedRewardIdSet.has(r.id),
+                  );
                   return (
                     <button
                       key={stack.key}
@@ -1607,6 +1696,14 @@ function FloatingToolbarInner({
                         )}
                       </div>
                       <div style={inventoryCellNameStyle}>{stack.label}</div>
+                      {showListedBadge ? (
+                        <div
+                          className="pointer-events-none absolute bottom-1 left-0 right-0 text-center text-[9px] font-semibold leading-none text-violet-400"
+                          title="拍賣市集上架中"
+                        >
+                          上架中
+                        </div>
+                      ) : null}
                     </button>
                   );
                 })}
@@ -1637,17 +1734,19 @@ function FloatingToolbarInner({
             <div className="flex flex-col gap-3 pt-2">
               {(() => {
                 const sm = stackMenuTarget;
-                const act = stackMenuActions(sm);
-                const u = firstManageableRewardRow(sm);
-                const maxQ = stackMenuMaxQty(sm);
+                const act = stackMenuActions(sm, listedRewardIdSet);
+                const u = firstManageableUnlistedRow(sm, listedRewardIdSet);
+                const maxQ = stackMenuMaxQtyUnlisted(sm, listedRewardIdSet);
                 const previewTotal =
                   act.canResell && u
                     ? act.unit * Math.min(stackMenuQty, maxQ)
                     : 0;
-                const canOpenLoot = sm.rewardType === "loot_box";
+                const canOpenLoot =
+                  sm.rewardType === "loot_box" &&
+                  stackMenuMaxQtyUnlisted(sm, listedRewardIdSet) > 0;
                 const canListMarket =
                   u != null &&
-                  canListRewardToMarket(u, activeListingRewardIds);
+                  canListRewardToMarket(u, listedRewardIdSet);
                 const hasAnyAction =
                   act.canGift ||
                   act.canDelete ||

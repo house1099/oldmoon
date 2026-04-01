@@ -1,0 +1,1 @@
+{"name":"20260323120000_fix_users_exp_to_total_exp","query":"-- 🗄️ 42703：column \"exp\" of relation \"users\" does not exist\n-- 用途：改為只更新 public.users.total_exp（不使用不存在的 exp 欄位）。\n-- 在 Supabase → SQL Editor 整段貼上執行即可。\n--\n-- 若你的 exp_logs 沒有 delta 欄位，請把函式內 add_amount 那一"}

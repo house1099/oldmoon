@@ -32,6 +32,7 @@ import {
 } from "@/lib/repositories/server/rewards.repository";
 import { findShopItemById } from "@/lib/repositories/server/shop.repository";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
+import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
 import { requireRole } from "@/services/admin.action";
 import { sendPushToUser } from "@/lib/push/send-push";
 
@@ -169,6 +170,114 @@ export async function createListingAction(input: {
     console.error("createListingAction:", e);
     return { ok: false, error: "上架失敗，請稍後再試" };
   }
+}
+
+/**
+ * 同一價格與幣種，將多筆 user_rewards 各建立一筆上架（同一商城商品）。
+ */
+export async function createListingsBatchAction(input: {
+  rewardIds: string[];
+  price: number;
+  currencyType: "free_coins" | "premium_coins";
+}): Promise<{ ok: boolean; error?: string }> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "請先登入" };
+
+  const enabled = await findSystemSettingByKey("market_enabled");
+  if (enabled === "false") {
+    return { ok: false, error: "market_disabled" };
+  }
+
+  const price = Math.floor(Number(input.price));
+  if (!Number.isFinite(price) || price < 1) {
+    return { ok: false, error: "價格須為至少 1 的正整數" };
+  }
+
+  const unique = Array.from(new Set(input.rewardIds.filter(Boolean)));
+  if (unique.length === 0) {
+    return { ok: false, error: "未選擇道具" };
+  }
+
+  await expireMyStaleListings(user.id);
+
+  const maxRaw = await findSystemSettingByKey("market_max_listings_per_user");
+  const maxListings = parsePositiveInt(maxRaw, 5);
+  if (maxListings < 1) {
+    return { ok: false, error: "系統設定異常" };
+  }
+  const activeCount = await countActiveListingsBySeller(user.id);
+  if (activeCount + unique.length > maxListings) {
+    return { ok: false, error: "已達上架數量上限" };
+  }
+
+  const rows = await Promise.all(
+    unique.map((id) => findUserRewardById(id)),
+  );
+  const first = rows[0];
+  if (
+    !first ||
+    rows.some((r) => !r || r.user_id !== user.id) ||
+    !first.shop_item_id
+  ) {
+    return { ok: false, error: "找不到道具" };
+  }
+  const sid = first.shop_item_id;
+  if (rows.some((r) => r!.shop_item_id !== sid)) {
+    return { ok: false, error: "僅能批量上架同一商城商品" };
+  }
+
+  const shopItem = await findShopItemById(sid);
+  if (!shopItem || shopItem.allow_player_trade === false) {
+    return { ok: false, error: "此商品不開放玩家交易" };
+  }
+
+  for (const row of rows) {
+    const r = row!;
+    if (r.used_at != null) {
+      return { ok: false, error: "此道具已無法上架" };
+    }
+    const existing = await findActiveListingByRewardId(r.id);
+    if (existing) {
+      return { ok: false, error: "部分道具已在市集上架中" };
+    }
+  }
+
+  for (const row of rows) {
+    const r = row!;
+    if (r.is_equipped) {
+      await unequipReward(r.id);
+    }
+  }
+
+  const daysRaw = await findSystemSettingByKey("market_listing_days");
+  const days = parsePositiveInt(daysRaw, 7);
+  const safeDays = Math.max(1, Math.min(days, 365));
+  const expiresAt = new Date();
+  expiresAt.setUTCDate(expiresAt.getUTCDate() + safeDays);
+  const expiresIso = expiresAt.toISOString();
+
+  try {
+    for (const id of unique) {
+      await createListing({
+        seller_id: user.id,
+        user_reward_id: id,
+        shop_item_id: sid,
+        price,
+        currency_type: input.currencyType,
+        status: "active",
+        expires_at: expiresIso,
+      });
+    }
+  } catch (e) {
+    console.error("createListingsBatchAction:", e);
+    return { ok: false, error: "上架失敗，請稍後再試" };
+  }
+
+  revalidateTag(profileCacheTag(user.id));
+  return { ok: true };
 }
 
 export async function buyListingAction(

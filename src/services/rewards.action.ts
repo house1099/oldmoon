@@ -37,6 +37,10 @@ import { creditCoins } from "@/lib/repositories/server/coin.repository";
 import { drawFromPool, type DrawResult } from "@/services/prize-engine";
 import { formatGiftBatchMailboxMessage } from "@/lib/utils/gift-mailbox-message";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
+import {
+  findActiveListingRewardIdsForSeller,
+  getMarketListingBlockReasonForReward,
+} from "@/lib/repositories/server/market-listing.repository";
 
 export type MyRewardsPayload = {
   titles: UserRewardWithEffect[];
@@ -50,6 +54,8 @@ export type MyRewardsPayload = {
   inventorySlots: number;
   /** 全部持有道具（背包堆疊用） */
   allRewards: UserRewardWithEffect[];
+  /** 目前於拍賣市集有效上架中的 user_rewards.id */
+  listedRewardIds: string[];
 };
 
 export type ActiveBroadcastDto = {
@@ -85,6 +91,8 @@ async function assertRewardDeletable(
 async function assertRewardGiftable(
   row: UserRewardRow,
 ): Promise<string | null> {
+  const listed = await getMarketListingBlockReasonForReward(row.id);
+  if (listed) return listed;
   if (row.shop_item_id) {
     const shop = await findShopItemById(row.shop_item_id);
     if (shop?.allow_gift === false) return "此道具不開放贈送";
@@ -129,6 +137,8 @@ export async function openLootBoxRewardsAction(
     if (row.is_equipped) {
       return { ok: false, error: "請先卸下再開啟" };
     }
+    const listed = await getMarketListingBlockReasonForReward(id);
+    if (listed) return { ok: false, error: listed };
 
     try {
       draws.push(await drawFromPool("loot_box", user.id));
@@ -163,9 +173,10 @@ export async function getMyRewardsAction(): Promise<MyRewardsPayload | null> {
     } = await supabase.auth.getUser();
     if (!user) return null;
 
-    const [rawRows, profile] = await Promise.all([
+    const [rawRows, profile, listedRewardIds] = await Promise.all([
       findMyRewards(user.id),
       findProfileById(user.id),
+      findActiveListingRewardIdsForSeller(user.id),
     ]);
     const rows = rawRows.filter((r) => r.used_at == null);
     const titles = rows.filter((r) => r.reward_type === "title");
@@ -190,6 +201,7 @@ export async function getMyRewardsAction(): Promise<MyRewardsPayload | null> {
       renameCardUnusedCount,
       inventorySlots,
       allRewards: rows,
+      listedRewardIds,
     };
   } catch (error) {
     console.error("getMyRewardsAction 失敗:", JSON.stringify(error, null, 2));
@@ -455,6 +467,8 @@ export async function deleteUserRewardAction(
   }
   const deny = await assertRewardDeletable(row);
   if (deny) return { ok: false, error: deny };
+  const listed = await getMarketListingBlockReasonForReward(rewardId);
+  if (listed) return { ok: false, error: listed };
 
   try {
     const ok = await deleteUserRewardForOwner(rewardId, user.id);
@@ -488,6 +502,8 @@ export async function deleteUserRewardsBatchAction(
     }
     const deny = await assertRewardDeletable(row);
     if (deny) return { ok: false, error: deny };
+    const listed = await getMarketListingBlockReasonForReward(id);
+    if (listed) return { ok: false, error: listed };
   }
 
   try {
@@ -600,6 +616,8 @@ export async function resellUserRewardsBatchAction(
     if (row.is_equipped) {
       return { ok: false, error: "請先卸下再回賣" };
     }
+    const listed = await getMarketListingBlockReasonForReward(id);
+    if (listed) return { ok: false, error: listed };
     rows.push(row);
   }
 

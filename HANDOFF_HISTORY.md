@@ -5,6 +5,15 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-04-01 — 釣魚後台獎品設定 UX
+
+1. **目標**：**`/admin/fishing`** 獎品設定 Tab — **Dialog／AlertDialog** 於本頁覆寫淺色系（**`bg-white text-gray-900`**、表單 **`border-gray-300`**、**`focus:ring-violet-500`**、確認／取消鈕樣式）；**月老魚**不顯示三 tier 獎品卡，改粉紅說明區（**`setTab('settings')`**）；**深海巨獸**僅一級「限量大獎」＋**`LeviathanStockAlert`**（**`large`** 限量剩餘 ≤5）；**`RewardTierCard`** 抽出；**`TIER_LABELS`** 中文 tier；新增／編輯權重即時 **%** 與同 tier 其他獎品列；**月老／深海**隱藏 tier 下拉、**`reward_tier`** 固定 **`large`**；**`createFishingRewardAction`** 使用 **`effectiveTier`**。
+2. **Layer 5**：**`src/app/(admin)/admin/fishing/fishing-admin-client.tsx`**。
+3. **建置**：**`FloatingToolbar.tsx`** 刪除未使用 **`stackMenuMaxQty`／`pickUnequippedRowIds`**（**`@typescript-eslint/no-unused-vars`**）。
+4. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+5. **文件**：**`HANDOFF.md`** 最近完成。
+6. **Git**：**`fix(fishing-admin): dialog white bg, matchmaker info panel, leviathan single tier, weight % preview`**；**`git push`** **`origin/main`**。
+
 ### 2026-04-01 — 釣魚後台 `/admin/fishing`
 
 1. **目標**：後台路由 **`/admin/fishing`**（**master**／**moderator**）：統計看板（**`getFishingStatsAction`**＋**`SWR_KEYS.fishingStats`**）、釣魚日誌（**`getFishingLogsAdminAction`**，篩選暱稱／魚種，分頁 20）、月老配對紀錄（**`getMatchmakerLogsAction`**）、獎品 CRUD（**`getFishingRewardsAction`**＋**`SWR_KEYS.fishingRewards`**，五魚種膠囊／三 tier，**`getShopItemsAdminAction`** 道具下拉）、系統設定（**`getFishingAdminSettingsAction`**＋**`updateFishingSettingsAction`**，釣魚開關／年齡上限，魚餌 metadata 說明與商城連結）。儀表板 **`getDashboardStats`** 增 **`todayFishingCount`**（台北日 **`taipeiCalendarDateKey`** + **`fishing_logs`**）與 **`leviathanStockAlert`**（**`leviathan`** **`large`** 限量剩餘 ≤5）；側欄 **Fish**、**`middleware.ts`** **`/admin/fishing`**。

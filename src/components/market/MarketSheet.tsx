@@ -33,7 +33,7 @@ import { useMyProfile } from "@/hooks/useMyProfile";
 import {
   buyListingAction,
   cancelListingAction,
-  createListingAction,
+  createListingsBatchAction,
   getActiveListingsAction,
   getMyListingsAction,
   getRecentSoldListingsAction,
@@ -87,6 +87,47 @@ const ITEM_TYPE_LABELS: Record<string, string> = {
 
 function itemTypeBadgeLabel(itemType: string): string {
   return ITEM_TYPE_LABELS[itemType] ?? "道具";
+}
+
+type MarketUploadStack = {
+  key: string;
+  label: string;
+  rows: UserRewardWithEffect[];
+  count: number;
+};
+
+/** 與裝備背包堆疊鍵一致：同類型＋同名合併 */
+function buildMarketUploadStacks(
+  rows: UserRewardWithEffect[],
+): MarketUploadStack[] {
+  const map = new Map<string, UserRewardWithEffect[]>();
+  for (const r of rows) {
+    const k = `${r.reward_type}\0${r.label}`;
+    const arr = map.get(k) ?? [];
+    arr.push(r);
+    map.set(k, arr);
+  }
+  const stacks: MarketUploadStack[] = [];
+  for (const [, list] of Array.from(map.entries())) {
+    if (list.length === 0) continue;
+    list.sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    );
+    const first = list[0]!;
+    stacks.push({
+      key: `${first.reward_type}:${first.label}`,
+      label: first.label,
+      rows: list,
+      count: list.length,
+    });
+  }
+  stacks.sort(
+    (a, b) =>
+      new Date(a.rows[0]!.created_at).getTime() -
+      new Date(b.rows[0]!.created_at).getTime(),
+  );
+  return stacks;
 }
 
 function currencyLabel(t: "free_coins" | "premium_coins"): string {
@@ -232,8 +273,10 @@ export function MarketSheet({
 
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadStep, setUploadStep] = useState<"pick" | "price">("pick");
-  const [pickedReward, setPickedReward] =
-    useState<UserRewardWithEffect | null>(null);
+  const [pickedStack, setPickedStack] = useState<MarketUploadStack | null>(
+    null,
+  );
+  const [uploadQty, setUploadQty] = useState(1);
   const [uploadCurrency, setUploadCurrency] = useState<
     "free_coins" | "premium_coins"
   >("free_coins");
@@ -290,13 +333,19 @@ export function MarketSheet({
     mutate: mutateRewardsPayload,
   } = useSWR(uploadRewardsKey, getMyRewardsAction, { revalidateOnFocus: false });
 
-  const activeListingRewardIds = useMemo(() => {
+  const listedRewardIdSet = useMemo(() => {
     const s = new Set<string>();
+    for (const id of rewardsPayload?.listedRewardIds ?? []) {
+      s.add(id);
+    }
+    const now = Date.now();
     for (const L of myList) {
-      if (L.status === "active") s.add(L.user_reward_id);
+      if (L.status !== "active") continue;
+      if (L.expires_at && new Date(L.expires_at).getTime() <= now) continue;
+      s.add(L.user_reward_id);
     }
     return s;
-  }, [myList]);
+  }, [rewardsPayload?.listedRewardIds, myList]);
 
   const eligibleUploadRewards = useMemo(() => {
     const rows = rewardsPayload?.allRewards;
@@ -305,9 +354,14 @@ export function MarketSheet({
       (r) =>
         r.shop_item_id != null &&
         r.allow_player_trade === true &&
-        !activeListingRewardIds.has(r.id),
+        !listedRewardIdSet.has(r.id),
     );
-  }, [rewardsPayload, activeListingRewardIds]);
+  }, [rewardsPayload, listedRewardIdSet]);
+
+  const eligibleUploadStacks = useMemo(
+    () => buildMarketUploadStacks(eligibleUploadRewards),
+    [eligibleUploadRewards],
+  );
 
   const [buyTarget, setBuyTarget] = useState<MarketListingWithDetail | null>(
     null,
@@ -324,7 +378,8 @@ export function MarketSheet({
 
   function resetUploadDialog() {
     setUploadStep("pick");
-    setPickedReward(null);
+    setPickedStack(null);
+    setUploadQty(1);
     setUploadPriceStr("");
     setUploadCurrency("free_coins");
   }
@@ -378,23 +433,34 @@ export function MarketSheet({
         mutateHall(),
         mutateMy(),
         globalMutate(SWR_KEYS.myMarketListings),
+        mutateRewardsPayload(),
       ]);
+      window.dispatchEvent(new CustomEvent("guild-rewards-invalidate"));
     } finally {
       setCancelBusy(false);
     }
   }
 
   async function confirmUploadListing() {
-    if (!pickedReward || uploadBusy) return;
+    if (!pickedStack || uploadBusy) return;
     const price = parseInt(uploadPriceStr.trim(), 10);
     if (!Number.isFinite(price) || price < 1) {
       toast.error("請輸入至少 1 的正整數價格");
       return;
     }
+    const n = Math.min(
+      Math.max(1, uploadQty),
+      pickedStack.count,
+    );
+    const rewardIds = pickedStack.rows.slice(0, n).map((row) => row.id);
+    if (rewardIds.length === 0) {
+      toast.error("請選擇上架數量");
+      return;
+    }
     setUploadBusy(true);
     try {
-      const r = await createListingAction({
-        rewardId: pickedReward.id,
+      const r = await createListingsBatchAction({
+        rewardIds,
         price,
         currencyType: uploadCurrency,
       });
@@ -406,7 +472,11 @@ export function MarketSheet({
         );
         return;
       }
-      toast.success("上架成功！");
+      toast.success(
+        rewardIds.length > 1
+          ? `已上架 ${rewardIds.length} 筆！`
+          : "上架成功！",
+      );
       setUploadOpen(false);
       resetUploadDialog();
       await Promise.all([
@@ -415,6 +485,7 @@ export function MarketSheet({
         globalMutate(SWR_KEYS.myMarketListings),
         mutateRewardsPayload(),
       ]);
+      window.dispatchEvent(new CustomEvent("guild-rewards-invalidate"));
     } finally {
       setUploadBusy(false);
     }
@@ -739,34 +810,45 @@ export function MarketSheet({
                   <p className="py-6 text-center text-sm text-zinc-500">
                     無法載入背包
                   </p>
-                ) : eligibleUploadRewards.length === 0 ? (
+                ) : eligibleUploadStacks.length === 0 ? (
                   <p className="py-6 text-center text-sm text-zinc-400">
                     目前沒有可上架的道具，可至商城購買道具後再來
                   </p>
                 ) : (
                   <ul className="flex flex-col gap-1">
-                    {eligibleUploadRewards.map((row) => (
-                      <li key={row.id}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPickedReward(row);
-                            setUploadStep("price");
-                          }}
-                          className="flex w-full items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-left transition-colors hover:bg-zinc-800/80"
-                        >
-                          <RewardRowPreview row={row} />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-zinc-100">
-                              {row.label}
-                            </p>
-                            <span className="mt-0.5 inline-block rounded-md bg-zinc-800/80 px-1.5 py-0.5 text-[10px] text-zinc-400">
-                              {itemTypeBadgeLabel(row.reward_type)}
-                            </span>
-                          </div>
-                        </button>
-                      </li>
-                    ))}
+                    {eligibleUploadStacks.map((st) => {
+                      const row = st.rows[0]!;
+                      return (
+                        <li key={st.key}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPickedStack(st);
+                              setUploadQty(1);
+                              setUploadStep("price");
+                            }}
+                            className="flex w-full items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2.5 text-left transition-colors hover:bg-zinc-800/80"
+                          >
+                            <RewardRowPreview row={row} />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-zinc-100">
+                                {row.label}
+                              </p>
+                              <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                                <span className="inline-block rounded-md bg-zinc-800/80 px-1.5 py-0.5 text-[10px] text-zinc-400">
+                                  {itemTypeBadgeLabel(row.reward_type)}
+                                </span>
+                                {st.count > 1 ? (
+                                  <span className="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">
+                                    ×{st.count}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                          </button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
@@ -787,18 +869,49 @@ export function MarketSheet({
                   className="-mt-1 w-fit px-0 text-zinc-400 hover:text-zinc-200"
                   onClick={() => {
                     setUploadStep("pick");
-                    setPickedReward(null);
+                    setPickedStack(null);
+                    setUploadQty(1);
                     setUploadPriceStr("");
                   }}
                 >
                   ← 返回選擇
                 </Button>
-                {pickedReward ? (
+                {pickedStack ? (
                   <div className="flex items-center gap-3">
-                    <RewardRowPreview row={pickedReward} />
-                    <p className="min-w-0 flex-1 text-sm font-semibold text-zinc-100">
-                      {pickedReward.label}
-                    </p>
+                    <RewardRowPreview row={pickedStack.rows[0]!} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-zinc-100">
+                        {pickedStack.label}
+                      </p>
+                      {pickedStack.count > 1 ? (
+                        <p className="mt-0.5 text-xs text-zinc-500">
+                          持有 {pickedStack.count} 個，可分批設定上架數量
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+                {pickedStack && pickedStack.count > 1 ? (
+                  <div>
+                    <label className="mb-1.5 block text-xs text-zinc-500">
+                      上架數量（1～{pickedStack.count}）
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={pickedStack.count}
+                      value={uploadQty}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value, 10);
+                        const cap = pickedStack.count;
+                        if (!Number.isFinite(v)) {
+                          setUploadQty(1);
+                          return;
+                        }
+                        setUploadQty(Math.min(Math.max(1, v), cap));
+                      }}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
+                    />
                   </div>
                 ) : null}
                 <div>
@@ -869,7 +982,7 @@ export function MarketSheet({
                     type="button"
                     disabled={
                       uploadBusy ||
-                      !pickedReward ||
+                      !pickedStack ||
                       !/^[1-9]\d*$/.test(uploadPriceStr.trim())
                     }
                     className="bg-violet-600 text-white hover:bg-violet-500"

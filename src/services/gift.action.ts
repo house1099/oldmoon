@@ -16,6 +16,7 @@ import { insertAdminAction } from "@/lib/repositories/server/admin.repository";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
 import { formatGiftBatchMailboxMessage } from "@/lib/utils/gift-mailbox-message";
+import { getMarketListingBlockReasonForReward } from "@/lib/repositories/server/market-listing.repository";
 
 function assertGiftEligibility(meta: NonNullable<
   Awaited<ReturnType<typeof findUserRewardGiftMeta>>
@@ -48,6 +49,8 @@ export async function giftItemToUserAction(params: {
   }
   const deny = assertGiftEligibility(meta);
   if (deny) return { ok: false, error: deny };
+  const listed = await getMarketListingBlockReasonForReward(params.rewardId);
+  if (listed) return { ok: false, error: listed };
 
   try {
     const candidates = await findUsersByNickname(nick, user.id);
@@ -100,6 +103,8 @@ export async function confirmGiftAction(
   }
   const deny = assertGiftEligibility(meta);
   if (deny) return { ok: false, error: deny };
+  const listed = await getMarketListingBlockReasonForReward(rewardId);
+  if (listed) return { ok: false, error: listed };
 
   const senderProfile = await findProfileById(user.id);
   const senderNickname = senderProfile?.nickname?.trim() || "某位冒險者";
@@ -188,6 +193,8 @@ export async function confirmGiftsToUserBatchAction(
     }
     const deny = assertGiftEligibility(meta);
     if (deny) return { ok: false, error: deny };
+    const listed = await getMarketListingBlockReasonForReward(id);
+    if (listed) return { ok: false, error: listed };
     metas.push(meta);
   }
 

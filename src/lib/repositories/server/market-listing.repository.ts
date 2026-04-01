@@ -322,18 +322,52 @@ export async function expireMyStaleListings(userId: string): Promise<void> {
   if (error) throw error;
 }
 
+/** 與 UI／阻擋贈送回賣刪除等訊息一致 */
+export const MARKET_REWARD_LISTED_MESSAGE =
+  "此道具已在拍賣市集上架中，請先下架";
+
+/**
+ * 有效中的上架：status=active 且尚未過期（與過期批次更新前後語意一致）。
+ */
 export async function findActiveListingByRewardId(
   rewardId: string,
 ): Promise<MarketListingRow | null> {
   const admin = createAdminClient();
+  const now = new Date().toISOString();
   const { data, error } = await admin
     .from("market_listings")
     .select("*")
     .eq("user_reward_id", rewardId)
     .eq("status", "active")
+    .gt("expires_at", now)
     .maybeSingle();
   if (error) throw error;
   return (data as MarketListingRow) ?? null;
+}
+
+export async function getMarketListingBlockReasonForReward(
+  rewardId: string,
+): Promise<string | null> {
+  const listing = await findActiveListingByRewardId(rewardId);
+  return listing ? MARKET_REWARD_LISTED_MESSAGE : null;
+}
+
+/** 賣家目前「有效中」上架對應的 user_reward id（與 findActiveListingByRewardId 條件一致） */
+export async function findActiveListingRewardIdsForSeller(
+  userId: string,
+): Promise<string[]> {
+  const admin = createAdminClient();
+  const now = new Date().toISOString();
+  const { data, error } = await admin
+    .from("market_listings")
+    .select("user_reward_id")
+    .eq("seller_id", userId)
+    .eq("status", "active")
+    .gt("expires_at", now);
+  if (error) throw error;
+  return (data ?? []).map(
+    (r: { user_reward_id: string }) => r.user_reward_id,
+  );
 }
 
 export async function countActiveListingsBySeller(
