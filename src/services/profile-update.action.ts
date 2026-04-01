@@ -59,6 +59,8 @@ export async function updateMyProfile(input: {
   matchmaker_age_range?: number;
   /** JSON 陣列字串，例如 '["all"]' */
   matchmaker_region_pref?: string;
+  /** 是否願意加入月老魚配對池（無需審核） */
+  matchmaker_opt_in?: boolean;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   if (
     input.bio === undefined &&
@@ -74,7 +76,8 @@ export async function updateMyProfile(input: {
     input.skills_want === undefined &&
     input.relationship_status === undefined &&
     input.matchmaker_age_range === undefined &&
-    input.matchmaker_region_pref === undefined
+    input.matchmaker_region_pref === undefined &&
+    input.matchmaker_opt_in === undefined
   ) {
     return { ok: false, error: "沒有要更新的項目。" };
   }
@@ -214,6 +217,9 @@ export async function updateMyProfile(input: {
     } catch {
       return { ok: false, error: "地區偏好格式錯誤。" };
     }
+  }
+  if (input.matchmaker_opt_in !== undefined) {
+    patch.matchmaker_opt_in = input.matchmaker_opt_in;
   }
 
   try {

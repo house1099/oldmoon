@@ -3,7 +3,7 @@
  * 表：users, exp_logs, likes, alliances（雙人血盟）, conversations, chat_messages, blocks, reports, messages, notifications, ig_change_requests,
  *     admin_actions, moderator_permissions, system_settings, advertisements, ad_clicks, invitation_codes, invitation_code_uses, announcements,
  *     tavern_messages, tavern_bans, login_streaks, streak_reward_settings, prize_pools, prize_items, prize_logs, user_rewards, broadcasts,
- *     shop_items, shop_orders, shop_daily_limits, push_subscriptions, market_listings
+ *     shop_items, shop_orders, shop_daily_limits, push_subscriptions, market_listings, profile_change_requests
  */
 
 export type Json =
@@ -80,6 +80,8 @@ export interface Database {
           matchmaker_age_range: number;
           /** 月老魚地區偏好 JSON 陣列字串，例如 '["all"]' */
           matchmaker_region_pref: string;
+          /** 是否願意加入月老魚配對池 */
+          matchmaker_opt_in: boolean;
           avatar_url: string | null;
           /** active / suspended / banned / pending */
           status: "pending" | "active" | "suspended" | "banned";
@@ -151,6 +153,7 @@ export interface Database {
           birth_year?: number | null;
           matchmaker_age_range?: number;
           matchmaker_region_pref?: string;
+          matchmaker_opt_in?: boolean;
           avatar_url?: string | null;
           status?: "pending" | "active" | "suspended" | "banned";
           /** 累積經驗值，欄位名 `total_exp`（Postgres int4／int8 → TS `number`） */
@@ -195,6 +198,7 @@ export interface Database {
           birth_year?: number | null;
           matchmaker_age_range?: number;
           matchmaker_region_pref?: string;
+          matchmaker_opt_in?: boolean;
           avatar_url?: string | null;
           status?: "pending" | "active" | "suspended" | "banned";
           /** 累積經驗值，欄位名 `total_exp`（Postgres int4／int8 → TS `number`） */
@@ -296,6 +300,64 @@ export interface Database {
           },
           {
             foreignKeyName: "ig_change_requests_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      profile_change_requests: {
+        Row: {
+          id: string;
+          user_id: string;
+          status: "pending" | "approved" | "rejected";
+          new_region: string | null;
+          new_orientation: string | null;
+          new_birth_year: number | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          reject_reason: string | null;
+          note: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          status?: "pending" | "approved" | "rejected";
+          new_region?: string | null;
+          new_orientation?: string | null;
+          new_birth_year?: number | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          reject_reason?: string | null;
+          note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          status?: "pending" | "approved" | "rejected";
+          new_region?: string | null;
+          new_orientation?: string | null;
+          new_birth_year?: number | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          reject_reason?: string | null;
+          note?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "profile_change_requests_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "profile_change_requests_reviewed_by_fkey";
             columns: ["reviewed_by"];
             referencedRelation: "users";
             referencedColumns: ["id"];
@@ -1758,6 +1820,19 @@ export type AllianceRow = PublicTables["alliances"]["Row"];
 export type MessageRow = PublicTables["messages"]["Row"];
 export type NotificationRow = PublicTables["notifications"]["Row"];
 export type IgChangeRequestRow = PublicTables["ig_change_requests"]["Row"];
+
+export type ProfileChangeStatus = "pending" | "approved" | "rejected";
+
+export type ProfileChangeRequestRow = PublicTables["profile_change_requests"]["Row"];
+
+/** 建立一筆待審核申請（Layer 2 insert 用） */
+export interface ProfileChangeRequestInsert {
+  user_id: string;
+  new_region?: string | null;
+  new_orientation?: string | null;
+  new_birth_year?: number | null;
+  note?: string | null;
+}
 export type ConversationRow = PublicTables["conversations"]["Row"];
 export type ChatMessageRow = PublicTables["chat_messages"]["Row"];
 export type BlockRow = PublicTables["blocks"]["Row"];

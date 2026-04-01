@@ -5,6 +5,18 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-04-01 — 基本資料變更申請系統地基
+
+1. **目標**：**`public.users`** 新增 **`matchmaker_opt_in`**（預設 **true**）；**`profile_change_requests`** 表與 **`profile_change_status`** enum；**`system_settings`** 三鍵 **`profile_banner_enabled`／`profile_banner_title`／`profile_banner_force`**；Layer 2／3 申請與後台審核；**`updateMyProfile`** 可切換配對池開關（無審核）。
+2. **資料庫** 🗄️：**`supabase/migrations/20260401400000_profile_change_requests.sql`** — **`ALTER TABLE users ADD matchmaker_opt_in`**；**`CREATE TYPE profile_change_status`**；**`profile_change_requests`**（**`new_region`／`new_orientation`／`new_birth_year`／`note`／審核欄**）、**partial unique index**（**每用戶一筆 pending**）、**RLS**（**authenticated** **SELECT** 本人）、**`set_updated_at` trigger**（**`EXECUTE FUNCTION`**）；**`system_settings` INSERT** **`ON CONFLICT DO NOTHING`**；**`NOTIFY pgrst`**。雲端以 **Supabase MCP `execute_sql`** 同步。
+3. **型別**：**`src/types/database.types.ts`** — **`users`** 補 **`matchmaker_opt_in`**；**`profile_change_requests`** 表；**`ProfileChangeStatus`／`ProfileChangeRequestRow`／`ProfileChangeRequestInsert`**。
+4. **Layer 2** **`profile-change.repository.ts`**：**`findPendingRequestByUser`／`createRequest`／`cancelRequest`（DELETE pending）／`findPendingRequestsForAdmin`／`findAllRequestsForAdmin`（暱稱子查詢 **users.id**、分頁）／`approveRequest`（合併 **`users.update`** 與申請 **approved**）／`rejectRequest`／`countPendingRequests`／`findMasterUserIds`**；**`ProfileChangeRequestWithUser`** embed **`users`**。
+5. **Layer 3** **`profile-change.action.ts`**：**`submitProfileChangeRequestAction`**（驗證縣市／**`海外・`**／性向／出生年、**`no_fields`／`already_pending`**、**`notifyUserMailboxSilent`** 給所有 **master**）；**審核** **`requireRole(['master','moderator'])`**、通過後 **`profileCacheTag` revalidate**；**`getProfileBannerSettingsAction`** — **`unstable_cache` 60**、**`tags: ['system_settings']`**；**`updateProfileBannerSettingsAction`** — **`requireRole(['master'])`**、**`updateSystemSetting`**、**`revalidateTag('system_settings')`**。
+6. **Layer 3** **`profile-update.action.ts`**：**`updateMyProfile`** 支援 **`matchmaker_opt_in`**。
+7. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+8. **文件**：**`HANDOFF.md`** 最近完成、表清單、Profile 索引。
+9. **Git**：**`feat(profile-change): DB, Layer2/3 profile change request system`**；**`git push`** **`origin/main`**。
+
 ### 2026-04-01 — 釣魚系統地基（月老偏好）
 
 1. **目標**：**`public.users`** 新增月老釣魚用四欄（不公開顯示於個人卡片）；註冊名冊收集 **出生年**、**感情狀態**；帳號設定可編 **感情狀態**、**可接受年齡差距**、**地區偏好**（複選縣市或全台）；共用 **`matchmaker-region.ts`** 解析／摘要／配對輔助。
