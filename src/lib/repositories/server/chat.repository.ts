@@ -260,3 +260,22 @@ export async function submitReport(payload: {
     throw error;
   }
 }
+
+/** 與本人有封鎖關係（任一方向）的對象 user id，配對／社交篩选用 */
+export async function findUserIdsInBlockRelation(
+  userId: string,
+): Promise<string[]> {
+  const admin = createAdminClient();
+  const [{ data: blocked }, { data: blockers }] = await Promise.all([
+    admin.from("blocks").select("blocked_id").eq("blocker_id", userId),
+    admin.from("blocks").select("blocker_id").eq("blocked_id", userId),
+  ]);
+  const ids = new Set<string>();
+  for (const r of blocked ?? []) {
+    ids.add((r as { blocked_id: string }).blocked_id);
+  }
+  for (const r of blockers ?? []) {
+    ids.add((r as { blocker_id: string }).blocker_id);
+  }
+  return Array.from(ids);
+}

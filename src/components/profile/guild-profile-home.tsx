@@ -109,13 +109,6 @@ import {
   submitProfileChangeRequestAction,
 } from "@/services/profile-change.action";
 import { clearPwaAppBadge } from "@/lib/utils/app-badge";
-import {
-  ALL_TAIWAN_CITIES,
-  formatRegionPrefSummary,
-  parseRegionPref,
-  TAIWAN_REGIONS,
-} from "@/lib/utils/matchmaker-region";
-
 const IOS_TEXTAREA_CLASS =
   "w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-base text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none";
 
@@ -451,26 +444,8 @@ export function GuildProfileHome({
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameDraft, setRenameDraft] = useState("");
   const [renameSaving, setRenameSaving] = useState(false);
-  const [relationshipConfirmOpen, setRelationshipConfirmOpen] = useState(false);
-  const [pendingRelationshipStatus, setPendingRelationshipStatus] = useState<
-    "single" | "not_single"
-  >("single");
-  const [savingRelationship, setSavingRelationship] = useState(false);
-  const [matchmakerAgeInput, setMatchmakerAgeInput] = useState("");
-  const [savingAgePref, setSavingAgePref] = useState(false);
-  const [regionPrefModalOpen, setRegionPrefModalOpen] = useState(false);
-  const [regionDraftAll, setRegionDraftAll] = useState(true);
-  const [regionDraftSet, setRegionDraftSet] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const [savingRegionPref, setSavingRegionPref] = useState(false);
-
   const searchParams = useSearchParams();
   const profileChangeSectionRef = useRef<HTMLDivElement>(null);
-  const [matchmakerOptIn, setMatchmakerOptIn] = useState(
-    () => profile.matchmaker_opt_in ?? true,
-  );
-  const [matchmakerOptInSaving, setMatchmakerOptInSaving] = useState(false);
 
   const { data: pendingRequest, mutate: mutatePendingRequest } = useSWR(
     SWR_KEYS.myProfileChangeRequest,
@@ -544,7 +519,6 @@ export function GuildProfileHome({
     const m = isMoodActive(at) ? (profile.mood ?? "") : "";
     setMoodInput(m.slice(0, moodMax));
     setAvatarUrl(profile.avatar_url?.trim() || null);
-    setMatchmakerOptIn(profile.matchmaker_opt_in ?? true);
   }, [profile, moodMax]);
 
   useEffect(() => {
@@ -589,99 +563,7 @@ export function GuildProfileHome({
     if (!editOpen) return;
     setIgInput("");
     setShowIgChangeInput(false);
-    setMatchmakerAgeInput(String(profile.matchmaker_age_range ?? 10));
-  }, [editOpen, profile.instagram_handle, profile.matchmaker_age_range]);
-
-  function openRegionPrefModal() {
-    const prefs = parseRegionPref(
-      profile.matchmaker_region_pref ?? '["all"]',
-    );
-    if (prefs.includes("all") || prefs.length === 0) {
-      setRegionDraftAll(true);
-      setRegionDraftSet(new Set());
-    } else {
-      setRegionDraftAll(false);
-      const next = new Set<string>();
-      const allowed = ALL_TAIWAN_CITIES as readonly string[];
-      for (const p of prefs) {
-        if (typeof p === "string" && allowed.includes(p)) next.add(p);
-      }
-      setRegionDraftSet(next);
-    }
-    setRegionPrefModalOpen(true);
-  }
-
-  function toggleRegionCity(city: string) {
-    setRegionDraftAll(false);
-    setRegionDraftSet((prev) => {
-      const n = new Set(prev);
-      if (n.has(city)) n.delete(city);
-      else n.add(city);
-      return n;
-    });
-  }
-
-  async function confirmRelationshipChange() {
-    setSavingRelationship(true);
-    try {
-      const result = await updateMyProfile({
-        relationship_status: pendingRelationshipStatus,
-      });
-      if (result.ok === false) {
-        toast.error(result.error ?? "❌ 操作失敗，請稍後再試");
-        return;
-      }
-      toast.success("感情狀態已更新");
-      setRelationshipConfirmOpen(false);
-      await mutateProfile();
-      router.refresh();
-    } finally {
-      setSavingRelationship(false);
-    }
-  }
-
-  async function confirmAgePref() {
-    const digits = matchmakerAgeInput.replace(/\D/g, "");
-    const n = parseInt(digits, 10);
-    if (!Number.isFinite(n) || n < 1 || n > 50) {
-      toast.error("請輸入 1～50 的正整數");
-      return;
-    }
-    setSavingAgePref(true);
-    try {
-      const result = await updateMyProfile({ matchmaker_age_range: n });
-      if (result.ok === false) {
-        toast.error(result.error ?? "❌ 操作失敗，請稍後再試");
-        return;
-      }
-      toast.success("年齡偏好已更新");
-      await mutateProfile();
-      router.refresh();
-    } finally {
-      setSavingAgePref(false);
-    }
-  }
-
-  async function saveRegionPref() {
-    const json =
-      regionDraftAll || regionDraftSet.size === 0
-        ? '["all"]'
-        : JSON.stringify(Array.from(regionDraftSet));
-    setSavingRegionPref(true);
-    try {
-      const result = await updateMyProfile({ matchmaker_region_pref: json });
-      if (result.ok === false) {
-        toast.error(result.error ?? "❌ 操作失敗，請稍後再試");
-        return;
-      }
-      toast.success("地區偏好已更新");
-      setRegionPrefModalOpen(false);
-      await mutateProfile();
-      router.refresh();
-    } finally {
-      setSavingRegionPref(false);
-    }
-  }
+  }, [editOpen, profile.instagram_handle]);
 
   const handleIosTextareaFocus = useCallback(
     (e: React.FocusEvent<HTMLTextAreaElement>) => {
@@ -903,42 +785,6 @@ export function GuildProfileHome({
       return;
     }
     void onIgPublicChange(!igPublic);
-  }
-
-  async function onMatchmakerOptInChange(checked: boolean) {
-    const prev = matchmakerOptIn;
-    setMatchmakerOptIn(checked);
-    setMatchmakerOptInSaving(true);
-    try {
-      const result = await updateMyProfile({ matchmaker_opt_in: checked });
-      if (result.ok === false) {
-        setMatchmakerOptIn(prev);
-        toast.error("❌ 操作失敗，請稍後再試");
-        return;
-      }
-      toast.success(checked ? "已開啟月老配對池" : "已關閉月老配對池");
-      router.refresh();
-      await mutateProfile();
-    } finally {
-      setMatchmakerOptInSaving(false);
-    }
-  }
-
-  function handleMatchmakerOptInToggle() {
-    if (
-      matchmakerOptInSaving ||
-      savingInstagram ||
-      igRequestSubmitting ||
-      savingMood ||
-      savingBioVillage ||
-      savingBioMarket ||
-      savingRelationship ||
-      savingAgePref ||
-      savingRegionPref
-    ) {
-      return;
-    }
-    void onMatchmakerOptInChange(!matchmakerOptIn);
   }
 
   async function handleSubmitProfileChangeRequest() {
@@ -2257,159 +2103,21 @@ export function GuildProfileHome({
               )}
             </div>
 
-            <div className="space-y-4 rounded-2xl border border-white/10 bg-zinc-900/40 p-4">
-              <p className="text-sm font-medium text-white">🎣 月老釣魚偏好</p>
-
-              <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/5 bg-zinc-900/30 px-3 py-3">
-                <div className="min-w-0 pr-2">
-                  <p className="text-sm font-medium text-white">月老配對池</p>
-                  <p className="mt-0.5 text-xs text-zinc-400">
-                    關閉後將不會出現在其他人的月老魚結果中
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={matchmakerOptIn}
-                  aria-label={matchmakerOptIn ? "月老配對池：開啟" : "月老配對池：關閉"}
-                  disabled={
-                    matchmakerOptInSaving ||
-                    savingInstagram ||
-                    igRequestSubmitting ||
-                    savingMood ||
-                    savingBioVillage ||
-                    savingBioMarket ||
-                    savingRelationship ||
-                    savingAgePref ||
-                    savingRegionPref
-                  }
-                  onClick={handleMatchmakerOptInToggle}
-                  className={cn(
-                    "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 disabled:pointer-events-none disabled:opacity-50",
-                    matchmakerOptIn ? "bg-blue-500" : "bg-zinc-600",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200",
-                      matchmakerOptIn ? "translate-x-6" : "translate-x-1",
-                    )}
-                  />
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-xs text-zinc-400">感情狀態</p>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    disabled={
-                      savingRelationship ||
-                      savingInstagram ||
-                      igRequestSubmitting ||
-                      savingAgePref ||
-                      savingRegionPref
-                    }
-                    onClick={() => {
-                      if (profile.relationship_status === "single") return;
-                      setPendingRelationshipStatus("single");
-                      setRelationshipConfirmOpen(true);
-                    }}
-                    className={cn(
-                      "flex-1 rounded-full px-3 py-2.5 text-sm font-medium transition-colors disabled:opacity-50",
-                      profile.relationship_status === "single"
-                        ? "bg-violet-600 text-white"
-                        : "bg-zinc-800 text-zinc-400",
-                    )}
-                  >
-                    💚 單身中
-                  </button>
-                  <button
-                    type="button"
-                    disabled={
-                      savingRelationship ||
-                      savingInstagram ||
-                      igRequestSubmitting ||
-                      savingAgePref ||
-                      savingRegionPref
-                    }
-                    onClick={() => {
-                      if (profile.relationship_status === "not_single") return;
-                      setPendingRelationshipStatus("not_single");
-                      setRelationshipConfirmOpen(true);
-                    }}
-                    className={cn(
-                      "flex-1 rounded-full px-3 py-2.5 text-sm font-medium transition-colors disabled:opacity-50",
-                      profile.relationship_status === "not_single"
-                        ? "bg-violet-600 text-white"
-                        : "bg-zinc-800 text-zinc-400",
-                    )}
-                  >
-                    💔 非單身
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-xs text-zinc-400">可接受年齡差距（歲）</p>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={matchmakerAgeInput}
-                    onChange={(e) => {
-                      const raw = e.target.value.replace(/\D/g, "").slice(0, 2);
-                      setMatchmakerAgeInput(raw);
-                    }}
-                    placeholder="1–50"
-                    className="min-w-0 flex-1 rounded-full border border-white/10 bg-zinc-900/60 px-4 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-white/30"
-                  />
-                  <button
-                    type="button"
-                    disabled={
-                      savingAgePref ||
-                      savingInstagram ||
-                      igRequestSubmitting ||
-                      savingRelationship ||
-                      savingRegionPref
-                    }
-                    onClick={() => void confirmAgePref()}
-                    className="shrink-0 rounded-full bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-violet-500 disabled:opacity-50"
-                  >
-                    確認
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs text-zinc-400">地區偏好</p>
-                  <p className="text-sm text-zinc-200">
-                    {formatRegionPrefSummary(
-                      profile.matchmaker_region_pref ?? '["all"]',
-                    )}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  disabled={
-                    savingRegionPref ||
-                    savingInstagram ||
-                    igRequestSubmitting ||
-                    savingRelationship ||
-                    savingAgePref
-                  }
-                  onClick={openRegionPrefModal}
-                  className="shrink-0 rounded-full border border-white/15 px-3 py-1.5 text-sm text-violet-300 transition hover:bg-white/5 disabled:opacity-50"
-                >
-                  設定 ›
-                </button>
-              </div>
-
-              <p className="text-xs text-zinc-500">
-                以上設定僅用於月老釣魚配對，不會公開顯示在你的個人卡片上
+            <button
+              type="button"
+              onClick={() => {
+                setEditOpen(false);
+                router.push("/matchmaking");
+              }}
+              className="w-full rounded-2xl border border-violet-500/25 bg-violet-950/30 px-4 py-4 text-left transition hover:bg-violet-950/50"
+            >
+              <p className="text-sm font-medium text-violet-200">
+                月老配對設定已移至「月老」分頁 →
               </p>
-            </div>
+              <p className="mt-1 text-xs text-zinc-500">
+                感情狀態、年齡／地區偏好、配對池開關
+              </p>
+            </button>
 
             <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-4">
               <div className="min-w-0 pr-3">
@@ -2432,10 +2140,7 @@ export function GuildProfileHome({
                   igRequestSubmitting ||
                   savingMood ||
                   savingBioVillage ||
-                  savingBioMarket ||
-                  savingRelationship ||
-                  savingAgePref ||
-                  savingRegionPref
+                  savingBioMarket
                 }
                 onClick={handleIgToggle}
                 className={cn(
@@ -2718,107 +2423,6 @@ export function GuildProfileHome({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <AlertDialog
-        open={relationshipConfirmOpen}
-        onOpenChange={setRelationshipConfirmOpen}
-      >
-        <AlertDialogContent className="border-zinc-700 bg-zinc-950 text-zinc-100">
-          <AlertDialogHeader>
-            <AlertDialogTitle>確認變更感情狀態？</AlertDialogTitle>
-            <AlertDialogDescription className="text-zinc-400">
-              {pendingRelationshipStatus === "single"
-                ? "將設為 💚 單身中。"
-                : "將設為 💔 非單身。"}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="border-zinc-600 bg-zinc-900 text-zinc-200 hover:bg-zinc-800">
-              取消
-            </AlertDialogCancel>
-            <button
-              type="button"
-              disabled={savingRelationship}
-              onClick={() => void confirmRelationshipChange()}
-              className="inline-flex h-10 items-center justify-center rounded-md bg-violet-600 px-4 text-sm font-medium text-white transition-colors hover:bg-violet-500 disabled:pointer-events-none disabled:opacity-50"
-            >
-              {savingRelationship ? "處理中…" : "確認"}
-            </button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Dialog open={regionPrefModalOpen} onOpenChange={setRegionPrefModalOpen}>
-        <DialogContent className="flex max-h-[min(85vh,560px)] max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden border-zinc-700 bg-zinc-950 p-0 text-zinc-100 sm:max-w-md">
-          <DialogHeader className="shrink-0 border-b border-white/10 px-4 pb-3 pt-4">
-            <DialogTitle className="text-zinc-100">選擇偏好地區</DialogTitle>
-            <DialogDescription className="text-xs text-zinc-400">
-              可複選，未選擇任何地區視為全台不限
-            </DialogDescription>
-          </DialogHeader>
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
-            <button
-              type="button"
-              onClick={() => {
-                setRegionDraftAll(true);
-                setRegionDraftSet(new Set());
-              }}
-              className={cn(
-                "w-full rounded-full border px-4 py-3 text-sm font-medium transition-colors",
-                regionDraftAll
-                  ? "border-violet-400 bg-violet-600/80 text-white"
-                  : "border-zinc-700 bg-zinc-800/60 text-zinc-400",
-              )}
-            >
-              全台不限
-            </button>
-
-            {(
-              [
-                ["north", "北部", TAIWAN_REGIONS.north],
-                ["central", "中部", TAIWAN_REGIONS.central],
-                ["south", "南部", TAIWAN_REGIONS.south],
-                ["east", "東部／離島", TAIWAN_REGIONS.east],
-              ] as const
-            ).map(([key, label, cities]) => (
-              <div key={key} className="space-y-2">
-                <p className="text-xs text-zinc-500">{label}</p>
-                <div className="flex flex-wrap gap-2">
-                  {cities.map((city) => {
-                    const selected =
-                      !regionDraftAll && regionDraftSet.has(city);
-                    return (
-                      <button
-                        key={city}
-                        type="button"
-                        onClick={() => toggleRegionCity(city)}
-                        className={cn(
-                          "rounded-full border px-3 py-2 text-xs transition-colors",
-                          selected
-                            ? "border-violet-400 bg-violet-600/80 text-white"
-                            : "border-zinc-700 bg-zinc-800/60 text-zinc-400",
-                        )}
-                      >
-                        {city}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-          <DialogFooter className="shrink-0 border-t border-white/10 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
-            <LoadingButton
-              className="w-full rounded-full bg-violet-600 py-2.5 text-white hover:bg-violet-500"
-              loading={savingRegionPref}
-              loadingText="儲存中…"
-              onClick={() => void saveRegionPref()}
-            >
-              確認儲存
-            </LoadingButton>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Rename Card Dialog */}
       <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>

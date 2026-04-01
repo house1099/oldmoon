@@ -758,6 +758,36 @@ export async function findEquippedCardFramesByUserIds(
   return out;
 }
 
+export async function findFirstUserRewardIdOfType(
+  userId: string,
+  rewardType: string,
+): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("user_rewards")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("reward_type", rewardType)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return (data?.id as string | undefined) ?? null;
+}
+
+export async function countUserRewardsByType(
+  userId: string,
+  rewardType: string,
+): Promise<number> {
+  const admin = createAdminClient();
+  const { count, error } = await admin
+    .from("user_rewards")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("reward_type", rewardType);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export async function deleteUserRewardForOwner(
   rewardId: string,
   ownerUserId: string,

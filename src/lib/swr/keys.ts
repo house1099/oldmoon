@@ -17,4 +17,6 @@ export const SWR_KEYS = {
   marketRecentSold: 'market-recent-sold',
   myProfileChangeRequest: 'my-profile-change-request',
   profileBannerSettings: 'profile-banner-settings',
+  /** 釣魚：釣竿／釣餌持有狀態 */
+  fishingStatus: 'fishing-status',
 } as const

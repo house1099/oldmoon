@@ -244,3 +244,41 @@ export async function updateLastCheckinAt(userId: string): Promise<void> {
     throw error;
   }
 }
+
+/** 月老魚候選池（Layer 3 再以年齡／地區／封鎖篩選） */
+export type MatchmakerPoolCandidateRow = Pick<
+  UserRow,
+  | "id"
+  | "nickname"
+  | "avatar_url"
+  | "region"
+  | "birth_year"
+  | "matchmaker_age_mode"
+  | "matchmaker_age_older"
+  | "matchmaker_age_younger"
+  | "matchmaker_region_pref"
+>;
+
+export async function findMatchmakerPoolCandidates(
+  excludeUserId: string,
+): Promise<MatchmakerPoolCandidateRow[]> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("users")
+    .select(
+      "id, nickname, avatar_url, region, birth_year, matchmaker_age_mode, matchmaker_age_older, matchmaker_age_younger, matchmaker_region_pref",
+    )
+    .eq("status", "active")
+    .neq("activity_status", "hidden")
+    .eq("matchmaker_opt_in", true)
+    .eq("relationship_status", "single")
+    .not("birth_year", "is", null)
+    .neq("id", excludeUserId)
+    .limit(800);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as MatchmakerPoolCandidateRow[];
+}

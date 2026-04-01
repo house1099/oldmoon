@@ -5,6 +5,19 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-04-01 — 月老年齡三欄位與月老頁重構
+
+1. **目標**：**`users`** 年齡偏好改三欄（**`matchmaker_age_mode`／older／younger**）；**`system_settings.matchmaker_age_max`**；**`isAgeMatch`** 雙向篩選；**`collectFishAction`** 月老魚（無候選 **`noMatchFound`**、不降級稀有魚）；**`/matchmaking`** 三 Tab（魚池／緣分列表／配對設定）；帳號設定月老區改導向月老頁；**`FloatingToolbar`** 釣竿／釣餌導向 **`/matchmaking`**；**`Navbar`** 月老圖示 **Fish**。
+2. **資料庫** 🗄️：**`supabase/migrations/20260401500000_matchmaker_age_mode.sql`** — **`ALTER TABLE users`** 三欄 **CHECK**；**`UPDATE`** 自 **`matchmaker_age_range`** 遷移；**`INSERT system_settings`** **`matchmaker_age_max`**；**`NOTIFY pgrst`**。雲端 **Supabase MCP `apply_migration`**。
+3. **型別**：**`database.types.ts`** — **`users`** 補三欄。
+4. **工具**：**`matchmaker-region.ts`** — **`AGE_MODE_LABELS`／`isAgeMatch`／`checkFisherCondition`**。
+5. **Layer 3**：**`profile-update.action.ts`** — **`matchmaker_age_mode`／older／younger`**，數值 **1…`getMatchmakerAgeMaxAction()`**；**`system-settings.action.ts`** **`getMatchmakerAgeMaxAction`**。**`fishing.action.ts`** — **`getFishingStatusAction`**、**`collectFishAction`**（**`findSystemSettingByKey('matchmaker_age_max')`** **`min`** 與玩家設定、**`isAgeMatch`**、**`isRegionMatch`**、封鎖 **`findUserIdsInBlockRelation`**、消耗釣餌 **`deleteUserRewardForOwner`**、獎勵 **`creditCoins`(`loot_box`)**＋**`insertExpLog`** **`matchmaker_fish`**）。**`social.action.ts`** **`getMyLikesListsAction`**。
+6. **Layer 2**：**`user.repository.ts`** **`findMatchmakerPoolCandidates`**；**`like.repository.ts`** **`findLikesSentWithPeers`／`findLikesReceivedWithPeers`**；**`chat.repository.ts`** **`findUserIdsInBlockRelation`**；**`rewards.repository.ts`** **`findFirstUserRewardIdOfType`／`countUserRewardsByType`**。
+7. **Layer 5**：**`matchmaking/page.tsx`** **`Tabs`**；**`fishing-panel.tsx`**（**`useSWR` `SWR_KEYS.fishingStatus`** **10s**、**`<details>`** 釣魚日誌）；**`likes-list-panel.tsx`**；**`matchmaker-settings-tab.tsx`**（膠囊年齡模式／確認、地區 **Dialog**）。**`guild-profile-home.tsx`** 改為按鈕連結 **`/matchmaking`**，移除月老 **Dialog／AlertDialog**。
+8. **SWR**：**`keys.ts`** **`fishingStatus`**。
+9. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+10. **Git**：**`feat(matchmaking): age mode 3-field, matchmaking page 3-tab, remove fishing toolbar btn`**；**`git push`** **`origin/main`**。
+
 ### 2026-04-01 — 基本資料變更申請 UI／Banner／後台審核
 
 1. **目標**：基本資料變更申請 **Layer 5** — 首頁帳號設定 **月老配對池**（**`matchmaker_opt_in`**）、待審核／申請 Modal／撤回；**`ProfileBanner`** 全站提示（**`getProfileBannerSettingsAction`**、**`localStorage` `profile_banner_dismissed_v1`** 對齊標題）；**`/admin/profile-changes`** 待審核與所有申請（篩選／分頁）；後台側欄角標與儀表板 **`pendingProfileChangeCount`**；**`/admin/settings`** Banner 管理區塊。

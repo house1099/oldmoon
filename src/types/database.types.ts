@@ -76,8 +76,14 @@ export interface Database {
           relationship_status: "single" | "not_single" | null;
           /** 出生年份，月老魚年齡差篩選用，不公開顯示 */
           birth_year: number | null;
-          /** 月老魚可接受年齡差距（歲），預設 10 */
+          /** 月老魚可接受年齡差距（歲），預設 10；舊欄位，新程式改寫三欄位 */
           matchmaker_age_range: number;
+          /** 月老年齡偏好模式 */
+          matchmaker_age_mode: "older" | "younger" | "both";
+          /** 可接受對方年長差距上限（歲） */
+          matchmaker_age_older: number;
+          /** 可接受對方年輕差距上限（歲） */
+          matchmaker_age_younger: number;
           /** 月老魚地區偏好 JSON 陣列字串，例如 '["all"]' */
           matchmaker_region_pref: string;
           /** 是否願意加入月老魚配對池 */
@@ -152,6 +158,9 @@ export interface Database {
           relationship_status?: "single" | "not_single" | null;
           birth_year?: number | null;
           matchmaker_age_range?: number;
+          matchmaker_age_mode?: "older" | "younger" | "both";
+          matchmaker_age_older?: number;
+          matchmaker_age_younger?: number;
           matchmaker_region_pref?: string;
           matchmaker_opt_in?: boolean;
           avatar_url?: string | null;
@@ -197,6 +206,9 @@ export interface Database {
           relationship_status?: "single" | "not_single" | null;
           birth_year?: number | null;
           matchmaker_age_range?: number;
+          matchmaker_age_mode?: "older" | "younger" | "both";
+          matchmaker_age_older?: number;
+          matchmaker_age_younger?: number;
           matchmaker_region_pref?: string;
           matchmaker_opt_in?: boolean;
           avatar_url?: string | null;

@@ -158,3 +158,11 @@ export async function getMarqueeAndBroadcastSettingsAction(): Promise<{
 }> {
   return getCachedMarqueeAndBroadcastSettings();
 }
+
+/** 月老年齡差距上限（`system_settings.matchmaker_age_max`） */
+export async function getMatchmakerAgeMaxAction(): Promise<number> {
+  const raw = await findSystemSettingByKey("matchmaker_age_max");
+  const n = parseInt((raw ?? "30").trim(), 10);
+  if (!Number.isFinite(n) || n < 1) return 30;
+  return n;
+}

@@ -9,8 +9,11 @@ import {
   checkMutualLike,
   deleteLike,
   findLike,
+  findLikesReceivedWithPeers,
+  findLikesSentWithPeers,
   insertLike,
   mapLikeRepositoryError,
+  type LikePeerListItem,
 } from "@/lib/repositories/server/like.repository";
 import { insertNotification } from "@/lib/repositories/server/notification.repository";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
@@ -220,5 +223,33 @@ export async function checkMutualLikeWithTargetAction(
   } catch (error) {
     console.error("checkMutualLikeWithTargetAction:", error);
     return { success: false, error: mapLikeRepositoryError(error) };
+  }
+}
+
+export type { LikePeerListItem };
+
+/** 月老緣分列表：送出 / 收到 */
+export async function getMyLikesListsAction(): Promise<
+  | { ok: true; sent: LikePeerListItem[]; received: LikePeerListItem[] }
+  | { ok: false; error: string }
+> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { ok: false, error: "請先登入。" };
+  }
+
+  try {
+    const [sent, received] = await Promise.all([
+      findLikesSentWithPeers(user.id),
+      findLikesReceivedWithPeers(user.id),
+    ]);
+    return { ok: true, sent, received };
+  } catch (error) {
+    console.error("getMyLikesListsAction:", error);
+    return { ok: false, error: "無法載入緣分列表。" };
   }
 }

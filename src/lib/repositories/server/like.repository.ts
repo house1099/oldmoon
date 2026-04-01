@@ -118,3 +118,63 @@ export async function checkMutualLike(
 
   return Boolean(ab && ba);
 }
+
+export type LikePeerListItem = {
+  peerId: string;
+  nickname: string;
+  avatar_url: string | null;
+  level: number;
+};
+
+async function mapUserIdsToPeerRows(
+  userIds: string[],
+): Promise<Map<string, LikePeerListItem>> {
+  if (userIds.length === 0) return new Map();
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("users")
+    .select("id, nickname, avatar_url, level")
+    .in("id", userIds);
+  if (error) throw error;
+  const m = new Map<string, LikePeerListItem>();
+  for (const u of data ?? []) {
+    const id = u.id as string;
+    m.set(id, {
+      peerId: id,
+      nickname: u.nickname as string,
+      avatar_url: (u.avatar_url as string | null) ?? null,
+      level: u.level as number,
+    });
+  }
+  return m;
+}
+
+/** 我送出的緣分（對象列表） */
+export async function findLikesSentWithPeers(
+  userId: string,
+): Promise<LikePeerListItem[]> {
+  const admin = createAdminClient();
+  const { data: likes, error } = await admin
+    .from("likes")
+    .select("to_user")
+    .eq("from_user", userId);
+  if (error) throw error;
+  const ids = (likes ?? []).map((r) => r.to_user as string);
+  const map = await mapUserIdsToPeerRows(ids);
+  return ids.map((id) => map.get(id)).filter((x): x is LikePeerListItem => x != null);
+}
+
+/** 我收到的緣分（對方列表） */
+export async function findLikesReceivedWithPeers(
+  userId: string,
+): Promise<LikePeerListItem[]> {
+  const admin = createAdminClient();
+  const { data: likes, error } = await admin
+    .from("likes")
+    .select("from_user")
+    .eq("to_user", userId);
+  if (error) throw error;
+  const ids = (likes ?? []).map((r) => r.from_user as string);
+  const map = await mapUserIdsToPeerRows(ids);
+  return ids.map((id) => map.get(id)).filter((x): x is LikePeerListItem => x != null);
+}

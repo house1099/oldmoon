@@ -700,7 +700,8 @@ function FloatingToolbarInner({
     }
 
     if (rt === "fishing_bait" || rt === "fishing_rod") {
-      toast.info("請前往釣魚頁面使用（釣魚系統尚未開放）");
+      toast.info("請前往「月老」分頁使用釣竿與釣餌");
+      router.push("/matchmaking");
       return;
     }
 

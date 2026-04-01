@@ -11,7 +11,10 @@ import { instagramHandleSchema } from "@/lib/validation/instagram-handle";
 import { nicknameSchema } from "@/lib/validation/nickname";
 import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
 import { findSystemSettingByKey } from "@/lib/repositories/server/invitation.repository";
-import { getTagLimitsAction } from "@/services/system-settings.action";
+import {
+  getMatchmakerAgeMaxAction,
+  getTagLimitsAction,
+} from "@/services/system-settings.action";
 
 /**
  * Layer 3：編輯公會名片（通用 bio、分域自白、**`instagram_handle`**、IG 公開、每日心情、頭像 URL、**`interests`／`skills_offer`／`skills_want`** 標籤陣列）。
@@ -56,7 +59,9 @@ export async function updateMyProfile(input: {
   skills_offer?: string[];
   skills_want?: string[];
   relationship_status?: "single" | "not_single";
-  matchmaker_age_range?: number;
+  matchmaker_age_mode?: "older" | "younger" | "both";
+  matchmaker_age_older?: number;
+  matchmaker_age_younger?: number;
   /** JSON 陣列字串，例如 '["all"]' */
   matchmaker_region_pref?: string;
   /** 是否願意加入月老魚配對池（無需審核） */
@@ -75,7 +80,9 @@ export async function updateMyProfile(input: {
     input.skills_offer === undefined &&
     input.skills_want === undefined &&
     input.relationship_status === undefined &&
-    input.matchmaker_age_range === undefined &&
+    input.matchmaker_age_mode === undefined &&
+    input.matchmaker_age_older === undefined &&
+    input.matchmaker_age_younger === undefined &&
     input.matchmaker_region_pref === undefined &&
     input.matchmaker_opt_in === undefined
   ) {
@@ -195,12 +202,38 @@ export async function updateMyProfile(input: {
     }
     patch.relationship_status = v;
   }
-  if (input.matchmaker_age_range !== undefined) {
-    const n = input.matchmaker_age_range;
-    if (!Number.isInteger(n) || n < 1 || n > 50) {
-      return { ok: false, error: "年齡偏好須為 1～50 的整數。" };
+  if (input.matchmaker_age_mode !== undefined) {
+    const m = input.matchmaker_age_mode;
+    if (m !== "older" && m !== "younger" && m !== "both") {
+      return { ok: false, error: "年齡模式無效。" };
     }
-    patch.matchmaker_age_range = n;
+    patch.matchmaker_age_mode = m;
+  }
+  if (
+    input.matchmaker_age_older !== undefined ||
+    input.matchmaker_age_younger !== undefined
+  ) {
+    const ageMaxCap = await getMatchmakerAgeMaxAction();
+    if (input.matchmaker_age_older !== undefined) {
+      const n = input.matchmaker_age_older;
+      if (!Number.isInteger(n) || n < 1 || n > ageMaxCap) {
+        return {
+          ok: false,
+          error: `年長差距須為 1～${ageMaxCap} 的整數。`,
+        };
+      }
+      patch.matchmaker_age_older = n;
+    }
+    if (input.matchmaker_age_younger !== undefined) {
+      const n = input.matchmaker_age_younger;
+      if (!Number.isInteger(n) || n < 1 || n > ageMaxCap) {
+        return {
+          ok: false,
+          error: `年輕差距須為 1～${ageMaxCap} 的整數。`,
+        };
+      }
+      patch.matchmaker_age_younger = n;
+    }
   }
   if (input.matchmaker_region_pref !== undefined) {
     try {
