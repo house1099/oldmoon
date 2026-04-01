@@ -1,6 +1,7 @@
 "use client";
 
 import type { UserRow } from "@/lib/repositories/server/user.repository";
+import { Suspense } from "react";
 import { useMyProfile } from "@/hooks/useMyProfile";
 import { GuildProfileHome } from "@/components/profile/guild-profile-home";
 import { HomeParticlesBackground } from "@/components/effects/HomeParticlesBackground";
@@ -55,13 +56,15 @@ export default function HomePageClient({
     <div className="relative isolate mx-auto flex min-h-[100dvh] w-full max-w-md flex-col items-center gap-4 p-4 pb-[max(8rem,calc(8rem+env(safe-area-inset-bottom,0px)))] pt-[max(3rem,env(safe-area-inset-top,0px))]">
       <HomeParticlesBackground />
       <div className="relative z-10 flex w-full flex-col items-center gap-4">
-        <GuildProfileHome
-          profile={effectiveProfile}
-          moodMax={moodMax}
-          initialStreak={initialStreak}
-          initialStreakSettings={initialStreakSettings}
-          preloadImageUrls={preloadImageUrls}
-        />
+        <Suspense fallback={null}>
+          <GuildProfileHome
+            profile={effectiveProfile}
+            moodMax={moodMax}
+            initialStreak={initialStreak}
+            initialStreakSettings={initialStreakSettings}
+            preloadImageUrls={preloadImageUrls}
+          />
+        </Suspense>
       </div>
       <PwaInstallOverlay />
     </div>

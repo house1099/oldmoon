@@ -10,6 +10,11 @@ import {
   getStreakRewardSettingsAdminAction,
   updateStreakRewardAction,
 } from "@/services/admin.action";
+import {
+  getProfileBannerSettingsAction,
+  updateProfileBannerSettingsAction,
+} from "@/services/profile-change.action";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 type SettingsMap = Record<string, string>;
@@ -114,6 +119,12 @@ export default function AdminSettingsClient({ isMaster }: { isMaster: boolean })
   const [streakLoading, setStreakLoading] = useState(false);
   const [streakSaving, setStreakSaving] = useState(false);
 
+  const [bannerEnabled, setBannerEnabled] = useState(false);
+  const [bannerTitle, setBannerTitle] = useState("");
+  const [bannerForce, setBannerForce] = useState(false);
+  const [bannerLoading, setBannerLoading] = useState(false);
+  const [bannerSavingKey, setBannerSavingKey] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -166,6 +177,28 @@ export default function AdminSettingsClient({ isMaster }: { isMaster: boolean })
     };
   }, [isMaster]);
 
+  useEffect(() => {
+    if (!isMaster) return;
+    let cancelled = false;
+    void (async () => {
+      setBannerLoading(true);
+      try {
+        const s = await getProfileBannerSettingsAction();
+        if (cancelled) return;
+        setBannerEnabled(s.enabled);
+        setBannerTitle(s.title);
+        setBannerForce(s.force);
+      } catch {
+        if (!cancelled) toast.error("讀取 Banner 設定失敗");
+      } finally {
+        if (!cancelled) setBannerLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isMaster]);
+
   const saveAllStreakRewards = async () => {
     setStreakSaving(true);
     try {
@@ -194,6 +227,56 @@ export default function AdminSettingsClient({ isMaster }: { isMaster: boolean })
       toast.success("七日報到獎勵已更新");
     } finally {
       setStreakSaving(false);
+    }
+  };
+
+  const saveBannerEnabled = async (enabled: boolean) => {
+    setBannerSavingKey("enabled");
+    try {
+      const res = await updateProfileBannerSettingsAction({ enabled });
+      if (!res.ok) {
+        toast.error("更新失敗");
+        return;
+      }
+      setBannerEnabled(enabled);
+      toast.success("已更新");
+    } finally {
+      setBannerSavingKey(null);
+    }
+  };
+
+  const saveBannerTitle = async () => {
+    const t = bannerTitle.trim();
+    if (!t) {
+      toast.error("請填寫標題");
+      return;
+    }
+    setBannerSavingKey("title");
+    try {
+      const res = await updateProfileBannerSettingsAction({ title: t });
+      if (!res.ok) {
+        toast.error("更新失敗");
+        return;
+      }
+      setBannerTitle(t);
+      toast.success("標題已儲存");
+    } finally {
+      setBannerSavingKey(null);
+    }
+  };
+
+  const saveBannerForce = async (force: boolean) => {
+    setBannerSavingKey("force");
+    try {
+      const res = await updateProfileBannerSettingsAction({ force });
+      if (!res.ok) {
+        toast.error("更新失敗");
+        return;
+      }
+      setBannerForce(force);
+      toast.success("已更新");
+    } finally {
+      setBannerSavingKey(null);
     }
   };
 
@@ -650,6 +733,64 @@ export default function AdminSettingsClient({ isMaster }: { isMaster: boolean })
           })}
         </div>
       </section>
+
+      {isMaster ? (
+        <section className="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
+          <h2 className="text-base font-semibold text-gray-900">
+            📢 資料補填通知 Banner
+          </h2>
+          {bannerLoading ? (
+            <div className="flex justify-center py-6">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50/60 px-4 py-3">
+                <p className="text-sm text-gray-700">Banner 開關</p>
+                <Switch
+                  checked={bannerEnabled}
+                  disabled={bannerSavingKey === "enabled"}
+                  onCheckedChange={(v) => void saveBannerEnabled(v)}
+                />
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm text-gray-700">Banner 標題</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    maxLength={50}
+                    value={bannerTitle}
+                    onChange={(e) => setBannerTitle(e.target.value.slice(0, 50))}
+                    className="min-w-[200px] flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                    placeholder="顯示於全站橫幅"
+                  />
+                  <button
+                    type="button"
+                    disabled={bannerSavingKey === "title"}
+                    onClick={() => void saveBannerTitle()}
+                    className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-60"
+                  >
+                    {bannerSavingKey === "title" ? "儲存中…" : "儲存"}
+                  </button>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50/60 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-gray-700">強制模式</p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    開啟後所有用戶都會看到 Banner 且無法關閉，關閉後僅資料不完整的用戶看到
+                  </p>
+                </div>
+                <Switch
+                  checked={bannerForce}
+                  disabled={bannerSavingKey === "force"}
+                  onCheckedChange={(v) => void saveBannerForce(v)}
+                />
+              </div>
+            </div>
+          )}
+        </section>
+      ) : null}
     </div>
   );
 }

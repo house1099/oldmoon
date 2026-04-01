@@ -56,6 +56,13 @@ const STAT_CARDS = [
     color: "bg-pink-100 text-pink-500",
     href: "/admin/users?filter=ig_pending",
   },
+  {
+    key: "pendingProfileChangeCount",
+    label: "待審資料變更",
+    icon: ClipboardList,
+    color: "bg-violet-100 text-violet-600",
+    href: "/admin/profile-changes?filter=pending",
+  },
 ] as const;
 
 type DashboardStats = Record<string, number>;

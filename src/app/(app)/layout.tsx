@@ -1,6 +1,7 @@
 import { PostLoginEntrance } from "@/components/auth/PostLoginEntrance";
 import { AppBadgeUnreadChatSync } from "@/components/shared/app-badge-unread-chat-sync";
 import { AppBroadcastChrome } from "@/components/layout/app-broadcast-chrome";
+import { ProfileBanner } from "@/components/shared/ProfileBanner";
 import { FloatingToolbarProvider } from "@/components/layout/FloatingToolbar";
 import { Navbar } from "@/components/layout/Navbar";
 import { GuildTabProvider } from "@/contexts/guild-tab-context";
@@ -27,6 +28,7 @@ export default async function AppGroupLayout({
             <AppBroadcastChrome initialHasBroadcast={initialHasBroadcast}>
               {children}
             </AppBroadcastChrome>
+            <ProfileBanner />
             <Navbar />
           </PostLoginEntrance>
         </FloatingToolbarProvider>

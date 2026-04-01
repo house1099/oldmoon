@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -42,6 +42,7 @@ import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
 import { ShopCardFrameOverlay } from "@/components/ui/ShopCardFrameOverlay";
 import { TitleBadgeRow } from "@/components/ui/title-badge-row";
 import {
+  ChevronDown,
   ChevronRight,
   Eye,
   LogOut,
@@ -71,6 +72,7 @@ import {
   LEGACY_ORIENTATION_MAP,
   LEGACY_REGION_MAP,
   ORIENTATION_OPTIONS,
+  OVERSEAS_REGION_OPTION_VALUE,
   REGION_OPTIONS,
   resolveLegacyLabel,
   resolveOfflineOkLabel,
@@ -101,6 +103,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useOpenEquipmentSheet } from "@/components/layout/FloatingToolbar";
 import { UserDetailModal } from "@/components/modals/UserDetailModal";
 import { PushNotifyGuildRow } from "@/components/profile/PushNotifyGuildRow";
+import {
+  cancelProfileChangeRequestAction,
+  getMyPendingChangeRequestAction,
+  submitProfileChangeRequestAction,
+} from "@/services/profile-change.action";
 import { clearPwaAppBadge } from "@/lib/utils/app-badge";
 import {
   ALL_TAIWAN_CITIES,
@@ -111,6 +118,24 @@ import {
 
 const IOS_TEXTAREA_CLASS =
   "w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-base text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none";
+
+const PROFILE_CHANGE_SELECT_CLASS =
+  "w-full appearance-none rounded-full border border-white/10 bg-zinc-900/50 py-3 pl-5 pr-10 text-sm text-white transition-colors focus:border-white/30 focus:outline-none";
+
+function formatTaipeiDateTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString("zh-TW", {
+      timeZone: "Asia/Taipei",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
+}
 
 function levelProgressPercent(level: number, totalExp: number): number {
   if (level >= 10) return 100;
@@ -440,6 +465,28 @@ export function GuildProfileHome({
   );
   const [savingRegionPref, setSavingRegionPref] = useState(false);
 
+  const searchParams = useSearchParams();
+  const profileChangeSectionRef = useRef<HTMLDivElement>(null);
+  const [matchmakerOptIn, setMatchmakerOptIn] = useState(
+    () => profile.matchmaker_opt_in ?? true,
+  );
+  const [matchmakerOptInSaving, setMatchmakerOptInSaving] = useState(false);
+
+  const { data: pendingRequest, mutate: mutatePendingRequest } = useSWR(
+    SWR_KEYS.myProfileChangeRequest,
+    getMyPendingChangeRequestAction,
+    { revalidateOnFocus: true },
+  );
+
+  const [profileChangeModalOpen, setProfileChangeModalOpen] = useState(false);
+  const [profileChangeSubmitting, setProfileChangeSubmitting] = useState(false);
+  const [withdrawConfirmOpen, setWithdrawConfirmOpen] = useState(false);
+  const [pcFormBirthYear, setPcFormBirthYear] = useState("");
+  const [pcFormRegion, setPcFormRegion] = useState("");
+  const [pcFormOverseasDetail, setPcFormOverseasDetail] = useState("");
+  const [pcFormOrientation, setPcFormOrientation] = useState("");
+  const [pcFormNote, setPcFormNote] = useState("");
+
   const { data: streakPayload, mutate: mutateStreak } = useSWR(
     SWR_KEYS.myStreak,
     getMyStreakAction,
@@ -497,7 +544,21 @@ export function GuildProfileHome({
     const m = isMoodActive(at) ? (profile.mood ?? "") : "";
     setMoodInput(m.slice(0, moodMax));
     setAvatarUrl(profile.avatar_url?.trim() || null);
+    setMatchmakerOptIn(profile.matchmaker_opt_in ?? true);
   }, [profile, moodMax]);
+
+  useEffect(() => {
+    if (searchParams.get("accountSettings") !== "profileChange") return;
+    setEditOpen(true);
+    const timer = window.setTimeout(() => {
+      profileChangeSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      router.replace("/", { scroll: false });
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [searchParams, router]);
 
   useEffect(() => {
     getActiveAnnouncementsAction().then(setAnnouncements).catch(() => {});
@@ -842,6 +903,117 @@ export function GuildProfileHome({
       return;
     }
     void onIgPublicChange(!igPublic);
+  }
+
+  async function onMatchmakerOptInChange(checked: boolean) {
+    const prev = matchmakerOptIn;
+    setMatchmakerOptIn(checked);
+    setMatchmakerOptInSaving(true);
+    try {
+      const result = await updateMyProfile({ matchmaker_opt_in: checked });
+      if (result.ok === false) {
+        setMatchmakerOptIn(prev);
+        toast.error("❌ 操作失敗，請稍後再試");
+        return;
+      }
+      toast.success(checked ? "已開啟月老配對池" : "已關閉月老配對池");
+      router.refresh();
+      await mutateProfile();
+    } finally {
+      setMatchmakerOptInSaving(false);
+    }
+  }
+
+  function handleMatchmakerOptInToggle() {
+    if (
+      matchmakerOptInSaving ||
+      savingInstagram ||
+      igRequestSubmitting ||
+      savingMood ||
+      savingBioVillage ||
+      savingBioMarket ||
+      savingRelationship ||
+      savingAgePref ||
+      savingRegionPref
+    ) {
+      return;
+    }
+    void onMatchmakerOptInChange(!matchmakerOptIn);
+  }
+
+  async function handleSubmitProfileChangeRequest() {
+    const payload: {
+      newRegion?: string;
+      newOrientation?: string;
+      newBirthYear?: number;
+      note?: string;
+    } = {};
+    if (pcFormBirthYear) {
+      payload.newBirthYear = Number(pcFormBirthYear);
+    }
+    if (pcFormRegion) {
+      if (pcFormRegion === OVERSEAS_REGION_OPTION_VALUE) {
+        const d = pcFormOverseasDetail.trim();
+        if (!d) {
+          toast.error("請填寫海外地區或城市。");
+          return;
+        }
+        payload.newRegion = `海外・${d}`;
+      } else {
+        payload.newRegion = pcFormRegion;
+      }
+    }
+    if (pcFormOrientation) {
+      payload.newOrientation = pcFormOrientation;
+    }
+    if (pcFormNote.trim()) {
+      payload.note = pcFormNote.trim();
+    }
+    const hasField =
+      payload.newBirthYear !== undefined ||
+      (payload.newRegion !== undefined && payload.newRegion !== "") ||
+      (payload.newOrientation !== undefined && payload.newOrientation !== "");
+    if (!hasField) {
+      toast.error("請至少填寫一個要變更的欄位");
+      return;
+    }
+
+    setProfileChangeSubmitting(true);
+    try {
+      const r = await submitProfileChangeRequestAction(payload);
+      if (!r.ok) {
+        if (r.error === "already_pending") {
+          toast.error("你已有一筆待審核申請");
+        } else if (r.error === "no_fields") {
+          toast.error("請至少填寫一個要變更的欄位");
+        } else {
+          toast.error(r.error ?? "送出失敗");
+        }
+        return;
+      }
+      toast.success("申請已送出，請等待審核");
+      setProfileChangeModalOpen(false);
+      await mutatePendingRequest();
+    } finally {
+      setProfileChangeSubmitting(false);
+    }
+  }
+
+  async function handleConfirmWithdrawProfileChange() {
+    if (!pendingRequest?.id) return;
+    setProfileChangeSubmitting(true);
+    try {
+      const r = await cancelProfileChangeRequestAction(pendingRequest.id);
+      if (!r.ok) {
+        toast.error("撤回失敗，請稍後再試");
+        return;
+      }
+      toast.success("已撤回申請");
+      setWithdrawConfirmOpen(false);
+      await mutatePendingRequest();
+    } finally {
+      setProfileChangeSubmitting(false);
+    }
   }
 
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -2088,6 +2260,44 @@ export function GuildProfileHome({
             <div className="space-y-4 rounded-2xl border border-white/10 bg-zinc-900/40 p-4">
               <p className="text-sm font-medium text-white">🎣 月老釣魚偏好</p>
 
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/5 bg-zinc-900/30 px-3 py-3">
+                <div className="min-w-0 pr-2">
+                  <p className="text-sm font-medium text-white">月老配對池</p>
+                  <p className="mt-0.5 text-xs text-zinc-400">
+                    關閉後將不會出現在其他人的月老魚結果中
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={matchmakerOptIn}
+                  aria-label={matchmakerOptIn ? "月老配對池：開啟" : "月老配對池：關閉"}
+                  disabled={
+                    matchmakerOptInSaving ||
+                    savingInstagram ||
+                    igRequestSubmitting ||
+                    savingMood ||
+                    savingBioVillage ||
+                    savingBioMarket ||
+                    savingRelationship ||
+                    savingAgePref ||
+                    savingRegionPref
+                  }
+                  onClick={handleMatchmakerOptInToggle}
+                  className={cn(
+                    "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 disabled:pointer-events-none disabled:opacity-50",
+                    matchmakerOptIn ? "bg-blue-500" : "bg-zinc-600",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200",
+                      matchmakerOptIn ? "translate-x-6" : "translate-x-1",
+                    )}
+                  />
+                </button>
+              </div>
+
               <div className="space-y-2">
                 <p className="text-xs text-zinc-400">感情狀態</p>
                 <div className="flex gap-3">
@@ -2241,6 +2451,69 @@ export function GuildProfileHome({
                 />
               </button>
             </div>
+
+            <div
+              ref={profileChangeSectionRef}
+              id="profile-change-request-section"
+              className="space-y-3 rounded-2xl border border-white/10 bg-zinc-900/40 p-4"
+            >
+              <p className="text-sm font-medium text-white">📝 基本資料變更</p>
+              {pendingRequest ? (
+                <div className="space-y-3 rounded-xl border border-amber-500/30 bg-amber-950/20 p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-xs font-medium text-amber-200">
+                      ⏳ 審核中
+                    </span>
+                  </div>
+                  <ul className="space-y-1 text-xs text-zinc-300">
+                    {pendingRequest.new_region != null &&
+                    String(pendingRequest.new_region).trim() !== "" ? (
+                      <li>
+                        地區：{pendingRequest.new_region}
+                      </li>
+                    ) : null}
+                    {pendingRequest.new_orientation != null &&
+                    String(pendingRequest.new_orientation).trim() !== "" ? (
+                      <li>
+                        性向：
+                        {resolveLegacyLabel(
+                          pendingRequest.new_orientation,
+                          ORIENTATION_OPTIONS,
+                          LEGACY_ORIENTATION_MAP,
+                        )}
+                      </li>
+                    ) : null}
+                    {pendingRequest.new_birth_year != null ? (
+                      <li>出生年份：{pendingRequest.new_birth_year}</li>
+                    ) : null}
+                  </ul>
+                  <p className="text-xs text-zinc-500">
+                    申請時間：{formatTaipeiDateTime(pendingRequest.created_at)}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={profileChangeSubmitting}
+                    onClick={() => setWithdrawConfirmOpen(true)}
+                    className="w-full rounded-full border border-white/15 py-2 text-sm text-zinc-200 transition hover:bg-white/5 disabled:opacity-50"
+                  >
+                    撤回申請
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setProfileChangeModalOpen(true)}
+                    className="w-full rounded-full bg-white/10 py-2.5 text-sm text-white transition-all hover:bg-white/20 active:scale-95"
+                  >
+                    申請修改基本資料 ›
+                  </button>
+                  <p className="text-xs text-zinc-400">
+                    地區、性向、出生年份需經審核後才能變更
+                  </p>
+                </>
+              )}
+            </div>
           </div>
 
           {renameCardUnusedCount > 0 && (
@@ -2274,6 +2547,177 @@ export function GuildProfileHome({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={profileChangeModalOpen}
+        onOpenChange={setProfileChangeModalOpen}
+      >
+        <DialogContent className="flex max-h-[min(85vh,560px)] max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden border-zinc-700 bg-zinc-950 p-0 text-zinc-100 sm:max-w-md">
+          <DialogHeader className="shrink-0 border-b border-white/10 px-4 pb-3 pt-4">
+            <DialogTitle className="text-zinc-100">申請修改基本資料</DialogTitle>
+            <p className="mt-2 text-xs text-zinc-400">
+              暱稱與性別無法變更。以下欄位變更需經審核，通常於 1–3 個工作天內處理。
+            </p>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+            <div className="space-y-2">
+              <p className="text-xs text-zinc-400">出生年份</p>
+              <div className="relative">
+                <select
+                  value={pcFormBirthYear}
+                  onChange={(e) => setPcFormBirthYear(e.target.value)}
+                  className={cn(PROFILE_CHANGE_SELECT_CLASS, "text-white")}
+                >
+                  <option value="">不變更</option>
+                  {Array.from({ length: 67 }, (_, i) => 2006 - i).map((y) => (
+                    <option key={y} value={String(y)}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500"
+                  aria-hidden
+                />
+              </div>
+              <p className="text-xs text-zinc-500">
+                目前：{profile.birth_year ?? "未填寫"}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-zinc-400">地區</p>
+              <div className="relative">
+                <select
+                  value={pcFormRegion}
+                  onChange={(e) => {
+                    setPcFormRegion(e.target.value);
+                    if (e.target.value !== OVERSEAS_REGION_OPTION_VALUE) {
+                      setPcFormOverseasDetail("");
+                    }
+                  }}
+                  className={cn(PROFILE_CHANGE_SELECT_CLASS, "text-white")}
+                >
+                  <option value="">不變更</option>
+                  {REGION_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500"
+                  aria-hidden
+                />
+              </div>
+              {pcFormRegion === OVERSEAS_REGION_OPTION_VALUE ? (
+                <input
+                  type="text"
+                  value={pcFormOverseasDetail}
+                  onChange={(e) => setPcFormOverseasDetail(e.target.value)}
+                  placeholder="海外地區或城市"
+                  className="w-full rounded-full border border-white/10 bg-zinc-900/60 px-4 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-white/30"
+                />
+              ) : null}
+              <p className="text-xs text-zinc-500">
+                目前：
+                {resolveLegacyLabel(
+                  profile.region,
+                  REGION_OPTIONS,
+                  LEGACY_REGION_MAP,
+                )}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-zinc-400">性向</p>
+              <div className="relative">
+                <select
+                  value={pcFormOrientation}
+                  onChange={(e) => setPcFormOrientation(e.target.value)}
+                  className={cn(PROFILE_CHANGE_SELECT_CLASS, "text-white")}
+                >
+                  <option value="">不變更</option>
+                  {ORIENTATION_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500"
+                  aria-hidden
+                />
+              </div>
+              <p className="text-xs text-zinc-500">
+                目前：
+                {resolveLegacyLabel(
+                  profile.orientation,
+                  ORIENTATION_OPTIONS,
+                  LEGACY_ORIENTATION_MAP,
+                )}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-zinc-400">申請原因（選填）</p>
+              <Textarea
+                value={pcFormNote}
+                onChange={(e) => setPcFormNote(e.target.value.slice(0, 100))}
+                placeholder="說明申請原因（選填）"
+                rows={2}
+                maxLength={100}
+                className="rounded-2xl border border-white/10 bg-zinc-900/50 text-white placeholder:text-zinc-600"
+              />
+            </div>
+          </div>
+          <DialogFooter className="shrink-0 gap-2 border-t border-white/10 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="border-white/15 text-zinc-200"
+              onClick={() => setProfileChangeModalOpen(false)}
+            >
+              取消
+            </Button>
+            <LoadingButton
+              className="bg-violet-600 text-white hover:bg-violet-500"
+              loading={profileChangeSubmitting}
+              loadingText="送出中…"
+              onClick={() => void handleSubmitProfileChangeRequest()}
+            >
+              送出申請
+            </LoadingButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={withdrawConfirmOpen}
+        onOpenChange={setWithdrawConfirmOpen}
+      >
+        <AlertDialogContent className="border-zinc-700 bg-zinc-950 text-zinc-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle>撤回基本資料變更申請？</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              撤回後可重新送出申請。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-zinc-600 bg-zinc-900 text-zinc-200 hover:bg-zinc-800">
+              取消
+            </AlertDialogCancel>
+            <button
+              type="button"
+              disabled={profileChangeSubmitting}
+              onClick={() => void handleConfirmWithdrawProfileChange()}
+              className="inline-flex h-10 items-center justify-center rounded-md bg-violet-600 px-4 text-sm font-medium text-white transition-colors hover:bg-violet-500 disabled:pointer-events-none disabled:opacity-50"
+            >
+              {profileChangeSubmitting ? "處理中…" : "確認撤回"}
+            </button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={relationshipConfirmOpen}

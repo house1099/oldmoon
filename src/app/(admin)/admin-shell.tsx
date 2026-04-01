@@ -20,7 +20,10 @@ import {
   LogOut,
   ChevronLeft,
   Sparkles,
+  ClipboardList,
 } from "lucide-react";
+import useSWR from "swr";
+import { getPendingProfileChangeCountAction } from "@/services/profile-change.action";
 import { createClient } from "@/lib/supabase/client";
 import type { ModeratorPermissionRow } from "@/types/database.types";
 
@@ -43,7 +46,19 @@ export function AdminShell({
   const [collapsed, setCollapsed] = useState(false);
   const isMaster = role === "master";
 
-  const navItems = [
+  const { data: pendingProfileChangeCount = 0 } = useSWR(
+    "admin-pending-profile-changes",
+    getPendingProfileChangeCountAction,
+    { refreshInterval: 60_000 },
+  );
+
+  const navItems: {
+    href: string;
+    label: string;
+    Icon: typeof LayoutDashboard;
+    show: boolean;
+    badge?: number;
+  }[] = [
     { href: "/admin", label: "儀表板", Icon: LayoutDashboard, show: true },
     {
       href: "/admin/users",
@@ -98,6 +113,13 @@ export function AdminShell({
       label: "市場管理",
       Icon: Store,
       show: isMaster || role === "moderator",
+    },
+    {
+      href: "/admin/profile-changes",
+      label: "資料變更審核",
+      Icon: ClipboardList,
+      show: isMaster || role === "moderator",
+      badge: pendingProfileChangeCount,
     },
     {
       href: "/admin/coins",
@@ -183,7 +205,16 @@ export function AdminShell({
                 title={collapsed ? item.label : undefined}
               >
                 <item.Icon className="w-5 h-5 flex-shrink-0" />
-                {!collapsed && <span className="truncate">{item.label}</span>}
+                {!collapsed && (
+                  <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                    <span className="truncate">{item.label}</span>
+                    {typeof item.badge === "number" && item.badge > 0 ? (
+                      <span className="shrink-0 rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                        {item.badge > 99 ? "99+" : item.badge}
+                      </span>
+                    ) : null}
+                  </span>
+                )}
               </Link>
             );
           })}

@@ -15,6 +15,7 @@ export type DashboardStats = {
   activeUsers: number;
   weekNewAlliances: number;
   pendingIgRequests: number;
+  pendingProfileChangeCount: number;
 };
 
 export async function getDashboardStats(): Promise<DashboardStats> {
@@ -35,6 +36,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     activeUsersRes,
     weekAlliancesRes,
     pendingIgRes,
+    pendingProfileChangeRes,
   ] = await Promise.all([
     admin
       .from("users")
@@ -60,6 +62,10 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       .from("ig_change_requests")
       .select("id", { count: "exact", head: true })
       .eq("status", "pending"),
+    admin
+      .from("profile_change_requests")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending"),
   ]);
 
   return {
@@ -69,6 +75,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     activeUsers: activeUsersRes.count ?? 0,
     weekNewAlliances: weekAlliancesRes.count ?? 0,
     pendingIgRequests: pendingIgRes.count ?? 0,
+    pendingProfileChangeCount: pendingProfileChangeRes.count ?? 0,
   };
 }
 

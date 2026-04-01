@@ -15,4 +15,6 @@ export const SWR_KEYS = {
   tavernMessages: 'tavern-messages',
   myMarketListings: 'my-market-listings',
   marketRecentSold: 'market-recent-sold',
+  myProfileChangeRequest: 'my-profile-change-request',
+  profileBannerSettings: 'profile-banner-settings',
 } as const

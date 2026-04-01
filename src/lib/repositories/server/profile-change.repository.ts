@@ -8,6 +8,9 @@ import type { UserUpdate } from "@/lib/repositories/server/user.repository";
 
 const USER_EMBED =
   "users!profile_change_requests_user_id_fkey ( nickname, avatar_url, region, orientation, birth_year )";
+const REVIEWER_EMBED =
+  "reviewer:users!profile_change_requests_reviewed_by_fkey ( nickname )";
+const ADMIN_SELECT = `*, ${USER_EMBED}, ${REVIEWER_EMBED}`;
 
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -19,6 +22,7 @@ export interface ProfileChangeRequestWithUser extends ProfileChangeRequestRow {
     orientation: string | null;
     birth_year: number | null;
   };
+  reviewer_nickname: string | null;
 }
 
 type RawWithUser = ProfileChangeRequestRow & {
@@ -29,10 +33,11 @@ type RawWithUser = ProfileChangeRequestRow & {
     orientation: string | null;
     birth_year: number | null;
   } | null;
+  reviewer: { nickname: string | null } | null;
 };
 
 function toWithUser(raw: RawWithUser): ProfileChangeRequestWithUser {
-  const { users: u, ...rest } = raw;
+  const { users: u, reviewer, ...rest } = raw;
   if (!u) {
     throw new Error("profile_change_requests: 缺少關聯用戶資料");
   }
@@ -45,6 +50,7 @@ function toWithUser(raw: RawWithUser): ProfileChangeRequestWithUser {
       orientation: u.orientation,
       birth_year: u.birth_year,
     },
+    reviewer_nickname: reviewer?.nickname ?? null,
   };
 }
 
@@ -118,7 +124,7 @@ export async function findPendingRequestsForAdmin(): Promise<
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("profile_change_requests")
-    .select(`*, ${USER_EMBED}`)
+    .select(ADMIN_SELECT)
     .eq("status", "pending")
     .order("created_at", { ascending: true });
   if (error) throw error;
@@ -153,7 +159,7 @@ export async function findAllRequestsForAdmin(filters?: {
 
   let q = admin
     .from("profile_change_requests")
-    .select(`*, ${USER_EMBED}`, { count: "exact" })
+    .select(ADMIN_SELECT, { count: "exact" })
     .order("created_at", { ascending: false })
     .range(from, to);
 

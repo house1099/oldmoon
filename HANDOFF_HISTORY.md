@@ -5,6 +5,16 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-04-01 — 基本資料變更申請 UI／Banner／後台審核
+
+1. **目標**：基本資料變更申請 **Layer 5** — 首頁帳號設定 **月老配對池**（**`matchmaker_opt_in`**）、待審核／申請 Modal／撤回；**`ProfileBanner`** 全站提示（**`getProfileBannerSettingsAction`**、**`localStorage` `profile_banner_dismissed_v1`** 對齊標題）；**`/admin/profile-changes`** 待審核與所有申請（篩選／分頁）；後台側欄角標與儀表板 **`pendingProfileChangeCount`**；**`/admin/settings`** Banner 管理區塊。
+2. **Layer 4／5**：**`src/lib/swr/keys.ts`** — **`myProfileChangeRequest`／`profileBannerSettings`**。**`guild-profile-home.tsx`** — **`useSWR` `getMyPendingChangeRequestAction`**；申請／撤回；**`/?accountSettings=profileChange`** **`useSearchParams`** 開啟帳號設定並 **`scrollIntoView`** **`#profile-change-request-section`**；**`home-page-client.tsx`** **`Suspense`** 包住 **`GuildProfileHome`**。**`ProfileBanner.tsx`** — 條件顯示、底欄 **`z-[48]`** 於 Navbar 之上、**「前往填寫」** 導向首頁 query。**`(app)/layout.tsx`** 掛載 **`ProfileBanner`**。
+3. **後台**：**`src/app/(admin)/admin/profile-changes/page.tsx`**＋**`profile-changes-client.tsx`** — 通過／拒絕（原因）；**`admin-shell.tsx`** **`getPendingProfileChangeCountAction`** 角標；**`middleware.ts`** **`/admin/profile-changes`**。**`admin.repository.ts`** **`getDashboardStats`** 補 **`profile_change_requests` pending count**。**`admin/page.tsx`** 統計卡。**`settings-client.tsx`** — **`Switch`**＋**`updateProfileBannerSettingsAction`**。
+4. **Layer 2**：**`profile-change.repository.ts`** — **`ADMIN_SELECT`** 增 **`reviewer:users!profile_change_requests_reviewed_by_fkey(nickname)`** → **`reviewer_nickname`**。
+5. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+6. **文件**：**`HANDOFF.md`** 最近完成、關鍵檔案索引。
+7. **Git**：**`feat(profile-change): UI banner, apply modal, admin review page, dashboard`**；**`git push`** **`origin/main`**。
+
 ### 2026-04-01 — 基本資料變更申請系統地基
 
 1. **目標**：**`public.users`** 新增 **`matchmaker_opt_in`**（預設 **true**）；**`profile_change_requests`** 表與 **`profile_change_status`** enum；**`system_settings`** 三鍵 **`profile_banner_enabled`／`profile_banner_title`／`profile_banner_force`**；Layer 2／3 申請與後台審核；**`updateMyProfile`** 可切換配對池開關（無審核）。
