@@ -3,7 +3,7 @@
  * 表：users, exp_logs, likes, alliances（雙人血盟）, conversations, chat_messages, blocks, reports, messages, notifications, ig_change_requests,
  *     admin_actions, moderator_permissions, system_settings, advertisements, ad_clicks, invitation_codes, invitation_code_uses, announcements,
  *     tavern_messages, tavern_bans, login_streaks, streak_reward_settings, prize_pools, prize_items, prize_logs, user_rewards, broadcasts,
- *     shop_items, shop_orders, shop_daily_limits, push_subscriptions, market_listings, profile_change_requests, fishing_logs, fishing_rod_cast_state, fishing_rewards
+ *     shop_items, shop_orders, shop_daily_limits, push_subscriptions, market_listings, profile_change_requests, fishing_logs, fishing_rod_cast_state, fishing_tier_settings, fishing_rewards
  */
 
 export type Json =
@@ -546,6 +546,33 @@ export interface Database {
           },
         ];
       };
+      /** 小／中／大獎 tier：basis points（10000=100%）；remainder 見 remainder_mode */
+      fishing_tier_settings: {
+        Row: {
+          fish_type: FishType;
+          p_small_bp: number;
+          p_medium_bp: number;
+          p_large_bp: number;
+          remainder_mode: "interval_miss" | "normalize";
+          updated_at: string;
+        };
+        Insert: {
+          fish_type: FishType;
+          p_small_bp?: number;
+          p_medium_bp?: number;
+          p_large_bp?: number;
+          remainder_mode?: "interval_miss" | "normalize";
+          updated_at?: string;
+        };
+        Update: {
+          p_small_bp?: number;
+          p_medium_bp?: number;
+          p_large_bp?: number;
+          remainder_mode?: "interval_miss" | "normalize";
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       fishing_rewards: {
         Row: {
           id: string;
@@ -555,6 +582,7 @@ export interface Database {
           shop_item_id: string | null;
           coins_amount: number | null;
           exp_amount: number | null;
+          /** 同 tier 內相對權重：百分點的百分之一（100 = 1.00%） */
           weight: number;
           stock: number | null;
           stock_used: number;

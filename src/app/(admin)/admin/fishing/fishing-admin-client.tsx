@@ -47,11 +47,18 @@ import {
   getFishingLogsAdminAction,
   getFishingRewardsAction,
   getFishingStatsAction,
+  getFishingTierSettingsAction,
   getMatchmakerLogsAction,
   getShopItemsAdminAction,
   updateFishingRewardAction,
   updateFishingSettingsAction,
+  upsertFishingTierSettingAction,
 } from "@/services/admin.action";
+import { DecimalPercentInput } from "@/components/admin/decimal-percent-input";
+import {
+  percentInputToWeightBp,
+  weightBpToPercentNumber,
+} from "@/lib/utils/fishing-reward-percent";
 import type { FishingStats } from "@/services/admin.action";
 
 const PAGE_SIZE = 20;
@@ -135,6 +142,15 @@ const TIER_OPTIONS: { value: FishingRewardTier; label: string }[] = [
   { value: "large", label: "大獎" },
 ];
 
+/** 0–100% step 0.01 → basis points 0–10000 */
+function parseTierPercentToBp(raw: string): number | null {
+  const t = raw.trim();
+  if (t === "") return null;
+  const n = Number.parseFloat(t.replace(/[^\d.]/g, ""));
+  if (!Number.isFinite(n) || n < 0 || n > 100) return null;
+  return Math.round(n * 100);
+}
+
 const dialogFieldClass =
   "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500";
 
@@ -196,6 +212,15 @@ export default function FishingAdminClient({
   const [tab, setTab] = useState<MainTab>("stats");
   const [rewardFish, setRewardFish] = useState<FishType>("common");
 
+  const [tierFish, setTierFish] = useState<FishType>("common");
+  const [tierSmall, setTierSmall] = useState("60");
+  const [tierMed, setTierMed] = useState("30");
+  const [tierLarge, setTierLarge] = useState("10");
+  const [tierMode, setTierMode] = useState<"interval_miss" | "normalize">(
+    "interval_miss",
+  );
+  const [tierSaving, setTierSaving] = useState(false);
+
   const { data: stats, isLoading: statsLoading } = useSWR(
     tab === "stats" ? SWR_KEYS.fishingStats : null,
     async (): Promise<FishingStats> => {
@@ -222,6 +247,33 @@ export default function FishingAdminClient({
       return r.data;
     },
   );
+
+  const { data: tierSettings, isLoading: tierSettingsLoading } = useSWR(
+    tab === "settings" ? SWR_KEYS.fishingTierSettings : null,
+    async () => {
+      const r = await getFishingTierSettingsAction();
+      if (!r.ok) throw new Error(r.error);
+      return r.data;
+    },
+  );
+
+  useEffect(() => {
+    if (!tierSettings) return;
+    const row = tierSettings.find((x) => x.fish_type === tierFish);
+    if (!row) return;
+    setTierSmall(String(row.p_small_bp / 100));
+    setTierMed(String(row.p_medium_bp / 100));
+    setTierLarge(String(row.p_large_bp / 100));
+    setTierMode(row.remainder_mode);
+  }, [tierSettings, tierFish]);
+
+  const tierSumPreview = useMemo(() => {
+    const a = Number.parseFloat(tierSmall) || 0;
+    const b = Number.parseFloat(tierMed) || 0;
+    const c = Number.parseFloat(tierLarge) || 0;
+    const sum = a + b + c;
+    return { sum, miss: Math.max(0, 100 - sum) };
+  }, [tierSmall, tierMed, tierLarge]);
 
   /* —— 釣魚日誌 —— */
   const [logDraftNick, setLogDraftNick] = useState("");
@@ -286,7 +338,7 @@ export default function FishingAdminClient({
   const [formCoins, setFormCoins] = useState("");
   const [formExp, setFormExp] = useState("");
   const [formShopItemId, setFormShopItemId] = useState("");
-  const [formWeight, setFormWeight] = useState("1");
+  const [formWeight, setFormWeight] = useState("1.00");
   const [formStock, setFormStock] = useState("");
   const [formNote, setFormNote] = useState("");
   const [dialogBusy, setDialogBusy] = useState(false);
@@ -307,7 +359,7 @@ export default function FishingAdminClient({
     setFormCoins("");
     setFormExp("");
     setFormShopItemId("");
-    setFormWeight("1");
+    setFormWeight("1.00");
     setFormStock("");
     setFormNote("");
     setDialogOpen(true);
@@ -324,16 +376,16 @@ export default function FishingAdminClient({
     );
     setFormExp(row.exp_amount != null ? String(row.exp_amount) : "");
     setFormShopItemId(row.shop_item_id ?? "");
-    setFormWeight(String(row.weight));
+    setFormWeight((Number(row.weight) / 100).toFixed(2));
     setFormStock(row.stock != null ? String(row.stock) : "");
     setFormNote(row.note ?? "");
     setDialogOpen(true);
   };
 
   const submitReward = async () => {
-    const w = Number.parseInt(formWeight, 10);
-    if (!Number.isFinite(w) || w < 1) {
-      toast.error("權重須為正整數");
+    const wBp = percentInputToWeightBp(formWeight);
+    if (wBp == null) {
+      toast.error("請填寫正數機率（%），最多兩位小數");
       return;
     }
     let stock: number | null = null;
@@ -390,7 +442,7 @@ export default function FishingAdminClient({
               : null,
           exp_amount: formRewardType === "exp" ? exp_amount : null,
           shop_item_id: formRewardType === "shop_item" ? shop_item_id : null,
-          weight: w,
+          weight: wBp,
           stock,
           stock_used: 0,
           is_active: true,
@@ -411,7 +463,7 @@ export default function FishingAdminClient({
           exp_amount: formRewardType === "exp" ? exp_amount : null,
           shop_item_id:
             formRewardType === "shop_item" ? shop_item_id : null,
-          weight: w,
+          weight: wBp,
           stock,
           note: formNote.trim() || null,
         });
@@ -478,6 +530,34 @@ export default function FishingAdminClient({
     toast.success("設定已更新");
   };
 
+  const onSaveTierSettings = async () => {
+    const ps = parseTierPercentToBp(tierSmall);
+    const pm = parseTierPercentToBp(tierMed);
+    const pl = parseTierPercentToBp(tierLarge);
+    if (ps === null || pm === null || pl === null) {
+      toast.error("請填寫 0–100 的數字（tier 百分比）");
+      return;
+    }
+    setTierSaving(true);
+    try {
+      const r = await upsertFishingTierSettingAction({
+        fish_type: tierFish,
+        p_small_bp: ps,
+        p_medium_bp: pm,
+        p_large_bp: pl,
+        remainder_mode: tierMode,
+      });
+      if (!r.ok) {
+        toast.error(r.error);
+        return;
+      }
+      toast.success("已更新 tier 設定");
+      void mutate(SWR_KEYS.fishingTierSettings);
+    } finally {
+      setTierSaving(false);
+    }
+  };
+
   const filteredRewards = useMemo(() => {
     if (!rewards) return [];
     return rewards.filter((r) => r.fish_type === rewardFish);
@@ -502,8 +582,7 @@ export default function FishingAdminClient({
 
   const weightPreview = useMemo(() => {
     const all = rewards ?? [];
-    const wInput = Number.parseInt(formWeight, 10);
-    const parsedWeight = Number.isFinite(wInput) ? wInput : 0;
+    const parsedWeight = percentInputToWeightBp(formWeight.trim()) ?? 0;
     const currentTierRewards = all.filter(
       (r) =>
         r.fish_type === formFish &&
@@ -512,12 +591,14 @@ export default function FishingAdminClient({
         (editingId == null || r.id !== editingId),
     );
     const otherWeightsTotal = currentTierRewards.reduce(
-      (sum, r) => sum + r.weight,
+      (sum, r) => sum + Number(r.weight),
       0,
     );
     const totalWeight = otherWeightsTotal + parsedWeight;
     const estimatedRate =
-      totalWeight > 0 ? Math.round((parsedWeight / totalWeight) * 100) : 0;
+      totalWeight > 0
+        ? Math.round((parsedWeight / totalWeight) * 10000) / 100
+        : 0;
     return {
       currentTierRewards,
       totalWeight,
@@ -1024,6 +1105,116 @@ export default function FishingAdminClient({
             </div>
           </div>
 
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
+            <h3 className="text-sm font-semibold text-gray-900">
+              小／中／大獎 tier 抽選（每魚種）
+            </h3>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              決定玩家釣到該魚種後，獎品落在「最小獎／中等獎／大獎」哪一層（與獎品列的 tier
+              對齊）。
+              <span className="font-mono text-[11px] bg-gray-50 px-1 rounded">
+                interval_miss
+              </span>
+              ：三項加總可小於 100%，其餘視為 miss 再依序嘗試中獎、小獎；
+              <span className="font-mono text-[11px] bg-gray-50 px-1 rounded">
+                normalize
+              </span>
+              ：三項依比例正規化為 100%。
+            </p>
+            {tierSettingsLoading ? (
+              <div className="flex justify-center py-6">
+                <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="text-gray-700 text-sm mb-1 block">魚種</label>
+                  <select
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+                    value={tierFish}
+                    onChange={(e) => setTierFish(e.target.value as FishType)}
+                  >
+                    {FISH_TABS.map((f) => (
+                      <option key={f.value} value={f.value}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-gray-700 text-sm mb-1 block">
+                      最小獎（%）
+                    </label>
+                    <input
+                      type="text"
+                      value={tierSmall}
+                      onChange={(e) => setTierSmall(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-gray-700 text-sm mb-1 block">
+                      中等獎（%）
+                    </label>
+                    <input
+                      type="text"
+                      value={tierMed}
+                      onChange={(e) => setTierMed(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-gray-700 text-sm mb-1 block">
+                      大獎（%）
+                    </label>
+                    <input
+                      type="text"
+                      value={tierLarge}
+                      onChange={(e) => setTierLarge(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-gray-700 text-sm mb-1 block">
+                    缺額模式
+                  </label>
+                  <select
+                    value={tierMode}
+                    onChange={(e) =>
+                      setTierMode(
+                        e.target.value as "interval_miss" | "normalize",
+                      )
+                    }
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+                  >
+                    <option value="interval_miss">
+                      interval_miss（可加總小於 100%）
+                    </option>
+                    <option value="normalize">normalize（正規化為 100%）</option>
+                  </select>
+                </div>
+                {tierMode === "interval_miss" ? (
+                  <p className="text-xs text-amber-800 bg-amber-50/80 rounded-lg px-3 py-2 border border-amber-100">
+                    目前三項合計約 {tierSumPreview.sum.toFixed(2)}%，
+                    {tierSumPreview.miss > 0
+                      ? ` 約 ${tierSumPreview.miss.toFixed(2)}% 為 miss（再嘗試中獎→小獎）。`
+                      : " 無缺額。"}
+                  </p>
+                ) : null}
+                <Button
+                  type="button"
+                  className="bg-violet-600 hover:bg-violet-700 text-white"
+                  disabled={tierSaving}
+                  onClick={() => void onSaveTierSettings()}
+                >
+                  {tierSaving ? "儲存中…" : "儲存 tier 設定"}
+                </Button>
+              </>
+            )}
+          </div>
+
           <div className="bg-amber-50/80 rounded-2xl border border-amber-100 p-5 space-y-3">
             <h3 className="text-sm font-semibold text-gray-900">
               魚餌機率設定說明
@@ -1185,40 +1376,35 @@ export default function FishingAdminClient({
             )}
             <div>
               <label className="text-gray-700 text-sm mb-1 block">
-                權重
+                機率（%）
                 <span className="text-xs text-gray-400 ml-1">
-                  （同級獎品內相對機率）
+                  （同 tier 內相對比例，加總不必為 100%，依比例分配）
                 </span>
               </label>
-              <div className="flex flex-wrap items-center gap-3">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={formWeight}
-                  onChange={(e) =>
-                    setFormWeight(e.target.value.replace(/\D/g, ""))
-                  }
-                  className="w-24 rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  placeholder="1"
-                />
-                {weightPreview.parsedWeight > 0 ? (
-                  <div className="flex flex-wrap items-center gap-1">
-                    <span className="text-sm text-gray-500">≈</span>
-                    <span className="text-base font-semibold text-violet-600">
-                      {weightPreview.estimatedRate}%
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      （此 tier 共 {weightPreview.totalWeight} 權重）
-                    </span>
-                  </div>
-                ) : null}
-              </div>
+              <DecimalPercentInput
+                value={formWeight}
+                onChange={setFormWeight}
+                disabled={dialogBusy}
+                placeholder="0.01"
+              />
+              {weightPreview.parsedWeight > 0 ? (
+                <div className="flex flex-wrap items-center gap-1 mt-2">
+                  <span className="text-sm text-gray-500">≈ 佔此 tier 池</span>
+                  <span className="text-base font-semibold text-violet-600">
+                    {weightPreview.estimatedRate}%
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    （池內權重合計 {weightPreview.totalWeight}）
+                  </span>
+                </div>
+              ) : null}
               {weightPreview.currentTierRewards.length > 0 ? (
                 <div className="mt-2 space-y-1">
                   {weightPreview.currentTierRewards.map((r) => {
                     const tw = weightPreview.totalWeight;
+                    const rw = Number(r.weight);
                     const rate =
-                      tw > 0 ? Math.round((r.weight / tw) * 100) : 0;
+                      tw > 0 ? Math.round((rw / tw) * 10000) / 100 : 0;
                     return (
                       <div
                         key={r.id}
@@ -1228,7 +1414,8 @@ export default function FishingAdminClient({
                           {r.shop_item?.name ?? r.reward_type}
                         </span>
                         <span className="shrink-0 tabular-nums">
-                          權重 {r.weight} → {rate}%
+                          {weightBpToPercentNumber(rw).toFixed(2)}% → 池內{" "}
+                          {rate}%
                         </span>
                       </div>
                     );
@@ -1236,8 +1423,8 @@ export default function FishingAdminClient({
                 </div>
               ) : null}
               <p className="text-gray-500 text-xs mt-2 leading-relaxed">
-                此處百分比為該魚種、該 tier 獎品池內的相對比例；玩家釣到各魚種的機率由魚餌／釣竿（商城
-                metadata）決定，與此不同。
+                此處為該魚種、該 tier 獎品池內的相對比例；玩家釣到各魚種的機率由魚餌／釣竿（商城
+                metadata）與「小／中／大獎 tier 設定」決定。
               </p>
             </div>
             <div>
@@ -1467,7 +1654,9 @@ function RewardTierCard({
                 <span className="text-sm text-gray-800">
                   {describeReward(row)}
                 </span>
-                <span className="text-xs text-gray-500">權重 {row.weight}</span>
+                <span className="text-xs text-gray-500">
+                  機率 {weightBpToPercentNumber(row.weight).toFixed(2)}%（相對）
+                </span>
                 {row.stock != null ? (
                   <span
                     className={`text-xs ${row.stock - row.stock_used <= 5 ? "text-orange-600 font-medium" : "text-gray-500"}`}

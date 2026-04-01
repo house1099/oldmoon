@@ -116,6 +116,11 @@ import {
   findFishingLogsForAdmin,
   findMatchmakerLogsForAdmin,
 } from "@/lib/repositories/server/fishing.repository";
+import {
+  findAllTierSettings,
+  upsertTierSetting,
+  type FishingTierSettingsRow,
+} from "@/lib/repositories/server/fishing-tier-settings.repository";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
 import { profileCacheTag } from "@/lib/supabase/get-cached-profile";
 import { isTavernBanned } from "@/lib/repositories/server/tavern.repository";
@@ -2393,6 +2398,34 @@ export async function getFishingRewardsAction(filters?: {
     await requireRole(["master", "moderator"]);
     const data = await findAllRewardsForAdmin(filters);
     return { ok: true, data };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function getFishingTierSettingsAction(): Promise<
+  ActionResult<FishingTierSettingsRow[]>
+> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const data = await findAllTierSettings();
+    return { ok: true, data };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function upsertFishingTierSettingAction(payload: {
+  fish_type: FishType;
+  p_small_bp: number;
+  p_medium_bp: number;
+  p_large_bp: number;
+  remainder_mode: "interval_miss" | "normalize";
+}): Promise<ActionResult<FishingTierSettingsRow>> {
+  try {
+    await requireRole(["master", "moderator"]);
+    const row = await upsertTierSetting(payload);
+    return { ok: true, data: row };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
   }

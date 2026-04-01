@@ -25,6 +25,9 @@ import {
   insertFishingLog,
   pickReward,
 } from "@/lib/repositories/server/fishing.repository";
+import { findTierSettingByFishType } from "@/lib/repositories/server/fishing-tier-settings.repository";
+import { pickTierFromSettings } from "@/lib/utils/fishing-tier-pick";
+import type { TierPickResult } from "@/lib/utils/fishing-tier-pick";
 import {
   getRodCastSnapshot,
   getRodCastState,
@@ -42,12 +45,7 @@ import { findMutualLikeFlags } from "@/lib/repositories/server/like.repository";
 import { findSystemSettingByKey } from "@/lib/repositories/server/invitation.repository";
 import { getMatchmakerAgeMaxAction } from "@/services/system-settings.action";
 import { isAgeMatch, isRegionMatch } from "@/lib/utils/matchmaker-region";
-import type {
-  FishType,
-  FishingRewardTier,
-  FishingRewardRow,
-  Json,
-} from "@/types/database.types";
+import type { FishType, FishingRewardRow, Json } from "@/types/database.types";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 
 export type FishingPhase = "no_rod" | "no_bait" | "can_cast";
@@ -164,16 +162,25 @@ async function tryInsertMatchmakerLog(
   }
 }
 
-function pickTier(): FishingRewardTier {
-  const r = Math.random() * 100;
-  if (r < 60) return "small";
-  if (r < 90) return "medium";
-  return "large";
+async function pickTierForFishType(fishType: FishType): Promise<TierPickResult> {
+  const row = await findTierSettingByFishType(fishType);
+  if (!row) {
+    return pickTierFromSettings(6000, 3000, 1000, "interval_miss");
+  }
+  return pickTierFromSettings(
+    row.p_small_bp,
+    row.p_medium_bp,
+    row.p_large_bp,
+    row.remainder_mode,
+  );
 }
 
 async function pickMatchmakerRewardFromTable() {
-  const tier = pickTier();
-  let reward = await pickReward("matchmaker", tier);
+  const tierRoll = await pickTierForFishType("matchmaker");
+  let reward: FishingRewardRow | null = null;
+  if (tierRoll !== "miss") {
+    reward = await pickReward("matchmaker", tierRoll);
+  }
   if (!reward) reward = await pickReward("matchmaker", "medium");
   if (!reward) reward = await pickReward("matchmaker", "small");
   return reward;
@@ -186,13 +193,20 @@ async function pickNonMatchmakerRewardFromTable(
     let r = await pickReward("leviathan", "large");
     if (!r) r = await pickReward("legendary", "large");
     if (!r) {
-      const t = pickTier();
-      r = await pickReward("legendary", t);
+      const t = await pickTierForFishType("legendary");
+      if (t !== "miss") {
+        r = await pickReward("legendary", t);
+      }
     }
+    if (!r) r = await pickReward("legendary", "medium");
+    if (!r) r = await pickReward("legendary", "small");
     return r;
   }
-  const tier = pickTier();
-  let r = await pickReward(fishType, tier);
+  const tierRoll = await pickTierForFishType(fishType);
+  let r: FishingRewardRow | null = null;
+  if (tierRoll !== "miss") {
+    r = await pickReward(fishType, tierRoll);
+  }
   if (!r) r = await pickReward(fishType, "medium");
   if (!r) r = await pickReward(fishType, "small");
   return r;

@@ -123,10 +123,10 @@ export interface FishingRewardWithItem extends FishingRewardRow {
 }
 
 function weightedPickRewards(rows: FishingRewardRow[]): FishingRewardRow {
-  const total = rows.reduce((s, r) => s + r.weight, 0);
+  const total = rows.reduce((s, row) => s + Number(row.weight), 0);
   let r = Math.random() * total;
   for (const row of rows) {
-    r -= row.weight;
+    r -= Number(row.weight);
     if (r <= 0) return row;
   }
   return rows[rows.length - 1]!;

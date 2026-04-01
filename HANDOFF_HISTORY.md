@@ -5,6 +5,16 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-04-01 — 釣魚 tier／獎品機率（%）與缺額語意
+
+1. **目標**：**Stage 2a** 小／中／大獎 **tier** 由後台 **`fishing_tier_settings`** 設定（basis points、`interval_miss` 缺額為 miss 或 **`normalize`**）；**同 tier 內獎品** 以 **`fishing_rewards.weight`** 存「百分點的百分之一」（舊整數權重 ×100 遷移），**相對分配**；**`/admin/fishing`** 獎品 Dialog 改 **機率（%）**＋**`DecimalPercentInput`** 自訂數字鍵盤；系統設定新增 **每魚種 tier %** 編輯器。
+2. **資料庫** 🗄️：**`supabase/migrations/20260403140000_fishing_tier_settings_weight_bp.sql`** — **`fishing_tier_settings`**、**`fishing_rewards.weight` → bigint**、**`NOTIFY pgrst`**。
+3. **Layer 2**：**`fishing-tier-settings.repository.ts`**；**`fishing.repository.ts`** **`weightedPickRewards`** 支援 **bigint**；**`fishing-tier-pick.ts`**、**`fishing-reward-percent.ts`**。
+4. **Layer 3**：**`fishing.action.ts`** **`pickTierForFishType`**；**`admin.action.ts`** **`getFishingTierSettingsAction`／`upsertFishingTierSettingAction`**。
+5. **Layer 5**：**`fishing-admin-client.tsx`**、**`decimal-percent-input.tsx`**；**`SWR_KEYS.fishingTierSettings`**。
+6. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+7. **Git**：**`feat(fishing): tier settings from DB, reward weight as percent bp, decimal keypad`**。
+
 ### 2026-04-01 — 釣魚後台獎品設定 UX
 
 1. **目標**：**`/admin/fishing`** 獎品設定 Tab — **Dialog／AlertDialog** 於本頁覆寫淺色系（**`bg-white text-gray-900`**、表單 **`border-gray-300`**、**`focus:ring-violet-500`**、確認／取消鈕樣式）；**月老魚**不顯示三 tier 獎品卡，改粉紅說明區（**`setTab('settings')`**）；**深海巨獸**僅一級「限量大獎」＋**`LeviathanStockAlert`**（**`large`** 限量剩餘 ≤5）；**`RewardTierCard`** 抽出；**`TIER_LABELS`** 中文 tier；新增／編輯權重即時 **%** 與同 tier 其他獎品列；**月老／深海**隱藏 tier 下拉、**`reward_tier`** 固定 **`large`**；**`createFishingRewardAction`** 使用 **`effectiveTier`**。
