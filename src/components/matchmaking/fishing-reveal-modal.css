@@ -1,0 +1,359 @@
+/* Uiverse-style reveal card; scoped under .fishing-reveal-shell */
+.fishing-reveal-shell {
+  --fr-card-w: 220px;
+  --fr-card-h: 294px;
+}
+
+.fishing-reveal-shell .fr-container {
+  position: relative;
+  width: var(--fr-card-w);
+  height: var(--fr-card-h);
+  max-width: 92vw;
+  transition: 200ms;
+}
+
+.fishing-reveal-shell .fr-container:active {
+  transform: scale(0.98);
+}
+
+.fishing-reveal-shell #fishingRevealCard {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 20px;
+  transition: 700ms;
+  background: linear-gradient(45deg, #1a1a1a, #262626);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  box-shadow:
+    0 0 20px rgba(0, 0, 0, 0.3),
+    inset 0 0 20px rgba(0, 0, 0, 0.2);
+}
+
+.fishing-reveal-shell .fr-card-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+}
+
+.fishing-reveal-shell .fr-lottie-wrap {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fishing-reveal-shell .fr-lottie-wrap .lottie-inner {
+  max-height: 140px;
+  width: 100%;
+}
+
+.fishing-reveal-shell #fr-prompt {
+  bottom: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  transition: 300ms ease-in-out;
+  position: absolute;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.55);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.fishing-reveal-shell .fr-title {
+  opacity: 1;
+  transition: 300ms ease-in-out;
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-align: center;
+  padding: 8px 6px 0;
+  line-height: 1.2;
+  background: linear-gradient(45deg, #00ffaa, #00a2ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 15px rgba(0, 255, 170, 0.3));
+}
+
+.fishing-reveal-shell .fr-subtitle {
+  position: absolute;
+  bottom: 10px;
+  width: 100%;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.65);
+  padding: 0 8px;
+}
+
+.fishing-reveal-shell .fr-highlight {
+  color: #00ffaa;
+  margin-left: 4px;
+  background: linear-gradient(90deg, #5c67ff, #ad51ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: bold;
+}
+
+.fishing-reveal-shell .glowing-elements {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fishing-reveal-shell .glow-1,
+.fishing-reveal-shell .glow-2,
+.fishing-reveal-shell .glow-3 {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at center,
+    rgba(0, 255, 170, 0.3) 0%,
+    rgba(0, 255, 170, 0) 70%
+  );
+  filter: blur(15px);
+  opacity: 0.85;
+  transition: opacity 0.3s ease;
+}
+
+.fishing-reveal-shell .glow-1 {
+  top: -20px;
+  left: -20px;
+}
+.fishing-reveal-shell .glow-2 {
+  top: 50%;
+  right: -30px;
+  transform: translateY(-50%);
+}
+.fishing-reveal-shell .glow-3 {
+  bottom: -20px;
+  left: 30%;
+}
+
+.fishing-reveal-shell .card-particles span {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: #00ffaa;
+  border-radius: 50%;
+  opacity: 0.6;
+  animation: fr-particleFloat 2s infinite;
+}
+
+@keyframes fr-particleFloat {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(var(--x, 0) * 30px), calc(var(--y, 0) * 30px));
+    opacity: 0;
+  }
+}
+
+.fishing-reveal-shell .card-particles span:nth-child(1) {
+  --x: 1;
+  --y: -1;
+  top: 40%;
+  left: 20%;
+}
+.fishing-reveal-shell .card-particles span:nth-child(2) {
+  --x: -1;
+  --y: -1;
+  top: 60%;
+  right: 20%;
+}
+.fishing-reveal-shell .card-particles span:nth-child(3) {
+  --x: 0.5;
+  --y: 1;
+  top: 20%;
+  left: 40%;
+}
+.fishing-reveal-shell .card-particles span:nth-child(4) {
+  --x: -0.5;
+  --y: 1;
+  top: 80%;
+  right: 40%;
+}
+
+.fishing-reveal-shell #fishingRevealCard::before {
+  content: "";
+  background: radial-gradient(
+    circle at center,
+    rgba(0, 255, 170, 0.1) 0%,
+    rgba(0, 162, 255, 0.05) 50%,
+    transparent 100%
+  );
+  filter: blur(20px);
+  opacity: 0.55;
+  width: 150%;
+  height: 150%;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.3s ease;
+}
+
+.fishing-reveal-shell .fr-tracker {
+  position: absolute;
+  z-index: 200;
+  width: 100%;
+  height: 100%;
+  border-radius: 20px;
+}
+
+.fishing-reveal-shell .fr-tracker:hover {
+  cursor: pointer;
+}
+
+.fishing-reveal-shell .fr-tracker:hover ~ #fishingRevealCard .fr-title {
+  filter: drop-shadow(0 0 20px rgba(0, 255, 170, 0.45));
+}
+
+.fishing-reveal-shell .card-glare {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    125deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.05) 45%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.05) 55%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  opacity: 0.35;
+  transition: opacity 300ms;
+  pointer-events: none;
+}
+
+.fishing-reveal-shell .cyber-lines span {
+  position: absolute;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(92, 103, 255, 0.2),
+    transparent
+  );
+}
+
+.fishing-reveal-shell .cyber-lines span:nth-child(1) {
+  top: 20%;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: fr-lineGrow 3s linear infinite;
+}
+
+.fishing-reveal-shell .cyber-lines span:nth-child(2) {
+  top: 50%;
+  right: 0;
+  width: 100%;
+  height: 1px;
+  transform: scaleX(0);
+  transform-origin: right;
+  animation: fr-lineGrow 3s linear infinite 1s;
+}
+
+@keyframes fr-lineGrow {
+  0% {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+}
+
+.fishing-reveal-shell .corner-elements span {
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(92, 103, 255, 0.45);
+  transition: all 0.3s ease;
+}
+
+.fishing-reveal-shell .corner-elements span:nth-child(1) {
+  top: 10px;
+  left: 10px;
+  border-right: 0;
+  border-bottom: 0;
+}
+.fishing-reveal-shell .corner-elements span:nth-child(2) {
+  top: 10px;
+  right: 10px;
+  border-left: 0;
+  border-bottom: 0;
+}
+.fishing-reveal-shell .corner-elements span:nth-child(3) {
+  bottom: 10px;
+  left: 10px;
+  border-right: 0;
+  border-top: 0;
+}
+.fishing-reveal-shell .corner-elements span:nth-child(4) {
+  bottom: 10px;
+  right: 10px;
+  border-left: 0;
+  border-top: 0;
+}
+
+.fishing-reveal-shell .scan-line {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(92, 103, 255, 0.1),
+    transparent
+  );
+  transform: translateY(-100%);
+  animation: fr-scanMove 2s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes fr-scanMove {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+.fishing-reveal-shell.noselect {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}

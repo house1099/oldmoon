@@ -45,7 +45,12 @@ import { findMutualLikeFlags } from "@/lib/repositories/server/like.repository";
 import { findSystemSettingByKey } from "@/lib/repositories/server/invitation.repository";
 import { getMatchmakerAgeMaxAction } from "@/services/system-settings.action";
 import { isAgeMatch, isRegionMatch } from "@/lib/utils/matchmaker-region";
-import type { FishType, FishingRewardRow, Json } from "@/types/database.types";
+import type {
+  FishType,
+  FishingRewardRow,
+  FishingRewardTier,
+  Json,
+} from "@/types/database.types";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 
 export type FishingPhase = "no_rod" | "no_bait" | "can_cast";
@@ -77,6 +82,8 @@ export type CollectFishResult =
   | {
       ok: true;
       fishType: FishType;
+      /** 本次抽中的獎勵階級（供開獎 Lottie）；無表或 fallback 時可能為 null */
+      rewardTier?: FishingRewardTier | null;
       matchmakerUser?: {
         id: string;
         nickname: string;
@@ -220,6 +227,7 @@ async function resolveMatchmakerRewards(
   fishExp: number;
   coinFailure: boolean;
   fishItemJson: Json | null;
+  rewardTier: FishingRewardTier | null;
 }> {
   const reward = await pickMatchmakerRewardFromTable();
   const note = `月老魚：${peerNickname}`;
@@ -235,7 +243,13 @@ async function resolveMatchmakerRewards(
       note,
     });
     if (!coinResult.success) {
-      return { fishCoins: 0, fishExp: 0, coinFailure: true, fishItemJson: null };
+      return {
+        fishCoins: 0,
+        fishExp: 0,
+        coinFailure: true,
+        fishItemJson: null,
+        rewardTier: null,
+      };
     }
     const expKey = `fishing_fallback:${userId}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
     await insertExpLog({
@@ -245,7 +259,13 @@ async function resolveMatchmakerRewards(
       delta: fishExp,
       delta_exp: fishExp,
     });
-    return { fishCoins, fishExp, coinFailure: false, fishItemJson: null };
+    return {
+      fishCoins,
+      fishExp,
+      coinFailure: false,
+      fishItemJson: null,
+      rewardTier: null,
+    };
   }
 
   let fishCoins = 0;
@@ -319,7 +339,13 @@ async function resolveMatchmakerRewards(
       break;
   }
 
-  return { fishCoins, fishExp, coinFailure, fishItemJson };
+  return {
+    fishCoins,
+    fishExp,
+    coinFailure,
+    fishItemJson,
+    rewardTier: reward.reward_tier,
+  };
 }
 
 async function resolveNonMatchmakerFishRewards(
@@ -330,6 +356,7 @@ async function resolveNonMatchmakerFishRewards(
   fishExp: number;
   coinFailure: boolean;
   fishItemJson: Json | null;
+  rewardTier: FishingRewardTier | null;
 }> {
   const reward = await pickNonMatchmakerRewardFromTable(fishType);
   const note = `釣魚：${fishType}`;
@@ -345,7 +372,13 @@ async function resolveNonMatchmakerFishRewards(
       note,
     });
     if (!coinResult.success) {
-      return { fishCoins: 0, fishExp: 0, coinFailure: true, fishItemJson: null };
+      return {
+        fishCoins: 0,
+        fishExp: 0,
+        coinFailure: true,
+        fishItemJson: null,
+        rewardTier: null,
+      };
     }
     const expKey = `fishing_fallback:${userId}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
     await insertExpLog({
@@ -355,7 +388,13 @@ async function resolveNonMatchmakerFishRewards(
       delta: fishExp,
       delta_exp: fishExp,
     });
-    return { fishCoins, fishExp, coinFailure: false, fishItemJson: null };
+    return {
+      fishCoins,
+      fishExp,
+      coinFailure: false,
+      fishItemJson: null,
+      rewardTier: null,
+    };
   }
 
   let fishCoins = 0;
@@ -429,7 +468,13 @@ async function resolveNonMatchmakerFishRewards(
       break;
   }
 
-  return { fishCoins, fishExp, coinFailure, fishItemJson };
+  return {
+    fishCoins,
+    fishExp,
+    coinFailure,
+    fishItemJson,
+    rewardTier: reward.reward_tier,
+  };
 }
 
 async function tryInsertStandardFishLog(
@@ -719,7 +764,7 @@ export async function collectFishAction(opts?: {
   };
 
   if (rolledFish !== "matchmaker") {
-    const { fishCoins, fishExp, coinFailure, fishItemJson } =
+    const { fishCoins, fishExp, coinFailure, fishItemJson, rewardTier } =
       await resolveNonMatchmakerFishRewards(user.id, rolledFish);
     revalidateTag(profileCacheTag(user.id));
     await tryInsertStandardFishLog(user.id, rolledFish, {
@@ -731,6 +776,7 @@ export async function collectFishAction(opts?: {
     return {
       ok: true,
       fishType: rolledFish,
+      rewardTier,
       fishCoins: coinFailure ? 0 : fishCoins,
       fishExp,
     };
@@ -799,6 +845,7 @@ export async function collectFishAction(opts?: {
     return {
       ok: true,
       fishType: "matchmaker",
+      rewardTier: null,
       matchmakerUser: null,
       noMatchFound: true,
     };
@@ -806,7 +853,7 @@ export async function collectFishAction(opts?: {
 
   const pick = pool[Math.floor(Math.random() * pool.length)]!;
 
-  const { fishCoins, fishExp, coinFailure, fishItemJson } =
+  const { fishCoins, fishExp, coinFailure, fishItemJson, rewardTier } =
     await resolveMatchmakerRewards(user.id, pick.nickname);
 
   if (coinFailure) {
@@ -824,6 +871,7 @@ export async function collectFishAction(opts?: {
     return {
       ok: true,
       fishType: "matchmaker",
+      rewardTier,
       matchmakerUser: {
         id: pick.id,
         nickname: pick.nickname,
@@ -850,6 +898,7 @@ export async function collectFishAction(opts?: {
   return {
     ok: true,
     fishType: "matchmaker",
+    rewardTier,
     matchmakerUser: {
       id: pick.id,
       nickname: pick.nickname,

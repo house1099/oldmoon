@@ -16,7 +16,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
+import { FishingLakeVisual } from "@/components/matchmaking/fishing-lake-visual";
+import { FishingRewardModal } from "@/components/matchmaking/fishing-reward-modal";
 import { SWR_KEYS } from "@/lib/swr/keys";
 import { INTEREST_TAG_OPTIONS } from "@/lib/constants/adventurer-questionnaire";
 import {
@@ -47,116 +48,6 @@ function tagLabel(slug: string): string {
   return INTEREST_TAG_OPTIONS.find((o) => o.value === slug)?.label ?? slug;
 }
 
-function LakeArea({
-  serverPhase,
-  uiPhase,
-}: {
-  serverPhase: FishingStatusDto["phase"];
-  uiPhase: UiPhase;
-}) {
-  const showCasting = uiPhase === "casting";
-  const showReady = uiPhase === "ready";
-
-  if (serverPhase === "no_rod" || serverPhase === "no_bait") {
-    return (
-      <div
-        className="relative flex h-40 flex-col items-center justify-center overflow-hidden rounded-2xl border border-zinc-800/40 bg-gradient-to-b from-zinc-900 to-blue-950/40"
-        aria-hidden
-      >
-        <WaveSvg />
-        <div className="relative z-10 flex flex-col items-center">
-          <span className="text-5xl">🎣</span>
-          <span className="mt-1 text-xs text-zinc-400">命運之湖</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (showReady) {
-    return (
-      <div
-        className="relative flex h-40 flex-col items-center justify-center overflow-hidden rounded-2xl border border-orange-400/50 bg-gradient-to-b from-zinc-900 to-orange-950/30 animate-pulse"
-        aria-hidden
-      >
-        <WaveSvg />
-        <div className="relative z-10 flex flex-col items-center">
-          <span className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-orange-400 text-3xl shadow-[0_0_24px_rgba(251,146,60,0.35)]">
-            ❗
-          </span>
-          <span className="mt-2 text-sm font-medium text-orange-200">
-            有東西上鉤了！
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  if (showCasting) {
-    return (
-      <div
-        className="relative flex h-40 flex-col items-center justify-center overflow-hidden rounded-2xl border border-zinc-800/40 bg-gradient-to-b from-zinc-900 to-blue-950/40"
-        aria-hidden
-      >
-        <WaveSvg />
-        <div className="relative z-10 flex flex-col items-center rod-sway">
-          <span className="text-5xl">🎣</span>
-          <span className="mt-1 text-xs font-medium text-orange-400">
-            魚竿已拋出…
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className="relative flex h-40 flex-col items-center justify-center overflow-hidden rounded-2xl border border-zinc-800/40 bg-gradient-to-b from-zinc-900 to-blue-950/40"
-      aria-hidden
-    >
-      <WaveSvg />
-      <div className="relative z-10 flex flex-col items-center">
-        <span className="text-5xl">🎣</span>
-        <span className="mt-1 text-xs text-zinc-300">準備好拋竿了</span>
-      </div>
-    </div>
-  );
-}
-
-function WaveSvg() {
-  return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 opacity-90">
-      <svg
-        className="h-full w-full text-violet-500/25"
-        viewBox="0 0 1200 40"
-        preserveAspectRatio="none"
-      >
-        <path
-          fill="currentColor"
-          d="M0,20 Q300,5 600,20 T1200,20 L1200,40 L0,40 Z"
-        />
-      </svg>
-      <svg
-        className="absolute inset-x-0 bottom-0 h-10 w-full text-blue-500/20"
-        viewBox="0 0 1200 32"
-        preserveAspectRatio="none"
-      >
-        <path
-          fill="currentColor"
-          d="M0,16 Q400,28 800,16 T1200,16 L1200,32 L0,32 Z"
-        />
-      </svg>
-    </div>
-  );
-}
-
-function LottiePlaceholder() {
-  return (
-    <div className="flex h-16 items-center justify-center rounded-xl border border-dashed border-zinc-700/40 bg-zinc-900/40">
-      <span className="text-xs text-zinc-600">✨ 動畫區（即將更新）</span>
-    </div>
-  );
-}
-
 export function FishingPanel() {
   const router = useRouter();
   const { data: status } = useSWR<FishingStatusResult>(
@@ -175,14 +66,13 @@ export function FishingPanel() {
   const [castRemainMs, setCastRemainMs] = useState(CAST_MS);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [resultOverlay, setResultOverlay] = useState(false);
-  const [fishStep, setFishStep] = useState<"fly" | "detail">("fly");
+  const [revealPlaybackKey, setRevealPlaybackKey] = useState(0);
   const [lastResult, setLastResult] = useState<CollectFishResult | null>(null);
   const [detailUser, setDetailUser] = useState<MemberProfileView | null>(null);
   const [peerExtra, setPeerExtra] = useState<MemberProfileView | null>(null);
   const [selectedRodId, setSelectedRodId] = useState<string | null>(null);
   const [selectedBaitId, setSelectedBaitId] = useState<string | null>(null);
   const castTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const flyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!statusDto?.rods.length) return;
@@ -213,11 +103,6 @@ export function FishingPanel() {
     return Math.min(statusDto.baitCount, activeRod.castsRemainingToday);
   }, [statusDto, activeRod]);
 
-  const showLottie =
-    !fishingDisabled &&
-    (phase === "no_rod" || phase === "no_bait" || phase === "can_cast") &&
-    uiPhase === "idle";
-
   const clearCastTimer = useCallback(() => {
     if (castTimerRef.current) {
       clearInterval(castTimerRef.current);
@@ -228,7 +113,6 @@ export function FishingPanel() {
   useEffect(() => {
     return () => {
       clearCastTimer();
-      if (flyTimerRef.current) clearTimeout(flyTimerRef.current);
     };
   }, [clearCastTimer]);
 
@@ -261,22 +145,18 @@ export function FishingPanel() {
       void swrMutate(SWR_KEYS.fishingStatus);
       void swrMutate(SWR_KEYS.fishingLogs);
       if (!res.ok && res.error === "fishing_disabled") {
+        setRevealPlaybackKey((k) => k + 1);
         setResultOverlay(true);
-        setFishStep("detail");
         return;
       }
       if (res.ok) {
+        setRevealPlaybackKey((k) => k + 1);
         setResultOverlay(true);
-        setFishStep("fly");
-        if (flyTimerRef.current) clearTimeout(flyTimerRef.current);
-        flyTimerRef.current = setTimeout(() => {
-          setFishStep("detail");
-        }, 800);
       }
     } catch {
       setLastResult({ ok: false, error: "收竿失敗，請稍後再試。" });
+      setRevealPlaybackKey((k) => k + 1);
       setResultOverlay(true);
-      setFishStep("detail");
     }
   }, [selectedRodId, selectedBaitId]);
 
@@ -291,8 +171,7 @@ export function FishingPanel() {
       !lastResult ||
       !lastResult.ok ||
       lastResult.noMatchFound ||
-      !lastResult.matchmakerUser ||
-      fishStep !== "detail"
+      !lastResult.matchmakerUser
     ) {
       setPeerExtra(null);
       return;
@@ -304,16 +183,12 @@ export function FishingPanel() {
     return () => {
       cancelled = true;
     };
-  }, [resultOverlay, lastResult, fishStep]);
+  }, [resultOverlay, lastResult]);
 
-  const overlayEmoji = useMemo(() => {
-    if (!lastResult || !lastResult.ok) return "🎣";
-    if (lastResult.noMatchFound) return "💔";
-    if (lastResult.matchmakerUser) return "❤️";
-    if (lastResult.fishType === "leviathan") return "🦈";
-    if (lastResult.fishType === "legendary") return "🐡";
-    return "🐟";
-  }, [lastResult]);
+  const closeRewardModal = useCallback(() => {
+    setResultOverlay(false);
+    void swrMutate(SWR_KEYS.fishingLogs);
+  }, []);
 
   if (fishingDisabled) {
     return (
@@ -332,9 +207,7 @@ export function FishingPanel() {
 
   return (
     <div className="flex flex-col gap-4 px-4 py-4">
-      <LakeArea serverPhase={phase} uiPhase={uiPhase} />
-
-      {showLottie ? <LottiePlaceholder /> : null}
+      <FishingLakeVisual serverPhase={phase} uiPhase={uiPhase} />
 
       {/* StatusSection */}
       {phase === "no_rod" ? (
@@ -531,169 +404,18 @@ export function FishingPanel() {
       </AlertDialog>
 
       {resultOverlay && lastResult ? (
-        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-zinc-950/95 px-6">
-          {lastResult.ok && lastResult.noMatchFound ? (
-            <>
-              {fishStep === "fly" ? (
-                <span className="animate-fish-fly-in text-8xl">💔</span>
-              ) : (
-                <div className="w-full max-w-sm space-y-4 text-center">
-                  <p className="text-xl font-semibold text-white">
-                    緣分不夠，未釣到月老魚 💔
-                  </p>
-                  <p className="text-sm text-zinc-500">
-                    目前緣分不夠，未釣到月老魚
-                  </p>
-                  <Button
-                    type="button"
-                    className="w-full rounded-xl bg-violet-600"
-                    onClick={() => {
-                      setResultOverlay(false);
-                      void swrMutate(SWR_KEYS.fishingLogs);
-                    }}
-                  >
-                    確認
-                  </Button>
-                </div>
-              )}
-            </>
-          ) : lastResult.ok && lastResult.fishType !== "matchmaker" ? (
-            <>
-              {fishStep === "fly" ? (
-                <span className="animate-fish-fly-in text-8xl">{overlayEmoji}</span>
-              ) : (
-                <div className="w-full max-w-sm space-y-4 text-center">
-                  <p className="text-2xl font-bold text-white">
-                    {FISH_TYPE_LABEL[lastResult.fishType] ?? lastResult.fishType}
-                  </p>
-                  <div className="space-y-1 text-sm">
-                    {lastResult.fishExp != null && lastResult.fishExp > 0 ? (
-                      <p className="text-amber-400">+{lastResult.fishExp} EXP</p>
-                    ) : null}
-                    {lastResult.fishCoins != null && lastResult.fishCoins > 0 ? (
-                      <p className="text-amber-300">
-                        +{lastResult.fishCoins} 免費幣
-                      </p>
-                    ) : null}
-                  </div>
-                  <Button
-                    type="button"
-                    className="w-full rounded-xl bg-violet-600"
-                    onClick={() => {
-                      setResultOverlay(false);
-                      void swrMutate(SWR_KEYS.fishingLogs);
-                    }}
-                  >
-                    確認
-                  </Button>
-                </div>
-              )}
-            </>
-          ) : lastResult.ok && lastResult.matchmakerUser ? (
-            <>
-              {fishStep === "fly" ? (
-                <span className="animate-fish-fly-in text-8xl">{overlayEmoji}</span>
-              ) : (
-                <div className="w-full max-w-sm space-y-4 text-center">
-                  <p className="text-2xl font-bold text-white">
-                    月老魚 ❤️
-                  </p>
-                  <div className="space-y-1 text-sm">
-                    {lastResult.fishExp != null && lastResult.fishExp > 0 ? (
-                      <p className="text-amber-400">+{lastResult.fishExp} EXP</p>
-                    ) : null}
-                    {lastResult.fishCoins != null && lastResult.fishCoins > 0 ? (
-                      <p className="text-amber-300">
-                        +{lastResult.fishCoins} 免費幣
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="rounded-2xl border border-violet-400/40 bg-violet-950/60 p-4 text-left">
-                    <p className="text-center text-sm font-medium text-violet-200">
-                      ❤️ 命運之湖的有緣人
-                    </p>
-                    <div className="mt-3 flex items-center gap-3">
-                      <MasterAvatarShell
-                        src={lastResult.matchmakerUser.avatar_url}
-                        nickname={lastResult.matchmakerUser.nickname}
-                        size={40}
-                      />
-                      <span className="font-medium text-white">
-                        {lastResult.matchmakerUser.nickname}
-                      </span>
-                    </div>
-                    {peerExtra ? (
-                      <>
-                        <p className="mt-2 text-xs text-zinc-400">
-                          📍 {peerExtra.region}
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {(peerExtra.interests ?? [])
-                            .slice(0, 3)
-                            .map((slug) => (
-                              <span
-                                key={slug}
-                                className="rounded-full border border-violet-500/40 bg-violet-950/50 px-2 py-0.5 text-[10px] text-violet-200"
-                              >
-                                {tagLabel(slug)}
-                              </span>
-                            ))}
-                        </div>
-                        <p className="mt-2 line-clamp-2 text-sm text-zinc-400">
-                          {[peerExtra.bio_village, peerExtra.bio]
-                            .find((b) => b?.trim()) ?? "尚未填寫自介"}
-                        </p>
-                      </>
-                    ) : (
-                      <p className="mt-2 text-xs text-zinc-500">載入資料中…</p>
-                    )}
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="flex-1 bg-violet-600"
-                        onClick={() => {
-                          void openPeerDetail(lastResult.matchmakerUser!.id);
-                        }}
-                      >
-                        查看完整資料
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 border-zinc-600"
-                        onClick={() => {
-                          setResultOverlay(false);
-                          void swrMutate(SWR_KEYS.fishingLogs);
-                        }}
-                      >
-                        下次再說
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="w-full max-w-sm space-y-4 text-center">
-              <p className="text-rose-300">
-                {!lastResult.ok
-                  ? lastResult.error === "fishing_disabled"
-                    ? "🔧 釣魚系統維護中，請稍後再試"
-                    : lastResult.error
-                  : ""}
-              </p>
-              <Button
-                type="button"
-                className="w-full rounded-xl bg-violet-600"
-                onClick={() => setResultOverlay(false)}
-              >
-                確認
-              </Button>
-            </div>
-          )}
-        </div>
+        <FishingRewardModal
+          open={resultOverlay}
+          playbackKey={revealPlaybackKey}
+          lastResult={lastResult}
+          fishTypeLabels={FISH_TYPE_LABEL}
+          tagLabel={tagLabel}
+          peerExtra={peerExtra}
+          onConfirm={closeRewardModal}
+          onOpenPeerDetail={(userId) => {
+            void openPeerDetail(userId);
+          }}
+        />
       ) : null}
 
       {detailUser ? (
