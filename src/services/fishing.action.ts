@@ -7,11 +7,11 @@ import { findUserIdsInBlockRelation } from "@/lib/repositories/server/chat.repos
 import { insertExpLog } from "@/lib/repositories/server/exp.repository";
 import { creditCoins } from "@/lib/repositories/server/coin.repository";
 import { insertUserReward } from "@/lib/repositories/server/prize.repository";
-import { findShopItemById } from "@/lib/repositories/server/shop.repository";
 import {
   countUserRewardsByType,
   deleteUserRewardForOwner,
-  findFirstUserRewardIdOfType,
+  findUserRewardById,
+  listFishingRodsAndBaits,
 } from "@/lib/repositories/server/rewards.repository";
 import {
   findMatchmakerPoolCandidates,
@@ -25,11 +25,29 @@ import {
   insertFishingLog,
   pickReward,
 } from "@/lib/repositories/server/fishing.repository";
+import {
+  getRodCastSnapshot,
+  getRodCastState,
+  peekRodCastAllowed,
+  recordRodCastSuccess,
+} from "@/lib/repositories/server/fishing-cast.repository";
+import { findShopItemById } from "@/lib/repositories/server/shop.repository";
+import {
+  baitHasMatchmakerChance,
+  parseBaitFishWeights,
+  parseRodCastRules,
+  rollFishTypeFromWeights,
+} from "@/lib/utils/fishing-shop-metadata";
 import { findMutualLikeFlags } from "@/lib/repositories/server/like.repository";
 import { findSystemSettingByKey } from "@/lib/repositories/server/invitation.repository";
 import { getMatchmakerAgeMaxAction } from "@/services/system-settings.action";
 import { isAgeMatch, isRegionMatch } from "@/lib/utils/matchmaker-region";
-import type { FishType, FishingRewardTier, Json } from "@/types/database.types";
+import type {
+  FishType,
+  FishingRewardTier,
+  FishingRewardRow,
+  Json,
+} from "@/types/database.types";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 
 export type FishingPhase = "no_rod" | "no_bait" | "can_cast";
@@ -38,11 +56,19 @@ export type FishingStatusDto = {
   phase: FishingPhase;
   rodCount: number;
   baitCount: number;
-  /** 今日可拋竿次數（目前等同持有釣餌數） */
+  /** min(釣餌數, 當前釣竿今日剩餘額度)；無釣竿時為 0 */
   todayRemainingCasts: number;
   equippedRodName: string | null;
   /** 預設選中之釣餌顯示名（單一餌種時） */
   defaultBaitName: string | null;
+  rods: Array<{
+    id: string;
+    name: string;
+    shopItemId: string | null;
+    castsRemainingToday: number;
+    cooldownRemainingSec: number;
+  }>;
+  baits: Array<{ id: string; name: string; shopItemId: string | null }>;
 };
 
 export type FishingStatusResult =
@@ -52,8 +78,8 @@ export type FishingStatusResult =
 export type CollectFishResult =
   | {
       ok: true;
-      fishType: "matchmaker";
-      matchmakerUser: {
+      fishType: FishType;
+      matchmakerUser?: {
         id: string;
         nickname: string;
         avatar_url: string | null;
@@ -151,6 +177,25 @@ async function pickMatchmakerRewardFromTable() {
   if (!reward) reward = await pickReward("matchmaker", "medium");
   if (!reward) reward = await pickReward("matchmaker", "small");
   return reward;
+}
+
+async function pickNonMatchmakerRewardFromTable(
+  fishType: FishType,
+): Promise<FishingRewardRow | null> {
+  if (fishType === "leviathan") {
+    let r = await pickReward("leviathan", "large");
+    if (!r) r = await pickReward("legendary", "large");
+    if (!r) {
+      const t = pickTier();
+      r = await pickReward("legendary", t);
+    }
+    return r;
+  }
+  const tier = pickTier();
+  let r = await pickReward(fishType, tier);
+  if (!r) r = await pickReward(fishType, "medium");
+  if (!r) r = await pickReward(fishType, "small");
+  return r;
 }
 
 async function resolveMatchmakerRewards(
@@ -263,6 +308,145 @@ async function resolveMatchmakerRewards(
   return { fishCoins, fishExp, coinFailure, fishItemJson };
 }
 
+async function resolveNonMatchmakerFishRewards(
+  userId: string,
+  fishType: FishType,
+): Promise<{
+  fishCoins: number;
+  fishExp: number;
+  coinFailure: boolean;
+  fishItemJson: Json | null;
+}> {
+  const reward = await pickNonMatchmakerRewardFromTable(fishType);
+  const note = `釣魚：${fishType}`;
+
+  if (!reward) {
+    const fishCoins = 5;
+    const fishExp = 3;
+    const coinResult = await creditCoins({
+      userId,
+      coinType: "free",
+      amount: fishCoins,
+      source: "fishing",
+      note,
+    });
+    if (!coinResult.success) {
+      return { fishCoins: 0, fishExp: 0, coinFailure: true, fishItemJson: null };
+    }
+    const expKey = `fishing_fallback:${userId}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+    await insertExpLog({
+      user_id: userId,
+      source: "fishing",
+      unique_key: expKey,
+      delta: fishExp,
+      delta_exp: fishExp,
+    });
+    return { fishCoins, fishExp, coinFailure: false, fishItemJson: null };
+  }
+
+  let fishCoins = 0;
+  let fishExp = 0;
+  let coinFailure = false;
+  let fishItemJson: Json | null = null;
+
+  switch (reward.reward_type) {
+    case "coins_free": {
+      const amt = reward.coins_amount ?? 0;
+      if (amt > 0) {
+        const r = await creditCoins({
+          userId,
+          coinType: "free",
+          amount: amt,
+          source: "fishing",
+          note,
+        });
+        coinFailure = !r.success;
+        if (r.success) fishCoins = amt;
+      }
+      break;
+    }
+    case "coins_premium": {
+      const amt = reward.coins_amount ?? 0;
+      if (amt > 0) {
+        const r = await creditCoins({
+          userId,
+          coinType: "premium",
+          amount: amt,
+          source: "fishing",
+          note,
+        });
+        coinFailure = !r.success;
+        if (r.success) fishCoins = amt;
+      }
+      break;
+    }
+    case "exp": {
+      const exp = reward.exp_amount ?? 0;
+      if (exp > 0) {
+        const expKey = `fishing:${userId}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+        await insertExpLog({
+          user_id: userId,
+          source: "fishing",
+          unique_key: expKey,
+          delta: exp,
+          delta_exp: exp,
+        });
+        fishExp = exp;
+      }
+      break;
+    }
+    case "shop_item": {
+      if (reward.shop_item_id) {
+        const item = await findShopItemById(reward.shop_item_id);
+        if (item) {
+          await insertUserReward({
+            user_id: userId,
+            reward_type: item.item_type,
+            shop_item_id: item.id,
+            label: item.name,
+            is_equipped: false,
+          });
+          fishItemJson = buildFishItemJson({ name: item.name });
+        }
+      }
+      break;
+    }
+    default:
+      break;
+  }
+
+  return { fishCoins, fishExp, coinFailure, fishItemJson };
+}
+
+async function tryInsertStandardFishLog(
+  userId: string,
+  fishType: FishType,
+  payload: {
+    fish_coins: number | null;
+    fish_exp: number | null;
+    fish_item: Json | null;
+  },
+) {
+  try {
+    await insertFishingLog({
+      user_id: userId,
+      fish_type: fishType,
+      fish_user_id: null,
+      no_match_found: null,
+      fish_coins: payload.fish_coins,
+      fish_exp: payload.fish_exp,
+      fish_item: payload.fish_item ?? null,
+      peer_nickname: null,
+      peer_avatar_url: null,
+      peer_region: null,
+      peer_interests: null,
+      peer_bio: null,
+    });
+  } catch (e) {
+    console.error("fishing_logs insert failed", e);
+  }
+}
+
 /** 釣魚列狀態（未登入時視為無釣竿） */
 export async function getFishingStatusAction(): Promise<FishingStatusResult> {
   const supabase = createClient();
@@ -279,6 +463,8 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
         todayRemainingCasts: 0,
         equippedRodName: null,
         defaultBaitName: null,
+        rods: [],
+        baits: [],
       },
     };
   }
@@ -290,11 +476,53 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
 
   const rodCount = await countUserRewardsByType(user.id, "fishing_rod");
   const baitCount = await countUserRewardsByType(user.id, "fishing_bait");
-  const [equippedRodName, defaultBaitName] = await Promise.all([
+  const [equippedRodName, defaultBaitName, bundle] = await Promise.all([
     findFirstFishingRodDisplayName(user.id),
     findFirstFishingBaitDisplayName(user.id),
+    listFishingRodsAndBaits(user.id),
   ]);
-  const todayRemainingCasts = baitCount;
+
+  const rodsOut: FishingStatusDto["rods"] = [];
+  for (const r of bundle.rods) {
+    let castsRemainingToday = 0;
+    let cooldownRemainingSec = 0;
+    if (r.shop_item_id) {
+      const si = await findShopItemById(r.shop_item_id);
+      const rules = parseRodCastRules(si?.metadata ?? null);
+      if (rules) {
+        const snap = await getRodCastSnapshot({
+          userId: user.id,
+          rodUserRewardId: r.id,
+          maxPerDay: rules.maxPerDay,
+          cooldownMinutes: rules.cooldownMinutes,
+        });
+        castsRemainingToday = snap.castsRemainingToday;
+        cooldownRemainingSec = snap.cooldownRemainingSec;
+      }
+    }
+    rodsOut.push({
+      id: r.id,
+      name: r.displayName,
+      shopItemId: r.shop_item_id,
+      castsRemainingToday,
+      cooldownRemainingSec,
+    });
+  }
+
+  const baitsOut = bundle.baits.map((b) => ({
+    id: b.id,
+    name: b.displayName,
+    shopItemId: b.shop_item_id,
+  }));
+
+  const firstRod = rodsOut[0];
+  const canUseFirstRod =
+    firstRod != null &&
+    firstRod.castsRemainingToday > 0 &&
+    firstRod.cooldownRemainingSec === 0;
+  const todayRemainingCasts = canUseFirstRod
+    ? Math.min(baitCount, firstRod.castsRemainingToday)
+    : 0;
 
   if (rodCount < 1) {
     return {
@@ -303,9 +531,11 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
         phase: "no_rod",
         rodCount,
         baitCount,
-        todayRemainingCasts,
+        todayRemainingCasts: 0,
         equippedRodName,
         defaultBaitName,
+        rods: rodsOut,
+        baits: baitsOut,
       },
     };
   }
@@ -316,9 +546,11 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
         phase: "no_bait",
         rodCount,
         baitCount,
-        todayRemainingCasts,
+        todayRemainingCasts: 0,
         equippedRodName,
         defaultBaitName,
+        rods: rodsOut,
+        baits: baitsOut,
       },
     };
   }
@@ -331,6 +563,8 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
       todayRemainingCasts,
       equippedRodName,
       defaultBaitName,
+      rods: rodsOut,
+      baits: baitsOut,
     },
   };
 }
@@ -373,7 +607,10 @@ export async function getFishingLogsAction(): Promise<
   return { ok: true, logs };
 }
 
-export async function collectFishAction(): Promise<CollectFishResult> {
+export async function collectFishAction(opts?: {
+  baitUserRewardId?: string | null;
+  rodUserRewardId?: string | null;
+}): Promise<CollectFishResult> {
   const supabase = createClient();
   const {
     data: { user },
@@ -388,34 +625,115 @@ export async function collectFishAction(): Promise<CollectFishResult> {
   const fisher = await findProfileById(user.id);
   if (!fisher) return { ok: false, error: "找不到冒險者資料。" };
 
-  const rodCount = await countUserRewardsByType(user.id, "fishing_rod");
-  const baitId = await findFirstUserRewardIdOfType(user.id, "fishing_bait");
-  if (rodCount < 1) return { ok: false, error: "需要釣竿才能釣魚。" };
+  const bundle = await listFishingRodsAndBaits(user.id);
+  const rodId =
+    opts?.rodUserRewardId?.trim() || bundle.rods[0]?.id || null;
+  const baitId =
+    opts?.baitUserRewardId?.trim() || bundle.baits[0]?.id || null;
+
+  if (!rodId) return { ok: false, error: "需要釣竿才能釣魚。" };
   if (!baitId) return { ok: false, error: "需要釣餌才能釣魚。" };
 
-  if (fisher.birth_year == null) {
+  const rodRow = await findUserRewardById(rodId);
+  if (!rodRow || rodRow.user_id !== user.id || rodRow.reward_type !== "fishing_rod") {
+    return { ok: false, error: "釣竿資料無效。" };
+  }
+  const baitRow = await findUserRewardById(baitId);
+  if (!baitRow || baitRow.user_id !== user.id || baitRow.reward_type !== "fishing_bait") {
+    return { ok: false, error: "釣餌資料無效。" };
+  }
+
+  const rodShop = rodRow.shop_item_id
+    ? await findShopItemById(rodRow.shop_item_id)
+    : null;
+  const rodRules = parseRodCastRules(rodShop?.metadata ?? null);
+  if (!rodRules) {
     return {
       ok: false,
-      error: "請先在個人資料設定出生年份，才能參與月老魚配對。",
+      error:
+        "此釣竿尚未設定 rod_max_casts_per_day／rod_cooldown_minutes，請洽管理員。",
     };
   }
 
-  const ageMax = await getMatchmakerAgeMaxAction();
+  const baitShop = baitRow.shop_item_id
+    ? await findShopItemById(baitRow.shop_item_id)
+    : null;
+  if (baitHasMatchmakerChance(baitShop?.metadata ?? null) && fisher.birth_year == null) {
+    return {
+      ok: false,
+      error: "此魚餌有機會釣到月老魚，請先在個人資料設定出生年份。",
+    };
+  }
+
+  const castRow = await getRodCastState(user.id, rodId);
+  const peek = peekRodCastAllowed({
+    row: castRow,
+    maxPerDay: rodRules.maxPerDay,
+    cooldownMinutes: rodRules.cooldownMinutes,
+  });
+  if (!peek.ok) {
+    if (peek.error === "cooldown") {
+      const m = peek.cooldownMinutesLeft ?? 1;
+      return {
+        ok: false,
+        error: `釣竿冷卻中，約 ${m} 分鐘後可再收竿。`,
+      };
+    }
+    return { ok: false, error: "今日此釣竿拋竿次數已用完。" };
+  }
+
+  const weights = parseBaitFishWeights(baitShop?.metadata ?? null);
+  const rolledFish = rollFishTypeFromWeights(weights);
+
+  if (rolledFish === "matchmaker" && fisher.birth_year == null) {
+    return {
+      ok: false,
+      error: "請先在個人資料設定出生年份，才能釣到月老魚。",
+    };
+  }
+
   const consumed = await deleteUserRewardForOwner(baitId, user.id);
   if (!consumed) {
     return { ok: false, error: "消耗釣餌失敗，請稍後再試。" };
   }
 
+  const finishRod = async () => {
+    await recordRodCastSuccess({
+      userId: user.id,
+      rodUserRewardId: rodId,
+    });
+  };
+
+  if (rolledFish !== "matchmaker") {
+    const { fishCoins, fishExp, coinFailure, fishItemJson } =
+      await resolveNonMatchmakerFishRewards(user.id, rolledFish);
+    revalidateTag(profileCacheTag(user.id));
+    await tryInsertStandardFishLog(user.id, rolledFish, {
+      fish_coins: coinFailure ? 0 : fishCoins,
+      fish_exp: fishExp,
+      fish_item: fishItemJson,
+    });
+    await finishRod();
+    return {
+      ok: true,
+      fishType: rolledFish,
+      fishCoins: coinFailure ? 0 : fishCoins,
+      fishExp,
+    };
+  }
+
+  const ageMax = await getMatchmakerAgeMaxAction();
   const blocked = new Set(await findUserIdsInBlockRelation(user.id));
   const candidatesRaw = await findMatchmakerPoolCandidates(user.id);
 
+  const fisherBirthYear = fisher.birth_year!;
   const fisherAge = clampAgeFields(
     fisher.matchmaker_age_older,
     fisher.matchmaker_age_younger,
     ageMax,
   );
   const fisherForMatch = {
-    birth_year: fisher.birth_year,
+    birth_year: fisherBirthYear,
     matchmaker_age_mode: fisher.matchmaker_age_mode,
     matchmaker_age_older: fisherAge.matchmaker_age_older,
     matchmaker_age_younger: fisherAge.matchmaker_age_younger,
@@ -463,6 +781,7 @@ export async function collectFishAction(): Promise<CollectFishResult> {
       fish_exp: null,
       peer: null,
     });
+    await finishRod();
     return {
       ok: true,
       fishType: "matchmaker",
@@ -487,6 +806,7 @@ export async function collectFishAction(): Promise<CollectFishResult> {
       peer: peerFull,
       fish_item: fishItemJson,
     });
+    await finishRod();
     return {
       ok: true,
       fishType: "matchmaker",
@@ -511,6 +831,7 @@ export async function collectFishAction(): Promise<CollectFishResult> {
     peer: peerFull,
     fish_item: fishItemJson,
   });
+  await finishRod();
 
   return {
     ok: true,

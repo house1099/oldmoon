@@ -758,6 +758,51 @@ export async function findEquippedCardFramesByUserIds(
   return out;
 }
 
+export type FishingInventoryItem = {
+  id: string;
+  reward_type: string;
+  shop_item_id: string | null;
+  displayName: string;
+};
+
+/** 背包內釣竿／釣餌列表（含商城品名），供釣魚 UI 選擇。 */
+export async function listFishingRodsAndBaits(
+  userId: string,
+): Promise<{ rods: FishingInventoryItem[]; baits: FishingInventoryItem[] }> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("user_rewards")
+    .select("id, reward_type, shop_item_id, label, shop_items(name)")
+    .eq("user_id", userId)
+    .in("reward_type", ["fishing_rod", "fishing_bait"]);
+  if (error) throw error;
+  const rows = (data ?? []) as {
+    id: string;
+    reward_type: string;
+    shop_item_id: string | null;
+    label: string | null;
+    shop_items: { name: string } | { name: string }[] | null;
+  }[];
+  const rods: FishingInventoryItem[] = [];
+  const baits: FishingInventoryItem[] = [];
+  for (const r of rows) {
+    const shop = Array.isArray(r.shop_items)
+      ? r.shop_items[0]
+      : r.shop_items;
+    const displayName =
+      shop?.name?.trim() || r.label?.trim() || "釣魚道具";
+    const item: FishingInventoryItem = {
+      id: r.id,
+      reward_type: r.reward_type,
+      shop_item_id: r.shop_item_id,
+      displayName,
+    };
+    if (r.reward_type === "fishing_rod") rods.push(item);
+    else baits.push(item);
+  }
+  return { rods, baits };
+}
+
 export async function findFirstUserRewardIdOfType(
   userId: string,
   rewardType: string,

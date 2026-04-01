@@ -33,6 +33,14 @@ const CAST_MS = 2_200;
 /** AlertDialog 文案用（實際等待為 CAST_MS） */
 const CAST_COPY_MINUTES = 2;
 
+const FISH_TYPE_LABEL: Record<string, string> = {
+  common: "普通魚",
+  rare: "稀有魚",
+  legendary: "傳說魚",
+  matchmaker: "月老魚",
+  leviathan: "深海巨獸",
+};
+
 type UiPhase = "idle" | "casting" | "ready";
 
 function tagLabel(slug: string): string {
@@ -171,14 +179,39 @@ export function FishingPanel() {
   const [lastResult, setLastResult] = useState<CollectFishResult | null>(null);
   const [detailUser, setDetailUser] = useState<MemberProfileView | null>(null);
   const [peerExtra, setPeerExtra] = useState<MemberProfileView | null>(null);
+  const [selectedRodId, setSelectedRodId] = useState<string | null>(null);
+  const [selectedBaitId, setSelectedBaitId] = useState<string | null>(null);
   const castTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const flyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  useEffect(() => {
+    if (!statusDto?.rods.length) return;
+    setSelectedRodId((prev) => {
+      if (prev && statusDto.rods.some((r) => r.id === prev)) return prev;
+      return statusDto.rods[0].id;
+    });
+  }, [statusDto]);
+
+  useEffect(() => {
+    if (!statusDto?.baits.length) return;
+    setSelectedBaitId((prev) => {
+      if (prev && statusDto.baits.some((b) => b.id === prev)) return prev;
+      return statusDto.baits[0].id;
+    });
+  }, [statusDto]);
+
   const phase = statusDto?.phase ?? "no_rod";
-  const rodName = statusDto?.equippedRodName ?? "命運釣竿";
-  const baitName = statusDto?.defaultBaitName ?? "釣餌";
-  const remaining =
-    statusDto?.todayRemainingCasts ?? statusDto?.baitCount ?? 0;
+  const activeRod = statusDto?.rods.find((r) => r.id === selectedRodId) ?? statusDto?.rods[0];
+  const activeBait = statusDto?.baits.find((b) => b.id === selectedBaitId) ?? statusDto?.baits[0];
+  const rodName = activeRod?.name ?? statusDto?.equippedRodName ?? "命運釣竿";
+  const baitName = activeBait?.name ?? statusDto?.defaultBaitName ?? "釣餌";
+  const remaining = useMemo(() => {
+    if (!statusDto || !activeRod) {
+      return statusDto?.todayRemainingCasts ?? statusDto?.baitCount ?? 0;
+    }
+    if (activeRod.cooldownRemainingSec > 0) return 0;
+    return Math.min(statusDto.baitCount, activeRod.castsRemainingToday);
+  }, [statusDto, activeRod]);
 
   const showLottie =
     !fishingDisabled &&
@@ -220,7 +253,10 @@ export function FishingPanel() {
   const runCollect = useCallback(async () => {
     setUiPhase("idle");
     try {
-      const res = await collectFishAction();
+      const res = await collectFishAction({
+        rodUserRewardId: selectedRodId ?? undefined,
+        baitUserRewardId: selectedBaitId ?? undefined,
+      });
       setLastResult(res);
       void swrMutate(SWR_KEYS.fishingStatus);
       void swrMutate(SWR_KEYS.fishingLogs);
@@ -242,7 +278,7 @@ export function FishingPanel() {
       setResultOverlay(true);
       setFishStep("detail");
     }
-  }, []);
+  }, [selectedRodId, selectedBaitId]);
 
   const openPeerDetail = useCallback(async (userId: string) => {
     const p = await getMemberProfileByIdAction(userId);
@@ -274,6 +310,8 @@ export function FishingPanel() {
     if (!lastResult || !lastResult.ok) return "🎣";
     if (lastResult.noMatchFound) return "💔";
     if (lastResult.matchmakerUser) return "❤️";
+    if (lastResult.fishType === "leviathan") return "🦈";
+    if (lastResult.fishType === "legendary") return "🐡";
     return "🐟";
   }, [lastResult]);
 
@@ -351,20 +389,57 @@ export function FishingPanel() {
 
       {phase === "can_cast" && uiPhase === "idle" ? (
         <>
-          <div className="rounded-xl bg-zinc-900/60 p-3">
-            <div className="flex items-center justify-between gap-2">
-              <span className="truncate text-sm font-medium text-white">
-                {rodName}
-              </span>
-              <span className="shrink-0 text-xs text-zinc-500">
-                今日剩餘 {remaining} 次
-              </span>
-            </div>
+          <div className="rounded-xl bg-zinc-900/60 p-3 space-y-2">
+            <p className="text-xs font-medium text-zinc-400">選擇釣竿</p>
+            {statusDto && statusDto.rods.length > 1 ? (
+              <select
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
+                value={selectedRodId ?? ""}
+                onChange={(e) => setSelectedRodId(e.target.value)}
+              >
+                {statusDto.rods.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                    {r.cooldownRemainingSec > 0
+                      ? `（冷卻 ${Math.ceil(r.cooldownRemainingSec / 60)} 分）`
+                      : `（今日剩 ${r.castsRemainingToday}）`}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-sm font-medium text-white">
+                  {rodName}
+                </span>
+                <span className="shrink-0 text-xs text-zinc-500">
+                  今日剩餘 {remaining} 次
+                </span>
+              </div>
+            )}
+            {statusDto && statusDto.rods.length > 1 ? (
+              <div className="flex items-center justify-between gap-2 text-xs text-zinc-500">
+                <span>今日可拋（含釣餌上限）</span>
+                <span>{remaining} 次</span>
+              </div>
+            ) : null}
           </div>
           <div>
             <p className="mb-2 text-xs font-medium text-zinc-400">
               選擇魚餌
             </p>
+            {statusDto && statusDto.baits.length > 1 ? (
+              <select
+                className="mb-2 w-full rounded-lg border border-violet-500/50 bg-violet-950/40 px-3 py-2 text-sm text-white"
+                value={selectedBaitId ?? ""}
+                onChange={(e) => setSelectedBaitId(e.target.value)}
+              >
+                {statusDto.baits.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
             <button
               type="button"
               className="w-full rounded-xl border border-violet-500 bg-violet-950/40 p-3 text-left"
@@ -374,7 +449,7 @@ export function FishingPanel() {
                 <span className="text-xs text-zinc-500">等待約 {CAST_COPY_MINUTES} 分鐘</span>
               </div>
               <p className="mt-1 text-xs text-zinc-500">
-                🐟25% 🐠25% 🐡25% ❤️25%
+                魚種機率由該魚餌在商城後台設定
               </p>
             </button>
           </div>
@@ -469,6 +544,38 @@ export function FishingPanel() {
                   <p className="text-sm text-zinc-500">
                     目前緣分不夠，未釣到月老魚
                   </p>
+                  <Button
+                    type="button"
+                    className="w-full rounded-xl bg-violet-600"
+                    onClick={() => {
+                      setResultOverlay(false);
+                      void swrMutate(SWR_KEYS.fishingLogs);
+                    }}
+                  >
+                    確認
+                  </Button>
+                </div>
+              )}
+            </>
+          ) : lastResult.ok && lastResult.fishType !== "matchmaker" ? (
+            <>
+              {fishStep === "fly" ? (
+                <span className="animate-fish-fly-in text-8xl">{overlayEmoji}</span>
+              ) : (
+                <div className="w-full max-w-sm space-y-4 text-center">
+                  <p className="text-2xl font-bold text-white">
+                    {FISH_TYPE_LABEL[lastResult.fishType] ?? lastResult.fishType}
+                  </p>
+                  <div className="space-y-1 text-sm">
+                    {lastResult.fishExp != null && lastResult.fishExp > 0 ? (
+                      <p className="text-amber-400">+{lastResult.fishExp} EXP</p>
+                    ) : null}
+                    {lastResult.fishCoins != null && lastResult.fishCoins > 0 ? (
+                      <p className="text-amber-300">
+                        +{lastResult.fishCoins} 免費幣
+                      </p>
+                    ) : null}
+                  </div>
                   <Button
                     type="button"
                     className="w-full rounded-xl bg-violet-600"

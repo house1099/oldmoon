@@ -3,7 +3,7 @@
  * 表：users, exp_logs, likes, alliances（雙人血盟）, conversations, chat_messages, blocks, reports, messages, notifications, ig_change_requests,
  *     admin_actions, moderator_permissions, system_settings, advertisements, ad_clicks, invitation_codes, invitation_code_uses, announcements,
  *     tavern_messages, tavern_bans, login_streaks, streak_reward_settings, prize_pools, prize_items, prize_logs, user_rewards, broadcasts,
- *     shop_items, shop_orders, shop_daily_limits, push_subscriptions, market_listings, profile_change_requests, fishing_logs, fishing_rewards
+ *     shop_items, shop_orders, shop_daily_limits, push_subscriptions, market_listings, profile_change_requests, fishing_logs, fishing_rod_cast_state, fishing_rewards
  */
 
 export type Json =
@@ -502,6 +502,46 @@ export interface Database {
             foreignKeyName: "fishing_logs_fish_user_id_fkey";
             columns: ["fish_user_id"];
             referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      fishing_rod_cast_state: {
+        Row: {
+          id: string;
+          user_id: string;
+          rod_user_reward_id: string;
+          taipei_date_key: string;
+          casts_used: number;
+          last_cast_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          rod_user_reward_id: string;
+          taipei_date_key: string;
+          casts_used?: number;
+          last_cast_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          taipei_date_key?: string;
+          casts_used?: number;
+          last_cast_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "fishing_rod_cast_state_user_id_fkey";
+            columns: ["user_id"];
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "fishing_rod_cast_state_rod_user_reward_id_fkey";
+            columns: ["rod_user_reward_id"];
+            referencedRelation: "user_rewards";
             referencedColumns: ["id"];
           },
         ];

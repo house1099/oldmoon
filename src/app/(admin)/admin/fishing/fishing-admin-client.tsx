@@ -1235,6 +1235,10 @@ export default function FishingAdminClient({
                   })}
                 </div>
               ) : null}
+              <p className="text-gray-500 text-xs mt-2 leading-relaxed">
+                此處百分比為該魚種、該 tier 獎品池內的相對比例；玩家釣到各魚種的機率由魚餌／釣竿（商城
+                metadata）決定，與此不同。
+              </p>
             </div>
             <div>
               <label className="text-gray-700 text-sm mb-1 block">

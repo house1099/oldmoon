@@ -421,6 +421,27 @@ export default function ShopAdminClient() {
       metadata = Object.keys(m).length ? m : null;
     }
 
+    if (form.item_type === "fishing_bait" && metadata) {
+      const { validateFishingBaitMetadata } = await import(
+        "@/lib/utils/fishing-shop-metadata"
+      );
+      const err = validateFishingBaitMetadata(metadata as Record<string, unknown>);
+      if (err) {
+        toast.error(err);
+        return;
+      }
+    }
+    if (form.item_type === "fishing_rod" && metadata) {
+      const { validateFishingRodMetadata } = await import(
+        "@/lib/utils/fishing-shop-metadata"
+      );
+      const err = validateFishingRodMetadata(metadata as Record<string, unknown>);
+      if (err) {
+        toast.error(err);
+        return;
+      }
+    }
+
     const payload = {
       sku: form.sku.trim(),
       name: form.name.trim(),
@@ -1525,6 +1546,19 @@ export default function ShopAdminClient() {
               <span className="ml-1 text-xs text-gray-400">
                 釣竿機率加成等（框類商品的對齊會另存為 frame_layout，不須手寫）
               </span>
+              {form.item_type === "fishing_bait" ? (
+                <p className="mt-1 text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5">
+                  釣餌必填：<code className="text-[11px]">bait_common_rate</code>～
+                  <code className="text-[11px]">bait_leviathan_rate</code> 五項百分比，加總須為 100。
+                  可選 <code className="text-[11px]">bait_wait_minutes</code>（演出用等待分鐘）。
+                </p>
+              ) : null}
+              {form.item_type === "fishing_rod" ? (
+                <p className="mt-1 text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5">
+                  釣竿必填：<code className="text-[11px]">rod_max_casts_per_day</code>（每日可拋次數）、
+                  <code className="text-[11px]">rod_cooldown_minutes</code>（收竿後冷卻分鐘，後台可調）。
+                </p>
+              ) : null}
               <textarea
                 value={form.metadata}
                 onChange={(e) => setField("metadata", e.target.value)}
