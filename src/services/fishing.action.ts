@@ -38,7 +38,7 @@ import {
 } from "@/lib/repositories/server/fishing-cast.repository";
 import { findShopItemById } from "@/lib/repositories/server/shop.repository";
 import {
-  baitHasMatchmakerChance,
+  detectBaitType,
   parseBaitFishWeights,
   parseRodFishingRules,
   rollFishTypeFromWeights,
@@ -57,7 +57,12 @@ import type { UserRow } from "@/lib/repositories/server/user.repository";
 
 export type CastFishResult =
   | { ok: true }
-  | { ok: false; error: string };
+  | {
+      ok: false;
+      error: string;
+      remainMinutes?: number;
+      nextCastAt?: string;
+    };
 
 export type FishingPhase = "no_rod" | "no_bait" | "can_cast";
 
@@ -77,13 +82,23 @@ export type FishingStatusDto = {
     name: string;
     shopItemId: string | null;
     castsRemainingToday: number;
-    /** 收竿後距下次可拋竿的冷卻（秒） */
+    /** 拋竿後距下次可再拋竿的冷卻（秒） */
     cooldownAfterHarvestRemainingSec: number;
     hasPendingCast: boolean;
     /** 拋竿後至可收成剩餘秒（無 pending 為 0） */
     pendingHarvestRemainSec: number;
+    cooldownInfo: {
+      isOnCooldown: boolean;
+      remainMinutes: number;
+      nextCastAt: string | null;
+    } | null;
   }>;
-  baits: Array<{ id: string; name: string; shopItemId: string | null }>;
+  baits: Array<{
+    id: string;
+    name: string;
+    shopItemId: string | null;
+    metadata: Json | null;
+  }>;
 };
 
 export type FishingStatusResult =
@@ -557,6 +572,7 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
     let cooldownAfterHarvestRemainingSec = 0;
     let hasPendingCast = false;
     let pendingHarvestRemainSec = 0;
+    let cooldownInfo: FishingStatusDto["rods"][number]["cooldownInfo"] = null;
     if (r.shop_item_id) {
       const si = await findShopItemById(r.shop_item_id);
       const rules = parseRodFishingRules(si?.metadata ?? null);
@@ -566,12 +582,13 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
           rodUserRewardId: r.id,
           maxPerDay: rules.maxPerDay,
           waitUntilHarvestMinutes: rules.waitUntilHarvestMinutes,
-          cooldownAfterHarvestMinutes: rules.cooldownAfterHarvestMinutes,
+          cooldownAfterCastMinutes: rules.cooldownAfterCastMinutes,
         });
         castsRemainingToday = snap.castsRemainingToday;
         cooldownAfterHarvestRemainingSec = snap.cooldownAfterHarvestRemainingSec;
         hasPendingCast = snap.hasPendingCast;
         pendingHarvestRemainSec = snap.pendingHarvestRemainSec;
+        cooldownInfo = snap.cooldownInfo;
       }
     }
     rodsOut.push({
@@ -582,6 +599,7 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
       cooldownAfterHarvestRemainingSec,
       hasPendingCast,
       pendingHarvestRemainSec,
+      cooldownInfo,
     });
   }
 
@@ -589,6 +607,7 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
     id: b.id,
     name: b.displayName,
     shopItemId: b.shop_item_id,
+    metadata: b.metadata ?? null,
   }));
 
   const hasPendingHarvest = rodsOut.some((r) => r.hasPendingCast);
@@ -734,38 +753,52 @@ export async function castFishAction(opts?: {
     return {
       ok: false,
       error:
-        "此釣竿尚未設定 rod_max_casts_per_day／rod_wait_until_harvest_minutes 等，請洽管理員。",
+        "此釣竿 metadata 無效（rod_max_casts_per_day／rod_wait_until_harvest_minutes／rod_cooldown_minutes），請洽管理員。",
     };
   }
 
   const baitShop = baitRow.shop_item_id
     ? await findShopItemById(baitRow.shop_item_id)
     : null;
-  if (baitHasMatchmakerChance(baitShop?.metadata ?? null) && fisher.birth_year == null) {
-    return {
-      ok: false,
-      error: "此魚餌有機會釣到月老魚，請先在個人資料設定出生年份。",
-    };
+  const baitMeta =
+    baitShop?.metadata &&
+    typeof baitShop.metadata === "object" &&
+    !Array.isArray(baitShop.metadata)
+      ? (baitShop.metadata as Record<string, unknown>)
+      : {};
+  if (detectBaitType(baitMeta) === "heart") {
+    if (fisher.birth_year == null || fisher.relationship_status !== "single") {
+      return { ok: false, error: "need_birth_year" };
+    }
   }
 
   const castRow = await getRodCastState(user.id, rodId);
   const peek = peekCanStartCast({
     row: castRow,
     maxPerDay: rodRules.maxPerDay,
-    cooldownAfterHarvestMinutes: rodRules.cooldownAfterHarvestMinutes,
+    cooldownAfterCastMinutes: rodRules.cooldownAfterCastMinutes,
   });
   if (!peek.ok) {
     if (peek.error === "pending_harvest") {
-      return { ok: false, error: "請先收成上一輪拋竿，或稍後再試。" };
+      return { ok: false, error: "pending_harvest" };
     }
     if (peek.error === "cooldown") {
       const m = peek.cooldownMinutesLeft ?? 1;
+      let nextCastAt: string | undefined;
+      if (castRow?.last_cast_at) {
+        nextCastAt = new Date(
+          new Date(castRow.last_cast_at).getTime() +
+            rodRules.cooldownAfterCastMinutes * 60_000,
+        ).toISOString();
+      }
       return {
         ok: false,
-        error: `釣竿冷卻中，約 ${m} 分鐘後可再拋竿。`,
+        error: "cooldown_not_ready",
+        remainMinutes: m,
+        nextCastAt,
       };
     }
-    return { ok: false, error: "今日此釣竿拋竿次數已用完。" };
+    return { ok: false, error: "daily_limit_reached" };
   }
 
   if (!baitRow.shop_item_id) {
@@ -990,7 +1023,7 @@ export async function harvestFishAction(opts?: {
     return {
       ok: false,
       error:
-        "此釣竿尚未設定 rod_max_casts_per_day／rod_wait_until_harvest_minutes 等，請洽管理員。",
+        "此釣竿 metadata 無效（rod_max_casts_per_day／rod_wait_until_harvest_minutes／rod_cooldown_minutes），請洽管理員。",
     };
   }
 

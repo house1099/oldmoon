@@ -5,6 +5,17 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-04-02 — 釣魚拋竿冷卻、三種魚餌 metadata、前台
+
+1. **目標**：冷卻改為**拋竿當下**起算（**`last_cast_at`**＋**`rod_cooldown_minutes`**）；**`casts_used`** 於拋竿 +1；收成僅清 **pending**；魚餌驗證改**普通／章魚／愛心**三型；商城種子三餌；前台冷卻倒數、**toast** 錯誤碼、餌標籤。
+2. **資料庫** 🗄️：**`supabase/migrations/20260402180000_fishing_bait_seed_and_cast_comment.sql`** — **`shop_items.sku` unique index**、**`last_cast_at` COMMENT**、三筆 **`fishing_bait`** **`ON CONFLICT (sku) DO NOTHING`**。
+3. **Layer 2**：**`fishing-cast.repository.ts`** — **`setPendingCast`** 寫入 **`last_cast_at`／`casts_used`／pending**；**`recordHarvestSuccess`** 僅清 pending；**`peekCanStartCast`** **`cooldownAfterCastMinutes`**；**`getRodCastSnapshot`** 回傳 **`cooldownInfo`**；**`computeRodCooldownInfo`**。**`rewards.repository.ts`** **`listFishingRodsAndBaits`** 取 **`shop_items.metadata`**（餌）。
+4. **Layer 3**：**`fishing.action.ts`** — **`CastFishResult`** **`remainMinutes`／`nextCastAt`**；**`castFishAction`** **`cooldown_not_ready`／`daily_limit_reached`／`need_birth_year`／`pending_harvest`**；愛心餌 **`detectBaitType === 'heart'`** 檢 **`birth_year`＋`relationship_status === 'single'`**；**`FishingStatusDto`** **`rods[].cooldownInfo`**、**`baits[].metadata`**。
+5. **工具**：**`fishing-shop-metadata.ts`** — **`BaitType`／`detectBaitType`／`validateBaitMetadata`**；**`parseRodFishingRules`** 預設 **1／1／480**；**`validateFishingBaitMetadata`** 委派新驗證。
+6. **Layer 5**：**`shop-admin-client.tsx`** 魚餌／釣竿 metadata 說明；**`fishing-panel.tsx`** **`CooldownTimer`／`BaitFishTags`／sonner**。
+7. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+8. **Git**：**`feat(fishing): cooldown from cast, 3 bait types, metadata validation, seed data`**。
+
 ### 2026-04-01 — 釣魚 tier／獎品機率（%）與缺額語意
 
 1. **目標**：**Stage 2a** 小／中／大獎 **tier** 由後台 **`fishing_tier_settings`** 設定（basis points、`interval_miss` 缺額為 miss 或 **`normalize`**）；**同 tier 內獎品** 以 **`fishing_rewards.weight`** 存「百分點的百分之一」（舊整數權重 ×100 遷移），**相對分配**；**`/admin/fishing`** 獎品 Dialog 改 **機率（%）**＋**`DecimalPercentInput`** 自訂數字鍵盤；系統設定新增 **每魚種 tier %** 編輯器。

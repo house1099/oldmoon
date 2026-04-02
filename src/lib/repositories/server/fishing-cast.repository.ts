@@ -24,11 +24,11 @@ function effectiveCastsUsedToday(row: CastRow | null, today: string): number {
   return row.taipei_date_key === today ? row.casts_used : 0;
 }
 
-/** 可否拋新竿：須無進行中收成、未達每日上限、收竿後冷卻已結束。 */
+/** 可否拋新竿：須無進行中收成、拋竿冷卻已結束、未達每日上限。 */
 export function peekCanStartCast(opts: {
   row: CastRow | null;
   maxPerDay: number;
-  cooldownAfterHarvestMinutes: number;
+  cooldownAfterCastMinutes: number;
 }):
   | { ok: true }
   | {
@@ -43,9 +43,9 @@ export function peekCanStartCast(opts: {
     return { ok: false, error: "pending_harvest" };
   }
 
-  if (opts.row?.last_cast_at && opts.cooldownAfterHarvestMinutes > 0) {
+  if (opts.row?.last_cast_at && opts.cooldownAfterCastMinutes > 0) {
     const last = new Date(opts.row.last_cast_at).getTime();
-    const ms = opts.cooldownAfterHarvestMinutes * 60_000;
+    const ms = opts.cooldownAfterCastMinutes * 60_000;
     const elapsed = now - last;
     if (elapsed < ms) {
       return {
@@ -87,7 +87,7 @@ export function peekHarvestReady(opts: {
   return { ok: true };
 }
 
-/** 僅檢查是否可拋竿（未扣次）。舊 API：收竿後冷卻語意。 */
+/** 僅檢查是否可拋竿（未扣次）。 */
 export function peekRodCastAllowed(opts: {
   row: CastRow | null;
   maxPerDay: number;
@@ -98,7 +98,7 @@ export function peekRodCastAllowed(opts: {
   const r = peekCanStartCast({
     row: opts.row,
     maxPerDay: opts.maxPerDay,
-    cooldownAfterHarvestMinutes: opts.cooldownMinutes,
+    cooldownAfterCastMinutes: opts.cooldownMinutes,
   });
   if (r.ok) return { ok: true };
   if (r.error === "pending_harvest") {
@@ -114,46 +114,53 @@ export function peekRodCastAllowed(opts: {
   return { ok: false, error: "daily_limit" };
 }
 
+export type RodCooldownInfo = {
+  isOnCooldown: boolean;
+  remainMinutes: number;
+  nextCastAt: string | null;
+};
+
+/** 依 last_cast_at 與拋竿冷卻分鐘計算 UI 用冷卻資訊。 */
+export function computeRodCooldownInfo(
+  row: CastRow | null,
+  cooldownAfterCastMinutes: number,
+): RodCooldownInfo | null {
+  if (cooldownAfterCastMinutes <= 0) {
+    return {
+      isOnCooldown: false,
+      remainMinutes: 0,
+      nextCastAt: null,
+    };
+  }
+  if (!row?.last_cast_at) {
+    return {
+      isOnCooldown: false,
+      remainMinutes: 0,
+      nextCastAt: null,
+    };
+  }
+  const last = new Date(row.last_cast_at).getTime();
+  const ms = cooldownAfterCastMinutes * 60_000;
+  const elapsed = Date.now() - last;
+  if (elapsed >= ms) {
+    return {
+      isOnCooldown: false,
+      remainMinutes: 0,
+      nextCastAt: null,
+    };
+  }
+  const remainMs = ms - elapsed;
+  return {
+    isOnCooldown: true,
+    remainMinutes: Math.max(1, Math.ceil(remainMs / 60_000)),
+    nextCastAt: new Date(last + ms).toISOString(),
+  };
+}
+
 export async function setPendingCast(opts: {
   userId: string;
   rodUserRewardId: string;
   baitShopItemId: string;
-}): Promise<void> {
-  const today = taipeiCalendarDateKey();
-  const nowIso = new Date().toISOString();
-  const admin = createAdminClient();
-  const existing = await getRodCastState(opts.userId, opts.rodUserRewardId);
-
-  if (existing) {
-    const { error } = await admin
-      .from("fishing_rod_cast_state")
-      .update({
-        pending_cast_started_at: nowIso,
-        pending_bait_shop_item_id: opts.baitShopItemId,
-        updated_at: nowIso,
-      })
-      .eq("id", existing.id);
-    if (error) throw error;
-    return;
-  }
-
-  const { error } = await admin.from("fishing_rod_cast_state").insert({
-    user_id: opts.userId,
-    rod_user_reward_id: opts.rodUserRewardId,
-    taipei_date_key: today,
-    casts_used: 0,
-    last_cast_at: null,
-    pending_cast_started_at: nowIso,
-    pending_bait_shop_item_id: opts.baitShopItemId,
-    updated_at: nowIso,
-  });
-  if (error) throw error;
-}
-
-/** 收成成功：清 pending、累計當日次數、更新最後收竿時間。 */
-export async function recordHarvestSuccess(opts: {
-  userId: string;
-  rodUserRewardId: string;
 }): Promise<void> {
   const today = taipeiCalendarDateKey();
   const nowIso = new Date().toISOString();
@@ -169,8 +176,8 @@ export async function recordHarvestSuccess(opts: {
         taipei_date_key: today,
         casts_used: castsUsed,
         last_cast_at: nowIso,
-        pending_cast_started_at: null,
-        pending_bait_shop_item_id: null,
+        pending_cast_started_at: nowIso,
+        pending_bait_shop_item_id: opts.baitShopItemId,
         updated_at: nowIso,
       })
       .eq("id", existing.id);
@@ -184,10 +191,34 @@ export async function recordHarvestSuccess(opts: {
     taipei_date_key: today,
     casts_used: 1,
     last_cast_at: nowIso,
-    pending_cast_started_at: null,
-    pending_bait_shop_item_id: null,
+    pending_cast_started_at: nowIso,
+    pending_bait_shop_item_id: opts.baitShopItemId,
     updated_at: nowIso,
   });
+  if (error) throw error;
+}
+
+/** 收成成功：僅清除進行中拋竿（冷卻與當日次數已在拋竿時寫入）。 */
+export async function recordHarvestSuccess(opts: {
+  userId: string;
+  rodUserRewardId: string;
+}): Promise<void> {
+  const nowIso = new Date().toISOString();
+  const admin = createAdminClient();
+  const existing = await getRodCastState(opts.userId, opts.rodUserRewardId);
+
+  if (!existing) {
+    return;
+  }
+
+  const { error } = await admin
+    .from("fishing_rod_cast_state")
+    .update({
+      pending_cast_started_at: null,
+      pending_bait_shop_item_id: null,
+      updated_at: nowIso,
+    })
+    .eq("id", existing.id);
   if (error) throw error;
 }
 
@@ -199,19 +230,20 @@ export async function recordRodCastSuccess(opts: {
   await recordHarvestSuccess(opts);
 }
 
-/** 供 UI：今日剩餘拋竿、收竿後冷卻秒、進行中收成剩餘秒。 */
+/** 供 UI：今日剩餘拋竿、拋竿後冷卻秒、進行中收成剩餘秒。 */
 export async function getRodCastSnapshot(opts: {
   userId: string;
   rodUserRewardId: string;
   maxPerDay: number;
   waitUntilHarvestMinutes: number;
-  cooldownAfterHarvestMinutes: number;
+  cooldownAfterCastMinutes: number;
 }): Promise<{
   castsUsedToday: number;
   castsRemainingToday: number;
   cooldownAfterHarvestRemainingSec: number;
   pendingHarvestRemainSec: number;
   hasPendingCast: boolean;
+  cooldownInfo: RodCooldownInfo | null;
 }> {
   const today = taipeiCalendarDateKey();
   const now = Date.now();
@@ -219,9 +251,9 @@ export async function getRodCastSnapshot(opts: {
 
   const castsUsed = effectiveCastsUsedToday(row, today);
   let cooldownAfterHarvestRemainingSec = 0;
-  if (row?.last_cast_at && opts.cooldownAfterHarvestMinutes > 0) {
+  if (row?.last_cast_at && opts.cooldownAfterCastMinutes > 0) {
     const last = new Date(row.last_cast_at).getTime();
-    const ms = opts.cooldownAfterHarvestMinutes * 60_000;
+    const ms = opts.cooldownAfterCastMinutes * 60_000;
     const elapsed = now - last;
     if (elapsed < ms) {
       cooldownAfterHarvestRemainingSec = Math.ceil((ms - elapsed) / 1000);
@@ -246,5 +278,6 @@ export async function getRodCastSnapshot(opts: {
     cooldownAfterHarvestRemainingSec,
     pendingHarvestRemainSec,
     hasPendingCast,
+    cooldownInfo: computeRodCooldownInfo(row, opts.cooldownAfterCastMinutes),
   };
 }

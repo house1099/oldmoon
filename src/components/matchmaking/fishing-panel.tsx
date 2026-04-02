@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR, { mutate as swrMutate } from "swr";
+import { toast } from "sonner";
 
 import { UserDetailModal } from "@/components/modals/UserDetailModal";
 import {
@@ -30,6 +31,8 @@ import {
 } from "@/services/fishing.action";
 import { getMemberProfileByIdAction } from "@/services/profile.action";
 import type { MemberProfileView } from "@/services/profile.action";
+import { detectBaitType } from "@/lib/utils/fishing-shop-metadata";
+import type { Json } from "@/types/database.types";
 
 const FISH_TYPE_LABEL: Record<string, string> = {
   common: "普通魚",
@@ -51,6 +54,75 @@ function formatWaitHuman(sec: number): string {
   const m = Math.ceil((sec % 3600) / 60);
   if (h >= 1) return `約 ${h} 小時 ${m > 0 ? `${m} 分` : ""}`;
   return `約 ${Math.max(1, m)} 分鐘`;
+}
+
+function metadataRecord(m: Json | null): Record<string, unknown> {
+  if (m && typeof m === "object" && !Array.isArray(m)) {
+    return m as Record<string, unknown>;
+  }
+  return {};
+}
+
+function BaitFishTags({ metadata }: { metadata: Json | null }) {
+  const t = detectBaitType(metadataRecord(metadata));
+  if (t === "normal") {
+    return <span className="text-zinc-400">🐟 普通魚</span>;
+  }
+  if (t === "octopus") {
+    return (
+      <span className="text-zinc-400">
+        🐠 稀有魚 🐡 傳說魚 🦈 深海巨獸
+      </span>
+    );
+  }
+  return (
+    <span className="text-zinc-400">❤️ 月老魚（需單身狀態）</span>
+  );
+}
+
+function formatRemainHms(totalSec: number): string {
+  const s = Math.max(0, Math.floor(totalSec));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${h} 小時 ${m} 分 ${sec} 秒`;
+}
+
+function CooldownTimer({
+  nextCastAt,
+  onElapsed,
+}: {
+  nextCastAt: string | null;
+  onElapsed: () => void;
+}) {
+  const [tick, setTick] = useState(0);
+  const firedRef = useRef(false);
+
+  useEffect(() => {
+    firedRef.current = false;
+  }, [nextCastAt]);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick((x) => x + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const remainSec = useMemo(() => {
+    void tick;
+    if (!nextCastAt) return 0;
+    const targetMs = new Date(nextCastAt).getTime();
+    return Math.max(0, (targetMs - Date.now()) / 1000);
+  }, [nextCastAt, tick]);
+
+  useEffect(() => {
+    if (!nextCastAt || remainSec > 0) return;
+    if (firedRef.current) return;
+    firedRef.current = true;
+    onElapsed();
+  }, [nextCastAt, remainSec, onElapsed]);
+
+  if (!nextCastAt) return null;
+  return <span className="tabular-nums">{formatRemainHms(remainSec)}</span>;
 }
 
 export function FishingPanel() {
@@ -128,15 +200,29 @@ export function FishingPanel() {
       });
       void swrMutate(SWR_KEYS.fishingStatus);
       if (!res.ok) {
-        if (res.error === "fishing_disabled") {
-          setLastResult({ ok: false, error: res.error });
-          setRevealPlaybackKey((k) => k + 1);
-          setResultOverlay(true);
-        } else {
-          setLastResult({ ok: false, error: res.error });
-          setRevealPlaybackKey((k) => k + 1);
-          setResultOverlay(true);
+        if (res.error === "cooldown_not_ready") {
+          toast.error(`冷卻中，還需等待 ${res.remainMinutes ?? 0} 分鐘`);
+          return;
         }
+        if (res.error === "daily_limit_reached") {
+          toast.error("今日釣魚次數已達上限，明天再來吧！");
+          return;
+        }
+        if (res.error === "fishing_disabled") {
+          toast.error("釣魚系統維護中，請稍後再試");
+          return;
+        }
+        if (res.error === "need_birth_year") {
+          toast.error("使用愛心餌料需先設定出生年份與單身狀態");
+          return;
+        }
+        if (res.error === "pending_harvest") {
+          toast.error("請先收成上一輪拋竿，或稍後再試。");
+          return;
+        }
+        setLastResult({ ok: false, error: res.error });
+        setRevealPlaybackKey((k) => k + 1);
+        setResultOverlay(true);
       }
     } catch {
       setLastResult({ ok: false, error: "拋竿失敗，請稍後再試。" });
@@ -284,7 +370,7 @@ export function FishingPanel() {
                   <option key={r.id} value={r.id}>
                     {r.name}
                     {r.cooldownAfterHarvestRemainingSec > 0
-                      ? `（收竿後冷卻 ${Math.ceil(r.cooldownAfterHarvestRemainingSec / 60)} 分）`
+                      ? `（拋竿冷卻 ${Math.ceil(r.cooldownAfterHarvestRemainingSec / 60)} 分）`
                       : `（今日剩 ${r.castsRemainingToday}）`}
                   </option>
                 ))}
@@ -323,20 +409,17 @@ export function FishingPanel() {
                 ))}
               </select>
             ) : null}
-            <button
-              type="button"
-              className="w-full rounded-xl border border-violet-500 bg-violet-950/40 p-3 text-left"
-            >
+            <div className="w-full rounded-xl border border-violet-500 bg-violet-950/40 p-3 text-left">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm text-white">{baitName}</span>
                 <span className="text-xs text-zinc-500">
                   拋竿後依釣竿設定等待再收竿
                 </span>
               </div>
-              <p className="mt-1 text-xs text-zinc-500">
-                魚種機率由該魚餌在商城後台設定
+              <p className="mt-2 text-xs">
+                <BaitFishTags metadata={activeBait?.metadata ?? null} />
               </p>
-            </button>
+            </div>
           </div>
           <Button
             type="button"
@@ -350,19 +433,33 @@ export function FishingPanel() {
       ) : null}
 
       {phase === "can_cast" && lakeUiPhase === "casting" ? (
-        <div className="glass-panel rounded-2xl border border-zinc-800/40 p-4 text-center">
-          <p className="text-2xl font-semibold tabular-nums text-violet-400">
-            {formatWaitHuman(activeRod?.pendingHarvestRemainSec ?? 0)}
-          </p>
-          <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-zinc-800">
-            <div className="h-full w-full animate-pulse rounded-full bg-violet-500/80" />
+        <div className="space-y-3">
+          <div className="glass-panel rounded-2xl border border-zinc-800/40 p-4 text-center">
+            <p className="text-2xl font-semibold tabular-nums text-violet-400">
+              {formatWaitHuman(activeRod?.pendingHarvestRemainSec ?? 0)}
+            </p>
+            <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-zinc-800">
+              <div className="h-full w-full animate-pulse rounded-full bg-violet-500/80" />
+            </div>
+            <p className="mt-3 text-xs text-zinc-500">
+              {baitName} · 等待中（由釣竿 metadata 決定等待時間）
+            </p>
+            <p className="mt-4 rounded-xl border border-zinc-800/60 bg-zinc-900/50 px-3 py-2 text-xs text-zinc-500">
+              離開此畫面不影響釣魚，稍後回來收竿即可
+            </p>
           </div>
-          <p className="mt-3 text-xs text-zinc-500">
-            {baitName} · 等待中（由釣竿 metadata 決定等待時間）
-          </p>
-          <p className="mt-4 rounded-xl border border-zinc-800/60 bg-zinc-900/50 px-3 py-2 text-xs text-zinc-500">
-            離開此畫面不影響釣魚，稍後回來收竿即可
-          </p>
+          {activeRod?.cooldownInfo?.isOnCooldown ? (
+            <div className="rounded-xl bg-zinc-900/60 border border-zinc-800/40 p-4 text-center">
+              <div className="text-zinc-400 text-sm mb-1">下次可拋竿</div>
+              <div className="text-violet-400 text-xl font-semibold">
+                <CooldownTimer
+                  nextCastAt={activeRod.cooldownInfo.nextCastAt}
+                  onElapsed={() => void swrMutate(SWR_KEYS.fishingStatus)}
+                />
+              </div>
+              <div className="text-zinc-600 text-xs mt-2">冷卻中，請耐心等待</div>
+            </div>
+          ) : null}
         </div>
       ) : null}
 

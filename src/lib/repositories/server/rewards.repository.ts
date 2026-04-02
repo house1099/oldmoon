@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { insertUserReward } from "@/lib/repositories/server/prize.repository";
-import type { Database, UserRewardRow } from "@/types/database.types";
+import type { Database, Json, UserRewardRow } from "@/types/database.types";
 import {
   parseShopFrameLayoutFromMetadata,
   type ShopFrameLayout,
@@ -763,6 +763,8 @@ export type FishingInventoryItem = {
   reward_type: string;
   shop_item_id: string | null;
   displayName: string;
+  /** 釣餌：商城 metadata（判斷餌類型標籤）。 */
+  metadata?: Json | null;
 };
 
 /** 背包內釣竿／釣餌列表（含商城品名），供釣魚 UI 選擇。 */
@@ -772,7 +774,7 @@ export async function listFishingRodsAndBaits(
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("user_rewards")
-    .select("id, reward_type, shop_item_id, label, shop_items(name)")
+    .select("id, reward_type, shop_item_id, label, shop_items(name, metadata)")
     .eq("user_id", userId)
     .in("reward_type", ["fishing_rod", "fishing_bait"]);
   if (error) throw error;
@@ -781,7 +783,10 @@ export async function listFishingRodsAndBaits(
     reward_type: string;
     shop_item_id: string | null;
     label: string | null;
-    shop_items: { name: string } | { name: string }[] | null;
+    shop_items:
+      | { name: string; metadata: Json | null }
+      | { name: string; metadata: Json | null }[]
+      | null;
   }[];
   const rods: FishingInventoryItem[] = [];
   const baits: FishingInventoryItem[] = [];
@@ -796,6 +801,8 @@ export async function listFishingRodsAndBaits(
       reward_type: r.reward_type,
       shop_item_id: r.shop_item_id,
       displayName,
+      metadata:
+        r.reward_type === "fishing_bait" ? (shop?.metadata ?? null) : undefined,
     };
     if (r.reward_type === "fishing_rod") rods.push(item);
     else baits.push(item);

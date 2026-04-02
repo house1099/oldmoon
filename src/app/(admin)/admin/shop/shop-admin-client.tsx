@@ -422,12 +422,12 @@ export default function ShopAdminClient() {
     }
 
     if (form.item_type === "fishing_bait" && metadata) {
-      const { validateFishingBaitMetadata } = await import(
+      const { validateBaitMetadata } = await import(
         "@/lib/utils/fishing-shop-metadata"
       );
-      const err = validateFishingBaitMetadata(metadata as Record<string, unknown>);
-      if (err) {
-        toast.error(err);
+      const r = validateBaitMetadata(metadata as Record<string, unknown>);
+      if (!r.valid) {
+        toast.error(r.error ?? "魚餌 metadata 無效");
         return;
       }
     }
@@ -1547,23 +1547,38 @@ export default function ShopAdminClient() {
                 釣竿機率加成等（框類商品的對齊會另存為 frame_layout，不須手寫）
               </span>
               {form.item_type === "fishing_bait" ? (
-                <p className="mt-1 text-xs text-amber-900 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5">
-                  一般餌：四項
-                  <code className="text-[11px] text-gray-900">bait_common_rate</code>～
-                  <code className="text-[11px] text-gray-900">bait_matchmaker_rate</code>
-                  加總 100，<code className="text-[11px] text-gray-900">bait_leviathan_rate</code>
-                  ＝0。章魚餌：加 <code className="text-[11px] text-gray-900">bait_octopus</code>
-                  : true 時五項加總 100。
+                <p className="mt-1 text-xs text-amber-900 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5 space-y-1">
+                  <span className="block font-medium">魚餌類型說明（三選一，機率設定對應不同類型）</span>
+                  <span className="block">
+                    🪱 普通餌料：<code className="text-[11px] text-gray-900">bait_common_rate</code>: 100
+                  </span>
+                  <span className="block">
+                    🐙 章魚餌料：
+                    <code className="text-[11px] text-gray-900">bait_rare_rate</code>+
+                    <code className="text-[11px] text-gray-900">bait_legendary_rate</code>+
+                    <code className="text-[11px] text-gray-900">bait_leviathan_rate</code>
+                    ＝100（三者加總必須等於 100）
+                  </span>
+                  <span className="block">
+                    💕 愛心餌料：<code className="text-[11px] text-gray-900">bait_matchmaker_rate</code>: 100
+                  </span>
                 </p>
               ) : null}
               {form.item_type === "fishing_rod" ? (
-                <p className="mt-1 text-xs text-amber-900 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5">
-                  釣竿必填：
-                  <code className="text-[11px] text-gray-900">rod_max_casts_per_day</code>（每日可拋）、
-                  <code className="text-[11px] text-gray-900">rod_wait_until_harvest_minutes</code>
-                  （拋竿後至可收成之分鐘）、
-                  <code className="text-[11px] text-gray-900">rod_cooldown_minutes</code>
-                  （收竿後再拋冷卻分鐘，可填 0）。
+                <p className="mt-1 text-xs text-amber-900 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5 space-y-1">
+                  <span className="block">釣竿 metadata：</span>
+                  <span className="block">
+                    <code className="text-[11px] text-gray-900">rod_max_casts_per_day</code>
+                    ：每日上限次數（整數；可省略，預設 1）
+                  </span>
+                  <span className="block">
+                    <code className="text-[11px] text-gray-900">rod_cooldown_minutes</code>
+                    ：拋竿後再拋冷卻分鐘數（整數；可省略，預設 480）
+                  </span>
+                  <span className="block">
+                    <code className="text-[11px] text-gray-900">rod_wait_until_harvest_minutes</code>
+                    ：拋竿後至可收成之分鐘（整數；可省略，預設 1）
+                  </span>
                 </p>
               ) : null}
               <textarea

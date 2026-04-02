@@ -18,78 +18,80 @@ function num(v: unknown): number | null {
   return null;
 }
 
-function isBaitOctopus(metadata: Record<string, unknown>): boolean {
-  return metadata.bait_octopus === true;
+export type BaitType = "normal" | "octopus" | "heart";
+
+export function detectBaitType(metadata: Record<string, unknown>): BaitType {
+  const matchmakerRate = Number(metadata.bait_matchmaker_rate ?? 0);
+  const commonRate = Number(metadata.bait_common_rate ?? 0);
+  const leviathanRate = Number(metadata.bait_leviathan_rate ?? 0);
+  const rareRate = Number(metadata.bait_rare_rate ?? 0);
+  const legendaryRate = Number(metadata.bait_legendary_rate ?? 0);
+
+  if (matchmakerRate === 100) return "heart";
+  if (commonRate === 100) return "normal";
+  if (rareRate > 0 || legendaryRate > 0 || leviathanRate > 0) return "octopus";
+  return "normal";
 }
 
-/** 解析釣餌 metadata：章魚餌五項加總 100；一般餌四項加總 100 且 leviathan=0。 */
+export function validateBaitMetadata(metadata: Record<string, unknown>): {
+  valid: boolean;
+  error?: string;
+} {
+  const baitType = detectBaitType(metadata);
+
+  if (baitType === "normal") {
+    const common = Number(metadata.bait_common_rate ?? 0);
+    if (common !== 100) {
+      return { valid: false, error: "普通餌料：bait_common_rate 必須等於 100" };
+    }
+  }
+
+  if (baitType === "heart") {
+    const matchmaker = Number(metadata.bait_matchmaker_rate ?? 0);
+    if (matchmaker !== 100) {
+      return { valid: false, error: "愛心餌料：bait_matchmaker_rate 必須等於 100" };
+    }
+  }
+
+  if (baitType === "octopus") {
+    const rare = Number(metadata.bait_rare_rate ?? 0);
+    const legendary = Number(metadata.bait_legendary_rate ?? 0);
+    const leviathan = Number(metadata.bait_leviathan_rate ?? 0);
+    const total = rare + legendary + leviathan;
+    if (Math.abs(total - 100) > 0.01) {
+      return {
+        valid: false,
+        error: `章魚餌料：稀有魚+傳說魚+深海巨獸機率加總必須等於 100（目前 ${total}）`,
+      };
+    }
+  }
+
+  return { valid: true };
+}
+
+/** @deprecated 使用 validateBaitMetadata */
 export function validateFishingBaitMetadata(
   metadata: Record<string, unknown>,
 ): string | null {
-  const octopus = isBaitOctopus(metadata);
-  const lev = num(metadata.bait_leviathan_rate);
-
-  if (!octopus) {
-    if (lev != null && lev !== 0) {
-      return "非章魚餌請將 bait_leviathan_rate 設為 0，或設定 bait_octopus: true";
-    }
-    const keys = [
-      "bait_common_rate",
-      "bait_rare_rate",
-      "bait_legendary_rate",
-      "bait_matchmaker_rate",
-    ] as const;
-    let sum = 0;
-    for (const key of keys) {
-      const n = num(metadata[key]);
-      if (n == null) continue;
-      if (n < 0 || n > 100) {
-        return `${key} 須為 0–100 的數字`;
-      }
-      sum += n;
-    }
-    if (sum === 0) {
-      return "釣餌須設定 bait_common_rate～bait_matchmaker_rate 至少一項，且四項加總為 100";
-    }
-    if (Math.round(sum) !== 100) {
-      return `一般魚餌四魚種機率加總須為 100（目前 ${sum}）`;
-    }
-    return null;
-  }
-
-  let sum = 0;
-  for (const { key } of FISH_RATE_KEYS) {
-    const n = num(metadata[key]);
-    if (n == null) continue;
-    if (n < 0 || n > 100) {
-      return `${key} 須為 0–100 的數字`;
-    }
-    sum += n;
-  }
-  if (sum === 0) {
-    return "章魚餌須設定五魚種機率且加總為 100";
-  }
-  if (Math.round(sum) !== 100) {
-    return `章魚餌五魚種機率加總須為 100（目前 ${sum}）`;
-  }
-  return null;
+  const r = validateBaitMetadata(metadata);
+  return r.valid ? null : r.error ?? null;
 }
 
-/** 解析釣竿 metadata：每日上限、拋竿後至可收成之分鐘、收竿後再拋冷卻（可為 0）。 */
+/** 釣竿：收成等待必填；每日上限預設 1、拋竿冷卻預設 480 分（可在 metadata 覆寫）。 */
 export function validateFishingRodMetadata(
   metadata: Record<string, unknown>,
 ): string | null {
   const max = num(metadata.rod_max_casts_per_day);
   const wait = num(metadata.rod_wait_until_harvest_minutes);
   const after = num(metadata.rod_cooldown_minutes);
-  if (max == null || !Number.isInteger(max) || max < 1) {
+  if (max != null && (!Number.isInteger(max) || max < 1)) {
     return "rod_max_casts_per_day 須為 ≥1 的整數";
   }
-  if (wait == null || !Number.isInteger(wait) || wait < 1) {
+  if (wait != null && (!Number.isInteger(wait) || wait < 1)) {
     return "rod_wait_until_harvest_minutes 須為 ≥1 的整數（拋竿後至可收成之分鐘）";
   }
   if (after != null && (!Number.isInteger(after) || after < 0)) {
-    return "rod_cooldown_minutes 須為 ≥0 的整數（收竿後再拋冷卻分鐘，可填 0）";
+    return "rod_cooldown_minutes 須為 ≥0 的整數（拋竿後再拋冷卻分鐘）";
   }
   return null;
 }
@@ -123,43 +125,51 @@ export function parseBaitFishWeights(
   return out;
 }
 
+/** 是否為愛心餌（月老魚）；舊邏輯「任意 matchmaker 機率」已廢棄。 */
 export function baitHasMatchmakerChance(metadata: Json | null | undefined): boolean {
   const m =
     metadata && typeof metadata === "object" && !Array.isArray(metadata)
       ? (metadata as Record<string, unknown>)
       : {};
-  const v = num(m.bait_matchmaker_rate);
-  return v != null && v > 0;
+  return detectBaitType(m) === "heart";
 }
 
-/** 拋竿／收成規則；舊欄位僅 rod_cooldown_minutes 時無法解析（須補 rod_wait_until_harvest_minutes）。 */
+/** 拋竿／收成規則；缺欄位時預設 maxPerDay=1、waitUntilHarvestMinutes=1、cooldownAfterCastMinutes=480。 */
 export function parseRodFishingRules(metadata: Json | null | undefined): {
   maxPerDay: number;
   waitUntilHarvestMinutes: number;
-  cooldownAfterHarvestMinutes: number;
+  cooldownAfterCastMinutes: number;
 } | null {
   const m =
     metadata && typeof metadata === "object" && !Array.isArray(metadata)
       ? (metadata as Record<string, unknown>)
       : {};
-  const max = num(m.rod_max_casts_per_day);
-  const wait = num(m.rod_wait_until_harvest_minutes);
-  const after = num(m.rod_cooldown_minutes);
-  if (max == null || !Number.isInteger(max) || max < 1) {
-    return null;
-  }
-  if (wait == null || !Number.isInteger(wait) || wait < 1) {
-    return null;
-  }
-  const cooldownAfter =
-    after == null ? 0 : Number.isInteger(after) && after >= 0 ? after : null;
-  if (cooldownAfter === null) {
+  const maxRaw = num(m.rod_max_casts_per_day);
+  const waitRaw = num(m.rod_wait_until_harvest_minutes);
+  const afterRaw = num(m.rod_cooldown_minutes);
+
+  const maxPerDay =
+    maxRaw == null ? 1 : Number.isInteger(maxRaw) && maxRaw >= 1 ? maxRaw : null;
+  const waitUntilHarvestMinutes =
+    waitRaw == null
+      ? 1
+      : Number.isInteger(waitRaw) && waitRaw >= 1
+        ? waitRaw
+        : null;
+  const cooldownAfterCastMinutes =
+    afterRaw == null
+      ? 480
+      : Number.isInteger(afterRaw) && afterRaw >= 0
+        ? afterRaw
+        : null;
+
+  if (maxPerDay == null || waitUntilHarvestMinutes == null || cooldownAfterCastMinutes == null) {
     return null;
   }
   return {
-    maxPerDay: max,
-    waitUntilHarvestMinutes: wait,
-    cooldownAfterHarvestMinutes: cooldownAfter,
+    maxPerDay,
+    waitUntilHarvestMinutes,
+    cooldownAfterCastMinutes,
   };
 }
 
@@ -172,7 +182,7 @@ export function parseRodCastRules(metadata: Json | null | undefined): {
   if (!r) return null;
   return {
     maxPerDay: r.maxPerDay,
-    cooldownMinutes: r.cooldownAfterHarvestMinutes,
+    cooldownMinutes: r.cooldownAfterCastMinutes,
   };
 }
 
