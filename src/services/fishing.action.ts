@@ -54,6 +54,11 @@ import { findSystemSettingByKey } from "@/lib/repositories/server/invitation.rep
 import { getMatchmakerAgeMaxAction } from "@/services/system-settings.action";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
 import { isAgeMatch, isRegionMatch } from "@/lib/utils/matchmaker-region";
+import {
+  checkAllMatchmakerLocks,
+  type MatchmakerLockSettings,
+  type MatchmakerProfile,
+} from "@/lib/utils/matchmaker-locks";
 import type {
   FishType,
   FishingRewardRow,
@@ -1093,9 +1098,35 @@ async function runFishingHarvestCore(
     return collect;
   }
 
-  const ageMax = await getMatchmakerAgeMaxAction();
-  const blocked = new Set(await findUserIdsInBlockRelation(userId));
-  const candidatesRaw = await findMatchmakerPoolCandidates(userId);
+  const [ageMax, blocked, candidatesRaw, ...lockRaw] = await Promise.all([
+    getMatchmakerAgeMaxAction(),
+    findUserIdsInBlockRelation(userId).then((ids) => new Set(ids)),
+    findMatchmakerPoolCandidates(userId),
+    findSystemSettingByKey("matchmaker_lock_diet"),
+    findSystemSettingByKey("matchmaker_lock_smoking"),
+    findSystemSettingByKey("matchmaker_lock_pets"),
+    findSystemSettingByKey("matchmaker_lock_single_parent"),
+    findSystemSettingByKey("matchmaker_lock_fertility"),
+    findSystemSettingByKey("matchmaker_lock_marriage"),
+    findSystemSettingByKey("matchmaker_lock_zodiac"),
+    findSystemSettingByKey("matchmaker_lock_v1"),
+    findSystemSettingByKey("matchmaker_lock_v3"),
+    findSystemSettingByKey("matchmaker_lock_v4"),
+    findSystemSettingByKey("matchmaker_v_max_diff"),
+  ]);
+  const lockSettings: MatchmakerLockSettings = {
+    lock_diet: lockRaw[0] === "true",
+    lock_smoking: lockRaw[1] === "true",
+    lock_pets: lockRaw[2] === "true",
+    lock_single_parent: lockRaw[3] === "true",
+    lock_fertility: lockRaw[4] === "true",
+    lock_marriage: lockRaw[5] === "true",
+    lock_zodiac: lockRaw[6] === "true",
+    lock_v1: lockRaw[7] === "true",
+    lock_v3: lockRaw[8] === "true",
+    lock_v4: lockRaw[9] === "true",
+    v_max_diff: parseInt(lockRaw[10] ?? "2") || 2,
+  };
 
   const fisherBirthYear = fisher.birth_year!;
   const fisherAge = clampAgeFields(
@@ -1108,6 +1139,32 @@ async function runFishingHarvestCore(
     matchmaker_age_mode: fisher.matchmaker_age_mode,
     matchmaker_age_older: fisherAge.matchmaker_age_older,
     matchmaker_age_younger: fisherAge.matchmaker_age_younger,
+  };
+
+  const fisherMP: MatchmakerProfile = {
+    gender: fisher.gender,
+    orientation: fisher.orientation,
+    birth_year: fisher.birth_year,
+    region: fisher.region,
+    matchmaker_age_mode: fisher.matchmaker_age_mode,
+    matchmaker_age_older: fisherAge.matchmaker_age_older,
+    matchmaker_age_younger: fisherAge.matchmaker_age_younger,
+    matchmaker_region_pref: fisher.matchmaker_region_pref ?? '["all"]',
+    diet_type: fisher.diet_type,
+    smoking_habit: fisher.smoking_habit,
+    accept_smoking: fisher.accept_smoking,
+    my_pets: fisher.my_pets,
+    accept_pets: fisher.accept_pets,
+    has_children: fisher.has_children,
+    accept_single_parent: fisher.accept_single_parent,
+    fertility_self: fisher.fertility_self,
+    fertility_pref: fisher.fertility_pref,
+    marriage_view: fisher.marriage_view,
+    zodiac: fisher.zodiac,
+    exclude_zodiac: fisher.exclude_zodiac,
+    v1_money: fisher.v1_money,
+    v3_clingy: fisher.v3_clingy,
+    v4_conflict: fisher.v4_conflict,
   };
 
   const pool: typeof candidatesRaw = [];
@@ -1140,6 +1197,34 @@ async function runFishingHarvestCore(
       matchmaker_age_younger: cAge.matchmaker_age_younger,
     };
     if (!isAgeMatch(fisherForMatch, candForMatch)) continue;
+
+    const candMP: MatchmakerProfile = {
+      gender: c.gender,
+      orientation: c.orientation,
+      birth_year: c.birth_year,
+      region: c.region,
+      matchmaker_age_mode: c.matchmaker_age_mode,
+      matchmaker_age_older: cAge.matchmaker_age_older,
+      matchmaker_age_younger: cAge.matchmaker_age_younger,
+      matchmaker_region_pref: c.matchmaker_region_pref ?? '["all"]',
+      diet_type: c.diet_type,
+      smoking_habit: c.smoking_habit,
+      accept_smoking: c.accept_smoking,
+      my_pets: c.my_pets,
+      accept_pets: c.accept_pets,
+      has_children: c.has_children,
+      accept_single_parent: c.accept_single_parent,
+      fertility_self: c.fertility_self,
+      fertility_pref: c.fertility_pref,
+      marriage_view: c.marriage_view,
+      zodiac: c.zodiac,
+      exclude_zodiac: c.exclude_zodiac,
+      v1_money: c.v1_money,
+      v3_clingy: c.v3_clingy,
+      v4_conflict: c.v4_conflict,
+    };
+    if (!checkAllMatchmakerLocks(fisherMP, candMP, lockSettings)) continue;
+
     pool.push(c);
   }
 

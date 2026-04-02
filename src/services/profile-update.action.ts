@@ -66,6 +66,21 @@ export async function updateMyProfile(input: {
   matchmaker_region_pref?: string;
   /** 是否願意加入月老魚配對池（無需審核） */
   matchmaker_opt_in?: boolean;
+  diet_type?: string;
+  smoking_habit?: string;
+  accept_smoking?: string;
+  my_pets?: string;
+  accept_pets?: string;
+  has_children?: string;
+  accept_single_parent?: string;
+  fertility_self?: string;
+  fertility_pref?: string;
+  marriage_view?: string;
+  zodiac?: string;
+  exclude_zodiac?: string;
+  v1_money?: number;
+  v3_clingy?: number;
+  v4_conflict?: number;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   if (
     input.bio === undefined &&
@@ -84,7 +99,22 @@ export async function updateMyProfile(input: {
     input.matchmaker_age_older === undefined &&
     input.matchmaker_age_younger === undefined &&
     input.matchmaker_region_pref === undefined &&
-    input.matchmaker_opt_in === undefined
+    input.matchmaker_opt_in === undefined &&
+    input.diet_type === undefined &&
+    input.smoking_habit === undefined &&
+    input.accept_smoking === undefined &&
+    input.my_pets === undefined &&
+    input.accept_pets === undefined &&
+    input.has_children === undefined &&
+    input.accept_single_parent === undefined &&
+    input.fertility_self === undefined &&
+    input.fertility_pref === undefined &&
+    input.marriage_view === undefined &&
+    input.zodiac === undefined &&
+    input.exclude_zodiac === undefined &&
+    input.v1_money === undefined &&
+    input.v3_clingy === undefined &&
+    input.v4_conflict === undefined
   ) {
     return { ok: false, error: "沒有要更新的項目。" };
   }
@@ -253,6 +283,43 @@ export async function updateMyProfile(input: {
   }
   if (input.matchmaker_opt_in !== undefined) {
     patch.matchmaker_opt_in = input.matchmaker_opt_in;
+  }
+
+  const stringFields = [
+    "diet_type",
+    "smoking_habit",
+    "accept_smoking",
+    "my_pets",
+    "accept_pets",
+    "has_children",
+    "accept_single_parent",
+    "fertility_self",
+    "fertility_pref",
+    "marriage_view",
+    "zodiac",
+    "exclude_zodiac",
+  ] as const;
+  for (const key of stringFields) {
+    if (input[key] !== undefined) {
+      const trimmed = input[key]!.trim();
+      (patch as Record<string, unknown>)[key] =
+        trimmed.length > 0 ? trimmed : null;
+    }
+  }
+
+  const vFields = [
+    ["v1_money", "金錢觀"],
+    ["v3_clingy", "黏人程度"],
+    ["v4_conflict", "衝突處理"],
+  ] as const;
+  for (const [key, label] of vFields) {
+    if (input[key] !== undefined) {
+      const n = input[key]!;
+      if (!Number.isInteger(n) || n < 1 || n > 5) {
+        return { ok: false, error: `${label}須為 1～5 的整數。` };
+      }
+      (patch as Record<string, unknown>)[key] = n;
+    }
   }
 
   try {

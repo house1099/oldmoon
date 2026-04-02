@@ -2,6 +2,34 @@
 
 舊版主檔內之逐日／逐任務紀錄與長篇 Wave 敘事已遷移至此。**平時不必讀**；需追溯決策或實作細節時再開。
 
+### 2026-04-02 — 月老魚 V500 硬鎖配對邏輯＋玩家配對條件表單
+
+**目標**：月老魚配對邏輯階段二 — 支援進階欄位更新、V500 硬鎖邏輯、候選池過濾、玩家填寫 UI。
+
+**Part 1 — `profile-update.action.ts` 擴充**
+- `updateMyProfile` 新增 15 個可選字串欄位（`diet_type`、`smoking_habit`、`accept_smoking`、`my_pets`、`accept_pets`、`has_children`、`accept_single_parent`、`fertility_self`、`fertility_pref`、`marriage_view`、`zodiac`、`exclude_zodiac`）+ 3 個數值欄位（`v1_money`／`v3_clingy`／`v4_conflict`，1-5 整數驗證）。
+- 「nothing to update」guard 與 patch 均已擴充。
+
+**Part 2 — 新增 `src/lib/utils/matchmaker-locks.ts`**
+- 完整移植 V500 硬鎖判斷：`MatchmakerProfile`、`MatchmakerLockSettings` 介面。
+- `checkAllMatchmakerLocks(fisher, candidate, settings)` — 主函式串連 10 項硬鎖。
+- 各硬鎖函式：`checkGenderOrientation`（永遠生效）、`checkDietLock`、`checkSmokingLock`、`checkPetLock`、`checkSingleParentLock`、`checkFertilityLock`、`checkMarriageLock`、`checkZodiacLock`、三觀 V 分差（`Math.abs(a-b) > v_max_diff`）。
+- 每項硬鎖以 `settings.lock_*` 控制，disabled 時直接 pass。
+
+**Part 3 — `fishing.action.ts` 月老魚配對池整合**
+- `user.repository.ts`：`MatchmakerPoolCandidateRow` 補 `gender`、`orientation` + 15 個配對欄位；`.select()` 同步擴充。
+- `runFishingHarvestCore`：`Promise.all` 批次讀取 `findMatchmakerPoolCandidates` + 11 個 `system_settings` 鍵（`matchmaker_lock_*`、`matchmaker_v_max_diff`），建構 `MatchmakerLockSettings`。
+- 候選池 for-loop 既有地區／年齡判斷後加 `checkAllMatchmakerLocks(fisherMP, candMP, lockSettings)` 過濾。
+
+**Part 4 — `matchmaker-settings-tab.tsx` 玩家配對條件表單**
+- 取代原「更多篩選條件即將推出」文字，新增折疊區塊「💘 配對條件設定（選填）」（預設收合）。
+- 飲食（下拉）、抽菸（膠囊）、寵物（多選膠囊）、單親（單選膠囊）、生育（下拉）、婚姻（膠囊）、星座（下拉 + 排除多選膠囊）、三觀（1-5 膠囊按鈕）。
+- 各欄位 onChange 即時 `updateMyProfile` → `toast.success` / `toast.error` + `mutateProfile()`。
+
+**驗證**：`npx tsc --noEmit` 通過、`npm run build` 通過。
+
+---
+
 ### 2026-04-02 — 月老魚配對邏輯地基（users 欄位、system_settings、後台開關）
 
 1. **目標**：為月老魚配對預備 **DB 使用者欄位**、**全服硬鎖開關**（`system_settings`）、型別與 **`/admin/fishing` 系統設定 Tab** 之 **💘 月老配對條件開關**（基礎說明／進階硬鎖七項／三觀三項＋**最大允許差距** `matchmaker_v_max_diff`）。

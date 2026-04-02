@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -500,9 +500,7 @@ export function MatchmakerSettingsTab() {
         </p>
       </div>
 
-      <p className="mt-2 px-4 text-center text-xs text-zinc-600">
-        更多篩選條件即將推出
-      </p>
+      <MatchmakerProfileForm profile={profile} mutateProfile={mutateProfile} busy={busyBase} />
 
       <AlertDialog
         open={relationshipConfirmOpen}
@@ -604,6 +602,420 @@ export function MatchmakerSettingsTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ── 配對條件設定表單 ──
+
+const ZODIAC_LIST = [
+  "牡羊座", "金牛座", "雙子座", "巨蟹座", "獅子座", "處女座",
+  "天秤座", "天蠍座", "射手座", "摩羯座", "水瓶座", "雙魚座",
+] as const;
+
+const DIET_OPTIONS = [
+  "葷食(無禁忌)", "不吃牛", "不吃海鮮", "葷不排斥素",
+  "方便素/鍋邊素", "嚴格素食(蛋奶素/全素)", "素不排斥葷",
+] as const;
+
+const PET_OPTIONS = ["無", "貓", "狗", "兔", "鼠", "鳥", "魚", "爬蟲/蛇/蜥蜴"] as const;
+const ACCEPT_PET_OPTIONS = ["都可以", "貓", "狗", "兔鼠鳥魚等小動物", "爬蟲"] as const;
+
+type UserRow = NonNullable<ReturnType<typeof useMyProfile>["profile"]>;
+
+function MatchmakerProfileForm({
+  profile,
+  mutateProfile,
+  busy,
+}: {
+  profile: UserRow;
+  mutateProfile: () => Promise<unknown>;
+  busy: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const save = useCallback(
+    async (patch: Parameters<typeof updateMyProfile>[0]) => {
+      const result = await updateMyProfile(patch);
+      if (result.ok) {
+        toast.success("已更新");
+        await mutateProfile();
+      } else {
+        toast.error(result.error ?? "更新失敗");
+      }
+    },
+    [mutateProfile],
+  );
+
+  const myPetsSet = useMemo(() => {
+    const raw = profile.my_pets ?? "";
+    if (!raw) return new Set<string>();
+    return new Set(raw.split(",").map((s) => s.trim()).filter(Boolean));
+  }, [profile.my_pets]);
+
+  const acceptPetsSet = useMemo(() => {
+    const raw = profile.accept_pets ?? "";
+    if (!raw) return new Set<string>();
+    return new Set(raw.split(",").map((s) => s.trim()).filter(Boolean));
+  }, [profile.accept_pets]);
+
+  const excludeZodiacSet = useMemo(() => {
+    const raw = profile.exclude_zodiac ?? "";
+    if (!raw) return new Set<string>();
+    return new Set(raw.split(",").map((s) => s.trim()).filter(Boolean));
+  }, [profile.exclude_zodiac]);
+
+  function toggleMulti(
+    current: Set<string>,
+    value: string,
+    fieldName: "my_pets" | "accept_pets" | "exclude_zodiac",
+  ) {
+    const next = new Set(current);
+    if (next.has(value)) next.delete(value);
+    else next.add(value);
+    const joined = Array.from(next).join(",");
+    void save({ [fieldName]: joined || "" });
+  }
+
+  const cardCls =
+    "rounded-2xl border border-zinc-800/40 bg-zinc-900/60 p-4 space-y-3";
+  const labelCls = "text-sm font-medium text-white";
+  const subLabelCls = "text-xs text-zinc-500";
+  const selectCls =
+    "w-full rounded-full border border-white/10 bg-zinc-900/60 px-4 py-2.5 text-sm text-white outline-none focus:border-white/30 appearance-none";
+
+  const capsule = (selected: boolean) =>
+    cn(
+      "rounded-full border px-3 py-2 text-xs font-medium transition-colors disabled:opacity-50",
+      selected
+        ? "border-violet-400 bg-violet-600/80 text-white"
+        : "border-zinc-700 bg-zinc-800/60 text-zinc-400",
+    );
+
+  return (
+    <div className="space-y-3">
+      <button
+        type="button"
+        onClick={() => setExpanded((p) => !p)}
+        className="flex w-full items-center justify-between rounded-2xl border border-zinc-800/40 bg-zinc-900/60 px-4 py-3"
+      >
+        <div className="text-left">
+          <p className="text-sm font-medium text-white">
+            💘 配對條件設定（選填）
+          </p>
+          {!expanded && (
+            <p className="mt-0.5 text-xs text-zinc-500">
+              填寫越完整，配對越精準。未填寫的條件不會影響配對
+            </p>
+          )}
+        </div>
+        <span className="shrink-0 text-zinc-500">{expanded ? "▲" : "▼"}</span>
+      </button>
+
+      {expanded && (
+        <div className="space-y-3">
+          {/* 飲食習慣 */}
+          <div className={cardCls}>
+            <p className={labelCls}>🥗 飲食習慣</p>
+            <select
+              className={selectCls}
+              disabled={busy}
+              value={profile.diet_type ?? ""}
+              onChange={(e) => void save({ diet_type: e.target.value })}
+            >
+              <option value="">請選擇</option>
+              {DIET_OPTIONS.map((o) => (
+                <option key={o} value={o}>{o}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* 抽菸習慣 */}
+          <div className={cardCls}>
+            <p className={labelCls}>🚬 抽菸習慣</p>
+            <div>
+              <p className={subLabelCls}>自身抽菸</p>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {(["我不抽菸", "我抽電子菸/加熱菸", "我抽傳統紙菸"] as const).map(
+                  (opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      disabled={busy}
+                      className={capsule(profile.smoking_habit === opt)}
+                      onClick={() => void save({ smoking_habit: opt })}
+                    >
+                      {opt}
+                    </button>
+                  ),
+                )}
+              </div>
+            </div>
+            <div>
+              <p className={subLabelCls}>接受對方</p>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {(["都可以接受", "只要不是傳統紙菸", "絕對無法接受"] as const).map(
+                  (opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      disabled={busy}
+                      className={capsule(profile.accept_smoking === opt)}
+                      onClick={() => void save({ accept_smoking: opt })}
+                    >
+                      {opt}
+                    </button>
+                  ),
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 寵物 */}
+          <div className={cardCls}>
+            <p className={labelCls}>🐾 寵物</p>
+            <div>
+              <p className={subLabelCls}>自身寵物（可複選）</p>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {PET_OPTIONS.map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    disabled={busy}
+                    className={capsule(myPetsSet.has(opt))}
+                    onClick={() => toggleMulti(myPetsSet, opt, "my_pets")}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className={subLabelCls}>接受對方寵物（可複選）</p>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {ACCEPT_PET_OPTIONS.map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    disabled={busy}
+                    className={capsule(acceptPetsSet.has(opt))}
+                    onClick={() =>
+                      toggleMulti(acceptPetsSet, opt, "accept_pets")
+                    }
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 自身狀況 */}
+          <div className={cardCls}>
+            <p className={labelCls}>👨‍👩‍👦 自身狀況</p>
+            <div>
+              <p className={subLabelCls}>自身</p>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {(["單身且無子女", "單親且有子女"] as const).map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    disabled={busy}
+                    className={capsule(profile.has_children === opt)}
+                    onClick={() => void save({ has_children: opt })}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className={subLabelCls}>接受對方</p>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {(["可以接受", "暫不考慮"] as const).map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    disabled={busy}
+                    className={capsule(profile.accept_single_parent === opt)}
+                    onClick={() => void save({ accept_single_parent: opt })}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 生育意願 */}
+          <div className={cardCls}>
+            <p className={labelCls}>🍼 生育意願</p>
+            <div>
+              <p className={subLabelCls}>自身意願</p>
+              <select
+                className={cn(selectCls, "mt-1")}
+                disabled={busy}
+                value={profile.fertility_self ?? ""}
+                onChange={(e) => void save({ fertility_self: e.target.value })}
+              >
+                <option value="">請選擇</option>
+                <option value="希望有小孩">希望有小孩</option>
+                <option value="不想要小孩">不想要小孩</option>
+                <option value="隨緣都可以">隨緣都可以</option>
+              </select>
+            </div>
+            <div>
+              <p className={subLabelCls}>希望對方</p>
+              <select
+                className={cn(selectCls, "mt-1")}
+                disabled={busy}
+                value={profile.fertility_pref ?? ""}
+                onChange={(e) => void save({ fertility_pref: e.target.value })}
+              >
+                <option value="">請選擇</option>
+                <option value="一定要想要小孩">一定要想要小孩</option>
+                <option value="一定要不想要小孩">一定要不想要小孩</option>
+                <option value="隨緣都沒關係">隨緣都沒關係</option>
+              </select>
+            </div>
+          </div>
+
+          {/* 婚姻觀念 */}
+          <div className={cardCls}>
+            <p className={labelCls}>💍 婚姻觀念</p>
+            <div className="flex flex-wrap gap-2">
+              {(["堅持不婚主義", "遇到對的人不排斥結婚"] as const).map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  disabled={busy}
+                  className={capsule(profile.marriage_view === opt)}
+                  onClick={() => void save({ marriage_view: opt })}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 星座 */}
+          <div className={cardCls}>
+            <p className={labelCls}>♈ 星座</p>
+            <div>
+              <p className={subLabelCls}>我的星座</p>
+              <select
+                className={cn(selectCls, "mt-1")}
+                disabled={busy}
+                value={profile.zodiac ?? ""}
+                onChange={(e) => void save({ zodiac: e.target.value })}
+              >
+                <option value="">請選擇</option>
+                {ZODIAC_LIST.map((z) => (
+                  <option key={z} value={z}>{z}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <p className={subLabelCls}>排除星座（可複選）</p>
+              <div className="mt-1 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={busy}
+                  className={capsule(excludeZodiacSet.has("不介意"))}
+                  onClick={() =>
+                    toggleMulti(excludeZodiacSet, "不介意", "exclude_zodiac")
+                  }
+                >
+                  不介意
+                </button>
+                {ZODIAC_LIST.map((z) => (
+                  <button
+                    key={z}
+                    type="button"
+                    disabled={busy}
+                    className={capsule(excludeZodiacSet.has(z))}
+                    onClick={() =>
+                      toggleMulti(excludeZodiacSet, z, "exclude_zodiac")
+                    }
+                  >
+                    {z}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 三觀量表 */}
+          <div className={cardCls}>
+            <p className={labelCls}>🧭 三觀（1-5）</p>
+            <p className={subLabelCls}>
+              選擇最符合你的數值，僅在後台開啟三觀篩選時生效
+            </p>
+            <VScaleRow
+              label="V1 金錢觀"
+              hint="1=AA制 ↔ 5=全包"
+              value={profile.v1_money}
+              disabled={busy}
+              onSelect={(n) => void save({ v1_money: n })}
+            />
+            <VScaleRow
+              label="V3 黏人程度"
+              hint="1=很獨立 ↔ 5=超黏"
+              value={profile.v3_clingy}
+              disabled={busy}
+              onSelect={(n) => void save({ v3_clingy: n })}
+            />
+            <VScaleRow
+              label="V4 衝突處理"
+              hint="1=需冷靜 ↔ 5=必講開"
+              value={profile.v4_conflict}
+              disabled={busy}
+              onSelect={(n) => void save({ v4_conflict: n })}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VScaleRow({
+  label,
+  hint,
+  value,
+  disabled,
+  onSelect,
+}: {
+  label: string;
+  hint: string;
+  value: number | null;
+  disabled: boolean;
+  onSelect: (n: number) => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-baseline gap-2">
+        <p className="text-xs font-medium text-zinc-300">{label}</p>
+        <p className="text-[10px] text-zinc-600">{hint}</p>
+      </div>
+      <div className="mt-1 flex gap-2">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            disabled={disabled}
+            onClick={() => onSelect(n)}
+            className={cn(
+              "h-9 w-9 rounded-full border text-xs font-medium transition-colors disabled:opacity-50",
+              value === n
+                ? "border-violet-400 bg-violet-600/80 text-white"
+                : "border-zinc-700 bg-zinc-800/60 text-zinc-400",
+            )}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
