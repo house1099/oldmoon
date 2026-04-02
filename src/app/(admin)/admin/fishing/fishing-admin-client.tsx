@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -31,7 +32,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-  Plus,
 } from "lucide-react";
 import { SWR_KEYS } from "@/lib/swr/keys";
 import type {
@@ -143,12 +143,6 @@ const TIER_LABELS: Record<FishingRewardTier, string> = {
   large: "大獎",
 };
 
-const TIER_OPTIONS: { value: FishingRewardTier; label: string }[] = [
-  { value: "small", label: "最小獎" },
-  { value: "medium", label: "中等獎" },
-  { value: "large", label: "大獎" },
-];
-
 /** 0–100% step 0.01 → basis points 0–10000 */
 function parseTierPercentToBp(raw: string): number | null {
   const t = raw.trim();
@@ -185,7 +179,7 @@ function rewardTypeBadgeLabel(t: FishingRewardType): string {
     case "exp":
       return "EXP";
     case "shop_item":
-      return "道具";
+      return "商城道具";
     default:
       return t;
   }
@@ -205,6 +199,10 @@ function describeReward(row: FishingRewardWithItem): string {
     default:
       return "—";
   }
+}
+
+function tierPoolWeightSum(rows: FishingRewardWithItem[]): number {
+  return rows.reduce((s, r) => s + Number(r.weight), 0);
 }
 
 export default function FishingAdminClient({
@@ -353,6 +351,23 @@ export default function FishingAdminClient({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  const showWeightInDialog = useMemo(() => {
+    if (!rewards) return false;
+    const inTier = rewards.filter(
+      (r) => r.fish_type === formFish && r.reward_tier === formTier,
+    );
+    if (formFish === "matchmaker") return false;
+    if (dialogMode === "create") return inTier.length >= 1;
+    return inTier.length >= 2;
+  }, [rewards, formFish, formTier, dialogMode]);
+
+  const tierCountForWeightHint = useMemo(() => {
+    if (!rewards) return 0;
+    return rewards.filter(
+      (r) => r.fish_type === formFish && r.reward_tier === formTier,
+    ).length;
+  }, [rewards, formFish, formTier]);
+
   const openCreate = (tier: FishingRewardTier) => {
     setDialogMode("create");
     setEditingId(null);
@@ -390,10 +405,23 @@ export default function FishingAdminClient({
   };
 
   const submitReward = async () => {
-    const wBp = percentInputToWeightBp(formWeight);
-    if (wBp == null) {
-      toast.error("請填寫正數機率（%），最多兩位小數");
-      return;
+    let wBp: number;
+    if (showWeightInDialog) {
+      const parsed = percentInputToWeightBp(formWeight);
+      if (parsed == null) {
+        toast.error("請填寫正數機率（%），最多兩位小數");
+        return;
+      }
+      wBp = parsed;
+    } else if (dialogMode === "edit" && editingId) {
+      const existing = rewards?.find((r) => r.id === editingId);
+      if (!existing) {
+        toast.error("找不到獎品");
+        return;
+      }
+      wBp = Number(existing.weight);
+    } else {
+      wBp = percentInputToWeightBp("1.00") ?? 100;
     }
     let stock: number | null = null;
     if (formStock.trim() !== "") {
@@ -1032,8 +1060,9 @@ export default function FishingAdminClient({
               <LeviathanStockAlert rewards={leviathanRewards} />
               <RewardTierCard
                 title="限量大獎"
-                tier="large"
                 list={rewardsByTier.large}
+                subtitleVariant="leviathan"
+                onGoSettings={() => setTab("settings")}
                 onAdd={() => openCreate("large")}
                 onEdit={openEdit}
                 onToggle={(row) => void toggleActive(row)}
@@ -1052,8 +1081,9 @@ export default function FishingAdminClient({
               <RewardTierCard
                 key={tier}
                 title={TIER_LABELS[tier]}
-                tier={tier}
                 list={rewardsByTier[tier]}
+                subtitleVariant="tierRates"
+                onGoSettings={() => setTab("settings")}
                 onAdd={() => openCreate(tier)}
                 onEdit={openEdit}
                 onToggle={(row) => void toggleActive(row)}
@@ -1275,8 +1305,19 @@ export default function FishingAdminClient({
         >
           <DialogHeader>
             <DialogTitle className="text-gray-900 font-semibold">
-              {dialogMode === "create" ? "新增獎品" : "編輯獎品"}
+              {dialogMode === "edit"
+                ? "編輯獎品"
+                : formFish === "leviathan"
+                  ? "新增限量大獎 — 深海巨獸"
+                  : `新增獎品 — ${fishLabel(formFish)} ${TIER_LABELS[formTier]}`}
             </DialogTitle>
+            {dialogMode === "edit" ? (
+              <DialogDescription className="text-gray-500 text-sm">
+                {formFish === "leviathan"
+                  ? "深海巨獸 · 限量大獎"
+                  : `${fishLabel(formFish)} · ${TIER_LABELS[formTier]}`}
+              </DialogDescription>
+            ) : null}
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
@@ -1299,7 +1340,7 @@ export default function FishingAdminClient({
             {formRewardType === "coins_free" || formRewardType === "coins_premium" ? (
               <div>
                 <label className="text-gray-700 text-sm mb-1 block">
-                  數量（正整數）
+                  數量
                 </label>
                 <input
                   type="text"
@@ -1313,7 +1354,7 @@ export default function FishingAdminClient({
             {formRewardType === "exp" ? (
               <div>
                 <label className="text-gray-700 text-sm mb-1 block">
-                  EXP 數量（正整數）
+                  EXP 數量
                 </label>
                 <input
                   type="text"
@@ -1330,10 +1371,9 @@ export default function FishingAdminClient({
                   從商城選擇
                 </label>
                 <select
-                  className={`${dialogFieldClass} min-h-[120px] py-2`}
+                  className={dialogFieldClass}
                   value={formShopItemId}
                   onChange={(e) => setFormShopItemId(e.target.value)}
-                  size={6}
                 >
                   <option value="">— 選擇商品 —</option>
                   {(shopItems ?? []).map((it) => (
@@ -1345,89 +1385,46 @@ export default function FishingAdminClient({
                 </select>
               </div>
             ) : null}
-            {formFish === "matchmaker" ? null : formFish === "leviathan" ? (
-              <div>
-                <p className="text-xs text-amber-600">
-                  深海巨獸只設一級限量大獎
-                </p>
-              </div>
-            ) : (
+            {formFish === "matchmaker" ? null : formFish === "leviathan" ? null : (
               <div>
                 <label className="text-gray-700 text-sm mb-1 block">
                   獎品 tier
                 </label>
-                <select
-                  className={dialogFieldClass}
-                  value={formTier}
-                  onChange={(e) =>
-                    setFormTier(e.target.value as FishingRewardTier)
-                  }
-                  disabled={dialogMode === "edit"}
-                >
-                  {TIER_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500">
+                  {TIER_LABELS[formTier]}
+                </p>
               </div>
             )}
+            {showWeightInDialog ? (
+              <div>
+                <label className="text-gray-700 text-sm mb-1 block">
+                  權重（%）
+                </label>
+                <p className="text-xs text-gray-500 mb-2">
+                  此 tier 已有 {tierCountForWeightHint} 個獎品，請設定相對權重
+                </p>
+                <DecimalPercentInput
+                  value={formWeight}
+                  onChange={setFormWeight}
+                  disabled={dialogBusy}
+                  placeholder="0.01"
+                />
+                {weightPreview.parsedWeight > 0 ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-1">
+                    <span className="text-sm text-gray-500">≈ 佔此 tier 池</span>
+                    <span className="text-base font-semibold text-violet-600">
+                      {weightPreview.estimatedRate}%
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             <div>
               <label className="text-gray-700 text-sm mb-1 block">
-                機率（%）
-                <span className="text-xs text-gray-400 ml-1">
-                  （同 tier 內相對比例，加總不必為 100%，依比例分配）
-                </span>
-              </label>
-              <DecimalPercentInput
-                value={formWeight}
-                onChange={setFormWeight}
-                disabled={dialogBusy}
-                placeholder="0.01"
-              />
-              {weightPreview.parsedWeight > 0 ? (
-                <div className="flex flex-wrap items-center gap-1 mt-2">
-                  <span className="text-sm text-gray-500">≈ 佔此 tier 池</span>
-                  <span className="text-base font-semibold text-violet-600">
-                    {weightPreview.estimatedRate}%
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    （池內權重合計 {weightPreview.totalWeight}）
-                  </span>
-                </div>
-              ) : null}
-              {weightPreview.currentTierRewards.length > 0 ? (
-                <div className="mt-2 space-y-1">
-                  {weightPreview.currentTierRewards.map((r) => {
-                    const tw = weightPreview.totalWeight;
-                    const rw = Number(r.weight);
-                    const rate =
-                      tw > 0 ? Math.round((rw / tw) * 10000) / 100 : 0;
-                    return (
-                      <div
-                        key={r.id}
-                        className="text-xs text-gray-400 flex justify-between gap-2"
-                      >
-                        <span className="min-w-0 truncate">
-                          {r.shop_item?.name ?? r.reward_type}
-                        </span>
-                        <span className="shrink-0 tabular-nums">
-                          {weightBpToPercentNumber(rw).toFixed(2)}% → 池內{" "}
-                          {rate}%
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : null}
-              <p className="text-gray-500 text-xs mt-2 leading-relaxed">
-                此處為該魚種、該 tier 獎品池內的相對比例；玩家釣到各魚種的機率由魚餌／釣竿（商城
-                metadata）與「小／中／大獎 tier 設定」決定。
-              </p>
-            </div>
-            <div>
-              <label className="text-gray-700 text-sm mb-1 block">
-                庫存（空白＝無限；正整數＝有限）
+                庫存（選填）
+                {formFish === "leviathan" ? (
+                  <span className="text-amber-700">（建議填寫）</span>
+                ) : null}
               </label>
               <input
                 type="text"
@@ -1437,9 +1434,18 @@ export default function FishingAdminClient({
                 placeholder="留空為無限"
                 className={dialogFieldClass}
               />
-              <p className="text-gray-500 text-xs mt-1">
-                僅限量獎品需填，耗盡後自動降級
-              </p>
+              {formFish === "leviathan" ? (
+                <p className="text-amber-800 text-xs mt-1 flex gap-1 items-start">
+                  <span aria-hidden>⚠️</span>
+                  <span>
+                    深海巨獸為限量獎品，建議設定庫存數量。留空為無限；填數字為限量，耗盡後此獎品不再出現。
+                  </span>
+                </p>
+              ) : (
+                <p className="text-gray-500 text-xs mt-1">
+                  留空為無限；填數字為限量，耗盡後此獎品不再出現
+                </p>
+              )}
             </div>
             <div>
               <label className="text-gray-700 text-sm mb-1 block">
@@ -1606,104 +1612,132 @@ function LeviathanStockAlert({
   );
 }
 
+function FishingRewardRow({
+  row,
+  list,
+  onEdit,
+  onToggle,
+  onDelete,
+}: {
+  row: FishingRewardWithItem;
+  list: FishingRewardWithItem[];
+  onEdit: (row: FishingRewardWithItem) => void;
+  onToggle: (row: FishingRewardWithItem) => void;
+  onDelete: (row: FishingRewardWithItem) => void;
+}) {
+  const totalW = tierPoolWeightSum(list);
+  const showWeightShare = list.length >= 2;
+  const pct =
+    totalW > 0
+      ? Math.round((Number(row.weight) / totalW) * 10000) / 100
+      : 0;
+  const wStr = weightBpToPercentNumber(row.weight).toFixed(2);
+  return (
+    <div className="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">
+      <span
+        className="w-[60px] shrink-0 text-center text-xs font-medium px-1 py-0.5 rounded-md bg-gray-100 text-gray-800 truncate"
+        title={rewardTypeBadgeLabel(row.reward_type)}
+      >
+        {rewardTypeBadgeLabel(row.reward_type)}
+      </span>
+      <span className="flex-1 min-w-0 text-sm text-gray-800">
+        {describeReward(row)}
+      </span>
+      {showWeightShare ? (
+        <span className="text-xs text-gray-400 tabular-nums shrink-0">
+          權重 {wStr} ≈ {pct}%
+        </span>
+      ) : null}
+      <button
+        type="button"
+        className="text-sm text-blue-600 hover:underline shrink-0"
+        onClick={() => onEdit(row)}
+      >
+        編輯
+      </button>
+      <button
+        type="button"
+        className="text-sm text-gray-500 hover:underline shrink-0"
+        onClick={() => onToggle(row)}
+      >
+        {row.is_active ? "停用" : "啟用"}
+      </button>
+      <button
+        type="button"
+        className="text-sm text-red-500 hover:underline shrink-0"
+        onClick={() => onDelete(row)}
+      >
+        刪除
+      </button>
+    </div>
+  );
+}
+
 function RewardTierCard({
   title,
-  tier,
   list,
+  subtitleVariant,
+  onGoSettings,
   onAdd,
   onEdit,
   onToggle,
   onDelete,
 }: {
   title: string;
-  tier: FishingRewardTier;
   list: FishingRewardWithItem[];
+  subtitleVariant: "tierRates" | "leviathan";
+  onGoSettings: () => void;
   onAdd: () => void;
   onEdit: (row: FishingRewardWithItem) => void;
   onToggle: (row: FishingRewardWithItem) => void;
   onDelete: (row: FishingRewardWithItem) => void;
 }) {
+  const subtitleMain =
+    subtitleVariant === "tierRates"
+      ? "出現機率請至系統設定調整"
+      : "全服限量獎池；魚餌與出現率請至系統設定調整";
+  const addBtnClass =
+    "text-violet-600 border border-violet-300 rounded-lg px-3 py-1 text-sm hover:bg-violet-50";
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-        <h3 className="text-base font-semibold text-gray-900">{title}</h3>
-        <button
-          type="button"
-          onClick={onAdd}
-          className="inline-flex items-center justify-center w-9 h-9 shrink-0 rounded-full border border-violet-200 text-violet-600 hover:bg-violet-50"
-          aria-label={`新增${TIER_LABELS[tier]}獎品`}
-        >
-          <Plus className="w-5 h-5" />
+    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+      <div className="flex justify-between items-start gap-2">
+        <h3 className="font-semibold text-gray-800">{title}</h3>
+        <button type="button" onClick={onAdd} className={`shrink-0 ${addBtnClass}`}>
+          ＋ 新增獎品
         </button>
       </div>
-      <div className="space-y-2">
+      <p className="text-xs text-gray-400 mt-1 mb-3 flex flex-wrap items-center gap-x-1 gap-y-0.5">
+        <span>{subtitleMain}</span>
+        <button
+          type="button"
+          className="text-violet-600 font-medium hover:underline"
+          onClick={onGoSettings}
+        >
+          前往設定 ›
+        </button>
+      </p>
+      <div>
         {list.length === 0 ? (
-          <p className="text-sm text-gray-500">尚無獎品</p>
+          <p className="text-xs text-gray-400 mb-3">
+            尚無獎品，點下方按鈕新增
+          </p>
         ) : (
           list.map((row) => (
-            <div
+            <FishingRewardRow
               key={row.id}
-              className="flex flex-col lg:flex-row lg:items-center gap-2 py-3 border-b border-gray-50 last:border-0"
-            >
-              <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
-                <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-gray-100 text-gray-800">
-                  {rewardTypeBadgeLabel(row.reward_type)}
-                </span>
-                <span className="text-sm text-gray-800">
-                  {describeReward(row)}
-                </span>
-                <span className="text-xs text-gray-500">
-                  機率 {weightBpToPercentNumber(row.weight).toFixed(2)}%（相對）
-                </span>
-                {row.stock != null ? (
-                  <span
-                    className={`text-xs ${row.stock - row.stock_used <= 5 ? "text-orange-600 font-medium" : "text-gray-500"}`}
-                  >
-                    庫存 {row.stock_used}/{row.stock}
-                  </span>
-                ) : null}
-                <span
-                  className={`text-xs px-2 py-0.5 rounded-md ${
-                    row.is_active
-                      ? "bg-emerald-100 text-emerald-800"
-                      : "bg-gray-100 text-gray-600"
-                  }`}
-                >
-                  {row.is_active ? "上架中" : "已停用"}
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-2 shrink-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="border-gray-300 bg-white text-gray-900 hover:bg-gray-50"
-                  onClick={() => onEdit(row)}
-                >
-                  編輯
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="border-gray-300 bg-white text-gray-900 hover:bg-gray-50"
-                  onClick={() => onToggle(row)}
-                >
-                  {row.is_active ? "停用" : "啟用"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="border-red-300 bg-white text-red-700 hover:bg-red-50"
-                  onClick={() => onDelete(row)}
-                >
-                  刪除
-                </Button>
-              </div>
-            </div>
+              row={row}
+              list={list}
+              onEdit={onEdit}
+              onToggle={onToggle}
+              onDelete={onDelete}
+            />
           ))
         )}
+      </div>
+      <div className="mt-3 pt-1">
+        <button type="button" onClick={onAdd} className={addBtnClass}>
+          ＋ 新增獎品
+        </button>
       </div>
     </div>
   );

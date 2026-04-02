@@ -5,6 +5,14 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-04-02 — 釣魚後台獎品設定 UI 重構（tier 優先、簡化 Dialog）
+
+1. **目標**：**`/admin/fishing`** 獎品 Tab 改為 **魚種 → 各 tier 獎品池** 流程；tier 卡片含 **出現機率請至系統設定** 與 **前往設定 ›**（`setTab('settings')`）；列表 **單一獎品不顯示權重／佔比**，**兩筆以上** 顯示 **權重 N ≈ X%**；**新增／編輯 Dialog** 依進入的 tier 固定（**唯讀 tier**、移除下拉）、**權重** 僅在該 tier 已有其他獎品（新增）或至少兩筆（編輯）時顯示，否則送 **預設 1.00%** 或沿用既有 **weight**；**深海巨獸** 單一「限量大獎」區塊、新增標題 **新增限量大獎 — 深海巨獸**、庫存區 **⚠️ 建議** 文案；**月老魚** 維持說明頁。僅 **Layer 5**（**`fishing-admin-client.tsx`**），不改 **Layer 2／3**。
+2. **Layer 5**：**`src/app/(admin)/admin/fishing/fishing-admin-client.tsx`** — **`RewardTierCard`**／**`FishingRewardRow`**；**`showWeightInDialog`**／**`tierCountForWeightHint`**；**`submitReward`** 依是否顯示權重決定 **bp**；**`DialogDescription`** 編輯副標；**`rewardTypeBadgeLabel`** **`shop_item` →「商城道具」**。
+3. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+4. **文件**：**`HANDOFF.md`** 最近完成。
+5. **Git**：**`refactor(fishing-admin): rewards UI redesign, tier-first flow, simplified dialog`**。
+
 ### 2026-04-02 — 釣魚拋竿冷卻、三種魚餌 metadata、前台
 
 1. **目標**：冷卻改為**拋竿當下**起算（**`last_cast_at`**＋**`rod_cooldown_minutes`**）；**`casts_used`** 於拋竿 +1；收成僅清 **pending**；魚餌驗證改**普通／章魚／愛心**三型；商城種子三餌；前台冷卻倒數、**toast** 錯誤碼、餌標籤。
