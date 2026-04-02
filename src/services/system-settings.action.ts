@@ -166,3 +166,22 @@ export async function getMatchmakerAgeMaxAction(): Promise<number> {
   if (!Number.isFinite(n) || n < 1) return 30;
   return n;
 }
+
+/** 月老身高門檻（後台可調）；玩家端顯示標籤用，無需管理員權限 */
+export async function getMatchmakerHeightThresholdsAction(): Promise<{
+  matchmaker_height_tall_threshold: number;
+  matchmaker_height_short_threshold: number;
+}> {
+  const [tallRaw, shortRaw] = await Promise.all([
+    findSystemSettingByKey("matchmaker_height_tall_threshold"),
+    findSystemSettingByKey("matchmaker_height_short_threshold"),
+  ]);
+  const tall = parseInt((tallRaw ?? "175").trim(), 10);
+  const short = parseInt((shortRaw ?? "163").trim(), 10);
+  return {
+    matchmaker_height_tall_threshold:
+      Number.isFinite(tall) && tall >= 100 && tall <= 250 ? tall : 175,
+    matchmaker_height_short_threshold:
+      Number.isFinite(short) && short >= 100 && short <= 250 ? short : 163,
+  };
+}

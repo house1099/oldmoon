@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -31,7 +32,10 @@ import {
   parseRegionPref,
   TAIWAN_REGIONS,
 } from "@/lib/utils/matchmaker-region";
-import { getMatchmakerAgeMaxAction } from "@/services/system-settings.action";
+import {
+  getMatchmakerAgeMaxAction,
+  getMatchmakerHeightThresholdsAction,
+} from "@/services/system-settings.action";
 import { updateMyProfile } from "@/services/profile-update.action";
 
 export function MatchmakerSettingsTab() {
@@ -659,6 +663,15 @@ function MatchmakerProfileForm({
 }) {
   const [expanded, setExpanded] = useState(false);
 
+  const { data: heightThresholds } = useSWR(
+    "matchmaker-height-thresholds",
+    getMatchmakerHeightThresholdsAction,
+  );
+  const tallThreshold =
+    heightThresholds?.matchmaker_height_tall_threshold ?? 175;
+  const shortThreshold =
+    heightThresholds?.matchmaker_height_short_threshold ?? 163;
+
   const save = useCallback(
     async (patch: Parameters<typeof updateMyProfile>[0]) => {
       const result = await updateMyProfile(patch);
@@ -739,6 +752,70 @@ function MatchmakerProfileForm({
 
       {expanded && (
         <div className="space-y-3">
+          {/* 身高偏好 */}
+          <div className="bg-zinc-900/60 border border-zinc-800/40 rounded-2xl p-4 mb-3">
+            <div className="text-sm font-medium text-zinc-200 mb-3">
+              📏 身高偏好
+            </div>
+            <div className="text-xs text-zinc-500 mb-3">
+              我的身高：
+              {profile.height_cm != null
+                ? `${profile.height_cm} cm`
+                : "未填寫（請至申請修改補填）"}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  { value: "taller", label: "比我高" },
+                  { value: "similar", label: "跟我差不多（±5cm）" },
+                  { value: "shorter", label: "比我矮" },
+                  ...(profile.gender === "female"
+                    ? [
+                        {
+                          value: "tall_threshold",
+                          label: `${tallThreshold}cm 以上`,
+                        },
+                      ]
+                    : []),
+                  ...(profile.gender === "male"
+                    ? [
+                        {
+                          value: "short_threshold",
+                          label: `${shortThreshold}cm 以上`,
+                        },
+                      ]
+                    : []),
+                  ...(profile.gender !== "female" && profile.gender !== "male"
+                    ? [
+                        {
+                          value: "tall_threshold",
+                          label: `${tallThreshold}cm 以上`,
+                        },
+                        {
+                          value: "short_threshold",
+                          label: `${shortThreshold}cm 以上`,
+                        },
+                      ]
+                    : []),
+                ] as { value: string; label: string }[]
+              ).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void save({ pref_height: opt.value })}
+                  className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${
+                    profile.pref_height === opt.value
+                      ? "bg-violet-600 border-violet-500 text-white"
+                      : "bg-zinc-800/60 border-zinc-700/40 text-zinc-400"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* 飲食習慣 */}
           <div className={cardCls}>
             <p className={labelCls}>🥗 飲食習慣</p>

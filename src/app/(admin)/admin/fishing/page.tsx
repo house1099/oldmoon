@@ -32,6 +32,8 @@ export default async function FishingAdminPage() {
         matchmaker_lock_v1: false,
         matchmaker_lock_v3: false,
         matchmaker_lock_v4: false,
+        matchmaker_height_tall_threshold: 175,
+        matchmaker_height_short_threshold: 163,
         matchmaker_v_max_diff: 2,
       };
 

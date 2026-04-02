@@ -2416,6 +2416,8 @@ export type FishingAdminSettingsPayload = {
   matchmaker_lock_v1: boolean;
   matchmaker_lock_v3: boolean;
   matchmaker_lock_v4: boolean;
+  matchmaker_height_tall_threshold: number;
+  matchmaker_height_short_threshold: number;
   matchmaker_v_max_diff: number;
 };
 
@@ -2441,6 +2443,8 @@ export async function getFishingAdminSettingsAction(): Promise<
       lv1,
       lv3,
       lv4,
+      tallThRaw,
+      shortThRaw,
       vmax,
     ] = await Promise.all([
       findSystemSettingByKey("fishing_enabled"),
@@ -2459,6 +2463,8 @@ export async function getFishingAdminSettingsAction(): Promise<
       findSystemSettingByKey("matchmaker_lock_v1"),
       findSystemSettingByKey("matchmaker_lock_v3"),
       findSystemSettingByKey("matchmaker_lock_v4"),
+      findSystemSettingByKey("matchmaker_height_tall_threshold"),
+      findSystemSettingByKey("matchmaker_height_short_threshold"),
       findSystemSettingByKey("matchmaker_v_max_diff"),
     ]);
     const fishing_enabled = enabledRaw !== "false";
@@ -2475,6 +2481,12 @@ export async function getFishingAdminSettingsAction(): Promise<
         v != null && v.trim() !== "" ? Number.parseInt(v.trim(), 10) : NaN;
       if (Number.isFinite(x) && x >= 1 && x <= 4) return x;
       return 2;
+    };
+    const parseHeightCm = (v: string | null, fb: number) => {
+      const x =
+        v != null && v.trim() !== "" ? Number.parseInt(v.trim(), 10) : NaN;
+      if (Number.isFinite(x) && x >= 100 && x <= 250) return x;
+      return fb;
     };
     return {
       ok: true,
@@ -2495,6 +2507,8 @@ export async function getFishingAdminSettingsAction(): Promise<
         matchmaker_lock_v1: parseBool(lv1),
         matchmaker_lock_v3: parseBool(lv3),
         matchmaker_lock_v4: parseBool(lv4),
+        matchmaker_height_tall_threshold: parseHeightCm(tallThRaw, 175),
+        matchmaker_height_short_threshold: parseHeightCm(shortThRaw, 163),
         matchmaker_v_max_diff: parseVMax(vmax),
       },
     };
@@ -2602,6 +2616,8 @@ export async function updateFishingSettingsAction(settings: {
   matchmaker_lock_v1?: boolean;
   matchmaker_lock_v3?: boolean;
   matchmaker_lock_v4?: boolean;
+  matchmaker_height_tall_threshold?: number;
+  matchmaker_height_short_threshold?: number;
   matchmaker_v_max_diff?: number;
 }): Promise<ActionResult<{ success: boolean }>> {
   try {
@@ -2685,6 +2701,20 @@ export async function updateFishingSettingsAction(settings: {
     }
     if (settings.matchmaker_lock_v4 !== undefined) {
       await setBool("matchmaker_lock_v4", settings.matchmaker_lock_v4);
+    }
+    if (settings.matchmaker_height_tall_threshold !== undefined) {
+      await repoUpdateSystemSetting(
+        "matchmaker_height_tall_threshold",
+        String(settings.matchmaker_height_tall_threshold),
+        user.id,
+      );
+    }
+    if (settings.matchmaker_height_short_threshold !== undefined) {
+      await repoUpdateSystemSetting(
+        "matchmaker_height_short_threshold",
+        String(settings.matchmaker_height_short_threshold),
+        user.id,
+      );
     }
     if (settings.matchmaker_v_max_diff !== undefined) {
       await repoUpdateSystemSetting(

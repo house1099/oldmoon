@@ -454,6 +454,24 @@ export default function FishingAdminClient({
   const [mmVMaxDraft, setMmVMaxDraft] = useState(
     String(initialSettings.matchmaker_v_max_diff),
   );
+  const [tallThresholdInput, setTallThresholdInput] = useState(
+    String(initialSettings.matchmaker_height_tall_threshold),
+  );
+  const [shortThresholdInput, setShortThresholdInput] = useState(
+    String(initialSettings.matchmaker_height_short_threshold),
+  );
+
+  useEffect(() => {
+    setTallThresholdInput(
+      String(initialSettings.matchmaker_height_tall_threshold),
+    );
+    setShortThresholdInput(
+      String(initialSettings.matchmaker_height_short_threshold),
+    );
+  }, [
+    initialSettings.matchmaker_height_tall_threshold,
+    initialSettings.matchmaker_height_short_threshold,
+  ]);
 
   const anyVLockOn =
     mmLocks.matchmaker_lock_v1 ||
@@ -474,6 +492,28 @@ export default function FishingAdminClient({
       return;
     }
     toast.success(`${label} 已${next ? "開啟" : "關閉"}`);
+  };
+
+  const handleSaveThreshold = async (
+    key: "matchmaker_height_tall_threshold" | "matchmaker_height_short_threshold",
+    value: string,
+  ) => {
+    const num = parseInt(value, 10);
+    if (!value.trim() || Number.isNaN(num) || num < 100 || num > 250) {
+      toast.error("請輸入有效身高（100–250）");
+      return;
+    }
+    const r = await updateFishingSettingsAction(
+      key === "matchmaker_height_tall_threshold"
+        ? { matchmaker_height_tall_threshold: num }
+        : { matchmaker_height_short_threshold: num },
+    );
+    if (!r.ok) {
+      toast.error(r.error ?? "儲存失敗");
+      return;
+    }
+    toast.success("門檻已更新");
+    router.refresh();
   };
 
   const onBlurMatchmakerVMax = async () => {
@@ -1369,24 +1409,84 @@ export default function FishingAdminClient({
               </p>
               <div className="space-y-0 divide-y divide-gray-100">
                 {MATCHMAKER_HARD_ROWS.map((row) => (
-                  <div
-                    key={row.key}
-                    className="flex items-start gap-3 py-3 first:pt-0"
-                  >
-                    <Switch
-                      checked={mmLocks[row.key]}
-                      aria-label={`${row.title}：${mmLocks[row.key] ? "已開啟" : "已關閉"}`}
-                      className="data-checked:bg-violet-600 data-unchecked:bg-gray-200 shrink-0 mt-0.5"
-                      onCheckedChange={(v) =>
-                        void toggleMmLock(row.key, row.title, v)
-                      }
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-gray-900">
-                        {row.emoji} {row.title}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-0.5">{row.hint}</p>
+                  <div key={row.key} className="py-3 first:pt-0">
+                    <div className="flex items-start gap-3">
+                      <Switch
+                        checked={mmLocks[row.key]}
+                        aria-label={`${row.title}：${mmLocks[row.key] ? "已開啟" : "已關閉"}`}
+                        className="data-checked:bg-violet-600 data-unchecked:bg-gray-200 shrink-0 mt-0.5"
+                        onCheckedChange={(v) =>
+                          void toggleMmLock(row.key, row.title, v)
+                        }
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900">
+                          {row.emoji} {row.title}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">{row.hint}</p>
+                      </div>
                     </div>
+                    {row.key === "matchmaker_lock_height" &&
+                    mmLocks.matchmaker_lock_height ? (
+                      <div className="mt-3 space-y-2 pl-4 border-l-2 border-violet-200">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm text-gray-600 w-32 shrink-0">
+                            女生門檻（cm）
+                          </span>
+                          <input
+                            type="text"
+                            value={tallThresholdInput}
+                            onChange={(e) =>
+                              setTallThresholdInput(
+                                e.target.value.replace(/\D/g, ""),
+                              )
+                            }
+                            className="w-20 border border-gray-300 rounded-lg px-2 py-1 text-sm text-gray-900"
+                            placeholder="175"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleSaveThreshold(
+                                "matchmaker_height_tall_threshold",
+                                tallThresholdInput,
+                              )
+                            }
+                            className="text-xs text-violet-600 border border-violet-300 rounded px-2 py-1 hover:bg-violet-50"
+                          >
+                            儲存
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm text-gray-600 w-32 shrink-0">
+                            男生門檻（cm）
+                          </span>
+                          <input
+                            type="text"
+                            value={shortThresholdInput}
+                            onChange={(e) =>
+                              setShortThresholdInput(
+                                e.target.value.replace(/\D/g, ""),
+                              )
+                            }
+                            className="w-20 border border-gray-300 rounded-lg px-2 py-1 text-sm text-gray-900"
+                            placeholder="163"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleSaveThreshold(
+                                "matchmaker_height_short_threshold",
+                                shortThresholdInput,
+                              )
+                            }
+                            className="text-xs text-violet-600 border border-violet-300 rounded px-2 py-1 hover:bg-violet-50"
+                          >
+                            儲存
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>

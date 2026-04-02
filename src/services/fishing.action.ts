@@ -1102,6 +1102,9 @@ async function runFishingHarvestCore(
     getMatchmakerAgeMaxAction(),
     findUserIdsInBlockRelation(userId).then((ids) => new Set(ids)),
     findMatchmakerPoolCandidates(userId),
+    findSystemSettingByKey("matchmaker_lock_height"),
+    findSystemSettingByKey("matchmaker_height_tall_threshold"),
+    findSystemSettingByKey("matchmaker_height_short_threshold"),
     findSystemSettingByKey("matchmaker_lock_diet"),
     findSystemSettingByKey("matchmaker_lock_smoking"),
     findSystemSettingByKey("matchmaker_lock_pets"),
@@ -1115,17 +1118,20 @@ async function runFishingHarvestCore(
     findSystemSettingByKey("matchmaker_v_max_diff"),
   ]);
   const lockSettings: MatchmakerLockSettings = {
-    lock_diet: lockRaw[0] === "true",
-    lock_smoking: lockRaw[1] === "true",
-    lock_pets: lockRaw[2] === "true",
-    lock_single_parent: lockRaw[3] === "true",
-    lock_fertility: lockRaw[4] === "true",
-    lock_marriage: lockRaw[5] === "true",
-    lock_zodiac: lockRaw[6] === "true",
-    lock_v1: lockRaw[7] === "true",
-    lock_v3: lockRaw[8] === "true",
-    lock_v4: lockRaw[9] === "true",
-    v_max_diff: parseInt(lockRaw[10] ?? "2") || 2,
+    lock_height: lockRaw[0] === "true",
+    height_tall_threshold: parseInt(lockRaw[1] ?? "175", 10) || 175,
+    height_short_threshold: parseInt(lockRaw[2] ?? "163", 10) || 163,
+    lock_diet: lockRaw[3] === "true",
+    lock_smoking: lockRaw[4] === "true",
+    lock_pets: lockRaw[5] === "true",
+    lock_single_parent: lockRaw[6] === "true",
+    lock_fertility: lockRaw[7] === "true",
+    lock_marriage: lockRaw[8] === "true",
+    lock_zodiac: lockRaw[9] === "true",
+    lock_v1: lockRaw[10] === "true",
+    lock_v3: lockRaw[11] === "true",
+    lock_v4: lockRaw[12] === "true",
+    v_max_diff: parseInt(lockRaw[13] ?? "2", 10) || 2,
   };
 
   const fisherBirthYear = fisher.birth_year!;
@@ -1165,6 +1171,8 @@ async function runFishingHarvestCore(
     v1_money: fisher.v1_money,
     v3_clingy: fisher.v3_clingy,
     v4_conflict: fisher.v4_conflict,
+    height_cm: fisher.height_cm,
+    pref_height: fisher.pref_height,
   };
 
   const pool: typeof candidatesRaw = [];
@@ -1222,6 +1230,8 @@ async function runFishingHarvestCore(
       v1_money: c.v1_money,
       v3_clingy: c.v3_clingy,
       v4_conflict: c.v4_conflict,
+      height_cm: c.height_cm,
+      pref_height: c.pref_height,
     };
     if (!checkAllMatchmakerLocks(fisherMP, candMP, lockSettings)) continue;
 

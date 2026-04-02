@@ -1703,6 +1703,9 @@ export default function ShopAdminClient() {
                   <span className="block">
                     💕 愛心餌料：<code className="text-[11px] text-gray-900">bait_matchmaker_rate</code>: 100
                   </span>
+                  <span className="block text-gray-700">
+                    月老配對可於「後台 → 釣魚系統」開啟身高條件篩選並設定門檻（與玩家身高偏好連動）。
+                  </span>
                 </p>
               ) : null}
               {form.item_type === "fishing_rod" ? (

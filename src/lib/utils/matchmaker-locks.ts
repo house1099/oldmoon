@@ -24,9 +24,15 @@ export interface MatchmakerProfile {
   v1_money: number | null;
   v3_clingy: number | null;
   v4_conflict: number | null;
+
+  height_cm: number | null;
+  pref_height: string | null;
 }
 
 export interface MatchmakerLockSettings {
+  lock_height: boolean;
+  height_tall_threshold: number;
+  height_short_threshold: number;
   lock_diet: boolean;
   lock_smoking: boolean;
   lock_pets: boolean;
@@ -47,6 +53,18 @@ export function checkAllMatchmakerLocks(
   settings: MatchmakerLockSettings,
 ): boolean {
   if (!checkGenderOrientation(fisher, candidate)) return false;
+  if (settings.lock_height) {
+    if (
+      !checkHeightLock(
+        fisher,
+        candidate,
+        settings.height_tall_threshold,
+        settings.height_short_threshold,
+      )
+    ) {
+      return false;
+    }
+  }
   if (settings.lock_diet && !checkDietLock(fisher, candidate)) return false;
   if (settings.lock_smoking && !checkSmokingLock(fisher, candidate))
     return false;
@@ -97,6 +115,48 @@ function checkGenderOrientation(
   }
   if (oA === "異性戀") return gA !== gB && oB !== "同性戀";
   return gA === gB && oB !== "異性戀";
+}
+
+function checkHeightLock(
+  a: MatchmakerProfile,
+  b: MatchmakerProfile,
+  tallThreshold: number,
+  shortThreshold: number,
+): boolean {
+  if (!a.height_cm || !b.height_cm) return true;
+  if (!a.pref_height || !b.pref_height) return true;
+
+  return (
+    checkOneSideHeight(a, b, tallThreshold, shortThreshold) &&
+    checkOneSideHeight(b, a, tallThreshold, shortThreshold)
+  );
+}
+
+function checkOneSideHeight(
+  me: MatchmakerProfile,
+  target: MatchmakerProfile,
+  tallThreshold: number,
+  shortThreshold: number,
+): boolean {
+  const myH = me.height_cm!;
+  const targetH = target.height_cm!;
+  const pref = me.pref_height!;
+  const RESCUE = 2;
+
+  switch (pref) {
+    case "taller":
+      return targetH > myH || myH - targetH <= RESCUE;
+    case "shorter":
+      return targetH < myH || targetH - myH <= RESCUE;
+    case "similar":
+      return Math.abs(targetH - myH) <= 5;
+    case "tall_threshold":
+      return targetH >= tallThreshold;
+    case "short_threshold":
+      return targetH >= shortThreshold;
+    default:
+      return true;
+  }
 }
 
 // ── 飲食習慣（V500 checkDietHardLock） ──

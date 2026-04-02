@@ -108,6 +108,8 @@ export async function updateMyProfile(input: {
   v4_conflict?: number;
   /** 自身身高（公分），100–250 */
   height_cm?: number;
+  /** 身高偏好 slug；月老魚配對用 */
+  pref_height?: string;
   /** 與註冊問卷一致之地區字串（含 `海外・…`） */
   region?: string;
   gender?: GenderValue;
@@ -150,6 +152,7 @@ export async function updateMyProfile(input: {
     input.v3_clingy === undefined &&
     input.v4_conflict === undefined &&
     input.height_cm === undefined &&
+    input.pref_height === undefined &&
     input.region === undefined &&
     input.gender === undefined &&
     input.birth_year === undefined &&
@@ -278,6 +281,23 @@ export async function updateMyProfile(input: {
       return { ok: false, error: "身高須為 100～250 的整數。" };
     }
     patch.height_cm = h;
+  }
+  if (input.pref_height !== undefined) {
+    const validPrefHeights = [
+      "taller",
+      "similar",
+      "shorter",
+      "tall_threshold",
+      "short_threshold",
+    ];
+    const t = input.pref_height.trim();
+    if (t.length === 0) {
+      patch.pref_height = null;
+    } else if (!validPrefHeights.includes(t)) {
+      return { ok: false, error: "invalid_pref_height" };
+    } else {
+      patch.pref_height = t;
+    }
   }
   if (input.region !== undefined) {
     const r = input.region.trim();

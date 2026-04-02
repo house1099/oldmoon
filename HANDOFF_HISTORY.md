@@ -2,6 +2,17 @@
 
 舊版主檔內之逐日／逐任務紀錄與長篇 Wave 敘事已遷移至此。**平時不必讀**；需追溯決策或實作細節時再開。
 
+### 2026-04-02 — 身高配對完整實作（pref_height、硬鎖、門檻、月老 UI、商城說明）
+
+1. **目標**：**`users.pref_height`**（月老身高偏好 slug）、**`system_settings`** 女生／男生門檻（**`matchmaker_height_tall_threshold`／`matchmaker_height_short_threshold`**，預設 175／163）、**`matchmaker-locks`** 身高硬鎖、**`fishing.action`** 候選池篩選、月老設定 Tab 📏 表單、後台釣魚頁門檻輸入、愛心餌說明補充。
+2. **資料庫** 🗄️：**`supabase/migrations/20260405300000_users_pref_height.sql`** — **`ALTER users`** **`pref_height`**、**`INSERT`** 兩門檻鍵、**`NOTIFY pgrst`**。雲端 **`apply_migration`** **`users_pref_height`**。
+3. **型別**：**`database.types.ts`** — **`users`** Row／Insert／Update **`pref_height`**。
+4. **utils**：**`matchmaker-locks.ts`** — **`MatchmakerProfile`** 補 **`height_cm`／`pref_height`**；**`MatchmakerLockSettings`** 補 **`lock_height`、門檻數值**；**`checkHeightLock`／`checkOneSideHeight`**；**`checkAllMatchmakerLocks`** 於性別×性向後檢查身高。
+5. **Layer 2／3**：**`user.repository.ts`** **`MatchmakerPoolCandidateRow`** 與 **`select`** 補 **`height_cm`／`pref_height`**；**`fishing.action.ts`** **`Promise.all`** 讀 **`matchmaker_lock_height`** 與兩門檻鍵、建構 **`lockSettings`**、**`fisherMP`／`candMP`** 帶身高欄位；**`profile-update.action.ts`** **`pref_height`** 允許值驗證（**`invalid_pref_height`**）；**`system-settings.action.ts`** **`getMatchmakerHeightThresholdsAction`**（玩家端讀門檻，無需管理員權限）；**`admin.action.ts`** **`FishingAdminSettingsPayload`** 與 **get／update** 兩門檻。
+6. **Layer 5**：**`matchmaker-settings-tab.tsx`** — **`useSWR`**＋門檻 action、**`female`／`male`** 分支顯示 **`tall_threshold`／`short_threshold`** 選項；**`fishing-admin-client.tsx`** 身高開關下方門檻輸入＋**`handleSaveThreshold`**（100–250）、**`router.refresh()`**；**`fishing/page.tsx`** fallback 補門檻預設；**`shop-admin-client.tsx`** 愛心餌說明一句。
+7. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+8. **Git**：**`feat(height-lock): pref_height field, height hard lock, admin threshold, settings UI`**。
+
 ### 2026-04-02 — 身高、註冊 Step2、基本資料申請／審核、月老 Banner、後台身高開關
 
 1. **目標**：**`users.height_cm`**（100–250）、註冊必填、申請修改與審核通過後導向 **`/register/profile?edit=true`**、**`ProfileBanner`** 依 **`banner_check_matchmaker_fields`** 檢查月老欄位缺漏（優先於既有 profile 橫幅）、**`system_settings`** **`matchmaker_lock_height`**＋**/admin/fishing** 開關（配對引擎接線另議）。
