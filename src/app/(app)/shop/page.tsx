@@ -34,7 +34,8 @@ function resolveItemImageUrl(raw: string): string {
   if (!src) return src;
   if (src.startsWith("/")) return src;
   if (src.startsWith("https://") && src.includes("cloudinary.com")) {
-    return src.replace("/upload/", "/upload/w_160,h_160,c_fill,q_auto,f_auto/");
+    /** `c_fit` 保留透明 PNG 邊緣，避免 `c_fill` 裁切與鋪滿感 */
+    return src.replace("/upload/", "/upload/w_160,h_160,c_fit,q_auto,f_auto/");
   }
   return src;
 }
@@ -197,6 +198,8 @@ export default function ShopPage() {
   const [shopLootRevealOpen, setShopLootRevealOpen] = useState(false);
   const [shopLootDraws, setShopLootDraws] = useState<DrawResult[]>([]);
   const [shopLootPlaybackKey, setShopLootPlaybackKey] = useState(0);
+
+  const [shopDetailItem, setShopDetailItem] = useState<ShopItemDto | null>(null);
 
   const refreshBalance = useCallback(async () => {
     const b = await getMyCoinsAction();
@@ -615,14 +618,19 @@ export default function ShopPage() {
               return (
                 <div
                   key={item.id}
-                  className={`flex flex-col overflow-hidden rounded-[20px] p-0 transition-[transform,border-color] duration-150 hover:scale-[1.015] hover:border-[rgba(139,92,246,0.3)] ${
+                  className={`flex h-full flex-col overflow-hidden rounded-[20px] p-0 transition-[transform,border-color] duration-150 hover:scale-[1.015] hover:border-[rgba(139,92,246,0.3)] ${
                     onSale
                       ? "border border-[rgba(124,58,237,0.45)] shadow-[inset_0_0_0_1px_rgba(124,58,237,0.15)]"
                       : "border border-white/[0.08]"
                   }`}
                   style={{ background: "rgba(255,255,255,0.04)" }}
                 >
-                  <div className="relative flex aspect-square items-center justify-center bg-white/[0.03]">
+                  <button
+                    type="button"
+                    className="flex min-h-0 flex-1 flex-col text-left outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950"
+                    onClick={() => setShopDetailItem(item)}
+                  >
+                  <div className="relative flex aspect-square items-center justify-center bg-zinc-800/50">
                     {onSale ? (
                       <span
                         className="absolute left-2.5 top-2.5 rounded-md px-[7px] py-0.5 text-[10px] font-bold tracking-wide text-white"
@@ -644,17 +652,30 @@ export default function ShopPage() {
                       <span className="text-[48px] leading-none">{emoji}</span>
                     )}
                   </div>
-                  <div className="flex flex-col gap-1.5 px-3.5 pb-3.5 pt-3">
-                    <p className="text-sm font-semibold leading-snug text-[#f4f4f5]">{item.name}</p>
-                    {item.description ? (
-                      <p className="mb-1 line-clamp-2 text-[11px] leading-snug text-[#71717a]">
-                        {item.description}
-                      </p>
-                    ) : null}
-                    {item.showSaleCountdown && cd != null && cd > 0 ? (
-                      <p className="text-xs font-mono text-red-400">⏱ {formatCountdown(cd)}</p>
-                    ) : null}
-                    <div className="flex flex-wrap items-center gap-1.5">
+                  <div className="flex min-h-0 flex-1 flex-col px-3.5 pb-2 pt-3">
+                    <p className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-snug text-[#f4f4f5]">
+                      {item.name}
+                    </p>
+                    <div className="h-[2.75rem] shrink-0 overflow-hidden">
+                      {item.description ? (
+                        <p className="line-clamp-2 text-[11px] leading-snug text-[#71717a]">
+                          {item.description}
+                        </p>
+                      ) : (
+                        <span className="invisible text-[11px] leading-snug">.</span>
+                      )}
+                    </div>
+                    <div className="flex min-h-[2.75rem] shrink-0 flex-col justify-start gap-0.5">
+                      <div className="min-h-[1.125rem] text-[11px]">
+                        {item.showSaleCountdown && cd != null && cd > 0 ? (
+                          <p className="font-mono text-red-400">⏱ {formatCountdown(cd)}</p>
+                        ) : null}
+                      </div>
+                      <div className="min-h-[1.125rem] text-[11px] text-[#71717a]">
+                        {item.daily_limit != null ? <p>每日限購 {item.daily_limit} 個</p> : null}
+                      </div>
+                    </div>
+                    <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-1">
                       <span
                         className={`text-[15px] font-bold tabular-nums ${
                           isPrem ? "text-[#a78bfa]" : "text-[#f59e0b]"
@@ -682,17 +703,16 @@ export default function ShopPage() {
                         </span>
                       ) : null}
                     </div>
-                    {item.daily_limit != null ? (
-                      <p className="text-[11px] text-[#71717a]">每日限購 {item.daily_limit} 個</p>
-                    ) : null}
                   </div>
+                  </button>
                   <div className="mt-auto flex items-center gap-2 px-3.5 pb-3.5">
                     {item.allow_gift !== false && isLoggedIn ? (
                       <button
                         type="button"
                         disabled={!canAfford}
                         title="贈送"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setShopPickRecipientItem(item);
                           setShopPickPendingRecipient(null);
                           setShopRecipientNicknameDraft("");
@@ -712,7 +732,8 @@ export default function ShopPage() {
                     <button
                       type="button"
                       disabled={!canAfford}
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setPurchaseIntent("normal");
                         setShopGiftRecipient(null);
                         setPurchaseTarget(item);
@@ -732,6 +753,108 @@ export default function ShopPage() {
           </div>
         )}
       </div>
+
+      <Dialog
+        open={!!shopDetailItem}
+        onOpenChange={(o) => {
+          if (!o) setShopDetailItem(null);
+        }}
+      >
+        <DialogContent
+          className="max-h-[min(85vh,520px)] text-[#f4f4f5]"
+          initialFocus={-1}
+        >
+          {shopDetailItem ? (
+            <>
+              <DialogHeader className="space-y-1 pr-6 text-left">
+                <DialogTitle className="text-lg font-bold text-[#f4f4f5]">
+                  {shopDetailItem.name}
+                </DialogTitle>
+                <DialogDescription className="text-[13px] text-[#71717a]">
+                  {ITEM_TYPE_LABELS[shopDetailItem.item_type] ??
+                    shopDetailItem.item_type}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="relative mx-auto flex aspect-square w-full max-w-[200px] items-center justify-center rounded-2xl bg-zinc-800/50">
+                  {shopDetailItem.image_url?.trim() ? (
+                    <Image
+                      src={
+                        resolveItemImageUrl(shopDetailItem.image_url.trim()) ||
+                        shopDetailItem.image_url.trim()
+                      }
+                      alt=""
+                      width={160}
+                      height={160}
+                      className="max-h-[160px] max-w-[160px] object-contain"
+                      unoptimized
+                    />
+                  ) : (
+                    <span className="text-6xl leading-none">
+                      {ITEM_TYPE_EMOJI[shopDetailItem.item_type] ?? "📦"}
+                    </span>
+                  )}
+                </div>
+                {shopDetailItem.description ? (
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#a1a1aa]">
+                    {shopDetailItem.description}
+                  </p>
+                ) : (
+                  <p className="text-sm text-[#52525b]">無商品說明</p>
+                )}
+                <div className="flex flex-wrap items-baseline gap-2 border-t border-white/[0.08] pt-3">
+                  <span
+                    className={`text-xl font-bold tabular-nums ${
+                      shopDetailItem.currency_type === "premium_coins"
+                        ? "text-[#a78bfa]"
+                        : "text-[#f59e0b]"
+                    }`}
+                  >
+                    {shopDetailItem.currency_type === "premium_coins" ? (
+                      <>
+                        <span className="mr-0.5" aria-hidden>
+                          💎
+                        </span>
+                        {shopDetailItem.price}
+                      </>
+                    ) : (
+                      <>
+                        <span className="mr-0.5 text-sm" aria-hidden>
+                          🟡
+                        </span>
+                        {shopDetailItem.price}
+                      </>
+                    )}
+                  </span>
+                  {shopDetailItem.hasDiscountDisplay &&
+                  shopDetailItem.original_price != null ? (
+                    <span className="text-sm tabular-nums text-[#52525b] line-through">
+                      {shopDetailItem.original_price}
+                    </span>
+                  ) : null}
+                  <span className="text-xs text-[#71717a]">
+                    {shopDetailItem.currency_type === "premium_coins"
+                      ? "純金"
+                      : "探險幣"}
+                  </span>
+                </div>
+                {shopDetailItem.showSaleCountdown &&
+                countdowns[shopDetailItem.id] != null &&
+                countdowns[shopDetailItem.id]! > 0 ? (
+                  <p className="font-mono text-sm text-red-400">
+                    ⏱ 特賣倒數 {formatCountdown(countdowns[shopDetailItem.id]!)}
+                  </p>
+                ) : null}
+                {shopDetailItem.daily_limit != null ? (
+                  <p className="text-xs text-[#71717a]">
+                    每日限購 {shopDetailItem.daily_limit} 個
+                  </p>
+                ) : null}
+              </div>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={!!purchaseTarget}

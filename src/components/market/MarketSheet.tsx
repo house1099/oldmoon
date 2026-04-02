@@ -40,6 +40,7 @@ import {
   type MarketListingWithDetail,
   type RecentSoldItem,
 } from "@/services/market-listing.action";
+import { getMyCoinsAction } from "@/services/coin.action";
 import { getMyRewardsAction } from "@/services/rewards.action";
 import type { UserRewardWithEffect } from "@/lib/repositories/server/rewards.repository";
 import { toast } from "sonner";
@@ -178,7 +179,7 @@ function HallListingPreview({
   if (thumb) {
     const src = toThumbImageUrl(thumb, 80, 80);
     return (
-      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-zinc-800">
+      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-zinc-900/70">
         <Image
           src={src}
           alt=""
@@ -196,7 +197,7 @@ function HallListingPreview({
     return (
       <div
         className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-zinc-800",
+          "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-zinc-900/70",
           fx,
         )}
         aria-hidden
@@ -205,7 +206,7 @@ function HallListingPreview({
   }
   return (
     <div
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-zinc-800 text-lg leading-none"
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-zinc-900/70 text-lg leading-none"
       aria-hidden
     >
       {hallItemTypeEmoji(itemType)}
@@ -218,7 +219,7 @@ function RewardRowPreview({ row }: { row: UserRewardWithEffect }) {
   if (thumb) {
     const src = toThumbImageUrl(thumb, 80, 80);
     return (
-      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-zinc-800">
+      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-zinc-900/70">
         <Image
           src={src}
           alt=""
@@ -236,7 +237,7 @@ function RewardRowPreview({ row }: { row: UserRewardWithEffect }) {
     return (
       <div
         className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-zinc-800",
+          "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-zinc-900/70",
           fx,
         )}
         aria-hidden
@@ -245,7 +246,7 @@ function RewardRowPreview({ row }: { row: UserRewardWithEffect }) {
   }
   return (
     <div
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-zinc-800 text-lg leading-none"
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-zinc-900/70 text-lg leading-none"
       aria-hidden
     >
       {hallItemTypeEmoji(row.reward_type)}
@@ -323,6 +324,13 @@ export function MarketSheet({
     recentSoldKey,
     getRecentSoldListingsAction,
     { refreshInterval: 60_000, revalidateOnFocus: false },
+  );
+
+  const myCoinsKey = open ? (["market-sheet-my-coins"] as const) : null;
+  const { data: myCoinsData, mutate: mutateMyCoins } = useSWR(
+    myCoinsKey,
+    getMyCoinsAction,
+    { revalidateOnFocus: false },
   );
 
   const uploadRewardsKey =
@@ -410,6 +418,7 @@ export function MarketSheet({
       await Promise.all([
         mutateHall(),
         mutateMy(),
+        mutateMyCoins(),
         globalMutate(SWR_KEYS.myMarketListings),
         globalMutate(SWR_KEYS.marketRecentSold),
       ]);
@@ -573,6 +582,38 @@ export function MarketSheet({
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6 pt-3">
+                <div
+                  className="mb-3 rounded-xl border border-zinc-800/90 px-3 py-2.5"
+                  style={{ background: "rgba(255,255,255,0.03)" }}
+                >
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                    我的資產
+                  </p>
+                  <div className="flex justify-between gap-3">
+                    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                      <span className="text-base" aria-hidden>
+                        🪙
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold tabular-nums text-amber-400">
+                          {myCoinsData == null ? "…" : myCoinsData.free_coins}
+                        </p>
+                        <p className="text-[10px] text-zinc-500">探險幣</p>
+                      </div>
+                    </div>
+                    <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 text-right">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold tabular-nums text-violet-400">
+                          {myCoinsData == null ? "…" : myCoinsData.premium_coins}
+                        </p>
+                        <p className="text-[10px] text-zinc-500">純金</p>
+                      </div>
+                      <span className="text-base" aria-hidden>
+                        💎
+                      </span>
+                    </div>
+                  </div>
+                </div>
                 <div className="mb-3 flex flex-col gap-2">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
                     幣種
@@ -650,25 +691,25 @@ export function MarketSheet({
                       return (
                         <li
                           key={L.id}
-                          className="flex items-center gap-3 rounded-xl border border-zinc-800/80 bg-zinc-900/35 px-3 py-2.5"
+                          className="flex items-start gap-3 rounded-xl border border-zinc-800/80 bg-zinc-900/35 px-3 py-2.5"
                         >
                           <HallListingPreview
                             imageUrl={L.shop_item.image_url}
                             effectKey={L.shop_item.effect_key}
                             itemType={L.shop_item.item_type}
                           />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-bold text-zinc-100">
+                          <div className="min-h-[3.25rem] min-w-0 flex-1">
+                            <p className="line-clamp-2 text-sm font-bold leading-snug text-zinc-100">
                               {L.shop_item.label}
                             </p>
-                            <span className="mt-0.5 inline-block rounded-md bg-zinc-800/80 px-1.5 py-0.5 text-[10px] text-zinc-400">
+                            <span className="mt-0.5 inline-block max-w-full truncate rounded-md bg-zinc-800/80 px-1.5 py-0.5 text-[10px] text-zinc-400">
                               {typeLabel}
                             </span>
                             <p className="mt-1 truncate text-xs text-zinc-500">
                               by @{L.seller.nickname}
                             </p>
                           </div>
-                          <div className="flex shrink-0 flex-col items-end gap-1.5">
+                          <div className="flex shrink-0 flex-col items-end gap-1.5 self-start pt-0.5">
                             <span
                               className={cn(
                                 "text-sm font-bold tabular-nums",
@@ -735,11 +776,11 @@ export function MarketSheet({
                     return (
                       <li
                         key={L.id}
-                        className="flex items-center gap-3 rounded-xl border border-zinc-800/80 bg-zinc-900/35 px-3 py-2.5"
+                        className="flex items-start gap-3 rounded-xl border border-zinc-800/80 bg-zinc-900/35 px-3 py-2.5"
                       >
                         <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="truncate text-sm font-semibold text-zinc-100">
+                          <div className="flex flex-wrap items-start gap-2">
+                            <p className="line-clamp-2 min-h-[2.5rem] max-w-full text-sm font-semibold leading-snug text-zinc-100">
                               {L.shop_item.label}
                             </p>
                             <span
@@ -769,7 +810,7 @@ export function MarketSheet({
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="shrink-0 border-zinc-600 bg-transparent text-zinc-200 hover:bg-zinc-800"
+                            className="shrink-0 self-start border-zinc-600 bg-transparent text-zinc-200 hover:bg-zinc-800"
                             onClick={() => setCancelTarget(L)}
                           >
                             下架
