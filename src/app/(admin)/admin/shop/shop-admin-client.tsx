@@ -244,6 +244,7 @@ export default function ShopAdminClient() {
     cards: string[];
   }>({ root: [], avatars: [], cards: [] });
   const [localItems, setLocalItems] = useState<string[]>([]);
+  const [localShopFishing, setLocalShopFishing] = useState<string[]>([]);
   const [listTab, setListTab] = useState<"listed" | "delisted">("listed");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const shopImageInputRef = useRef<HTMLInputElement>(null);
@@ -277,6 +278,7 @@ export default function ShopAdminClient() {
         cards: res.data.framesCards,
       });
       setLocalItems(res.data.items);
+      setLocalShopFishing(res.data.shopFishing);
     })();
   }, [dialogOpen, imageMode]);
 
@@ -313,6 +315,11 @@ export default function ShopAdminClient() {
         new Set([...localFrameBuckets.cards, ...localFrameBuckets.root]),
       ).sort((a, b) => a.localeCompare(b));
     }
+    if (form.item_type === "fishing_bait" || form.item_type === "fishing_rod") {
+      return Array.from(new Set([...localShopFishing, ...localItems])).sort((a, b) =>
+        a.localeCompare(b),
+      );
+    }
     return localItems;
   }, [
     form.item_type,
@@ -320,6 +327,7 @@ export default function ShopAdminClient() {
     localFrameBuckets.cards,
     localFrameBuckets.root,
     localItems,
+    localShopFishing,
   ]);
 
   const oxMax = SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS;
@@ -896,6 +904,28 @@ export default function ShopAdminClient() {
                               </optgroup>
                             ) : null}
                           </>
+                        ) : form.item_type === "fishing_bait" ||
+                          form.item_type === "fishing_rod" ? (
+                          <>
+                            {localShopFishing.length > 0 ? (
+                              <optgroup label="shop/fishing/（釣餌／釣竿建議）">
+                                {localShopFishing.map((opt) => (
+                                  <option key={opt} value={opt}>
+                                    {opt}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ) : null}
+                            {localItems.length > 0 ? (
+                              <optgroup label="items/（共用素材，可選）">
+                                {localItems.map((opt) => (
+                                  <option key={opt} value={opt}>
+                                    {opt}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ) : null}
+                          </>
                         ) : form.item_type === "title" ? (
                           localItems.length > 0 ? (
                             <optgroup label="items/（稱號胸章建議）">
@@ -929,6 +959,7 @@ export default function ShopAdminClient() {
                               cards: res.data.framesCards,
                             });
                             setLocalItems(res.data.items);
+                            setLocalShopFishing(res.data.shopFishing);
                             toast.success("已重新讀取圖片清單");
                           })();
                         }}
@@ -944,7 +975,12 @@ export default function ShopAdminClient() {
                         setImagePreviewError(false);
                         setField("image_url", e.target.value);
                       }}
-                      placeholder="/items/gold-chest.png"
+                      placeholder={
+                        form.item_type === "fishing_bait" ||
+                        form.item_type === "fishing_rod"
+                          ? "/shop/fishing/bait-normal.png"
+                          : "/items/gold-chest.png"
+                      }
                       className="block w-full rounded-lg border border-gray-300 px-3 py-2"
                     />
                     <p className="mt-1 text-xs text-gray-500">
@@ -954,7 +990,10 @@ export default function ShopAdminClient() {
                           ? "卡框建議放 public/frames/cards/（或 legacy：frames 根目錄）。與頭像框分資料夾僅為資產整理，image_url 仍為完整路徑字串。"
                           : form.item_type === "title"
                             ? "稱號胸章建議放 public/items/，透明底 PNG／WebP、正方形構圖；與頭像框分開管理。"
-                            : "一般商品請放 public/items，建議直接用上方下拉選。"}
+                            : form.item_type === "fishing_bait" ||
+                                form.item_type === "fishing_rod"
+                              ? "釣餌／釣竿圖建議放 public/shop/fishing/（與資料庫 seed 路徑 /shop/fishing/… 一致）；亦可選 items/ 共用素材。"
+                              : "一般商品請放 public/items，建議直接用上方下拉選。"}
                     </p>
                   </div>
                   <div

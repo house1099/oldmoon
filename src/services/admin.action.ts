@@ -2558,6 +2558,8 @@ export type ShopLocalImageOptions = {
   /** `public/frames/cards/` 卡片外框專用 */
   framesCards: string[];
   items: string[];
+  /** `public/shop/fishing/` 釣餌／釣竿等（與 seed `image_url` 一致） */
+  shopFishing: string[];
 };
 
 export async function getShopLocalImageOptionsAction(): Promise<
@@ -2604,15 +2606,17 @@ export async function getShopLocalImageOptionsAction(): Promise<
         .sort((a, b) => a.localeCompare(b));
     };
 
-    const [framesRoot, framesAvatars, framesCards, items] = await Promise.all([
-      listFramesRootFilesOnly(),
-      listPublicImagesNested("frames", "avatars"),
-      listPublicImagesNested("frames", "cards"),
-      listPublicImages("items"),
-    ]);
+    const [framesRoot, framesAvatars, framesCards, items, shopFishing] =
+      await Promise.all([
+        listFramesRootFilesOnly(),
+        listPublicImagesNested("frames", "avatars"),
+        listPublicImagesNested("frames", "cards"),
+        listPublicImages("items"),
+        listPublicImagesNested("shop", "fishing"),
+      ]);
     return {
       ok: true,
-      data: { framesRoot, framesAvatars, framesCards, items },
+      data: { framesRoot, framesAvatars, framesCards, items, shopFishing },
     };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
