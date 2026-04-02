@@ -2213,6 +2213,7 @@ export async function createShopItemAction(data: {
           ? data.resell_currency_type.trim()
           : null,
       allow_delete: data.allow_delete ?? true,
+      is_archived: false,
     });
     revalidateTag("shop_items");
     return { ok: true, data: item };
@@ -2320,6 +2321,33 @@ export async function deleteShopItemAction(
   }
 }
 
+/** 封存：移出主打列表（並自動下架）；有購買紀錄者可改用此方式整理。 */
+export async function archiveShopItemAction(
+  id: string,
+): Promise<ActionResult<{ success: boolean }>> {
+  try {
+    await requireRole(["master"]);
+    await repoUpdateShopItem(id, { is_archived: true, is_active: false });
+    revalidateTag("shop_items");
+    return { ok: true, data: { success: true } };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function unarchiveShopItemAction(
+  id: string,
+): Promise<ActionResult<{ success: boolean }>> {
+  try {
+    await requireRole(["master"]);
+    await repoUpdateShopItem(id, { is_archived: false });
+    revalidateTag("shop_items");
+    return { ok: true, data: { success: true } };
+  } catch (e: unknown) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 function buildFishingRewardSummary(row: FishingLogAdminRow): string {
   const parts: string[] = [];
   if (row.fish_coins != null && row.fish_coins > 0) {
@@ -2373,18 +2401,38 @@ export async function getFishingAdminSettingsAction(): Promise<
   ActionResult<{
     fishing_enabled: boolean;
     fishing_age_max: number;
+    fishing_rod_cooldown_basic_minutes: number;
+    fishing_rod_cooldown_mid_minutes: number;
+    fishing_rod_cooldown_high_minutes: number;
   }>
 > {
   try {
     await requireRole(["master", "moderator"]);
-    const [enabledRaw, ageRaw] = await Promise.all([
+    const [enabledRaw, ageRaw, bRaw, mRaw, hRaw] = await Promise.all([
       findSystemSettingByKey("fishing_enabled"),
       findSystemSettingByKey("fishing_age_max"),
+      findSystemSettingByKey("fishing_rod_cooldown_basic_minutes"),
+      findSystemSettingByKey("fishing_rod_cooldown_mid_minutes"),
+      findSystemSettingByKey("fishing_rod_cooldown_high_minutes"),
     ]);
     const fishing_enabled = enabledRaw !== "false";
     const parsed = ageRaw != null && ageRaw !== "" ? Number.parseInt(ageRaw, 10) : NaN;
     const fishing_age_max = Number.isFinite(parsed) ? parsed : 10;
-    return { ok: true, data: { fishing_enabled, fishing_age_max } };
+    const n = (v: string | null, fb: number) => {
+      if (v == null || v.trim() === "") return fb;
+      const x = Number.parseInt(v, 10);
+      return Number.isFinite(x) && x >= 0 ? x : fb;
+    };
+    return {
+      ok: true,
+      data: {
+        fishing_enabled,
+        fishing_age_max,
+        fishing_rod_cooldown_basic_minutes: n(bRaw, 1440),
+        fishing_rod_cooldown_mid_minutes: n(mRaw, 720),
+        fishing_rod_cooldown_high_minutes: n(hRaw, 480),
+      },
+    };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };
   }
@@ -2475,6 +2523,9 @@ export async function deleteFishingRewardAction(
 export async function updateFishingSettingsAction(settings: {
   fishing_enabled?: boolean;
   fishing_age_max?: number;
+  fishing_rod_cooldown_basic_minutes?: number;
+  fishing_rod_cooldown_mid_minutes?: number;
+  fishing_rod_cooldown_high_minutes?: number;
 }): Promise<ActionResult<{ success: boolean }>> {
   try {
     const { user } = await requireRole(["master", "moderator"]);
@@ -2489,6 +2540,27 @@ export async function updateFishingSettingsAction(settings: {
       await repoUpdateSystemSetting(
         "fishing_age_max",
         String(settings.fishing_age_max),
+        user.id,
+      );
+    }
+    if (settings.fishing_rod_cooldown_basic_minutes !== undefined) {
+      await repoUpdateSystemSetting(
+        "fishing_rod_cooldown_basic_minutes",
+        String(settings.fishing_rod_cooldown_basic_minutes),
+        user.id,
+      );
+    }
+    if (settings.fishing_rod_cooldown_mid_minutes !== undefined) {
+      await repoUpdateSystemSetting(
+        "fishing_rod_cooldown_mid_minutes",
+        String(settings.fishing_rod_cooldown_mid_minutes),
+        user.id,
+      );
+    }
+    if (settings.fishing_rod_cooldown_high_minutes !== undefined) {
+      await repoUpdateSystemSetting(
+        "fishing_rod_cooldown_high_minutes",
+        String(settings.fishing_rod_cooldown_high_minutes),
         user.id,
       );
     }

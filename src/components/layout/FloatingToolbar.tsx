@@ -424,11 +424,18 @@ function buildStacks(rows: UserRewardWithEffect[]): RewardStack[] {
         new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
     );
     const first = list[0]!;
+    let count = list.length;
+    if (first.reward_type === "fishing_bait") {
+      count = list.reduce(
+        (s, r) => s + ((r as { quantity?: number }).quantity ?? 1),
+        0,
+      );
+    }
     stacks.push({
       key: `${first.reward_type}:${first.label}`,
       rewardType: first.reward_type,
       label: first.label,
-      count: list.length,
+      count,
       rows: list,
     });
   }

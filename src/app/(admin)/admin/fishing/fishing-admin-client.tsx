@@ -209,7 +209,13 @@ export default function FishingAdminClient({
   initialSettings,
   canAccessShopAdmin,
 }: {
-  initialSettings: { fishing_enabled: boolean; fishing_age_max: number };
+  initialSettings: {
+    fishing_enabled: boolean;
+    fishing_age_max: number;
+    fishing_rod_cooldown_basic_minutes: number;
+    fishing_rod_cooldown_mid_minutes: number;
+    fishing_rod_cooldown_high_minutes: number;
+  };
   canAccessShopAdmin: boolean;
 }) {
   const router = useRouter();
@@ -330,6 +336,15 @@ export default function FishingAdminClient({
   );
   const [ageMaxDraft, setAgeMaxDraft] = useState(
     String(initialSettings.fishing_age_max),
+  );
+  const [rodBasicDraft, setRodBasicDraft] = useState(
+    String(initialSettings.fishing_rod_cooldown_basic_minutes),
+  );
+  const [rodMidDraft, setRodMidDraft] = useState(
+    String(initialSettings.fishing_rod_cooldown_mid_minutes),
+  );
+  const [rodHighDraft, setRodHighDraft] = useState(
+    String(initialSettings.fishing_rod_cooldown_high_minutes),
   );
 
   /* —— 獎品 Dialog —— */
@@ -563,6 +578,30 @@ export default function FishingAdminClient({
       return;
     }
     toast.success("設定已更新");
+  };
+
+  const onSaveRodTierCooldowns = async () => {
+    const basic = Number.parseInt(rodBasicDraft, 10);
+    const mid = Number.parseInt(rodMidDraft, 10);
+    const high = Number.parseInt(rodHighDraft, 10);
+    if (
+      ![basic, mid, high].every(
+        (x) => Number.isFinite(x) && x >= 0 && x <= 10080,
+      )
+    ) {
+      toast.error("冷卻分鐘須為 0–10080 的整數");
+      return;
+    }
+    const r = await updateFishingSettingsAction({
+      fishing_rod_cooldown_basic_minutes: basic,
+      fishing_rod_cooldown_mid_minutes: mid,
+      fishing_rod_cooldown_high_minutes: high,
+    });
+    if (!r.ok) {
+      toast.error(r.error);
+      return;
+    }
+    toast.success("釣竿 tier 冷卻已更新");
   };
 
   const onSaveTierSettings = async () => {
@@ -1107,13 +1146,25 @@ export default function FishingAdminClient({
                   關閉後玩家無法拋竿，正在釣魚的不受影響
                 </p>
               </div>
-              <Switch
-                checked={fishingEnabled}
-                onCheckedChange={(v) => {
-                  setFishingEnabled(v);
-                  void onSaveFishingEnabled(v);
-                }}
-              />
+              <div className="flex items-center gap-3 shrink-0">
+                <span
+                  className={`text-sm font-semibold tabular-nums min-w-[3.5rem] text-right ${
+                    fishingEnabled ? "text-emerald-700" : "text-gray-500"
+                  }`}
+                  aria-live="polite"
+                >
+                  {fishingEnabled ? "已開啟" : "已關閉"}
+                </span>
+                <Switch
+                  checked={fishingEnabled}
+                  aria-label={fishingEnabled ? "釣魚系統已開啟，按一下關閉" : "釣魚系統已關閉，按一下開啟"}
+                  className="data-checked:bg-emerald-600 data-unchecked:bg-gray-300"
+                  onCheckedChange={(v) => {
+                    setFishingEnabled(v);
+                    void onSaveFishingEnabled(v);
+                  }}
+                />
+              </div>
             </div>
           </div>
 
@@ -1140,6 +1191,68 @@ export default function FishingAdminClient({
                 儲存
               </Button>
             </div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
+            <h3 className="text-sm font-semibold text-gray-900">
+              釣竿拋竿冷卻（tier 預設）
+            </h3>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              商城釣竿商品 metadata 設{" "}
+              <span className="font-mono text-[11px] bg-gray-50 px-1 rounded">
+                rod_tier
+              </span>{" "}
+              為 basic／mid／high，且<strong>未</strong>填{" "}
+              <span className="font-mono text-[11px] bg-gray-50 px-1 rounded">
+                rod_cooldown_minutes
+              </span>{" "}
+              時，套用此處分鐘數（24h／12h／8h 為預設例）。若單筆釣竿已填冷卻分鐘則以商品為準。
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="text-gray-700 text-sm mb-1 block">
+                  basic（分鐘）
+                </label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  value={rodBasicDraft}
+                  onChange={(e) => setRodBasicDraft(e.target.value)}
+                  className="bg-white"
+                />
+              </div>
+              <div>
+                <label className="text-gray-700 text-sm mb-1 block">
+                  mid（分鐘）
+                </label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  value={rodMidDraft}
+                  onChange={(e) => setRodMidDraft(e.target.value)}
+                  className="bg-white"
+                />
+              </div>
+              <div>
+                <label className="text-gray-700 text-sm mb-1 block">
+                  high（分鐘）
+                </label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  value={rodHighDraft}
+                  onChange={(e) => setRodHighDraft(e.target.value)}
+                  className="bg-white"
+                />
+              </div>
+            </div>
+            <Button
+              type="button"
+              className="bg-violet-600 hover:bg-violet-700 text-white"
+              onClick={() => void onSaveRodTierCooldowns()}
+            >
+              儲存釣竿冷卻
+            </Button>
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">

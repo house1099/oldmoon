@@ -1,14 +1,6 @@
 import type { FishType } from "@/types/database.types";
 import type { Json } from "@/types/database.types";
 
-const FISH_RATE_KEYS: { key: string; fish: FishType }[] = [
-  { key: "bait_common_rate", fish: "common" },
-  { key: "bait_rare_rate", fish: "rare" },
-  { key: "bait_legendary_rate", fish: "legendary" },
-  { key: "bait_matchmaker_rate", fish: "matchmaker" },
-  { key: "bait_leviathan_rate", fish: "leviathan" },
-];
-
 function num(v: unknown): number | null {
   if (typeof v === "number" && Number.isFinite(v)) return v;
   if (typeof v === "string" && v.trim() !== "") {
@@ -96,33 +88,83 @@ export function validateFishingRodMetadata(
   return null;
 }
 
-/** 自釣餌 metadata 取得各魚種權重；若全缺則預設 100% common。 */
-export function parseBaitFishWeights(
+const ZERO: Record<FishType, number> = {
+  common: 0,
+  rare: 0,
+  legendary: 0,
+  matchmaker: 0,
+  leviathan: 0,
+};
+
+/**
+ * 收成用：依餌類型給權重；章魚餌不會落回普通魚，非愛心餌不含月老魚。
+ * 舊版 parseBaitFishWeights 若全缺欄會預設 common，已移除。
+ */
+export function parseBaitFishWeightsForHarvest(
   metadata: Json | null | undefined,
-): Record<FishType, number> {
+): { ok: true; weights: Record<FishType, number> } | { ok: false; error: string } {
   const m =
     metadata && typeof metadata === "object" && !Array.isArray(metadata)
       ? (metadata as Record<string, unknown>)
       : {};
-  const out: Record<FishType, number> = {
-    common: 0,
-    rare: 0,
-    legendary: 0,
-    matchmaker: 0,
-    leviathan: 0,
-  };
-  let any = false;
-  for (const { key, fish } of FISH_RATE_KEYS) {
-    const n = num(m[key]);
-    if (n != null && n > 0) {
-      out[fish] = n;
-      any = true;
+  const t = detectBaitType(m);
+
+  if (t === "heart") {
+    const mm = Number(m.bait_matchmaker_rate ?? 0);
+    if (Math.abs(mm - 100) > 0.01) {
+      return {
+        ok: false,
+        error: "愛心餌（月老）metadata 無效：bait_matchmaker_rate 須為 100。",
+      };
     }
+    return {
+      ok: true,
+      weights: { ...ZERO, matchmaker: 100 },
+    };
   }
-  if (!any) {
-    out.common = 100;
+
+  if (t === "octopus") {
+    const rare = num(m.bait_rare_rate) ?? 0;
+    const legendary = num(m.bait_legendary_rate) ?? 0;
+    const leviathan = num(m.bait_leviathan_rate) ?? 0;
+    const sum = rare + legendary + leviathan;
+    if (Math.abs(sum - 100) > 0.01) {
+      return {
+        ok: false,
+        error: `章魚餌 metadata 無效：稀有+傳說+深海巨獸須合計 100（目前 ${sum}）。`,
+      };
+    }
+    return {
+      ok: true,
+      weights: {
+        ...ZERO,
+        rare,
+        legendary,
+        leviathan,
+      },
+    };
   }
-  return out;
+
+  const common = num(m.bait_common_rate) ?? 0;
+  if (Math.abs(common - 100) > 0.01) {
+    return {
+      ok: false,
+      error: "普通餌 metadata 無效：bait_common_rate 須為 100。",
+    };
+  }
+  return {
+    ok: true,
+    weights: { ...ZERO, common: 100 },
+  };
+}
+
+/** @deprecated 請使用 parseBaitFishWeightsForHarvest；保留供測試／舊引用。 */
+export function parseBaitFishWeights(
+  metadata: Json | null | undefined,
+): Record<FishType, number> {
+  const r = parseBaitFishWeightsForHarvest(metadata);
+  if (r.ok) return r.weights;
+  return { ...ZERO, common: 100 };
 }
 
 /** 是否為愛心餌（月老魚）；舊邏輯「任意 matchmaker 機率」已廢棄。 */
@@ -134,8 +176,18 @@ export function baitHasMatchmakerChance(metadata: Json | null | undefined): bool
   return detectBaitType(m) === "heart";
 }
 
-/** 拋竿／收成規則；缺欄位時預設 maxPerDay=1、waitUntilHarvestMinutes=1、cooldownAfterCastMinutes=480。 */
-export function parseRodFishingRules(metadata: Json | null | undefined): {
+/** 釣竿商品 metadata `rod_tier` 為 basic／mid／high 且未填 `rod_cooldown_minutes` 時，套用系統預設分鐘數。 */
+export type RodTierCooldownDefaults = {
+  basic: number;
+  mid: number;
+  high: number;
+};
+
+/** 拋竿／收成規則；缺欄位時預設 maxPerDay=1、waitUntilHarvestMinutes=1、cooldown 依 tier 或 480。 */
+export function parseRodFishingRules(
+  metadata: Json | null | undefined,
+  opts?: { tierCooldownMinutes?: RodTierCooldownDefaults | null },
+): {
   maxPerDay: number;
   waitUntilHarvestMinutes: number;
   cooldownAfterCastMinutes: number;
@@ -156,12 +208,24 @@ export function parseRodFishingRules(metadata: Json | null | undefined): {
       : Number.isInteger(waitRaw) && waitRaw >= 1
         ? waitRaw
         : null;
-  const cooldownAfterCastMinutes =
-    afterRaw == null
-      ? 480
-      : Number.isInteger(afterRaw) && afterRaw >= 0
-        ? afterRaw
-        : null;
+
+  let cooldownAfterCastMinutes: number | null;
+  if (afterRaw != null) {
+    if (!Number.isInteger(afterRaw) || afterRaw < 0) {
+      cooldownAfterCastMinutes = null;
+    } else {
+      cooldownAfterCastMinutes = afterRaw;
+    }
+  } else {
+    const tr = m.rod_tier;
+    const tier =
+      tr === "basic" || tr === "mid" || tr === "high" ? tr : null;
+    if (tier && opts?.tierCooldownMinutes) {
+      cooldownAfterCastMinutes = opts.tierCooldownMinutes[tier];
+    } else {
+      cooldownAfterCastMinutes = 480;
+    }
+  }
 
   if (maxPerDay == null || waitUntilHarvestMinutes == null || cooldownAfterCastMinutes == null) {
     return null;

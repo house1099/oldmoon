@@ -2,7 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Plus, Pencil, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
+import {
+  Loader2,
+  Plus,
+  Pencil,
+  Trash2,
+  ToggleLeft,
+  ToggleRight,
+  Archive,
+  ArchiveRestore,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,6 +36,8 @@ import {
   updateShopItemAction,
   toggleShopItemAction,
   deleteShopItemAction,
+  archiveShopItemAction,
+  unarchiveShopItemAction,
   getShopLocalImageOptionsAction,
 } from "@/services/admin.action";
 import type { ShopItemRow } from "@/lib/repositories/server/shop.repository";
@@ -245,7 +256,9 @@ export default function ShopAdminClient() {
   }>({ root: [], avatars: [], cards: [] });
   const [localItems, setLocalItems] = useState<string[]>([]);
   const [localShopFishing, setLocalShopFishing] = useState<string[]>([]);
-  const [listTab, setListTab] = useState<"listed" | "delisted">("listed");
+  const [listTab, setListTab] = useState<"listed" | "delisted" | "archived">(
+    "listed",
+  );
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const shopImageInputRef = useRef<HTMLInputElement>(null);
   const framePreviewDragRef = useRef<{
@@ -515,13 +528,35 @@ export default function ShopAdminClient() {
     void load();
   }
 
-  const tabItems = useMemo(
-    () =>
-      items.filter((item) =>
-        listTab === "listed" ? item.is_active : !item.is_active,
-      ),
-    [items, listTab],
-  );
+  async function handleArchive(item: ShopItemRow) {
+    const res = await archiveShopItemAction(item.id);
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    toast.success("已封存並下架");
+    void load();
+  }
+
+  async function handleUnarchive(item: ShopItemRow) {
+    const res = await unarchiveShopItemAction(item.id);
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    toast.success("已取消封存");
+    void load();
+  }
+
+  const tabItems = useMemo(() => {
+    if (listTab === "archived") {
+      return items.filter((item) => item.is_archived);
+    }
+    if (listTab === "listed") {
+      return items.filter((item) => item.is_active && !item.is_archived);
+    }
+    return items.filter((item) => !item.is_active && !item.is_archived);
+  }, [items, listTab]);
 
   const filteredItems = useMemo(() => {
     if (typeFilter === "all") return tabItems;
@@ -571,6 +606,17 @@ export default function ShopAdminClient() {
             }`}
           >
             已下架
+          </button>
+          <button
+            type="button"
+            onClick={() => setListTab("archived")}
+            className={`flex-1 rounded-full px-3 py-2 text-sm font-medium transition-colors sm:flex-none sm:px-4 ${
+              listTab === "archived"
+                ? "bg-white text-amber-800 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            封存
           </button>
         </div>
         <label className="flex items-center gap-2 text-sm text-gray-600">
@@ -623,15 +669,21 @@ export default function ShopAdminClient() {
                   {item.daily_limit ?? "—"}
                 </td>
                 <td className="px-3 py-2">
-                  <span
-                    className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                      item.is_active
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-gray-100 text-gray-500"
-                    }`}
-                  >
-                    {item.is_active ? "上架" : "下架"}
-                  </span>
+                  {item.is_archived ? (
+                    <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+                      封存
+                    </span>
+                  ) : (
+                    <span
+                      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                        item.is_active
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-gray-100 text-gray-500"
+                      }`}
+                    >
+                      {item.is_active ? "上架" : "下架"}
+                    </span>
+                  )}
                 </td>
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-1">
@@ -643,18 +695,39 @@ export default function ShopAdminClient() {
                     >
                       <Pencil className="h-4 w-4 text-gray-500" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleToggle(item)}
-                      className="rounded p-1 hover:bg-gray-100"
-                      title={item.is_active ? "下架" : "上架"}
-                    >
-                      {item.is_active ? (
-                        <ToggleRight className="h-4 w-4 text-emerald-600" />
-                      ) : (
-                        <ToggleLeft className="h-4 w-4 text-gray-400" />
-                      )}
-                    </button>
+                    {item.is_archived ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleUnarchive(item)}
+                        className="rounded p-1 hover:bg-gray-100"
+                        title="取消封存"
+                      >
+                        <ArchiveRestore className="h-4 w-4 text-amber-700" />
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => void handleToggle(item)}
+                          className="rounded p-1 hover:bg-gray-100"
+                          title={item.is_active ? "下架" : "上架"}
+                        >
+                          {item.is_active ? (
+                            <ToggleRight className="h-4 w-4 text-emerald-600" />
+                          ) : (
+                            <ToggleLeft className="h-4 w-4 text-gray-400" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleArchive(item)}
+                          className="rounded p-1 hover:bg-gray-100"
+                          title="封存（並下架）"
+                        >
+                          <Archive className="h-4 w-4 text-amber-600" />
+                        </button>
+                      </>
+                    )}
                     <button
                       type="button"
                       onClick={() => setDeleteTarget(item)}
@@ -679,7 +752,9 @@ export default function ShopAdminClient() {
                 <td colSpan={8} className="py-8 text-center text-gray-400">
                   {listTab === "listed"
                     ? "此分頁尚無上架中商品"
-                    : "此分頁尚無下架商品"}
+                    : listTab === "delisted"
+                      ? "此分頁尚無下架商品"
+                      : "此分頁尚無封存商品"}
                 </td>
               </tr>
             )}
@@ -706,15 +781,21 @@ export default function ShopAdminClient() {
                 <p className="font-medium text-gray-900">{item.name}</p>
                 <p className="text-xs font-mono text-gray-500">{item.sku}</p>
               </div>
-              <span
-                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                  item.is_active
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-gray-100 text-gray-500"
-                }`}
-              >
-                {item.is_active ? "上架" : "下架"}
-              </span>
+              {item.is_archived ? (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+                  封存
+                </span>
+              ) : (
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    item.is_active
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-gray-100 text-gray-500"
+                  }`}
+                >
+                  {item.is_active ? "上架" : "下架"}
+                </span>
+              )}
             </div>
             <div className="flex flex-wrap gap-2 text-xs">
               <span className="rounded-full bg-violet-100 px-2 py-0.5 text-violet-700">
@@ -727,7 +808,7 @@ export default function ShopAdminClient() {
                 <span className="text-gray-500">限購 {item.daily_limit}/日</span>
               )}
             </div>
-            <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
+            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-gray-100">
               <button
                 type="button"
                 onClick={() => openEdit(item)}
@@ -735,13 +816,32 @@ export default function ShopAdminClient() {
               >
                 編輯
               </button>
-              <button
-                type="button"
-                onClick={() => void handleToggle(item)}
-                className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
-              >
-                {item.is_active ? "下架" : "上架"}
-              </button>
+              {item.is_archived ? (
+                <button
+                  type="button"
+                  onClick={() => void handleUnarchive(item)}
+                  className="rounded px-2 py-1 text-xs text-amber-800 hover:bg-amber-50"
+                >
+                  取消封存
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void handleToggle(item)}
+                    className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+                  >
+                    {item.is_active ? "下架" : "上架"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleArchive(item)}
+                    className="rounded px-2 py-1 text-xs text-amber-800 hover:bg-amber-50"
+                  >
+                    封存
+                  </button>
+                </>
+              )}
               <button
                 type="button"
                 onClick={() => setDeleteTarget(item)}
@@ -759,7 +859,9 @@ export default function ShopAdminClient() {
           <p className="py-8 text-center text-gray-400">
             {listTab === "listed"
               ? "此分頁尚無上架中商品"
-              : "此分頁尚無下架商品"}
+              : listTab === "delisted"
+                ? "此分頁尚無下架商品"
+                : "此分頁尚無封存商品"}
           </p>
         )}
         {filterEmpty && (

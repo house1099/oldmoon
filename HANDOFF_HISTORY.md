@@ -2,6 +2,15 @@
 
 舊版主檔內之逐日／逐任務紀錄與長篇 Wave 敘事已遷移至此。**平時不必讀**；需追溯決策或實作細節時再開。
 
+### 2026-04-02 — 釣魚與商城九項（封存、餌堆疊、兩段收成、tier 冷卻、中魚通知）
+
+1. **目標**：商城 **封存**（**`is_archived`**）；釣魚管理 **Switch** 可讀；**魚餌** **`user_rewards.quantity`** 堆疊；章魚／愛心餌 **metadata** 防呆與種子修正；收成 **預覽 → 確認** 才寫 **`fishing_logs`**；釣竿 **圖示快選** 與 **tier** 冷卻（**`system_settings`** 三鍵 **`fishing_rod_cooldown_{basic,mid,high}_minutes`**，**`rod_tier`** 未覆寫 **`rod_cooldown_minutes`** 時套用）；**`pending_harvest_ready_at`** 隨機可收竿、**`bite_notified_at`** 中魚信＋ **Web Push**（不影響拋竿冷卻）。
+2. **資料庫** 🗄️：**`20260415120000_shop_items_is_archived.sql`**、**`20260415120100_user_rewards_quantity.sql`**、**`20260415120200_fishing_bait_metadata_heart_shrimp.sql`**、**`20260415120300_fishing_cast_ready_preview.sql`**、**`20260415120400_fishing_rod_tier_cooldown_settings.sql`**。
+3. **Layer 2／3**：**`shop.repository`** **`findActiveShopItems`**；**`rewards.repository`** **`upsertFishingBaitStack`**、**`findMyRewards`** 含 **`quantity`**；**`fishing-cast.repository`** **`getRodCastSnapshot`**（**`pending_harvest_ready_at`**）、**`markBiteNotified`**；**`fishing.action`** **`prepareHarvestFishAction`／`confirmHarvestFishAction`／`applyHarvestPreviewPayload`**、**`getRodTierCooldownDefaults`**、**`maybeNotifyFishingHarvestReady`**；**`parseRodFishingRules`** 第二參數 **tier** 預設；**`admin.action`** 釣魚設定擴充三冷卻分鐘。
+4. **Layer 5**：**`fishing-panel`**（**`prepare`／`confirm`**、釣竿圖示列）；**`fishing-admin-client`** 系統設定三欄＋封存／Switch 等（與先前 PR 合併）。
+5. **驗證**：**`npm run build`** 通過。
+6. **Git**：見主線提交訊息（本波釣魚／商城）。
+
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 

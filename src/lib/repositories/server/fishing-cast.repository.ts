@@ -64,7 +64,7 @@ export function peekCanStartCast(opts: {
   return { ok: true };
 }
 
-/** 進行中拋竿是否已可收成。 */
+/** 進行中拋竿是否已可收成（優先 pending_harvest_ready_at，否則 started_at + wait 分鐘）。 */
 export function peekHarvestReady(opts: {
   row: CastRow | null;
   waitUntilHarvestMinutes: number;
@@ -74,14 +74,19 @@ export function peekHarvestReady(opts: {
   if (!opts.row?.pending_cast_started_at) {
     return { ok: false, error: "no_pending", remainSec: 0 };
   }
-  const start = new Date(opts.row.pending_cast_started_at).getTime();
-  const ms = opts.waitUntilHarvestMinutes * 60_000;
-  const elapsed = Date.now() - start;
-  if (elapsed < ms) {
+  const now = Date.now();
+  let readyAtMs: number;
+  if (opts.row.pending_harvest_ready_at) {
+    readyAtMs = new Date(opts.row.pending_harvest_ready_at).getTime();
+  } else {
+    const start = new Date(opts.row.pending_cast_started_at).getTime();
+    readyAtMs = start + opts.waitUntilHarvestMinutes * 60_000;
+  }
+  if (now < readyAtMs) {
     return {
       ok: false,
       error: "too_soon",
-      remainSec: Math.ceil((ms - elapsed) / 1000),
+      remainSec: Math.ceil((readyAtMs - now) / 1000),
     };
   }
   return { ok: true };
@@ -161,6 +166,8 @@ export async function setPendingCast(opts: {
   userId: string;
   rodUserRewardId: string;
   baitShopItemId: string;
+  /** ISO：可收竿時間（拋竿後隨機，≤ 冷卻分鐘） */
+  pendingHarvestReadyAtIso: string;
 }): Promise<void> {
   const today = taipeiCalendarDateKey();
   const nowIso = new Date().toISOString();
@@ -178,6 +185,9 @@ export async function setPendingCast(opts: {
         last_cast_at: nowIso,
         pending_cast_started_at: nowIso,
         pending_bait_shop_item_id: opts.baitShopItemId,
+        pending_harvest_ready_at: opts.pendingHarvestReadyAtIso,
+        bite_notified_at: null,
+        pending_harvest_preview: null,
         updated_at: nowIso,
       })
       .eq("id", existing.id);
@@ -193,6 +203,9 @@ export async function setPendingCast(opts: {
     last_cast_at: nowIso,
     pending_cast_started_at: nowIso,
     pending_bait_shop_item_id: opts.baitShopItemId,
+    pending_harvest_ready_at: opts.pendingHarvestReadyAtIso,
+    bite_notified_at: null,
+    pending_harvest_preview: null,
     updated_at: nowIso,
   });
   if (error) throw error;
@@ -216,9 +229,48 @@ export async function recordHarvestSuccess(opts: {
     .update({
       pending_cast_started_at: null,
       pending_bait_shop_item_id: null,
+      pending_harvest_ready_at: null,
+      bite_notified_at: null,
+      pending_harvest_preview: null,
       updated_at: nowIso,
     })
     .eq("id", existing.id);
+  if (error) throw error;
+}
+
+export async function setPendingHarvestPreview(opts: {
+  userId: string;
+  rodUserRewardId: string;
+  preview: import("@/types/database.types").Json;
+}): Promise<void> {
+  const admin = createAdminClient();
+  const row = await getRodCastState(opts.userId, opts.rodUserRewardId);
+  if (!row) return;
+  const { error } = await admin
+    .from("fishing_rod_cast_state")
+    .update({
+      pending_harvest_preview: opts.preview,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", row.id);
+  if (error) throw error;
+}
+
+/** 中魚站內信／推播已發送後標記，避免重複。 */
+export async function markBiteNotified(opts: {
+  userId: string;
+  rodUserRewardId: string;
+}): Promise<void> {
+  const admin = createAdminClient();
+  const row = await getRodCastState(opts.userId, opts.rodUserRewardId);
+  if (!row) return;
+  const { error } = await admin
+    .from("fishing_rod_cast_state")
+    .update({
+      bite_notified_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", row.id);
   if (error) throw error;
 }
 
@@ -266,11 +318,15 @@ export async function getRodCastSnapshot(opts: {
   let hasPendingCast = false;
   if (row?.pending_cast_started_at) {
     hasPendingCast = true;
-    const start = new Date(row.pending_cast_started_at).getTime();
-    const ms = opts.waitUntilHarvestMinutes * 60_000;
-    const elapsed = now - start;
-    if (elapsed < ms) {
-      pendingHarvestRemainSec = Math.ceil((ms - elapsed) / 1000);
+    let readyAtMs: number;
+    if (row.pending_harvest_ready_at) {
+      readyAtMs = new Date(row.pending_harvest_ready_at).getTime();
+    } else {
+      const start = new Date(row.pending_cast_started_at).getTime();
+      readyAtMs = start + opts.waitUntilHarvestMinutes * 60_000;
+    }
+    if (now < readyAtMs) {
+      pendingHarvestRemainSec = Math.ceil((readyAtMs - now) / 1000);
     }
   }
 

@@ -23,8 +23,9 @@ import { SWR_KEYS } from "@/lib/swr/keys";
 import { INTEREST_TAG_OPTIONS } from "@/lib/constants/adventurer-questionnaire";
 import {
   castFishAction,
+  confirmHarvestFishAction,
   getFishingStatusAction,
-  harvestFishAction,
+  prepareHarvestFishAction,
   type CollectFishResult,
   type FishingStatusDto,
   type FishingStatusResult,
@@ -248,21 +249,13 @@ export function FishingPanel() {
 
   const runHarvest = useCallback(async () => {
     try {
-      const res = await harvestFishAction({
+      const res = await prepareHarvestFishAction({
         rodUserRewardId: selectedRodId ?? undefined,
       });
       setLastResult(res);
       void swrMutate(SWR_KEYS.fishingStatus);
-      void swrMutate(SWR_KEYS.fishingLogs);
-      if (!res.ok && res.error === "fishing_disabled") {
-        setRevealPlaybackKey((k) => k + 1);
-        setResultOverlay(true);
-        return;
-      }
-      if (res.ok) {
-        setRevealPlaybackKey((k) => k + 1);
-        setResultOverlay(true);
-      }
+      setRevealPlaybackKey((k) => k + 1);
+      setResultOverlay(true);
     } catch {
       setLastResult({ ok: false, error: "收竿失敗，請稍後再試。" });
       setRevealPlaybackKey((k) => k + 1);
@@ -295,10 +288,20 @@ export function FishingPanel() {
     };
   }, [resultOverlay, lastResult]);
 
-  const closeRewardModal = useCallback(() => {
+  const closeRewardModal = useCallback(async () => {
+    if (lastResult?.ok === true) {
+      const r = await confirmHarvestFishAction({
+        rodUserRewardId: selectedRodId ?? undefined,
+      });
+      if (!r.ok) {
+        toast.error(r.error);
+        return;
+      }
+    }
     setResultOverlay(false);
     void swrMutate(SWR_KEYS.fishingLogs);
-  }, []);
+    void swrMutate(SWR_KEYS.fishingStatus);
+  }, [lastResult, selectedRodId]);
 
   if (fishingDisabled) {
     return (
@@ -374,20 +377,49 @@ export function FishingPanel() {
           <div className="rounded-xl bg-zinc-900/60 p-3 space-y-2">
             <p className="text-xs font-medium text-zinc-400">選擇釣竿</p>
             {statusDto && statusDto.rods.length > 1 ? (
-              <select
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white"
-                value={selectedRodId ?? ""}
-                onChange={(e) => setSelectedRodId(e.target.value)}
-              >
-                {statusDto.rods.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                    {r.cooldownAfterHarvestRemainingSec > 0
-                      ? `（拋竿冷卻 ${Math.ceil(r.cooldownAfterHarvestRemainingSec / 60)} 分）`
-                      : `（今日剩 ${r.castsRemainingToday}）`}
-                  </option>
-                ))}
-              </select>
+              <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {statusDto.rods.map((r) => {
+                  const selected = selectedRodId === r.id;
+                  const sub =
+                    r.cooldownAfterHarvestRemainingSec > 0
+                      ? `冷卻 ${Math.ceil(r.cooldownAfterHarvestRemainingSec / 60)} 分`
+                      : `今日 ${r.castsRemainingToday}`;
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => setSelectedRodId(r.id)}
+                      className={`relative flex shrink-0 flex-col items-center rounded-xl border-2 p-1.5 transition-colors ${
+                        selected
+                          ? "border-violet-500 bg-violet-950/40"
+                          : "border-zinc-700/80 bg-zinc-900/50"
+                      }`}
+                      title={`${r.name} · ${sub}`}
+                    >
+                      <div className="relative h-14 w-14 overflow-hidden rounded-lg bg-zinc-800">
+                        {r.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- 商城圖可能為本機路徑或任意 CDN
+                          <img
+                            src={r.imageUrl}
+                            alt=""
+                            className="h-full w-full object-contain p-1"
+                          />
+                        ) : (
+                          <span
+                            className="flex h-full w-full items-center justify-center text-2xl"
+                            aria-hidden
+                          >
+                            🎣
+                          </span>
+                        )}
+                      </div>
+                      <span className="mt-1 max-w-[4.75rem] truncate text-center text-[10px] leading-tight text-zinc-500">
+                        {r.name}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             ) : (
               <div className="flex items-center justify-between gap-2">
                 <span className="truncate text-sm font-medium text-white">
@@ -418,13 +450,21 @@ export function FishingPanel() {
                 {statusDto.baits.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
+                    {b.quantity > 1 ? ` ×${b.quantity}` : ""}
                   </option>
                 ))}
               </select>
             ) : null}
             <div className="w-full rounded-xl border border-violet-500 bg-violet-950/40 p-3 text-left">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm text-white">{baitName}</span>
+                <span className="text-sm text-white">
+                  {baitName}
+                  {activeBait && activeBait.quantity > 1 ? (
+                    <span className="ml-2 rounded-full bg-amber-500/25 px-2 py-0.5 text-xs font-semibold text-amber-200">
+                      {activeBait.quantity > 99 ? "99+" : `×${activeBait.quantity}`}
+                    </span>
+                  ) : null}
+                </span>
                 <span className="text-xs text-zinc-500">
                   拋竿後依釣竿設定等待再收竿
                 </span>
@@ -551,8 +591,6 @@ export function FishingPanel() {
           onOpenChange={(open) => {
             if (!open) {
               setDetailUser(null);
-              setResultOverlay(false);
-              void swrMutate(SWR_KEYS.fishingLogs);
             }
           }}
         />

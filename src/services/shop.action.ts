@@ -14,6 +14,7 @@ import {
 } from "@/lib/repositories/server/shop.repository";
 import { creditCoins } from "@/lib/repositories/server/coin.repository";
 import { insertUserReward } from "@/lib/repositories/server/prize.repository";
+import { upsertFishingBaitStack } from "@/lib/repositories/server/rewards.repository";
 import { drawFromPool, type DrawResult } from "@/services/prize-engine";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
@@ -292,7 +293,14 @@ async function dispatchItemToUser(
         break;
       }
 
-      case "fishing_bait":
+      case "fishing_bait": {
+        if (i === 0) {
+          newRewardIds.push(
+            await upsertFishingBaitStack(userId, item.id, item.name, quantity),
+          );
+        }
+        break;
+      }
       case "fishing_rod":
         newRewardIds.push(
           await insertUserReward({
@@ -301,6 +309,7 @@ async function dispatchItemToUser(
             shop_item_id: item.id,
             label: item.name,
             is_equipped: false,
+            quantity: 1,
           }),
         );
         break;

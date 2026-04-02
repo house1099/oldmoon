@@ -516,6 +516,9 @@ export interface Database {
           last_cast_at: string | null;
           pending_cast_started_at: string | null;
           pending_bait_shop_item_id: string | null;
+          pending_harvest_ready_at: string | null;
+          bite_notified_at: string | null;
+          pending_harvest_preview: Json | null;
           updated_at: string;
         };
         Insert: {
@@ -527,6 +530,9 @@ export interface Database {
           last_cast_at?: string | null;
           pending_cast_started_at?: string | null;
           pending_bait_shop_item_id?: string | null;
+          pending_harvest_ready_at?: string | null;
+          bite_notified_at?: string | null;
+          pending_harvest_preview?: Json | null;
           updated_at?: string;
         };
         Update: {
@@ -535,6 +541,9 @@ export interface Database {
           last_cast_at?: string | null;
           pending_cast_started_at?: string | null;
           pending_bait_shop_item_id?: string | null;
+          pending_harvest_ready_at?: string | null;
+          bite_notified_at?: string | null;
+          pending_harvest_preview?: Json | null;
           updated_at?: string;
         };
         Relationships: [
@@ -1716,6 +1725,7 @@ export interface Database {
           label: string;
           is_equipped: boolean;
           used_at: string | null;
+          quantity: number;
           created_at: string;
         };
         Insert: {
@@ -1727,6 +1737,7 @@ export interface Database {
           label: string;
           is_equipped?: boolean;
           used_at?: string | null;
+          quantity?: number;
           created_at?: string;
         };
         Update: {
@@ -1736,6 +1747,7 @@ export interface Database {
           label?: string;
           is_equipped?: boolean;
           used_at?: string | null;
+          quantity?: number;
         };
         Relationships: [
           {
@@ -1820,6 +1832,7 @@ export interface Database {
           resell_price: number | null;
           resell_currency_type: string | null;
           allow_delete: boolean;
+          is_archived: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -1847,6 +1860,7 @@ export interface Database {
           resell_price?: number | null;
           resell_currency_type?: string | null;
           allow_delete?: boolean;
+          is_archived?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -1873,6 +1887,7 @@ export interface Database {
           resell_price?: number | null;
           resell_currency_type?: string | null;
           allow_delete?: boolean;
+          is_archived?: boolean;
           updated_at?: string;
         };
         Relationships: [];

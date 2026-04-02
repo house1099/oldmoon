@@ -142,6 +142,7 @@ export async function findMyRewards(
       label: row.label,
       is_equipped: row.is_equipped,
       used_at: row.used_at,
+      quantity: row.quantity ?? 1,
       created_at: row.created_at,
       effect_key: effectFromPrize ?? effectFromShop,
       image_url:
@@ -179,6 +180,7 @@ function userRewardRowFromJoined(data: JoinedUserRewardForGift): UserRewardRow {
     label: raw.label,
     is_equipped: raw.is_equipped,
     used_at: raw.used_at,
+    quantity: raw.quantity ?? 1,
     created_at: raw.created_at,
   };
 }
@@ -763,6 +765,8 @@ export type FishingInventoryItem = {
   reward_type: string;
   shop_item_id: string | null;
   displayName: string;
+  /** 釣餌堆疊數量 */
+  quantity: number;
   /** 釣餌：商城 metadata（判斷餌類型標籤）。 */
   metadata?: Json | null;
 };
@@ -774,7 +778,7 @@ export async function listFishingRodsAndBaits(
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("user_rewards")
-    .select("id, reward_type, shop_item_id, label, shop_items(name, metadata)")
+    .select("id, reward_type, shop_item_id, label, quantity, shop_items(name, metadata)")
     .eq("user_id", userId)
     .in("reward_type", ["fishing_rod", "fishing_bait"]);
   if (error) throw error;
@@ -783,6 +787,7 @@ export async function listFishingRodsAndBaits(
     reward_type: string;
     shop_item_id: string | null;
     label: string | null;
+    quantity: number | null;
     shop_items:
       | { name: string; metadata: Json | null }
       | { name: string; metadata: Json | null }[]
@@ -796,11 +801,13 @@ export async function listFishingRodsAndBaits(
       : r.shop_items;
     const displayName =
       shop?.name?.trim() || r.label?.trim() || "釣魚道具";
+    const qty = r.quantity != null && r.quantity >= 1 ? r.quantity : 1;
     const item: FishingInventoryItem = {
       id: r.id,
       reward_type: r.reward_type,
       shop_item_id: r.shop_item_id,
       displayName,
+      quantity: r.reward_type === "fishing_rod" ? 1 : qty,
       metadata:
         r.reward_type === "fishing_bait" ? (shop?.metadata ?? null) : undefined,
     };
@@ -838,6 +845,104 @@ export async function countUserRewardsByType(
     .eq("reward_type", rewardType);
   if (error) throw error;
   return count ?? 0;
+}
+
+/** 釣餌總數（含堆疊 quantity） */
+export async function sumFishingBaitQuantity(userId: string): Promise<number> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("user_rewards")
+    .select("quantity")
+    .eq("user_id", userId)
+    .eq("reward_type", "fishing_bait");
+  if (error) throw error;
+  let sum = 0;
+  for (const r of data ?? []) {
+    const q = (r as { quantity?: number }).quantity;
+    sum += q != null && q >= 1 ? q : 1;
+  }
+  return sum;
+}
+
+/**
+ * 商城發放釣餌：合併至未上架中的同一 shop_item 列，否則新增一列。
+ */
+export async function upsertFishingBaitStack(
+  userId: string,
+  shopItemId: string,
+  label: string,
+  addQty: number,
+): Promise<string> {
+  if (addQty < 1) {
+    throw new Error("upsertFishingBaitStack: addQty must be >= 1");
+  }
+  const admin = createAdminClient();
+  const { data: listedRows, error: e1 } = await admin
+    .from("market_listings")
+    .select("user_reward_id")
+    .eq("status", "active");
+  if (e1) throw e1;
+  const listedIds = new Set(
+    (listedRows ?? []).map((r: { user_reward_id: string }) => r.user_reward_id),
+  );
+
+  const { data: rows, error: e2 } = await admin
+    .from("user_rewards")
+    .select("id, quantity")
+    .eq("user_id", userId)
+    .eq("shop_item_id", shopItemId)
+    .eq("reward_type", "fishing_bait")
+    .order("created_at", { ascending: true });
+  if (e2) throw e2;
+
+  const stackable = (rows ?? []).find(
+    (r: { id: string }) => !listedIds.has(r.id),
+  ) as { id: string; quantity: number } | undefined;
+
+  if (stackable) {
+    const q = stackable.quantity ?? 1;
+    const { error: e3 } = await admin
+      .from("user_rewards")
+      .update({ quantity: q + addQty })
+      .eq("id", stackable.id);
+    if (e3) throw e3;
+    return stackable.id;
+  }
+
+  return insertUserReward({
+    user_id: userId,
+    reward_type: "fishing_bait",
+    shop_item_id: shopItemId,
+    label,
+    is_equipped: false,
+    quantity: addQty,
+  });
+}
+
+/** 拋竿消耗一個釣餌：quantity>1 則減一，否則刪列 */
+export async function decrementBaitOrDeleteForCast(
+  rewardId: string,
+  ownerUserId: string,
+): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data: row, error: e1 } = await admin
+    .from("user_rewards")
+    .select("id, quantity, user_id")
+    .eq("id", rewardId)
+    .maybeSingle();
+  if (e1) throw e1;
+  if (!row || (row as { user_id: string }).user_id !== ownerUserId) {
+    return false;
+  }
+  const q = (row as { quantity?: number }).quantity ?? 1;
+  if (q > 1) {
+    const { error: e2 } = await admin
+      .from("user_rewards")
+      .update({ quantity: q - 1 })
+      .eq("id", rewardId);
+    return !e2;
+  }
+  return deleteUserRewardForOwner(rewardId, ownerUserId);
 }
 
 export async function deleteUserRewardForOwner(
@@ -882,6 +987,7 @@ export async function transferUserRewardToUser(
     throw new Error("USER_REWARD_NOT_FOUND");
   }
   const raw = row as RawUserRewardRow;
+  const q = (row as { quantity?: number }).quantity ?? 1;
   const payload: Omit<UserRewardInsert, "id" | "created_at"> = {
     user_id: toUserId,
     reward_type: row.reward_type,
@@ -890,6 +996,7 @@ export async function transferUserRewardToUser(
     label: row.label,
     is_equipped: false,
     used_at: null,
+    quantity: row.reward_type === "fishing_bait" ? q : 1,
   };
   await insertUserReward(payload);
   const admin = createAdminClient();

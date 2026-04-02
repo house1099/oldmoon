@@ -19,6 +19,7 @@ export async function findActiveShopItems(
     .from("shop_items")
     .select("*")
     .eq("is_active", true)
+    .eq("is_archived", false)
     .or(`sale_end_at.is.null,sale_end_at.gt.${nowIso}`)
     .order("sort_order", { ascending: true });
   if (currencyType) {

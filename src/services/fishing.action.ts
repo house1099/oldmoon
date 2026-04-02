@@ -9,9 +9,11 @@ import { creditCoins } from "@/lib/repositories/server/coin.repository";
 import { insertUserReward } from "@/lib/repositories/server/prize.repository";
 import {
   countUserRewardsByType,
-  deleteUserRewardForOwner,
+  decrementBaitOrDeleteForCast,
   findUserRewardById,
   listFishingRodsAndBaits,
+  sumFishingBaitQuantity,
+  upsertFishingBaitStack,
 } from "@/lib/repositories/server/rewards.repository";
 import {
   findMatchmakerPoolCandidates,
@@ -31,21 +33,25 @@ import type { TierPickResult } from "@/lib/utils/fishing-tier-pick";
 import {
   getRodCastSnapshot,
   getRodCastState,
+  markBiteNotified,
   peekCanStartCast,
   peekHarvestReady,
   recordHarvestSuccess,
   setPendingCast,
+  setPendingHarvestPreview,
 } from "@/lib/repositories/server/fishing-cast.repository";
 import { findShopItemById } from "@/lib/repositories/server/shop.repository";
 import {
   detectBaitType,
-  parseBaitFishWeights,
+  parseBaitFishWeightsForHarvest,
   parseRodFishingRules,
+  type RodTierCooldownDefaults,
   rollFishTypeFromWeights,
 } from "@/lib/utils/fishing-shop-metadata";
 import { findMutualLikeFlags } from "@/lib/repositories/server/like.repository";
 import { findSystemSettingByKey } from "@/lib/repositories/server/invitation.repository";
 import { getMatchmakerAgeMaxAction } from "@/services/system-settings.action";
+import { notifyUserMailboxSilent } from "@/services/notification.action";
 import { isAgeMatch, isRegionMatch } from "@/lib/utils/matchmaker-region";
 import type {
   FishType,
@@ -81,6 +87,8 @@ export type FishingStatusDto = {
     id: string;
     name: string;
     shopItemId: string | null;
+    /** 釣竿商城圖（快選列用） */
+    imageUrl: string | null;
     castsRemainingToday: number;
     /** 拋竿後距下次可再拋竿的冷卻（秒） */
     cooldownAfterHarvestRemainingSec: number;
@@ -102,6 +110,7 @@ export type FishingStatusDto = {
     name: string;
     shopItemId: string | null;
     metadata: Json | null;
+    quantity: number;
   }>;
 };
 
@@ -250,19 +259,34 @@ async function pickNonMatchmakerRewardFromTable(
 async function resolveMatchmakerRewards(
   userId: string,
   peerNickname: string,
+  opts?: { dryRun?: boolean },
 ): Promise<{
   fishCoins: number;
   fishExp: number;
   coinFailure: boolean;
   fishItemJson: Json | null;
   rewardTier: FishingRewardTier | null;
+  shopGrantItemId: string | null;
+  coinGrantType: "none" | "free" | "premium";
 }> {
+  const dry = opts?.dryRun === true;
   const reward = await pickMatchmakerRewardFromTable();
   const note = `月老魚：${peerNickname}`;
 
   if (!reward) {
     const fishCoins = 10;
     const fishExp = 5;
+    if (dry) {
+      return {
+        fishCoins,
+        fishExp,
+        coinFailure: false,
+        fishItemJson: null,
+        rewardTier: null,
+        shopGrantItemId: null,
+        coinGrantType: "free",
+      };
+    }
     const coinResult = await creditCoins({
       userId,
       coinType: "free",
@@ -277,6 +301,8 @@ async function resolveMatchmakerRewards(
         coinFailure: true,
         fishItemJson: null,
         rewardTier: null,
+        shopGrantItemId: null,
+        coinGrantType: "free",
       };
     }
     const expKey = `fishing_fallback:${userId}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
@@ -293,6 +319,8 @@ async function resolveMatchmakerRewards(
       coinFailure: false,
       fishItemJson: null,
       rewardTier: null,
+      shopGrantItemId: null,
+      coinGrantType: "free",
     };
   }
 
@@ -300,49 +328,63 @@ async function resolveMatchmakerRewards(
   let fishExp = 0;
   let coinFailure = false;
   let fishItemJson: Json | null = null;
+  let shopGrantItemId: string | null = null;
+  let coinGrantType: "none" | "free" | "premium" = "none";
 
   switch (reward.reward_type) {
     case "coins_free": {
+      coinGrantType = "free";
       const amt = reward.coins_amount ?? 0;
       if (amt > 0) {
-        const r = await creditCoins({
-          userId,
-          coinType: "free",
-          amount: amt,
-          source: "fishing",
-          note,
-        });
-        coinFailure = !r.success;
-        if (r.success) fishCoins = amt;
+        if (dry) {
+          fishCoins = amt;
+        } else {
+          const r = await creditCoins({
+            userId,
+            coinType: "free",
+            amount: amt,
+            source: "fishing",
+            note,
+          });
+          coinFailure = !r.success;
+          if (r.success) fishCoins = amt;
+        }
       }
       break;
     }
     case "coins_premium": {
+      coinGrantType = "premium";
       const amt = reward.coins_amount ?? 0;
       if (amt > 0) {
-        const r = await creditCoins({
-          userId,
-          coinType: "premium",
-          amount: amt,
-          source: "fishing",
-          note,
-        });
-        coinFailure = !r.success;
-        if (r.success) fishCoins = amt;
+        if (dry) {
+          fishCoins = amt;
+        } else {
+          const r = await creditCoins({
+            userId,
+            coinType: "premium",
+            amount: amt,
+            source: "fishing",
+            note,
+          });
+          coinFailure = !r.success;
+          if (r.success) fishCoins = amt;
+        }
       }
       break;
     }
     case "exp": {
       const exp = reward.exp_amount ?? 0;
       if (exp > 0) {
-        const expKey = `fishing:${userId}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-        await insertExpLog({
-          user_id: userId,
-          source: "fishing",
-          unique_key: expKey,
-          delta: exp,
-          delta_exp: exp,
-        });
+        if (!dry) {
+          const expKey = `fishing:${userId}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+          await insertExpLog({
+            user_id: userId,
+            source: "fishing",
+            unique_key: expKey,
+            delta: exp,
+            delta_exp: exp,
+          });
+        }
         fishExp = exp;
       }
       break;
@@ -351,13 +393,21 @@ async function resolveMatchmakerRewards(
       if (reward.shop_item_id) {
         const item = await findShopItemById(reward.shop_item_id);
         if (item) {
-          await insertUserReward({
-            user_id: userId,
-            reward_type: item.item_type,
-            shop_item_id: item.id,
-            label: item.name,
-            is_equipped: false,
-          });
+          shopGrantItemId = item.id;
+          if (!dry) {
+            if (item.item_type === "fishing_bait") {
+              await upsertFishingBaitStack(userId, item.id, item.name, 1);
+            } else {
+              await insertUserReward({
+                user_id: userId,
+                reward_type: item.item_type,
+                shop_item_id: item.id,
+                label: item.name,
+                is_equipped: false,
+                quantity: 1,
+              });
+            }
+          }
           fishItemJson = buildFishItemJson({ name: item.name });
         }
       }
@@ -373,25 +423,42 @@ async function resolveMatchmakerRewards(
     coinFailure,
     fishItemJson,
     rewardTier: reward.reward_tier,
+    shopGrantItemId,
+    coinGrantType,
   };
 }
 
 async function resolveNonMatchmakerFishRewards(
   userId: string,
   fishType: FishType,
+  opts?: { dryRun?: boolean },
 ): Promise<{
   fishCoins: number;
   fishExp: number;
   coinFailure: boolean;
   fishItemJson: Json | null;
   rewardTier: FishingRewardTier | null;
+  shopGrantItemId: string | null;
+  coinGrantType: "none" | "free" | "premium";
 }> {
+  const dry = opts?.dryRun === true;
   const reward = await pickNonMatchmakerRewardFromTable(fishType);
   const note = `釣魚：${fishType}`;
 
   if (!reward) {
     const fishCoins = 5;
     const fishExp = 3;
+    if (dry) {
+      return {
+        fishCoins,
+        fishExp,
+        coinFailure: false,
+        fishItemJson: null,
+        rewardTier: null,
+        shopGrantItemId: null,
+        coinGrantType: "free",
+      };
+    }
     const coinResult = await creditCoins({
       userId,
       coinType: "free",
@@ -406,6 +473,8 @@ async function resolveNonMatchmakerFishRewards(
         coinFailure: true,
         fishItemJson: null,
         rewardTier: null,
+        shopGrantItemId: null,
+        coinGrantType: "free",
       };
     }
     const expKey = `fishing_fallback:${userId}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
@@ -422,6 +491,8 @@ async function resolveNonMatchmakerFishRewards(
       coinFailure: false,
       fishItemJson: null,
       rewardTier: null,
+      shopGrantItemId: null,
+      coinGrantType: "free",
     };
   }
 
@@ -429,49 +500,63 @@ async function resolveNonMatchmakerFishRewards(
   let fishExp = 0;
   let coinFailure = false;
   let fishItemJson: Json | null = null;
+  let shopGrantItemId: string | null = null;
+  let coinGrantType: "none" | "free" | "premium" = "none";
 
   switch (reward.reward_type) {
     case "coins_free": {
+      coinGrantType = "free";
       const amt = reward.coins_amount ?? 0;
       if (amt > 0) {
-        const r = await creditCoins({
-          userId,
-          coinType: "free",
-          amount: amt,
-          source: "fishing",
-          note,
-        });
-        coinFailure = !r.success;
-        if (r.success) fishCoins = amt;
+        if (dry) {
+          fishCoins = amt;
+        } else {
+          const r = await creditCoins({
+            userId,
+            coinType: "free",
+            amount: amt,
+            source: "fishing",
+            note,
+          });
+          coinFailure = !r.success;
+          if (r.success) fishCoins = amt;
+        }
       }
       break;
     }
     case "coins_premium": {
+      coinGrantType = "premium";
       const amt = reward.coins_amount ?? 0;
       if (amt > 0) {
-        const r = await creditCoins({
-          userId,
-          coinType: "premium",
-          amount: amt,
-          source: "fishing",
-          note,
-        });
-        coinFailure = !r.success;
-        if (r.success) fishCoins = amt;
+        if (dry) {
+          fishCoins = amt;
+        } else {
+          const r = await creditCoins({
+            userId,
+            coinType: "premium",
+            amount: amt,
+            source: "fishing",
+            note,
+          });
+          coinFailure = !r.success;
+          if (r.success) fishCoins = amt;
+        }
       }
       break;
     }
     case "exp": {
       const exp = reward.exp_amount ?? 0;
       if (exp > 0) {
-        const expKey = `fishing:${userId}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-        await insertExpLog({
-          user_id: userId,
-          source: "fishing",
-          unique_key: expKey,
-          delta: exp,
-          delta_exp: exp,
-        });
+        if (!dry) {
+          const expKey = `fishing:${userId}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+          await insertExpLog({
+            user_id: userId,
+            source: "fishing",
+            unique_key: expKey,
+            delta: exp,
+            delta_exp: exp,
+          });
+        }
         fishExp = exp;
       }
       break;
@@ -480,13 +565,21 @@ async function resolveNonMatchmakerFishRewards(
       if (reward.shop_item_id) {
         const item = await findShopItemById(reward.shop_item_id);
         if (item) {
-          await insertUserReward({
-            user_id: userId,
-            reward_type: item.item_type,
-            shop_item_id: item.id,
-            label: item.name,
-            is_equipped: false,
-          });
+          shopGrantItemId = item.id;
+          if (!dry) {
+            if (item.item_type === "fishing_bait") {
+              await upsertFishingBaitStack(userId, item.id, item.name, 1);
+            } else {
+              await insertUserReward({
+                user_id: userId,
+                reward_type: item.item_type,
+                shop_item_id: item.id,
+                label: item.name,
+                is_equipped: false,
+                quantity: 1,
+              });
+            }
+          }
           fishItemJson = buildFishItemJson({ name: item.name });
         }
       }
@@ -502,6 +595,8 @@ async function resolveNonMatchmakerFishRewards(
     coinFailure,
     fishItemJson,
     rewardTier: reward.reward_tier,
+    shopGrantItemId,
+    coinGrantType,
   };
 }
 
@@ -534,6 +629,48 @@ async function tryInsertStandardFishLog(
   }
 }
 
+async function getRodTierCooldownDefaults(): Promise<RodTierCooldownDefaults> {
+  const [b, m, h] = await Promise.all([
+    findSystemSettingByKey("fishing_rod_cooldown_basic_minutes"),
+    findSystemSettingByKey("fishing_rod_cooldown_mid_minutes"),
+    findSystemSettingByKey("fishing_rod_cooldown_high_minutes"),
+  ]);
+  const n = (v: string | null, fb: number) => {
+    if (v == null || String(v).trim() === "") return fb;
+    const x = Number.parseInt(String(v), 10);
+    return Number.isFinite(x) && x >= 0 ? x : fb;
+  };
+  return {
+    basic: n(b, 1440),
+    mid: n(m, 720),
+    high: n(h, 480),
+  };
+}
+
+/** 可收竿時間已到且尚未通知：寫入信匣並推播一次。 */
+async function maybeNotifyFishingHarvestReady(
+  userId: string,
+  rodUserRewardId: string,
+  waitUntilHarvestMinutes: number,
+): Promise<void> {
+  const row = await getRodCastState(userId, rodUserRewardId);
+  if (!row?.pending_cast_started_at) return;
+  if (row.bite_notified_at) return;
+  const ready = peekHarvestReady({
+    row,
+    waitUntilHarvestMinutes,
+  });
+  if (!ready.ok) return;
+  await notifyUserMailboxSilent({
+    user_id: userId,
+    type: "fishing_bite",
+    message: "有魚上鉤了！前往命運之湖收竿吧。",
+    from_user_id: null,
+    is_read: false,
+  });
+  await markBiteNotified({ userId, rodUserRewardId });
+}
+
 /** 釣魚列狀態（未登入時視為無釣竿） */
 export async function getFishingStatusAction(): Promise<FishingStatusResult> {
   const supabase = createClient();
@@ -562,8 +699,10 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
     return { ok: false, error: "fishing_disabled" };
   }
 
+  const tierCooldown = await getRodTierCooldownDefaults();
+
   const rodCount = await countUserRewardsByType(user.id, "fishing_rod");
-  const baitCount = await countUserRewardsByType(user.id, "fishing_bait");
+  const baitCount = await sumFishingBaitQuantity(user.id);
   const [equippedRodName, defaultBaitName, bundle] = await Promise.all([
     findFirstFishingRodDisplayName(user.id),
     findFirstFishingBaitDisplayName(user.id),
@@ -579,9 +718,13 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
     let cooldownInfo: FishingStatusDto["rods"][number]["cooldownInfo"] = null;
     let pendingBaitName: string | null = null;
     let pendingBaitMetadata: Json | null = null;
+    let imageUrl: string | null = null;
     if (r.shop_item_id) {
       const si = await findShopItemById(r.shop_item_id);
-      const rules = parseRodFishingRules(si?.metadata ?? null);
+      imageUrl = si?.image_url ?? null;
+      const rules = parseRodFishingRules(si?.metadata ?? null, {
+        tierCooldownMinutes: tierCooldown,
+      });
       if (rules) {
         const snap = await getRodCastSnapshot({
           userId: user.id,
@@ -601,12 +744,20 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
           pendingBaitName = bn || null;
           pendingBaitMetadata = baitSi?.metadata ?? null;
         }
+        if (snap.hasPendingCast) {
+          await maybeNotifyFishingHarvestReady(
+            user.id,
+            r.id,
+            rules.waitUntilHarvestMinutes,
+          );
+        }
       }
     }
     rodsOut.push({
       id: r.id,
       name: r.displayName,
       shopItemId: r.shop_item_id,
+      imageUrl,
       castsRemainingToday,
       cooldownAfterHarvestRemainingSec,
       hasPendingCast,
@@ -622,6 +773,7 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
     name: b.displayName,
     shopItemId: b.shop_item_id,
     metadata: b.metadata ?? null,
+    quantity: b.quantity ?? 1,
   }));
 
   const hasPendingHarvest = rodsOut.some((r) => r.hasPendingCast);
@@ -759,10 +911,13 @@ export async function castFishAction(opts?: {
     return { ok: false, error: "釣餌資料無效。" };
   }
 
+  const tierCooldown = await getRodTierCooldownDefaults();
   const rodShop = rodRow.shop_item_id
     ? await findShopItemById(rodRow.shop_item_id)
     : null;
-  const rodRules = parseRodFishingRules(rodShop?.metadata ?? null);
+  const rodRules = parseRodFishingRules(rodShop?.metadata ?? null, {
+    tierCooldownMinutes: tierCooldown,
+  });
   if (!rodRules) {
     return {
       ok: false,
@@ -819,28 +974,55 @@ export async function castFishAction(opts?: {
     return { ok: false, error: "魚餌缺少商城商品關聯，無法拋竿。" };
   }
 
-  const consumed = await deleteUserRewardForOwner(baitId, user.id);
+  const consumed = await decrementBaitOrDeleteForCast(baitId, user.id);
   if (!consumed) {
     return { ok: false, error: "消耗釣餌失敗，請稍後再試。" };
   }
+
+  const capMin = Math.max(1, rodRules.cooldownAfterCastMinutes);
+  const delayMinutes = 1 + Math.floor(Math.random() * capMin);
+  const readyIso = new Date(Date.now() + delayMinutes * 60_000).toISOString();
 
   await setPendingCast({
     userId: user.id,
     rodUserRewardId: rodId,
     baitShopItemId: baitRow.shop_item_id,
+    pendingHarvestReadyAtIso: readyIso,
   });
 
   return { ok: true };
 }
+
+type HarvestPreviewPayload = {
+  v: 1;
+  branch: "standard" | "matchmaker_nomatch" | "matchmaker_peer";
+  fishType: FishType;
+  rewardTier: FishingRewardTier | null;
+  fishCoins: number;
+  fishExp: number;
+  coinFailure: boolean;
+  fishItemJson: Json | null;
+  shopGrantItemId: string | null;
+  coinGrantType: "none" | "free" | "premium";
+  peerUserId: string | null;
+  peerNickname: string | null;
+  peerAvatarUrl: string | null;
+  noMatchFound: boolean;
+};
 
 async function runFishingHarvestCore(
   userId: string,
   rodId: string,
   baitShopMetadata: Json | null,
   fisher: UserRow,
+  opts?: { previewOnly?: boolean },
 ): Promise<CollectFishResult> {
-  const weights = parseBaitFishWeights(baitShopMetadata);
-  const rolledFish = rollFishTypeFromWeights(weights);
+  const previewOnly = opts?.previewOnly === true;
+  const parsedWeights = parseBaitFishWeightsForHarvest(baitShopMetadata);
+  if (!parsedWeights.ok) {
+    return { ok: false, error: parsedWeights.error };
+  }
+  const rolledFish = rollFishTypeFromWeights(parsedWeights.weights);
 
   if (rolledFish === "matchmaker" && fisher.birth_year == null) {
     return {
@@ -857,22 +1039,56 @@ async function runFishingHarvestCore(
   };
 
   if (rolledFish !== "matchmaker") {
-    const { fishCoins, fishExp, coinFailure, fishItemJson, rewardTier } =
-      await resolveNonMatchmakerFishRewards(userId, rolledFish);
-    revalidateTag(profileCacheTag(userId));
-    await tryInsertStandardFishLog(userId, rolledFish, {
-      fish_coins: coinFailure ? 0 : fishCoins,
-      fish_exp: fishExp,
-      fish_item: fishItemJson,
+    const {
+      fishCoins,
+      fishExp,
+      coinFailure,
+      fishItemJson,
+      rewardTier,
+      shopGrantItemId,
+      coinGrantType,
+    } = await resolveNonMatchmakerFishRewards(userId, rolledFish, {
+      dryRun: previewOnly,
     });
-    await finishRod();
-    return {
+    revalidateTag(profileCacheTag(userId));
+    const collect: CollectFishResult = {
       ok: true,
       fishType: rolledFish,
       rewardTier,
       fishCoins: coinFailure ? 0 : fishCoins,
       fishExp,
     };
+    if (previewOnly) {
+      const payload: HarvestPreviewPayload = {
+        v: 1,
+        branch: "standard",
+        fishType: rolledFish,
+        rewardTier: rewardTier ?? null,
+        fishCoins,
+        fishExp,
+        coinFailure,
+        fishItemJson,
+        shopGrantItemId,
+        coinGrantType,
+        peerUserId: null,
+        peerNickname: null,
+        peerAvatarUrl: null,
+        noMatchFound: false,
+      };
+      await setPendingHarvestPreview({
+        userId,
+        rodUserRewardId: rodId,
+        preview: payload as unknown as Json,
+      });
+      return collect;
+    }
+    await tryInsertStandardFishLog(userId, rolledFish, {
+      fish_coins: coinFailure ? 0 : fishCoins,
+      fish_exp: fishExp,
+      fish_item: fishItemJson,
+    });
+    await finishRod();
+    return collect;
   }
 
   const ageMax = await getMatchmakerAgeMaxAction();
@@ -927,6 +1143,37 @@ async function runFishingHarvestCore(
 
   if (pool.length === 0) {
     revalidateTag(profileCacheTag(userId));
+    const collect: CollectFishResult = {
+      ok: true,
+      fishType: "matchmaker",
+      rewardTier: null,
+      matchmakerUser: null,
+      noMatchFound: true,
+    };
+    if (previewOnly) {
+      const payload: HarvestPreviewPayload = {
+        v: 1,
+        branch: "matchmaker_nomatch",
+        fishType: "matchmaker",
+        rewardTier: null,
+        fishCoins: 0,
+        fishExp: 0,
+        coinFailure: false,
+        fishItemJson: null,
+        shopGrantItemId: null,
+        coinGrantType: "none",
+        peerUserId: null,
+        peerNickname: null,
+        peerAvatarUrl: null,
+        noMatchFound: true,
+      };
+      await setPendingHarvestPreview({
+        userId,
+        rodUserRewardId: rodId,
+        preview: payload as unknown as Json,
+      });
+      return collect;
+    }
     await tryInsertMatchmakerLog(userId, {
       fish_user_id: null,
       no_match_found: true,
@@ -935,33 +1182,27 @@ async function runFishingHarvestCore(
       peer: null,
     });
     await finishRod();
-    return {
-      ok: true,
-      fishType: "matchmaker",
-      rewardTier: null,
-      matchmakerUser: null,
-      noMatchFound: true,
-    };
+    return collect;
   }
 
   const pick = pool[Math.floor(Math.random() * pool.length)]!;
 
-  const { fishCoins, fishExp, coinFailure, fishItemJson, rewardTier } =
-    await resolveMatchmakerRewards(userId, pick.nickname);
+  const {
+    fishCoins,
+    fishExp,
+    coinFailure,
+    fishItemJson,
+    rewardTier,
+    shopGrantItemId,
+    coinGrantType,
+  } = await resolveMatchmakerRewards(userId, pick.nickname, {
+    dryRun: previewOnly,
+  });
 
   if (coinFailure) {
     revalidateTag(profileCacheTag(userId));
     const peerFull = await findProfileById(pick.id);
-    await tryInsertMatchmakerLog(userId, {
-      fish_user_id: pick.id,
-      no_match_found: false,
-      fish_coins: 0,
-      fish_exp: 0,
-      peer: peerFull,
-      fish_item: fishItemJson,
-    });
-    await finishRod();
-    return {
+    const collect: CollectFishResult = {
       ok: true,
       fishType: "matchmaker",
       rewardTier,
@@ -973,22 +1214,46 @@ async function runFishingHarvestCore(
       fishCoins: 0,
       fishExp: 0,
     };
+    if (previewOnly) {
+      const payload: HarvestPreviewPayload = {
+        v: 1,
+        branch: "matchmaker_peer",
+        fishType: "matchmaker",
+        rewardTier: rewardTier ?? null,
+        fishCoins: 0,
+        fishExp: 0,
+        coinFailure: true,
+        fishItemJson,
+        shopGrantItemId,
+        coinGrantType,
+        peerUserId: pick.id,
+        peerNickname: pick.nickname,
+        peerAvatarUrl: pick.avatar_url,
+        noMatchFound: false,
+      };
+      await setPendingHarvestPreview({
+        userId,
+        rodUserRewardId: rodId,
+        preview: payload as unknown as Json,
+      });
+      return collect;
+    }
+    await tryInsertMatchmakerLog(userId, {
+      fish_user_id: pick.id,
+      no_match_found: false,
+      fish_coins: 0,
+      fish_exp: 0,
+      peer: peerFull,
+      fish_item: fishItemJson,
+    });
+    await finishRod();
+    return collect;
   }
 
   revalidateTag(profileCacheTag(userId));
 
   const peerFull = await findProfileById(pick.id);
-  await tryInsertMatchmakerLog(userId, {
-    fish_user_id: pick.id,
-    no_match_found: false,
-    fish_coins: fishCoins,
-    fish_exp: fishExp,
-    peer: peerFull,
-    fish_item: fishItemJson,
-  });
-  await finishRod();
-
-  return {
+  const collect: CollectFishResult = {
     ok: true,
     fishType: "matchmaker",
     rewardTier,
@@ -1000,39 +1265,197 @@ async function runFishingHarvestCore(
     fishCoins,
     fishExp,
   };
-}
-
-/** 收竿：結算上一輪拋竿（須已達等待時間）。 */
-export async function harvestFishAction(opts?: {
-  rodUserRewardId?: string | null;
-}): Promise<CollectFishResult> {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "請先登入。" };
-
-  const fishingEnabled = await findSystemSettingByKey("fishing_enabled");
-  if (fishingEnabled === "false") {
-    return { ok: false, error: "fishing_disabled" };
+  if (previewOnly) {
+    const payload: HarvestPreviewPayload = {
+      v: 1,
+      branch: "matchmaker_peer",
+      fishType: "matchmaker",
+      rewardTier: rewardTier ?? null,
+      fishCoins,
+      fishExp,
+      coinFailure,
+      fishItemJson,
+      shopGrantItemId,
+      coinGrantType,
+      peerUserId: pick.id,
+      peerNickname: pick.nickname,
+      peerAvatarUrl: pick.avatar_url,
+      noMatchFound: false,
+    };
+    await setPendingHarvestPreview({
+      userId,
+      rodUserRewardId: rodId,
+      preview: payload as unknown as Json,
+    });
+    return collect;
   }
 
-  const fisher = await findProfileById(user.id);
+  await tryInsertMatchmakerLog(userId, {
+    fish_user_id: pick.id,
+    no_match_found: false,
+    fish_coins: fishCoins,
+    fish_exp: fishExp,
+    peer: peerFull,
+    fish_item: fishItemJson,
+  });
+  await finishRod();
+
+  return collect;
+}
+
+async function applyHarvestPreviewPayload(
+  userId: string,
+  rodId: string,
+  p: HarvestPreviewPayload,
+): Promise<void> {
+  const mmNote = `月老魚：${p.peerNickname ?? ""}`;
+  if (p.branch === "standard") {
+    const ft = p.fishType;
+    const note = `釣魚：${ft}`;
+    if (!p.coinFailure && p.fishCoins > 0 && p.coinGrantType === "free") {
+      await creditCoins({
+        userId,
+        coinType: "free",
+        amount: p.fishCoins,
+        source: "fishing",
+        note,
+      });
+    }
+    if (!p.coinFailure && p.fishCoins > 0 && p.coinGrantType === "premium") {
+      await creditCoins({
+        userId,
+        coinType: "premium",
+        amount: p.fishCoins,
+        source: "fishing",
+        note,
+      });
+    }
+    if (p.fishExp > 0) {
+      await insertExpLog({
+        user_id: userId,
+        source: "fishing",
+        unique_key: `fishing_commit:${userId}:${rodId}:${Date.now()}`,
+        delta: p.fishExp,
+        delta_exp: p.fishExp,
+      });
+    }
+    if (p.shopGrantItemId) {
+      const item = await findShopItemById(p.shopGrantItemId);
+      if (item) {
+        if (item.item_type === "fishing_bait") {
+          await upsertFishingBaitStack(userId, item.id, item.name, 1);
+        } else {
+          await insertUserReward({
+            user_id: userId,
+            reward_type: item.item_type,
+            shop_item_id: item.id,
+            label: item.name,
+            is_equipped: false,
+            quantity: 1,
+          });
+        }
+      }
+    }
+    await tryInsertStandardFishLog(userId, ft, {
+      fish_coins: p.coinFailure ? 0 : p.fishCoins,
+      fish_exp: p.fishExp,
+      fish_item: p.fishItemJson,
+    });
+    return;
+  }
+  if (p.branch === "matchmaker_nomatch") {
+    await tryInsertMatchmakerLog(userId, {
+      fish_user_id: null,
+      no_match_found: true,
+      fish_coins: null,
+      fish_exp: null,
+      peer: null,
+    });
+    return;
+  }
+  const peerFull = p.peerUserId ? await findProfileById(p.peerUserId) : null;
+  if (!p.coinFailure && p.fishCoins > 0 && p.coinGrantType === "free") {
+    await creditCoins({
+      userId,
+      coinType: "free",
+      amount: p.fishCoins,
+      source: "fishing",
+      note: mmNote,
+    });
+  }
+  if (!p.coinFailure && p.fishCoins > 0 && p.coinGrantType === "premium") {
+    await creditCoins({
+      userId,
+      coinType: "premium",
+      amount: p.fishCoins,
+      source: "fishing",
+      note: mmNote,
+    });
+  }
+  if (p.fishExp > 0) {
+    await insertExpLog({
+      user_id: userId,
+      source: "fishing",
+      unique_key: `fishing_commit_mm:${userId}:${rodId}:${Date.now()}`,
+      delta: p.fishExp,
+      delta_exp: p.fishExp,
+    });
+  }
+  if (p.shopGrantItemId) {
+    const item = await findShopItemById(p.shopGrantItemId);
+    if (item) {
+      if (item.item_type === "fishing_bait") {
+        await upsertFishingBaitStack(userId, item.id, item.name, 1);
+      } else {
+        await insertUserReward({
+          user_id: userId,
+          reward_type: item.item_type,
+          shop_item_id: item.id,
+          label: item.name,
+          is_equipped: false,
+          quantity: 1,
+        });
+      }
+    }
+  }
+  await tryInsertMatchmakerLog(userId, {
+    fish_user_id: p.peerUserId,
+    no_match_found: false,
+    fish_coins: p.coinFailure ? 0 : p.fishCoins,
+    fish_exp: p.coinFailure ? 0 : p.fishExp,
+    peer: peerFull,
+    fish_item: p.fishItemJson,
+  });
+}
+
+async function sharedHarvestGate(
+  userId: string,
+  rodId: string,
+  tierCooldown: RodTierCooldownDefaults,
+): Promise<
+  | {
+      ok: true;
+      fisher: UserRow;
+      rodRules: NonNullable<ReturnType<typeof parseRodFishingRules>>;
+      castRow: NonNullable<Awaited<ReturnType<typeof getRodCastState>>>;
+      baitShop: NonNullable<Awaited<ReturnType<typeof findShopItemById>>>;
+    }
+  | { ok: false; error: string }
+> {
+  const fisher = await findProfileById(userId);
   if (!fisher) return { ok: false, error: "找不到冒險者資料。" };
 
-  const bundle = await listFishingRodsAndBaits(user.id);
-  const rodId = opts?.rodUserRewardId?.trim() || bundle.rods[0]?.id || null;
-  if (!rodId) return { ok: false, error: "需要釣竿才能釣魚。" };
-
   const rodRow = await findUserRewardById(rodId);
-  if (!rodRow || rodRow.user_id !== user.id || rodRow.reward_type !== "fishing_rod") {
+  if (!rodRow || rodRow.user_id !== userId || rodRow.reward_type !== "fishing_rod") {
     return { ok: false, error: "釣竿資料無效。" };
   }
 
   const rodShop = rodRow.shop_item_id
     ? await findShopItemById(rodRow.shop_item_id)
     : null;
-  const rodRules = parseRodFishingRules(rodShop?.metadata ?? null);
+  const rodRules = parseRodFishingRules(rodShop?.metadata ?? null, {
+    tierCooldownMinutes: tierCooldown,
+  });
   if (!rodRules) {
     return {
       ok: false,
@@ -1041,7 +1464,7 @@ export async function harvestFishAction(opts?: {
     };
   }
 
-  const castRow = await getRodCastState(user.id, rodId);
+  const castRow = await getRodCastState(userId, rodId);
   const ready = peekHarvestReady({
     row: castRow,
     waitUntilHarvestMinutes: rodRules.waitUntilHarvestMinutes,
@@ -1063,11 +1486,109 @@ export async function harvestFishAction(opts?: {
   }
 
   const baitShop = await findShopItemById(baitShopId);
+  if (!baitShop) {
+    return { ok: false, error: "魚餌商品資料遺失，請聯絡管理員。" };
+  }
+  return { ok: true, fisher, rodRules, castRow: castRow!, baitShop };
+}
+
+/** 收竿預覽：抽獎結果寫入 pending_harvest_preview，須再呼叫 confirmHarvestFishAction 才入帳。 */
+export async function prepareHarvestFishAction(opts?: {
+  rodUserRewardId?: string | null;
+}): Promise<CollectFishResult> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "請先登入。" };
+
+  const fishingEnabled = await findSystemSettingByKey("fishing_enabled");
+  if (fishingEnabled === "false") {
+    return { ok: false, error: "fishing_disabled" };
+  }
+
+  const bundle = await listFishingRodsAndBaits(user.id);
+  const rodId = opts?.rodUserRewardId?.trim() || bundle.rods[0]?.id || null;
+  if (!rodId) return { ok: false, error: "需要釣竿才能釣魚。" };
+
+  const tierCooldown = await getRodTierCooldownDefaults();
+  const gate = await sharedHarvestGate(user.id, rodId, tierCooldown);
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  const previewRow = gate.castRow.pending_harvest_preview;
+  if (previewRow != null && typeof previewRow === "object" && !Array.isArray(previewRow)) {
+    const prev = previewRow as unknown as HarvestPreviewPayload;
+    if (prev.v === 1) {
+      return {
+        ok: true,
+        fishType: prev.fishType,
+        rewardTier: prev.rewardTier,
+        matchmakerUser:
+          prev.peerUserId && prev.peerNickname
+            ? {
+                id: prev.peerUserId,
+                nickname: prev.peerNickname,
+                avatar_url: prev.peerAvatarUrl,
+              }
+            : null,
+        noMatchFound: prev.noMatchFound,
+        fishCoins: prev.coinFailure ? 0 : prev.fishCoins,
+        fishExp: prev.fishExp,
+      };
+    }
+  }
+
   return runFishingHarvestCore(
     user.id,
     rodId,
-    baitShop?.metadata ?? null,
-    fisher,
+    gate.baitShop.metadata ?? null,
+    gate.fisher,
+    { previewOnly: true },
   );
+}
+
+/** 確認收成：依預覽發獎並寫入釣魚日誌。 */
+export async function confirmHarvestFishAction(opts?: {
+  rodUserRewardId?: string | null;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "請先登入。" };
+
+  const fishingEnabled = await findSystemSettingByKey("fishing_enabled");
+  if (fishingEnabled === "false") {
+    return { ok: false, error: "fishing_disabled" };
+  }
+
+  const bundle = await listFishingRodsAndBaits(user.id);
+  const rodId = opts?.rodUserRewardId?.trim() || bundle.rods[0]?.id || null;
+  if (!rodId) return { ok: false, error: "需要釣竿才能釣魚。" };
+
+  const castRow = await getRodCastState(user.id, rodId);
+  const raw = castRow?.pending_harvest_preview;
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    return { ok: false, error: "沒有待確認的收成，請先收竿預覽。" };
+  }
+  const p = raw as unknown as HarvestPreviewPayload;
+  if (p.v !== 1) {
+    return { ok: false, error: "收成資料版本異常。" };
+  }
+
+  await applyHarvestPreviewPayload(user.id, rodId, p);
+  revalidateTag(profileCacheTag(user.id));
+  await recordHarvestSuccess({
+    userId: user.id,
+    rodUserRewardId: rodId,
+  });
+  return { ok: true };
+}
+
+/** @deprecated 請改用 prepareHarvestFishAction + confirmHarvestFishAction */
+export async function harvestFishAction(opts?: {
+  rodUserRewardId?: string | null;
+}): Promise<CollectFishResult> {
+  return prepareHarvestFishAction(opts);
 }
 
