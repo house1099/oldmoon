@@ -7,7 +7,7 @@ import type {
 import type { UserUpdate } from "@/lib/repositories/server/user.repository";
 
 const USER_EMBED =
-  "users!profile_change_requests_user_id_fkey ( nickname, avatar_url, region, orientation, birth_year )";
+  "users!profile_change_requests_user_id_fkey ( nickname, avatar_url, region, orientation, birth_year, height_cm )";
 const REVIEWER_EMBED =
   "reviewer:users!profile_change_requests_reviewed_by_fkey ( nickname )";
 const ADMIN_SELECT = `*, ${USER_EMBED}, ${REVIEWER_EMBED}`;
@@ -21,6 +21,7 @@ export interface ProfileChangeRequestWithUser extends ProfileChangeRequestRow {
     region: string | null;
     orientation: string | null;
     birth_year: number | null;
+    height_cm: number | null;
   };
   reviewer_nickname: string | null;
 }
@@ -32,6 +33,7 @@ type RawWithUser = ProfileChangeRequestRow & {
     region: string | null;
     orientation: string | null;
     birth_year: number | null;
+    height_cm: number | null;
   } | null;
   reviewer: { nickname: string | null } | null;
 };
@@ -49,6 +51,7 @@ function toWithUser(raw: RawWithUser): ProfileChangeRequestWithUser {
       region: u.region,
       orientation: u.orientation,
       birth_year: u.birth_year,
+      height_cm: u.height_cm,
     },
     reviewer_nickname: reviewer?.nickname ?? null,
   };
@@ -92,6 +95,7 @@ export async function createRequest(
       new_region: data.new_region ?? null,
       new_orientation: data.new_orientation ?? null,
       new_birth_year: data.new_birth_year ?? null,
+      new_height_cm: data.new_height_cm ?? null,
       note: data.note ?? null,
     })
     .select()
@@ -199,6 +203,9 @@ export async function approveRequest(
   }
   if (req.new_birth_year != null) {
     updates.birth_year = req.new_birth_year;
+  }
+  if (req.new_height_cm != null) {
+    updates.height_cm = req.new_height_cm;
   }
 
   if (Object.keys(updates).length > 0) {

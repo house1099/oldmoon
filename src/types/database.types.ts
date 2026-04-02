@@ -94,6 +94,8 @@ export interface Database {
           relationship_status: "single" | "not_single" | null;
           /** 出生年份，月老魚年齡差篩選用，不公開顯示 */
           birth_year: number | null;
+          /** 自身身高（公分），月老魚配對與個人資料用 */
+          height_cm: number | null;
           /** 月老魚可接受年齡差距（歲），預設 10；舊欄位，新程式改寫三欄位 */
           matchmaker_age_range: number;
           /** 月老年齡偏好模式 */
@@ -191,6 +193,7 @@ export interface Database {
           offline_ok?: boolean;
           relationship_status?: "single" | "not_single" | null;
           birth_year?: number | null;
+          height_cm?: number | null;
           matchmaker_age_range?: number;
           matchmaker_age_mode?: "older" | "younger" | "both";
           matchmaker_age_older?: number;
@@ -254,6 +257,7 @@ export interface Database {
           offline_ok?: boolean;
           relationship_status?: "single" | "not_single" | null;
           birth_year?: number | null;
+          height_cm?: number | null;
           matchmaker_age_range?: number;
           matchmaker_age_mode?: "older" | "younger" | "both";
           matchmaker_age_older?: number;
@@ -390,6 +394,7 @@ export interface Database {
           new_region: string | null;
           new_orientation: string | null;
           new_birth_year: number | null;
+          new_height_cm: number | null;
           reviewed_by: string | null;
           reviewed_at: string | null;
           reject_reason: string | null;
@@ -404,6 +409,7 @@ export interface Database {
           new_region?: string | null;
           new_orientation?: string | null;
           new_birth_year?: number | null;
+          new_height_cm?: number | null;
           reviewed_by?: string | null;
           reviewed_at?: string | null;
           reject_reason?: string | null;
@@ -418,6 +424,7 @@ export interface Database {
           new_region?: string | null;
           new_orientation?: string | null;
           new_birth_year?: number | null;
+          new_height_cm?: number | null;
           reviewed_by?: string | null;
           reviewed_at?: string | null;
           reject_reason?: string | null;
@@ -2129,6 +2136,7 @@ export interface ProfileChangeRequestInsert {
   new_region?: string | null;
   new_orientation?: string | null;
   new_birth_year?: number | null;
+  new_height_cm?: number | null;
   note?: string | null;
 }
 export type ConversationRow = PublicTables["conversations"]["Row"];

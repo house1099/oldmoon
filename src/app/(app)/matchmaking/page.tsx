@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { CatchPanel } from "@/components/matchmaking/catch-panel";
 import { FishingPanel } from "@/components/matchmaking/fishing-panel";
@@ -34,8 +35,16 @@ function TabBtn({
 }
 
 export default function MatchmakingPage() {
+  const searchParams = useSearchParams();
   const [mainTab, setMainTab] = useState<MainTab>("fishing");
   const [catchTab, setCatchTab] = useState<CatchSubTab>("matchmaker");
+
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t === "settings") {
+      setMainTab("settings");
+    }
+  }, [searchParams]);
 
   return (
     <div className="flex h-[100dvh] flex-col bg-zinc-950 pb-[max(5rem,env(safe-area-inset-bottom))]">

@@ -7,7 +7,11 @@ function hasInstagramInMetadata(meta: unknown): boolean {
   return typeof v === "string" && v.trim().length > 0;
 }
 
-export default async function RegisterProfilePage() {
+export default async function RegisterProfilePage({
+  searchParams,
+}: {
+  searchParams: { edit?: string };
+}) {
   const supabase = createClient();
   const {
     data: { user },
@@ -16,5 +20,12 @@ export default async function RegisterProfilePage() {
   const needsProfileInstagram =
     !user || !hasInstagramInMetadata(user.user_metadata);
 
-  return <ProfileForm needsProfileInstagram={needsProfileInstagram} />;
+  const isEditMode = searchParams.edit === "true";
+
+  return (
+    <ProfileForm
+      needsProfileInstagram={needsProfileInstagram}
+      isEditMode={isEditMode}
+    />
+  );
 }

@@ -21,6 +21,7 @@ export default async function FishingAdminPage() {
         fishing_rod_cooldown_basic_minutes: 1440,
         fishing_rod_cooldown_mid_minutes: 720,
         fishing_rod_cooldown_high_minutes: 480,
+        matchmaker_lock_height: false,
         matchmaker_lock_diet: false,
         matchmaker_lock_smoking: false,
         matchmaker_lock_pets: false,

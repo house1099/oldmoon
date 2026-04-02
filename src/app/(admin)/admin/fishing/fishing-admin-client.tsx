@@ -148,6 +148,7 @@ const TIER_LABELS: Record<FishingRewardTier, string> = {
 
 type MatchmakerLockState = Pick<
   FishingAdminSettingsPayload,
+  | "matchmaker_lock_height"
   | "matchmaker_lock_diet"
   | "matchmaker_lock_smoking"
   | "matchmaker_lock_pets"
@@ -163,6 +164,7 @@ type MatchmakerLockState = Pick<
 const MATCHMAKER_HARD_ROWS: {
   key: keyof Pick<
     MatchmakerLockState,
+    | "matchmaker_lock_height"
     | "matchmaker_lock_diet"
     | "matchmaker_lock_smoking"
     | "matchmaker_lock_pets"
@@ -175,6 +177,12 @@ const MATCHMAKER_HARD_ROWS: {
   title: string;
   hint: string;
 }[] = [
+  {
+    key: "matchmaker_lock_height",
+    emoji: "📏",
+    title: "身高條件篩選",
+    hint: "身高偏好不符合者不配對",
+  },
   {
     key: "matchmaker_lock_diet",
     emoji: "🥗",
@@ -428,6 +436,7 @@ export default function FishingAdminClient({
   );
 
   const [mmLocks, setMmLocks] = useState<MatchmakerLockState>({
+    matchmaker_lock_height: initialSettings.matchmaker_lock_height,
     matchmaker_lock_diet: initialSettings.matchmaker_lock_diet,
     matchmaker_lock_smoking: initialSettings.matchmaker_lock_smoking,
     matchmaker_lock_pets: initialSettings.matchmaker_lock_pets,

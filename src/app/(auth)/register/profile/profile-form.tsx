@@ -1,9 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { completeAdventurerProfile } from "@/services/adventurer-profile.action";
+import { updateMyProfile } from "@/services/profile-update.action";
+import { useMyProfile } from "@/hooks/useMyProfile";
 import { GuildAuthShell } from "@/components/auth/guild-auth-shell";
 import { RegistrationStepIndicator } from "@/components/auth/registration-step-indicator";
 import {
@@ -20,6 +22,7 @@ import {
   ORIENTATION_OPTIONS,
   OVERSEAS_REGION_OPTION_VALUE,
   REGION_OPTIONS,
+  offlineOkToIntent,
   type GenderValue,
   type OfflineIntentValue,
   type OrientationValue,
@@ -32,10 +35,35 @@ import { ChevronDown } from "lucide-react";
 type ProfileFormProps = {
   /** Google OAuth 等略過註冊 Step1 時為 true，需在名冊補填 IG */
   needsProfileInstagram: boolean;
+  /** 審核通過後由 `/register/profile?edit=true` 進入，更新基本資料 */
+  isEditMode?: boolean;
 };
 
-export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
+function parseStoredRegion(region: string | null): {
+  region: RegionSelectValue | "";
+  overseasDetail: string;
+} {
+  if (!region || !region.trim()) {
+    return { region: "", overseasDetail: "" };
+  }
+  const t = region.trim();
+  if (t.startsWith("海外・")) {
+    return {
+      region: OVERSEAS_REGION_OPTION_VALUE,
+      overseasDetail: t.slice("海外・".length),
+    };
+  }
+  return { region: t as RegionSelectValue, overseasDetail: "" };
+}
+
+export function ProfileForm({
+  needsProfileInstagram,
+  isEditMode = false,
+}: ProfileFormProps) {
   const router = useRouter();
+  const { profile, isLoading: profileLoading } = useMyProfile({
+    revalidateOnMount: isEditMode,
+  });
   const [step, setStep] = useState(1);
 
   const [nickname, setNickname] = useState("");
@@ -49,6 +77,7 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
     "",
   );
   const [birthYear, setBirthYear] = useState<number | "">("");
+  const [heightInput, setHeightInput] = useState("");
   const [relationshipStatus, setRelationshipStatus] = useState<
     "" | "single" | "not_single"
   >("");
@@ -59,6 +88,31 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
   ]);
   const [nicknameError, setNicknameError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isEditMode || !profile) return;
+    setNickname(profile.nickname ?? "");
+    setGender((profile.gender as GenderValue) || "");
+    const pr = parseStoredRegion(profile.region);
+    setRegion(pr.region);
+    setOverseasDetail(pr.overseasDetail);
+    setOrientation((profile.orientation as OrientationValue) || "");
+    setOfflineIntent(offlineOkToIntent(profile.offline_ok));
+    setBirthYear(profile.birth_year ?? "");
+    setHeightInput(
+      profile.height_cm != null ? String(profile.height_cm) : "",
+    );
+    setRelationshipStatus(
+      profile.relationship_status === "single" ||
+        profile.relationship_status === "not_single"
+        ? profile.relationship_status
+        : "",
+    );
+    const cv = profile.core_values;
+    if (Array.isArray(cv) && cv.length === 3) {
+      setCoreValues([cv[0] ?? "", cv[1] ?? "", cv[2] ?? ""]);
+    }
+  }, [isEditMode, profile]);
 
   function setCoreAt(index: 0 | 1 | 2, value: string) {
     setCoreValues((prev) => {
@@ -134,6 +188,16 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
         toast.error("請選擇出生年份");
         return;
       }
+      const heightGo = parseInt(heightInput, 10);
+      if (
+        !heightInput ||
+        Number.isNaN(heightGo) ||
+        heightGo < 100 ||
+        heightGo > 250
+      ) {
+        toast.error("請輸入有效身高（100–250 公分）");
+        return;
+      }
       if (!relationshipStatus) {
         toast.error("請選擇感情狀態");
         return;
@@ -183,6 +247,17 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
       setStep(2);
       return;
     }
+    const heightSubmit = parseInt(heightInput, 10);
+    if (
+      !heightInput ||
+      Number.isNaN(heightSubmit) ||
+      heightSubmit < 100 ||
+      heightSubmit > 250
+    ) {
+      toast.error("請輸入有效身高（100–250 公分）");
+      setStep(2);
+      return;
+    }
     if (!relationshipStatus) {
       toast.error("請選擇感情狀態");
       setStep(2);
@@ -216,6 +291,7 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
         coreValues: [...coreValues],
         interests: [],
         birth_year: birthYear as number,
+        height_cm: heightSubmit,
         relationship_status: relationshipStatus,
         instagramHandleFromForm: needsProfileInstagram
           ? instagramHandle
@@ -233,6 +309,340 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function onEditSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const resolvedRegion = resolveRegionForSubmit();
+    if (!resolvedRegion) {
+      toast.error(
+        region === OVERSEAS_REGION_OPTION_VALUE
+          ? "請填寫海外地區或城市。"
+          : "請選擇地區。",
+      );
+      return;
+    }
+    if (!gender || !orientation || !offlineIntent) {
+      toast.error("請完成問卷必填項目。");
+      return;
+    }
+    if (!birthYear) {
+      toast.error("請選擇出生年份");
+      return;
+    }
+    const h = parseInt(heightInput, 10);
+    if (!heightInput || Number.isNaN(h) || h < 100 || h > 250) {
+      toast.error("請輸入有效身高（100–250 公分）");
+      return;
+    }
+    if (!relationshipStatus) {
+      toast.error("請選擇感情狀態");
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await updateMyProfile({
+        region: resolvedRegion,
+        gender: gender as GenderValue,
+        birth_year: birthYear as number,
+        orientation: orientation as OrientationValue,
+        offlineIntent: offlineIntent as OfflineIntentValue,
+        height_cm: h,
+        relationship_status: relationshipStatus,
+      });
+      if (result.ok === false) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("資料已更新");
+      router.push("/");
+      router.refresh();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (isEditMode) {
+    if (profileLoading || !profile) {
+      return (
+        <GuildAuthShell
+          className="max-w-lg"
+          title="更新基本資料"
+          subtitle="載入你的名冊資料"
+        >
+          <p className="text-center text-sm text-zinc-400">
+            {profileLoading ? "載入中…" : "找不到冒險者資料，請重新登入。"}
+          </p>
+        </GuildAuthShell>
+      );
+    }
+    return (
+      <GuildAuthShell
+        className="max-w-lg"
+        title="更新基本資料"
+        subtitle="確認並補充基本資料"
+      >
+        <form onSubmit={onEditSubmit} className="flex flex-col gap-6">
+          <div className="space-y-2">
+            <label
+              htmlFor="edit-nickname"
+              className="text-sm font-medium text-zinc-100"
+            >
+              暱稱
+            </label>
+            <Input
+              id="edit-nickname"
+              value={nickname}
+              disabled
+              className={cn(
+                guildAuthInputStandaloneClass,
+                "cursor-not-allowed opacity-60",
+              )}
+            />
+          </div>
+          <div className="space-y-2">
+            <label
+              htmlFor="edit-gender"
+              className="text-sm font-medium text-zinc-100"
+            >
+              性別
+            </label>
+            <div className="relative">
+              <select
+                id="edit-gender"
+                value={gender}
+                disabled
+                className={cn(
+                  basicProfileSelectClass,
+                  "cursor-not-allowed opacity-60",
+                  gender ? "text-white" : "text-zinc-600",
+                )}
+                style={{ colorScheme: "dark" }}
+              >
+                <option value="" disabled>
+                  請選擇性別
+                </option>
+                {GENDER_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+                aria-hidden
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label
+              htmlFor="edit-region"
+              className="text-sm font-medium text-zinc-100"
+            >
+              地區
+            </label>
+            <div className="relative">
+              <select
+                id="edit-region"
+                value={region}
+                onChange={(e) => {
+                  const next = e.target.value as RegionSelectValue | "";
+                  setRegion(next);
+                  if (next !== OVERSEAS_REGION_OPTION_VALUE) {
+                    setOverseasDetail("");
+                  }
+                }}
+                className={cn(
+                  basicProfileSelectClass,
+                  region ? "text-white" : "text-zinc-600",
+                )}
+                style={{ colorScheme: "dark" }}
+              >
+                <option value="" disabled>
+                  請選擇地區
+                </option>
+                {REGION_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+                aria-hidden
+              />
+            </div>
+            {region === OVERSEAS_REGION_OPTION_VALUE ? (
+              <div className="space-y-1.5 pt-1">
+                <label
+                  htmlFor="edit-overseas"
+                  className="text-xs text-zinc-400"
+                >
+                  請填寫所在國家／城市
+                </label>
+                <Input
+                  id="edit-overseas"
+                  value={overseasDetail}
+                  onChange={(e) => setOverseasDetail(e.target.value)}
+                  placeholder="例：日本東京"
+                  maxLength={80}
+                  className={guildAuthInputStandaloneClass}
+                />
+              </div>
+            ) : null}
+          </div>
+          <div className="space-y-2">
+            <label
+              htmlFor="edit-orientation"
+              className="text-sm font-medium text-zinc-100"
+            >
+              性向
+            </label>
+            <select
+              id="edit-orientation"
+              value={orientation}
+              onChange={(e) =>
+                setOrientation(e.target.value as OrientationValue | "")
+              }
+              className={cn(
+                nativeSelectClass,
+                orientation ? "text-white" : "text-zinc-600",
+              )}
+            >
+              <option value="" disabled>
+                請選擇性向
+              </option>
+              {ORIENTATION_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label
+              htmlFor="edit-offline"
+              className="text-sm font-medium text-zinc-100"
+            >
+              線下意願
+            </label>
+            <select
+              id="edit-offline"
+              value={offlineIntent}
+              onChange={(e) =>
+                setOfflineIntent(e.target.value as OfflineIntentValue | "")
+              }
+              className={cn(
+                nativeSelectClass,
+                offlineIntent ? "text-white" : "text-zinc-600",
+              )}
+            >
+              <option value="" disabled>
+                請選擇
+              </option>
+              {OFFLINE_INTENT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label
+              htmlFor="edit-birth-year"
+              className="text-sm font-medium text-zinc-100"
+            >
+              出生年份
+            </label>
+            <div className="relative">
+              <select
+                id="edit-birth-year"
+                value={birthYear === "" ? "" : String(birthYear)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setBirthYear(v === "" ? "" : Number(v));
+                }}
+                className={cn(
+                  basicProfileSelectClass,
+                  birthYear !== "" ? "text-white" : "text-zinc-600",
+                )}
+                style={{ colorScheme: "dark" }}
+              >
+                <option value="" disabled>
+                  請選擇出生年份
+                </option>
+                {Array.from({ length: 67 }, (_, i) => 2006 - i).map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
+                aria-hidden
+              />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm text-zinc-400">
+              身高（公分）
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={heightInput}
+                onChange={(e) =>
+                  setHeightInput(e.target.value.replace(/\D/g, ""))
+                }
+                placeholder="例：170"
+                maxLength={3}
+                className={guildAuthInputStandaloneClass}
+                style={{ width: "100px" }}
+              />
+              <span className="text-sm text-zinc-400">cm</span>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-zinc-100">感情狀態</p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setRelationshipStatus("single")}
+                className={cn(
+                  "flex-1 rounded-full px-4 py-3 text-sm font-medium transition-colors",
+                  relationshipStatus === "single"
+                    ? "bg-violet-600 text-white"
+                    : "bg-zinc-800 text-zinc-400",
+                )}
+              >
+                💚 單身中
+              </button>
+              <button
+                type="button"
+                onClick={() => setRelationshipStatus("not_single")}
+                className={cn(
+                  "flex-1 rounded-full px-4 py-3 text-sm font-medium transition-colors",
+                  relationshipStatus === "not_single"
+                    ? "bg-violet-600 text-white"
+                    : "bg-zinc-800 text-zinc-400",
+                )}
+              >
+                💔 非單身
+              </button>
+            </div>
+          </div>
+          <div className="mt-2 flex gap-3 border-t border-white/10 pt-4">
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 rounded-full bg-violet-600 py-4 text-sm font-medium text-white transition-all hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {loading ? <PendingLabel text="處理中…" /> : "確認更新"}
+            </button>
+          </div>
+        </form>
+      </GuildAuthShell>
+    );
   }
 
   return (
@@ -529,6 +939,27 @@ export function ProfileForm({ needsProfileInstagram }: ProfileFormProps) {
                   className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
                   aria-hidden
                 />
+              </div>
+            </div>
+
+            {/* 身高 */}
+            <div>
+              <label className="mb-1 block text-sm text-zinc-400">
+                身高（公分）
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={heightInput}
+                  onChange={(e) =>
+                    setHeightInput(e.target.value.replace(/\D/g, ""))
+                  }
+                  placeholder="例：170"
+                  maxLength={3}
+                  className={guildAuthInputStandaloneClass}
+                  style={{ width: "100px" }}
+                />
+                <span className="text-sm text-zinc-400">cm</span>
               </div>
             </div>
 

@@ -50,6 +50,7 @@ function validateSubmittedFields(input: {
   newRegion?: string;
   newOrientation?: string;
   newBirthYear?: number;
+  newHeightCm?: number;
   note?: string;
 }): { ok: true } | { ok: false; error: string } {
   const hasRegion =
@@ -60,7 +61,9 @@ function validateSubmittedFields(input: {
     String(input.newOrientation).trim().length > 0;
   const hasBirth =
     input.newBirthYear !== undefined && input.newBirthYear !== null;
-  if (!hasRegion && !hasOrientation && !hasBirth) {
+  const hasHeight =
+    input.newHeightCm !== undefined && input.newHeightCm !== null;
+  if (!hasRegion && !hasOrientation && !hasBirth && !hasHeight) {
     return { ok: false, error: "no_fields" };
   }
 
@@ -77,6 +80,12 @@ function validateSubmittedFields(input: {
     const y = input.newBirthYear!;
     if (!Number.isInteger(y) || y < 1940 || y > 2006) {
       return { ok: false, error: "出生年須為 1940–2006 的整數。" };
+    }
+  }
+  if (hasHeight) {
+    const h = input.newHeightCm!;
+    if (!Number.isInteger(h) || h < 100 || h > 250) {
+      return { ok: false, error: "invalid_height" };
     }
   }
   return { ok: true };
@@ -100,6 +109,7 @@ export async function submitProfileChangeRequestAction(input: {
   newRegion?: string;
   newOrientation?: string;
   newBirthYear?: number;
+  newHeightCm?: number;
   note?: string;
 }): Promise<{ ok: boolean; error?: string }> {
   const supabase = createClient();
@@ -114,6 +124,9 @@ export async function submitProfileChangeRequestAction(input: {
   if (!v.ok) {
     if (v.error === "no_fields") {
       return { ok: false, error: "no_fields" };
+    }
+    if (v.error === "invalid_height") {
+      return { ok: false, error: "invalid_height" };
     }
     return { ok: false, error: v.error };
   }
@@ -137,6 +150,8 @@ export async function submitProfileChangeRequestAction(input: {
           : null,
       new_birth_year:
         input.newBirthYear !== undefined ? input.newBirthYear : null,
+      new_height_cm:
+        input.newHeightCm !== undefined ? input.newHeightCm : null,
       note:
         input.note !== undefined && String(input.note).trim() !== ""
           ? String(input.note).trim()
@@ -220,8 +235,9 @@ export async function approveProfileChangeRequestAction(
     const row = await approveRequest(requestId, user.id);
     await notifyUserMailboxSilent({
       user_id: row.user_id,
-      type: "system",
-      message: "✅ 你的基本資料變更申請已通過審核，資料已更新！",
+      type: "profile_change_approved",
+      message:
+        "✅ 你的基本資料變更申請已通過！請回到「基本資料」頁面確認並補充資料。",
       is_read: false,
     });
     revalidateTag(profileCacheTag(row.user_id));
@@ -274,11 +290,13 @@ async function loadProfileBannerSettings(): Promise<{
   enabled: boolean;
   title: string;
   force: boolean;
+  checkMatchmakerFields: boolean;
 }> {
-  const [en, title, force] = await Promise.all([
+  const [en, title, force, mm] = await Promise.all([
     findSystemSettingByKey("profile_banner_enabled"),
     findSystemSettingByKey("profile_banner_title"),
     findSystemSettingByKey("profile_banner_force"),
+    findSystemSettingByKey("banner_check_matchmaker_fields"),
   ]);
   return {
     enabled: en === "true",
@@ -286,6 +304,7 @@ async function loadProfileBannerSettings(): Promise<{
       title?.trim() ??
       "🎣 新功能上線！請補充你的冒險者資料",
     force: force === "true",
+    checkMatchmakerFields: mm === "true",
   };
 }
 
@@ -299,6 +318,7 @@ export async function getProfileBannerSettingsAction(): Promise<{
   enabled: boolean;
   title: string;
   force: boolean;
+  checkMatchmakerFields: boolean;
 }> {
   return getCachedProfileBannerSettings();
 }

@@ -98,6 +98,9 @@ function summarizeRequest(row: ProfileChangeRequestWithUser): string {
   if (row.new_birth_year != null) {
     parts.push("出生年");
   }
+  if (row.new_height_cm != null) {
+    parts.push("身高");
+  }
   return parts.length > 0 ? parts.join("、") : "—";
 }
 
@@ -121,6 +124,13 @@ function RequestDeltas({ row }: { row: ProfileChangeRequestWithUser }) {
     lines.push({
       key: "y",
       text: `出生年份：${oldY} → ${row.new_birth_year}`,
+    });
+  }
+  if (row.new_height_cm != null) {
+    const oldH = u.height_cm != null ? `${u.height_cm} cm` : "—";
+    lines.push({
+      key: "h",
+      text: `身高：${oldH} → ${row.new_height_cm} cm`,
     });
   }
   if (lines.length === 0) {

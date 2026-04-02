@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { toast } from "sonner";
@@ -526,6 +527,7 @@ const NOTIF_TYPE_LABEL: Record<string, string> = {
   new_message: "💬 傳了一則訊息給你",
   system: "📢 系統通知",
   invitation_code: "🎟️ 寄給你一組邀請碼",
+  profile_change_approved: "📋 基本資料變更已通過，請前往確認",
 };
 
 function formatNotificationTimeTaipei(iso: string): string {
@@ -552,6 +554,8 @@ function notificationDetailDescription(
       return `🎉 ${nick} 接受了你的血盟申請`;
     case "system":
       return (notif.message ?? "").trim();
+    case "profile_change_approved":
+      return (notif.message ?? "").trim();
     case "invitation_code":
       return (notif.message ?? "").trim();
     default:
@@ -564,6 +568,7 @@ function notificationDetailDescription(
 }
 
 function MailBox() {
+  const router = useRouter();
   const { mutate: mutateGlobal } = useSWRConfig();
   const { data: notifications, isLoading, mutate } = useSWR(
     SWR_KEYS.notifications,
@@ -746,6 +751,18 @@ function MailBox() {
               </p>
             </div>
             <DialogFooter className="flex-col gap-2 border-t border-white/10 bg-zinc-950/80 px-4 py-4 sm:flex-col">
+              {detailNotif.type === "profile_change_approved" ? (
+                <Button
+                  type="button"
+                  className="w-full rounded-full bg-violet-600 text-white hover:bg-violet-500"
+                  onClick={() => {
+                    router.push("/register/profile?edit=true");
+                    setDetailNotif(null);
+                  }}
+                >
+                  前往編輯 ›
+                </Button>
+              ) : null}
               {detailNotif.from_user_id ? (
                 <Button
                   type="button"

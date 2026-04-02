@@ -2,6 +2,19 @@
 
 舊版主檔內之逐日／逐任務紀錄與長篇 Wave 敘事已遷移至此。**平時不必讀**；需追溯決策或實作細節時再開。
 
+### 2026-04-02 — 身高、註冊 Step2、基本資料申請／審核、月老 Banner、後台身高開關
+
+1. **目標**：**`users.height_cm`**（100–250）、註冊必填、申請修改與審核通過後導向 **`/register/profile?edit=true`**、**`ProfileBanner`** 依 **`banner_check_matchmaker_fields`** 檢查月老欄位缺漏（優先於既有 profile 橫幅）、**`system_settings`** **`matchmaker_lock_height`**＋**/admin/fishing** 開關（配對引擎接線另議）。
+2. **資料庫** 🗄️：**`supabase/migrations/20260405200000_users_height_banner.sql`** — **`ALTER users`** **`height_cm`**、**`profile_change_requests`** **`new_height_cm`**、**`INSERT`** **`banner_check_matchmaker_fields`**、**`matchmaker_lock_height`**；雲端 **`apply_migration`** **`users_height_banner`**。
+3. **型別**：**`database.types.ts`** — **`users`**、**`profile_change_requests`**、**`ProfileChangeRequestInsert`**。
+4. **Layer 3**：**`adventurer-profile.action.ts`** **`height_cm`** 驗證與 **`createProfile`**；**`profile-update.action.ts`** **`height_cm`** 與基本資料欄位（**`region`／`gender`／`birth_year`／`orientation`／`offlineIntent`**）供編輯模式；**`profile-change.action.ts`** **`newHeightCm`**、**`validateSubmittedFields`**、審核通過通知 **`type: profile_change_approved`**；**`getProfileBannerSettingsAction`** 回傳 **`checkMatchmakerFields`**。
+5. **Layer 2**：**`profile-change.repository.ts`** **`createRequest`／`approveRequest`** 含 **`new_height_cm`→`height_cm`**；**`USER_EMBED`** 含 **`height_cm`**。
+6. **Layer 5**：**`profile-form.tsx`** Step2 身高、**`isEditMode`** 單頁 **`updateMyProfile`**；**`register/profile/page.tsx`** **`searchParams.edit`**；**`guild-profile-home.tsx`** 申請 Modal 身高；**`guild/page.tsx`** **`MailBox`**「前往編輯」；**`ProfileBanner.tsx`** 月老橫幅（琥珀色）／**`matchmaking/page.tsx`** **`?tab=settings`**；**`fishing-admin-client.tsx`**／**`admin.action.ts`** **`matchmaker_lock_height`**；**`fishing/page.tsx`** fallback；**`profile-changes-client.tsx`** 身高差異列。
+7. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+8. **Git**：**`feat(height+banner): height field, registration, profile change, matchmaker banner`**。
+
+---
+
 ### 2026-04-02 — 月老魚 V500 硬鎖配對邏輯＋玩家配對條件表單
 
 **目標**：月老魚配對邏輯階段二 — 支援進階欄位更新、V500 硬鎖邏輯、候選池過濾、玩家填寫 UI。

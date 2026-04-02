@@ -2405,6 +2405,7 @@ export type FishingAdminSettingsPayload = {
   fishing_rod_cooldown_basic_minutes: number;
   fishing_rod_cooldown_mid_minutes: number;
   fishing_rod_cooldown_high_minutes: number;
+  matchmaker_lock_height: boolean;
   matchmaker_lock_diet: boolean;
   matchmaker_lock_smoking: boolean;
   matchmaker_lock_pets: boolean;
@@ -2429,6 +2430,7 @@ export async function getFishingAdminSettingsAction(): Promise<
       bRaw,
       mRaw,
       hRaw,
+      lh,
       ld,
       ls,
       lp,
@@ -2446,6 +2448,7 @@ export async function getFishingAdminSettingsAction(): Promise<
       findSystemSettingByKey("fishing_rod_cooldown_basic_minutes"),
       findSystemSettingByKey("fishing_rod_cooldown_mid_minutes"),
       findSystemSettingByKey("fishing_rod_cooldown_high_minutes"),
+      findSystemSettingByKey("matchmaker_lock_height"),
       findSystemSettingByKey("matchmaker_lock_diet"),
       findSystemSettingByKey("matchmaker_lock_smoking"),
       findSystemSettingByKey("matchmaker_lock_pets"),
@@ -2481,6 +2484,7 @@ export async function getFishingAdminSettingsAction(): Promise<
         fishing_rod_cooldown_basic_minutes: n(bRaw, 1440),
         fishing_rod_cooldown_mid_minutes: n(mRaw, 720),
         fishing_rod_cooldown_high_minutes: n(hRaw, 480),
+        matchmaker_lock_height: parseBool(lh),
         matchmaker_lock_diet: parseBool(ld),
         matchmaker_lock_smoking: parseBool(ls),
         matchmaker_lock_pets: parseBool(lp),
@@ -2587,6 +2591,7 @@ export async function updateFishingSettingsAction(settings: {
   fishing_rod_cooldown_basic_minutes?: number;
   fishing_rod_cooldown_mid_minutes?: number;
   fishing_rod_cooldown_high_minutes?: number;
+  matchmaker_lock_height?: boolean;
   matchmaker_lock_diet?: boolean;
   matchmaker_lock_smoking?: boolean;
   matchmaker_lock_pets?: boolean;
@@ -2639,6 +2644,9 @@ export async function updateFishingSettingsAction(settings: {
     const setBool = async (key: string, v: boolean) => {
       await repoUpdateSystemSetting(key, v ? "true" : "false", user.id);
     };
+    if (settings.matchmaker_lock_height !== undefined) {
+      await setBool("matchmaker_lock_height", settings.matchmaker_lock_height);
+    }
     if (settings.matchmaker_lock_diet !== undefined) {
       await setBool("matchmaker_lock_diet", settings.matchmaker_lock_diet);
     }

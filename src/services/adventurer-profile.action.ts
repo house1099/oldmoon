@@ -38,6 +38,8 @@ export async function completeAdventurerProfile(input: {
   interests: string[];
   /** 出生年份（月老魚年齡差篩選） */
   birth_year: number;
+  /** 自身身高（公分） */
+  height_cm: number;
   /** 感情狀態（月老魚篩選） */
   relationship_status: "single" | "not_single";
   /**
@@ -94,6 +96,10 @@ export async function completeAdventurerProfile(input: {
   if (!Number.isInteger(by) || by < 1940 || by > 2006) {
     return { ok: false, error: "出生年份無效。" };
   }
+  const h = input.height_cm;
+  if (!Number.isInteger(h) || h < 100 || h > 250) {
+    return { ok: false, error: "身高須為 100–250 公分的整數。" };
+  }
   const rs = input.relationship_status;
   if (rs !== "single" && rs !== "not_single") {
     return { ok: false, error: "感情狀態無效。" };
@@ -119,6 +125,7 @@ export async function completeAdventurerProfile(input: {
       orientation: q.orientation,
       offline_ok: offlineIntentToOfflineOk(q.offlineIntent),
       birth_year: by,
+      height_cm: h,
       relationship_status: rs,
       status: "pending", // 雙重保險：與 DB `users.status` DEFAULT 一致（見遷移／Supabase）
       total_exp: 0, // users 表欄位名為 total_exp，非 exp

@@ -15,6 +15,31 @@ import {
   getMatchmakerAgeMaxAction,
   getTagLimitsAction,
 } from "@/services/system-settings.action";
+import {
+  offlineIntentToOfflineOk,
+  type GenderValue,
+  type OfflineIntentValue,
+  type OrientationValue,
+} from "@/lib/constants/adventurer-questionnaire";
+import { ALL_TAIWAN_CITIES } from "@/lib/utils/matchmaker-region";
+
+const TAIWAN_REGION_SET = new Set<string>(ALL_TAIWAN_CITIES);
+const ORIENTATION_UPDATE_SET = new Set([
+  "heterosexual",
+  "homosexual",
+  "pansexual",
+]);
+
+function isValidProfileRegion(raw: string): boolean {
+  const t = raw.trim();
+  if (TAIWAN_REGION_SET.has(t)) {
+    return t.length >= 2 && t.length <= 10;
+  }
+  if (t.startsWith("海外・")) {
+    return t.length >= 4 && t.length <= 100;
+  }
+  return false;
+}
 
 /**
  * Layer 3：編輯公會名片（通用 bio、分域自白、**`instagram_handle`**、IG 公開、每日心情、頭像 URL、**`interests`／`skills_offer`／`skills_want`** 標籤陣列）。
@@ -81,6 +106,15 @@ export async function updateMyProfile(input: {
   v1_money?: number;
   v3_clingy?: number;
   v4_conflict?: number;
+  /** 自身身高（公分），100–250 */
+  height_cm?: number;
+  /** 與註冊問卷一致之地區字串（含 `海外・…`） */
+  region?: string;
+  gender?: GenderValue;
+  birth_year?: number;
+  orientation?: OrientationValue;
+  /** 線下意願；寫入 `offline_ok` */
+  offlineIntent?: OfflineIntentValue;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   if (
     input.bio === undefined &&
@@ -114,7 +148,13 @@ export async function updateMyProfile(input: {
     input.exclude_zodiac === undefined &&
     input.v1_money === undefined &&
     input.v3_clingy === undefined &&
-    input.v4_conflict === undefined
+    input.v4_conflict === undefined &&
+    input.height_cm === undefined &&
+    input.region === undefined &&
+    input.gender === undefined &&
+    input.birth_year === undefined &&
+    input.orientation === undefined &&
+    input.offlineIntent === undefined
   ) {
     return { ok: false, error: "沒有要更新的項目。" };
   }
@@ -231,6 +271,44 @@ export async function updateMyProfile(input: {
       return { ok: false, error: "感情狀態無效。" };
     }
     patch.relationship_status = v;
+  }
+  if (input.height_cm !== undefined) {
+    const h = input.height_cm;
+    if (!Number.isInteger(h) || h < 100 || h > 250) {
+      return { ok: false, error: "身高須為 100～250 的整數。" };
+    }
+    patch.height_cm = h;
+  }
+  if (input.region !== undefined) {
+    const r = input.region.trim();
+    if (!isValidProfileRegion(r)) {
+      return { ok: false, error: "地區格式不符（請選擇縣市或海外・地點）。" };
+    }
+    patch.region = r;
+  }
+  if (input.gender !== undefined) {
+    const g = input.gender;
+    if (g !== "male" && g !== "female") {
+      return { ok: false, error: "性別無效。" };
+    }
+    patch.gender = g;
+  }
+  if (input.birth_year !== undefined) {
+    const y = input.birth_year;
+    if (!Number.isInteger(y) || y < 1940 || y > 2006) {
+      return { ok: false, error: "出生年須為 1940–2006 的整數。" };
+    }
+    patch.birth_year = y;
+  }
+  if (input.orientation !== undefined) {
+    const o = input.orientation;
+    if (!ORIENTATION_UPDATE_SET.has(o)) {
+      return { ok: false, error: "性向選項無效。" };
+    }
+    patch.orientation = o;
+  }
+  if (input.offlineIntent !== undefined) {
+    patch.offline_ok = offlineIntentToOfflineOk(input.offlineIntent);
   }
   if (input.matchmaker_age_mode !== undefined) {
     const m = input.matchmaker_age_mode;

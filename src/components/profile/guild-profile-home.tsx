@@ -457,6 +457,7 @@ export function GuildProfileHome({
   const [profileChangeSubmitting, setProfileChangeSubmitting] = useState(false);
   const [withdrawConfirmOpen, setWithdrawConfirmOpen] = useState(false);
   const [pcFormBirthYear, setPcFormBirthYear] = useState("");
+  const [pcFormNewHeight, setPcFormNewHeight] = useState("");
   const [pcFormRegion, setPcFormRegion] = useState("");
   const [pcFormOverseasDetail, setPcFormOverseasDetail] = useState("");
   const [pcFormOrientation, setPcFormOrientation] = useState("");
@@ -792,10 +793,19 @@ export function GuildProfileHome({
       newRegion?: string;
       newOrientation?: string;
       newBirthYear?: number;
+      newHeightCm?: number;
       note?: string;
     } = {};
     if (pcFormBirthYear) {
       payload.newBirthYear = Number(pcFormBirthYear);
+    }
+    if (pcFormNewHeight.trim()) {
+      const nh = parseInt(pcFormNewHeight.trim(), 10);
+      if (Number.isNaN(nh) || nh < 100 || nh > 250) {
+        toast.error("請輸入有效身高（100–250 公分）");
+        return;
+      }
+      payload.newHeightCm = nh;
     }
     if (pcFormRegion) {
       if (pcFormRegion === OVERSEAS_REGION_OPTION_VALUE) {
@@ -817,6 +827,7 @@ export function GuildProfileHome({
     }
     const hasField =
       payload.newBirthYear !== undefined ||
+      payload.newHeightCm !== undefined ||
       (payload.newRegion !== undefined && payload.newRegion !== "") ||
       (payload.newOrientation !== undefined && payload.newOrientation !== "");
     if (!hasField) {
@@ -832,6 +843,8 @@ export function GuildProfileHome({
           toast.error("你已有一筆待審核申請");
         } else if (r.error === "no_fields") {
           toast.error("請至少填寫一個要變更的欄位");
+        } else if (r.error === "invalid_height") {
+          toast.error("身高須為 100–250 公分");
         } else {
           toast.error(r.error ?? "送出失敗");
         }
@@ -2191,6 +2204,9 @@ export function GuildProfileHome({
                     {pendingRequest.new_birth_year != null ? (
                       <li>出生年份：{pendingRequest.new_birth_year}</li>
                     ) : null}
+                    {pendingRequest.new_height_cm != null ? (
+                      <li>新身高：{pendingRequest.new_height_cm} cm</li>
+                    ) : null}
                   </ul>
                   <p className="text-xs text-zinc-500">
                     申請時間：{formatTaipeiDateTime(pendingRequest.created_at)}
@@ -2208,13 +2224,21 @@ export function GuildProfileHome({
                 <>
                   <button
                     type="button"
-                    onClick={() => setProfileChangeModalOpen(true)}
+                    onClick={() => {
+                      setPcFormBirthYear("");
+                      setPcFormNewHeight("");
+                      setPcFormRegion("");
+                      setPcFormOverseasDetail("");
+                      setPcFormOrientation("");
+                      setPcFormNote("");
+                      setProfileChangeModalOpen(true);
+                    }}
                     className="w-full rounded-full bg-white/10 py-2.5 text-sm text-white transition-all hover:bg-white/20 active:scale-95"
                   >
                     申請修改基本資料 ›
                   </button>
                   <p className="text-xs text-zinc-400">
-                    地區、性向、出生年份需經審核後才能變更
+                    地區、性向、出生年份、身高需經審核後才能變更
                   </p>
                 </>
               )}
@@ -2288,6 +2312,28 @@ export function GuildProfileHome({
               <p className="text-xs text-zinc-500">
                 目前：{profile.birth_year ?? "未填寫"}
               </p>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm text-zinc-400">
+                新身高（公分）
+                <span className="ml-1 text-zinc-600">
+                  目前：{profile.height_cm ?? "未填寫"}
+                </span>
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={pcFormNewHeight}
+                  onChange={(e) =>
+                    setPcFormNewHeight(e.target.value.replace(/\D/g, ""))
+                  }
+                  placeholder="不變更請留空"
+                  maxLength={3}
+                  className="w-24 rounded-full border border-zinc-800 bg-zinc-900/50 px-4 py-2 text-sm text-zinc-100"
+                />
+                <span className="text-sm text-zinc-400">cm</span>
+              </div>
             </div>
 
             <div className="space-y-2">
