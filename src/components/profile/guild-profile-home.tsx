@@ -446,6 +446,8 @@ export function GuildProfileHome({
   const [renameSaving, setRenameSaving] = useState(false);
   const searchParams = useSearchParams();
   const profileChangeSectionRef = useRef<HTMLDivElement>(null);
+  /** ProfileBanner「前往」：基本資料變更 Modal 待開啟（待 pending 載入後處理） */
+  const openProfileChangeModalFromBannerRef = useRef(false);
 
   const { data: pendingRequest, mutate: mutatePendingRequest } = useSWR(
     SWR_KEYS.myProfileChangeRequest,
@@ -522,8 +524,20 @@ export function GuildProfileHome({
     setAvatarUrl(profile.avatar_url?.trim() || null);
   }, [profile, moodMax]);
 
+  const resetProfileChangeForm = useCallback(() => {
+    setPcFormBirthYear("");
+    setPcFormNewHeight("");
+    setPcFormRegion("");
+    setPcFormOverseasDetail("");
+    setPcFormOrientation("");
+    setPcFormNote("");
+  }, []);
+
   useEffect(() => {
     if (searchParams.get("accountSettings") !== "profileChange") return;
+    if (searchParams.get("openProfileChange") === "1") {
+      openProfileChangeModalFromBannerRef.current = true;
+    }
     setEditOpen(true);
     const timer = window.setTimeout(() => {
       profileChangeSectionRef.current?.scrollIntoView({
@@ -534,6 +548,15 @@ export function GuildProfileHome({
     }, 350);
     return () => window.clearTimeout(timer);
   }, [searchParams, router]);
+
+  useEffect(() => {
+    if (!openProfileChangeModalFromBannerRef.current) return;
+    if (pendingRequest === undefined) return;
+    openProfileChangeModalFromBannerRef.current = false;
+    if (pendingRequest !== null) return;
+    resetProfileChangeForm();
+    setProfileChangeModalOpen(true);
+  }, [pendingRequest, resetProfileChangeForm]);
 
   useEffect(() => {
     getActiveAnnouncementsAction().then(setAnnouncements).catch(() => {});

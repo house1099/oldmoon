@@ -11,6 +11,9 @@ import { cn } from "@/lib/utils";
 
 const DISMISS_STORAGE_KEY = "profile_banner_dismissed_v1";
 
+/** 需經「帳號設定 → 基本資料變更」審核之欄位（非月老設定 Tab） */
+const MATCHMAKER_FIELDS_BASIC_PROFILE = new Set<string>(["height_cm"]);
+
 const MATCHMAKER_FIELD_DEFS: { key: string; label: string }[] = [
   { key: "height_cm", label: "身高" },
   { key: "diet_type", label: "飲食習慣" },
@@ -105,9 +108,16 @@ export function ProfileBanner() {
     router.push("/?accountSettings=profileChange");
   }, [router]);
 
-  const goMatchmakerSettings = useCallback(() => {
+  const goMatchmakerBanner = useCallback(() => {
+    const needsBasicProfile = missingMatchmakerFields.some((f) =>
+      MATCHMAKER_FIELDS_BASIC_PROFILE.has(f.key),
+    );
+    if (needsBasicProfile) {
+      router.push("/?accountSettings=profileChange&openProfileChange=1");
+      return;
+    }
     router.push("/matchmaking?tab=settings");
-  }, [router]);
+  }, [router, missingMatchmakerFields]);
 
   if (!visible || !settings) return null;
 
@@ -117,7 +127,7 @@ export function ProfileBanner() {
     return (
       <div
         className={cn(
-          "fixed left-0 right-0 z-[48] flex min-h-14 items-center gap-2 border-t border-amber-500/40 bg-amber-950/90 px-3 py-2 backdrop-blur-xl",
+          "fixed left-0 right-0 z-[55] flex min-h-14 items-center gap-2 border-t border-amber-500/40 bg-amber-950/90 px-3 py-2 backdrop-blur-xl",
           "bottom-[calc(3.75rem+env(safe-area-inset-bottom,0px))] w-full",
         )}
         role="region"
@@ -132,7 +142,7 @@ export function ProfileBanner() {
         </p>
         <button
           type="button"
-          onClick={goMatchmakerSettings}
+          onClick={goMatchmakerBanner}
           className="shrink-0 rounded-full bg-amber-500/80 px-3 py-1.5 text-xs font-medium text-zinc-950 transition hover:bg-amber-400/90"
         >
           前往填寫 ›
@@ -144,7 +154,7 @@ export function ProfileBanner() {
   return (
     <div
       className={cn(
-        "fixed left-0 right-0 z-[48] flex h-14 items-center gap-2 border-t border-violet-400/40 bg-violet-950/90 px-3 backdrop-blur-xl",
+        "fixed left-0 right-0 z-[55] flex h-14 items-center gap-2 border-t border-violet-400/40 bg-violet-950/90 px-3 backdrop-blur-xl",
         "bottom-[calc(3.75rem+env(safe-area-inset-bottom,0px))] w-full",
       )}
       role="region"
