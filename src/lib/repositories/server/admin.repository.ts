@@ -116,6 +116,8 @@ export async function findUsersForAdmin(params: {
   role?: string;
   page?: number;
   pageSize?: number;
+  /** 僅列出目前有待審核 IG 變更申請的使用者（與 status／role 互斥篩選） */
+  pendingIgOnly?: boolean;
 }): Promise<{ users: UserRow[]; total: number }> {
   const admin = createAdminClient();
   const page = params.page ?? 1;
@@ -123,23 +125,45 @@ export async function findUsersForAdmin(params: {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
+  let pendingUserIds: string[] | null = null;
+  if (params.pendingIgOnly) {
+    const { data: igRows, error: igErr } = await admin
+      .from("ig_change_requests")
+      .select("user_id")
+      .eq("status", "pending");
+    if (igErr) throw igErr;
+    const idSet = new Set<string>();
+    for (const r of igRows ?? []) {
+      const uid = (r as { user_id: string | null }).user_id;
+      if (uid) idSet.add(uid);
+    }
+    pendingUserIds = Array.from(idSet);
+  }
+
   let query = admin
     .from("users")
     .select("*", { count: "exact" })
     .order("created_at", { ascending: false })
     .range(from, to);
 
-  if (params.status) {
-    query = query.eq(
-      "status",
-      params.status as "pending" | "active" | "suspended" | "banned",
-    );
-  }
-  if (params.role) {
-    query = query.eq(
-      "role",
-      params.role as "member" | "moderator" | "master",
-    );
+  if (params.pendingIgOnly) {
+    if (!pendingUserIds || pendingUserIds.length === 0) {
+      return { users: [], total: 0 };
+    }
+    query = query.in("id", pendingUserIds);
+  } else {
+    if (params.status) {
+      query = query.eq(
+        "status",
+        params.status as "pending" | "active" | "suspended" | "banned",
+      );
+    }
+    if (params.role) {
+      query = query.eq(
+        "role",
+        params.role as "member" | "moderator" | "master",
+      );
+    }
   }
   if (params.search) {
     query = query.ilike("nickname", `%${params.search}%`);

@@ -17,7 +17,9 @@ export default async function AdminUsersPage({
   const result = await getUsersAction({
     page: 1,
     pageSize: 20,
-    status: initialStatus || undefined,
+    status:
+      filter === "ig_pending" ? undefined : initialStatus || undefined,
+    pendingIgOnly: filter === "ig_pending",
   });
   const initialData = result.ok ? result.data : { users: [], total: 0 };
 

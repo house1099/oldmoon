@@ -202,8 +202,9 @@ export default function UsersClient({
           page: p,
           pageSize,
           search: s || undefined,
-          status: st || undefined,
-          role: r || undefined,
+          status: initialFilter === "ig_pending" ? undefined : st || undefined,
+          role: initialFilter === "ig_pending" ? undefined : r || undefined,
+          pendingIgOnly: initialFilter === "ig_pending",
         });
         if (result.ok) {
           setUsers(result.data.users);
@@ -211,7 +212,7 @@ export default function UsersClient({
         }
       });
     },
-    [],
+    [initialFilter, pageSize, startTransition],
   );
 
   const handleSearch = () => {

@@ -919,6 +919,23 @@ export async function upsertFishingBaitStack(
   });
 }
 
+/** 依商城商品 id 找出該使用者釣餌堆疊列（合併後每種餌至多一筆） */
+export async function findFishingBaitUserRewardIdForShopItem(
+  userId: string,
+  shopItemId: string,
+): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("user_rewards")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("reward_type", "fishing_bait")
+    .eq("shop_item_id", shopItemId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as { id: string } | null)?.id ?? null;
+}
+
 /** 拋竿消耗一個釣餌：quantity>1 則減一，否則刪列 */
 export async function decrementBaitOrDeleteForCast(
   rewardId: string,

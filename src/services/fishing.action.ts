@@ -10,6 +10,7 @@ import { insertUserReward } from "@/lib/repositories/server/prize.repository";
 import {
   countUserRewardsByType,
   decrementBaitOrDeleteForCast,
+  findFishingBaitUserRewardIdForShopItem,
   findUserRewardById,
   listFishingRodsAndBaits,
   sumFishingBaitQuantity,
@@ -874,7 +875,7 @@ export async function getFishingLogsAction(): Promise<
   return { ok: true, logs };
 }
 
-/** 拋竿：消耗魚餌並記錄等待收成（魚種於收成時抽選）。 */
+/** 拋竿：記錄等待收成；釣餌於收成「確認」時才扣（見 confirmHarvestFishAction）。 */
 export async function castFishAction(opts?: {
   baitUserRewardId?: string | null;
   rodUserRewardId?: string | null;
@@ -974,9 +975,9 @@ export async function castFishAction(opts?: {
     return { ok: false, error: "魚餌缺少商城商品關聯，無法拋竿。" };
   }
 
-  const consumed = await decrementBaitOrDeleteForCast(baitId, user.id);
-  if (!consumed) {
-    return { ok: false, error: "消耗釣餌失敗，請稍後再試。" };
+  const baitQty = baitRow.quantity ?? 1;
+  if (baitQty < 1) {
+    return { ok: false, error: "釣餌數量不足。" };
   }
 
   const capMin = Math.max(1, rodRules.cooldownAfterCastMinutes);
@@ -987,6 +988,7 @@ export async function castFishAction(opts?: {
     userId: user.id,
     rodUserRewardId: rodId,
     baitShopItemId: baitRow.shop_item_id,
+    baitUserRewardId: baitId,
     pendingHarvestReadyAtIso: readyIso,
   });
 
@@ -1567,7 +1569,10 @@ export async function confirmHarvestFishAction(opts?: {
   if (!rodId) return { ok: false, error: "需要釣竿才能釣魚。" };
 
   const castRow = await getRodCastState(user.id, rodId);
-  const raw = castRow?.pending_harvest_preview;
+  if (!castRow) {
+    return { ok: false, error: "沒有待確認的收成，請先收竿預覽。" };
+  }
+  const raw = castRow.pending_harvest_preview;
   if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
     return { ok: false, error: "沒有待確認的收成，請先收竿預覽。" };
   }
@@ -1576,12 +1581,62 @@ export async function confirmHarvestFishAction(opts?: {
     return { ok: false, error: "收成資料版本異常。" };
   }
 
-  await applyHarvestPreviewPayload(user.id, rodId, p);
-  revalidateTag(profileCacheTag(user.id));
-  await recordHarvestSuccess({
-    userId: user.id,
-    rodUserRewardId: rodId,
-  });
+  const shopBaitId = castRow.pending_bait_shop_item_id;
+  const baitRewardId =
+    castRow.pending_bait_user_reward_id ??
+    (shopBaitId
+      ? await findFishingBaitUserRewardIdForShopItem(user.id, shopBaitId)
+      : null);
+  if (!baitRewardId) {
+    return { ok: false, error: "找不到本次拋竿使用的釣餌，請聯絡管理員。" };
+  }
+
+  const baitOwned = await findUserRewardById(baitRewardId);
+  if (
+    !baitOwned ||
+    baitOwned.user_id !== user.id ||
+    baitOwned.reward_type !== "fishing_bait" ||
+    (baitOwned.quantity ?? 1) < 1
+  ) {
+    return { ok: false, error: "釣餌不足或已變更，無法確認收成。" };
+  }
+
+  const consumed = await decrementBaitOrDeleteForCast(baitRewardId, user.id);
+  if (!consumed) {
+    return { ok: false, error: "釣餌扣減失敗，請稍後再試。" };
+  }
+
+  const baitShopForRefund = shopBaitId
+    ? await findShopItemById(shopBaitId)
+    : null;
+
+  try {
+    await applyHarvestPreviewPayload(user.id, rodId, p);
+    revalidateTag(profileCacheTag(user.id));
+    await recordHarvestSuccess({
+      userId: user.id,
+      rodUserRewardId: rodId,
+    });
+  } catch (e) {
+    console.error("confirmHarvestFishAction:", e);
+    if (shopBaitId && baitShopForRefund?.name) {
+      try {
+        await upsertFishingBaitStack(
+          user.id,
+          shopBaitId,
+          baitShopForRefund.name,
+          1,
+        );
+      } catch (re) {
+        console.error("confirmHarvestFishAction bait refund:", re);
+      }
+    }
+    return {
+      ok: false,
+      error: "收成確認失敗，請稍後再試；若釣餌已還原請重新確認。",
+    };
+  }
+
   return { ok: true };
 }
 

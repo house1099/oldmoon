@@ -166,6 +166,8 @@ export async function setPendingCast(opts: {
   userId: string;
   rodUserRewardId: string;
   baitShopItemId: string;
+  /** 選定之釣餌背包列（收成確認時才扣 quantity） */
+  baitUserRewardId: string;
   /** ISO：可收竿時間（拋竿後隨機，≤ 冷卻分鐘） */
   pendingHarvestReadyAtIso: string;
 }): Promise<void> {
@@ -185,6 +187,7 @@ export async function setPendingCast(opts: {
         last_cast_at: nowIso,
         pending_cast_started_at: nowIso,
         pending_bait_shop_item_id: opts.baitShopItemId,
+        pending_bait_user_reward_id: opts.baitUserRewardId,
         pending_harvest_ready_at: opts.pendingHarvestReadyAtIso,
         bite_notified_at: null,
         pending_harvest_preview: null,
@@ -203,6 +206,7 @@ export async function setPendingCast(opts: {
     last_cast_at: nowIso,
     pending_cast_started_at: nowIso,
     pending_bait_shop_item_id: opts.baitShopItemId,
+    pending_bait_user_reward_id: opts.baitUserRewardId,
     pending_harvest_ready_at: opts.pendingHarvestReadyAtIso,
     bite_notified_at: null,
     pending_harvest_preview: null,
@@ -229,6 +233,7 @@ export async function recordHarvestSuccess(opts: {
     .update({
       pending_cast_started_at: null,
       pending_bait_shop_item_id: null,
+      pending_bait_user_reward_id: null,
       pending_harvest_ready_at: null,
       bite_notified_at: null,
       pending_harvest_preview: null,

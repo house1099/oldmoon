@@ -516,6 +516,7 @@ export interface Database {
           last_cast_at: string | null;
           pending_cast_started_at: string | null;
           pending_bait_shop_item_id: string | null;
+          pending_bait_user_reward_id: string | null;
           pending_harvest_ready_at: string | null;
           bite_notified_at: string | null;
           pending_harvest_preview: Json | null;
@@ -530,6 +531,7 @@ export interface Database {
           last_cast_at?: string | null;
           pending_cast_started_at?: string | null;
           pending_bait_shop_item_id?: string | null;
+          pending_bait_user_reward_id?: string | null;
           pending_harvest_ready_at?: string | null;
           bite_notified_at?: string | null;
           pending_harvest_preview?: Json | null;
@@ -541,6 +543,7 @@ export interface Database {
           last_cast_at?: string | null;
           pending_cast_started_at?: string | null;
           pending_bait_shop_item_id?: string | null;
+          pending_bait_user_reward_id?: string | null;
           pending_harvest_ready_at?: string | null;
           bite_notified_at?: string | null;
           pending_harvest_preview?: Json | null;

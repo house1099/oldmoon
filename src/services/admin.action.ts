@@ -193,6 +193,8 @@ export async function getUsersAction(params: {
   role?: string;
   page?: number;
   pageSize?: number;
+  /** 僅 **`ig_change_requests.status = pending`** 的申請者 */
+  pendingIgOnly?: boolean;
 }): Promise<ActionResult<{ users: UserRow[]; total: number }>> {
   try {
     await requireRole(["master", "moderator"]);
