@@ -5,6 +5,12 @@
 - **2026-03-23 — 2026-03-27**：以下「逐日 `###` 任務日誌」為主。
 - **2026-03-28 起**：開頭區塊為舊主檔前半（約第 29—212 行）之 Wave／修復長文；其餘詳見 `HANDOFF.md`／`HANDOFF_FEATURES.md`／`HANDOFF_DB.md` 摘要。
 
+### 2026-04-02 — 商城／public 商品圖「去背」規範（文件與 Cursor 規則）
+
+1. **內容**：**`.cursorrules`** 新增「商城與靜態商品圖」— 預設 **`public/items/`**、**`public/shop/`**、**`public/frames/`** 點陣圖須去背，除非使用者明確指示保留底色；**`npm run process-shop-png-bg`**、**`scripts/remove-shop-png-white-bg.mjs`**；排除 **`public/icons/`** 等非商城路徑。**`HANDOFF.md`** 摘要區「商城靜態圖」。**`.cursor/rules/shop-image-transparency.mdc`**（**`alwaysApply: true`**）。
+2. **資料庫**：無。
+3. **需要注意**：無。
+
 ### 2026-04-02 — 釣魚後台獎品設定 UI 重構（tier 優先、簡化 Dialog）
 
 1. **目標**：**`/admin/fishing`** 獎品 Tab 改為 **魚種 → 各 tier 獎品池** 流程；tier 卡片含 **出現機率請至系統設定** 與 **前往設定 ›**（`setTab('settings')`）；列表 **單一獎品不顯示權重／佔比**，**兩筆以上** 顯示 **權重 N ≈ X%**；**新增／編輯 Dialog** 依進入的 tier 固定（**唯讀 tier**、移除下拉）、**權重** 僅在該 tier 已有其他獎品（新增）或至少兩筆（編輯）時顯示，否則送 **預設 1.00%** 或沿用既有 **weight**；**深海巨獸** 單一「限量大獎」區塊、新增標題 **新增限量大獎 — 深海巨獸**、庫存區 **⚠️ 建議** 文案；**月老魚** 維持說明頁。僅 **Layer 5**（**`fishing-admin-client.tsx`**），不改 **Layer 2／3**。

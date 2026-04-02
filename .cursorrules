@@ -22,6 +22,11 @@
 - **禁止**於個人頁使用 **`supabase.storage.from(...)`** 上傳頭像；**唯一**上傳管線為：**`react-easy-crop`** 全螢幕裁切 Modal（**`aspect={1}`**、**`cropShape="round"`**、**`showGrid={false}`**）→ **`getCroppedImg`**（**`src/lib/utils/cropImage.ts`**，`canvas` 輸出 **Blob**）→ **`File`** → **`uploadAvatarToCloudinary`**（**`src/lib/utils/cloudinary.ts`**）→ **`updateMyProfile({ avatar_url })`** 寫入 **`users.avatar_url`**。
 - **Cloudinary** 僅使用後台設好之 **unsigned upload preset**；**API Secret** 不可進前端 bundle。
 
+## 商城與靜態商品圖（public／去背）
+- **預設原則**：凡**新增、替換或匯入**至 **`public/items/`**、**`public/shop/`**（含子目錄）、**`public/frames/`** 之**點陣圖**（以 **PNG** 為主；WebP 等亦同精神），一律須為**去背**（透明背景、與頭像框／商城卡深色底相容），**除非使用者明確指示「不要去背」「保留白底／實底」**（例如特定行銷素材、刻意滿版底圖）。
+- **實作**：匯出時於設計工具開啟透明背景；若檔案為白底 PNG，可於專案根目錄執行 **`npm run process-shop-png-bg`**（腳本 **`scripts/remove-shop-png-white-bg.mjs`**）批次將近白像素轉透明；腳本會**略過**已具明顯 alpha 之檔案。
+- **範圍外**：**`public/icons/`**、PWA／啟動圖等**非商城商品**路徑，**不要**自動套用去背腳本，除非使用者特別要求。
+
 ## 任務完成回報格式
 每次完成任務時，必須以以下固定區塊回報（可視情況填「無」）：
 

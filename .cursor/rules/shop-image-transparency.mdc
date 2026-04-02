@@ -1,0 +1,12 @@
+---
+description: Shop/public merchandise images must use transparent backgrounds unless user opts out
+alwaysApply: true
+---
+
+# 商城與 public 商品圖（去背）
+
+- **預設**：新增或替換 **`public/items/`**、**`public/shop/`**（含子目錄）、**`public/frames/`** 內的點陣圖（PNG 等）須**去背**（透明 alpha），與深色 UI 一致；**除非使用者明確說「不要去背」或「保留白底／實底」**。
+- **批次白底處理**：專案根目錄執行 **`npm run process-shop-png-bg`**（**`scripts/remove-shop-png-white-bg.mjs`**）；已具透明度的檔會略過。
+- **不要**對 **`public/icons/`** 等非商城路徑自動跑去背，除非使用者要求。
+
+完整說明見專案根目錄 **`.cursorrules`**「商城與靜態商品圖」與 **`HANDOFF.md`**「商城靜態圖」。
