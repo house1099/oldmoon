@@ -59,7 +59,10 @@ import {
   percentInputToWeightBp,
   weightBpToPercentNumber,
 } from "@/lib/utils/fishing-reward-percent";
-import type { FishingStats } from "@/services/admin.action";
+import type {
+  FishingAdminSettingsPayload,
+  FishingStats,
+} from "@/services/admin.action";
 
 const PAGE_SIZE = 20;
 
@@ -143,6 +146,89 @@ const TIER_LABELS: Record<FishingRewardTier, string> = {
   large: "大獎",
 };
 
+type MatchmakerLockState = Pick<
+  FishingAdminSettingsPayload,
+  | "matchmaker_lock_diet"
+  | "matchmaker_lock_smoking"
+  | "matchmaker_lock_pets"
+  | "matchmaker_lock_single_parent"
+  | "matchmaker_lock_fertility"
+  | "matchmaker_lock_marriage"
+  | "matchmaker_lock_zodiac"
+  | "matchmaker_lock_v1"
+  | "matchmaker_lock_v3"
+  | "matchmaker_lock_v4"
+>;
+
+const MATCHMAKER_HARD_ROWS: {
+  key: keyof Pick<
+    MatchmakerLockState,
+    | "matchmaker_lock_diet"
+    | "matchmaker_lock_smoking"
+    | "matchmaker_lock_pets"
+    | "matchmaker_lock_single_parent"
+    | "matchmaker_lock_fertility"
+    | "matchmaker_lock_marriage"
+    | "matchmaker_lock_zodiac"
+  >;
+  emoji: string;
+  title: string;
+  hint: string;
+}[] = [
+  {
+    key: "matchmaker_lock_diet",
+    emoji: "🥗",
+    title: "飲食習慣篩選",
+    hint: "葷素不合的不配對",
+  },
+  {
+    key: "matchmaker_lock_smoking",
+    emoji: "🚬",
+    title: "抽菸習慣篩選",
+    hint: "不接受抽菸者不配對",
+  },
+  {
+    key: "matchmaker_lock_pets",
+    emoji: "🐾",
+    title: "寵物接受度篩選",
+    hint: "對寵物過敏或不接受者不配對",
+  },
+  {
+    key: "matchmaker_lock_single_parent",
+    emoji: "👶",
+    title: "單親接受度篩選",
+    hint: "不接受單親者不配對",
+  },
+  {
+    key: "matchmaker_lock_fertility",
+    emoji: "🍼",
+    title: "生育意願篩選",
+    hint: "生育意願嚴重衝突者不配對",
+  },
+  {
+    key: "matchmaker_lock_marriage",
+    emoji: "💍",
+    title: "婚姻觀念篩選",
+    hint: "堅持不婚 vs 不排斥結婚者不配對",
+  },
+  {
+    key: "matchmaker_lock_zodiac",
+    emoji: "♈",
+    title: "星座排除篩選",
+    hint: "尊重星座排除設定",
+  },
+];
+
+const MATCHMAKER_V_ROWS: {
+  key: "matchmaker_lock_v1" | "matchmaker_lock_v3" | "matchmaker_lock_v4";
+  emoji: string;
+  title: string;
+}[] = [
+  { key: "matchmaker_lock_v1", emoji: "💰", title: "金錢觀（V1）" },
+  { key: "matchmaker_lock_v3", emoji: "🤗", title: "黏人程度（V3）" },
+  { key: "matchmaker_lock_v4", emoji: "💥", title: "衝突處理（V4）" },
+];
+
 /** 0–100% step 0.01 → basis points 0–10000 */
 function parseTierPercentToBp(raw: string): number | null {
   const t = raw.trim();
@@ -209,13 +295,7 @@ export default function FishingAdminClient({
   initialSettings,
   canAccessShopAdmin,
 }: {
-  initialSettings: {
-    fishing_enabled: boolean;
-    fishing_age_max: number;
-    fishing_rod_cooldown_basic_minutes: number;
-    fishing_rod_cooldown_mid_minutes: number;
-    fishing_rod_cooldown_high_minutes: number;
-  };
+  initialSettings: FishingAdminSettingsPayload;
   canAccessShopAdmin: boolean;
 }) {
   const router = useRouter();
@@ -346,6 +426,66 @@ export default function FishingAdminClient({
   const [rodHighDraft, setRodHighDraft] = useState(
     String(initialSettings.fishing_rod_cooldown_high_minutes),
   );
+
+  const [mmLocks, setMmLocks] = useState<MatchmakerLockState>({
+    matchmaker_lock_diet: initialSettings.matchmaker_lock_diet,
+    matchmaker_lock_smoking: initialSettings.matchmaker_lock_smoking,
+    matchmaker_lock_pets: initialSettings.matchmaker_lock_pets,
+    matchmaker_lock_single_parent: initialSettings.matchmaker_lock_single_parent,
+    matchmaker_lock_fertility: initialSettings.matchmaker_lock_fertility,
+    matchmaker_lock_marriage: initialSettings.matchmaker_lock_marriage,
+    matchmaker_lock_zodiac: initialSettings.matchmaker_lock_zodiac,
+    matchmaker_lock_v1: initialSettings.matchmaker_lock_v1,
+    matchmaker_lock_v3: initialSettings.matchmaker_lock_v3,
+    matchmaker_lock_v4: initialSettings.matchmaker_lock_v4,
+  });
+  const [mmVMaxCommitted, setMmVMaxCommitted] = useState(
+    initialSettings.matchmaker_v_max_diff,
+  );
+  const [mmVMaxDraft, setMmVMaxDraft] = useState(
+    String(initialSettings.matchmaker_v_max_diff),
+  );
+
+  const anyVLockOn =
+    mmLocks.matchmaker_lock_v1 ||
+    mmLocks.matchmaker_lock_v3 ||
+    mmLocks.matchmaker_lock_v4;
+
+  const toggleMmLock = async (
+    key: keyof MatchmakerLockState,
+    label: string,
+    next: boolean,
+  ) => {
+    const prev = mmLocks[key];
+    setMmLocks((s) => ({ ...s, [key]: next }));
+    const r = await updateFishingSettingsAction({ [key]: next });
+    if (!r.ok) {
+      toast.error(r.error);
+      setMmLocks((s) => ({ ...s, [key]: prev }));
+      return;
+    }
+    toast.success(`${label} 已${next ? "開啟" : "關閉"}`);
+  };
+
+  const onBlurMatchmakerVMax = async () => {
+    const n = Number.parseInt(mmVMaxDraft.trim(), 10);
+    if (!Number.isFinite(n) || n < 1 || n > 4) {
+      toast.error("三觀最大差距須為 1–4 的整數");
+      setMmVMaxDraft(String(mmVMaxCommitted));
+      return;
+    }
+    if (n === mmVMaxCommitted) return;
+    const r = await updateFishingSettingsAction({
+      matchmaker_v_max_diff: n,
+    });
+    if (!r.ok) {
+      toast.error(r.error);
+      setMmVMaxDraft(String(mmVMaxCommitted));
+      return;
+    }
+    setMmVMaxCommitted(n);
+    toast.success("三觀最大允許差距已更新");
+  };
 
   /* —— 獎品 Dialog —— */
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -1190,6 +1330,106 @@ export default function FishingAdminClient({
               >
                 儲存
               </Button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4 max-w-xl">
+            <div>
+              <h3 className="text-base font-semibold text-gray-900">
+                💘 月老配對條件開關
+              </h3>
+              <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                關閉的條件不會參與配對運算，
+                人數較少時建議關閉部分條件以提高配對成功率
+              </p>
+            </div>
+
+            <div className="rounded-lg bg-gray-50/80 border border-gray-100 p-3 space-y-1.5">
+              <p className="text-sm font-medium text-gray-800">
+                【基礎篩選（建議常開）】
+              </p>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                以下條件為月老魚基礎邏輯，
+                永遠生效：性別×性向、單身狀態、年齡差距、地區偏好
+              </p>
+            </div>
+
+            <div>
+              <p className="text-sm font-medium text-gray-900 mb-2">
+                【進階硬鎖條件】
+              </p>
+              <div className="space-y-0 divide-y divide-gray-100">
+                {MATCHMAKER_HARD_ROWS.map((row) => (
+                  <div
+                    key={row.key}
+                    className="flex items-start gap-3 py-3 first:pt-0"
+                  >
+                    <Switch
+                      checked={mmLocks[row.key]}
+                      aria-label={`${row.title}：${mmLocks[row.key] ? "已開啟" : "已關閉"}`}
+                      className="data-checked:bg-violet-600 data-unchecked:bg-gray-200 shrink-0 mt-0.5"
+                      onCheckedChange={(v) =>
+                        void toggleMmLock(row.key, row.title, v)
+                      }
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900">
+                        {row.emoji} {row.title}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">{row.hint}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="border-t border-gray-100 pt-3 space-y-3">
+              <p className="text-sm font-medium text-gray-900">
+                【三觀相似度篩選】
+              </p>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                開啟後，三觀差距超過設定值的玩家不配對
+              </p>
+              <div className="space-y-0 divide-y divide-gray-100">
+                {MATCHMAKER_V_ROWS.map((row) => (
+                  <div
+                    key={row.key}
+                    className="flex items-start gap-3 py-3 first:pt-0"
+                  >
+                    <Switch
+                      checked={mmLocks[row.key]}
+                      aria-label={`${row.title}：${mmLocks[row.key] ? "已開啟" : "已關閉"}`}
+                      className="data-checked:bg-violet-600 data-unchecked:bg-gray-200 shrink-0 mt-0.5"
+                      onCheckedChange={(v) =>
+                        void toggleMmLock(row.key, row.title, v)
+                      }
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900">
+                        {row.emoji} {row.title}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {anyVLockOn ? (
+                <div className="space-y-1.5 pt-1">
+                  <label className="text-sm font-medium text-gray-900 block">
+                    三觀最大允許差距
+                  </label>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={mmVMaxDraft}
+                    onChange={(e) => setMmVMaxDraft(e.target.value)}
+                    onBlur={() => void onBlurMatchmakerVMax()}
+                    className="w-24 bg-white max-w-full"
+                  />
+                  <p className="text-xs text-gray-500">
+                    1=完全相同 2=差一格 3=差兩格 4=不限
+                  </p>
+                </div>
+              ) : null}
             </div>
           </div>
 

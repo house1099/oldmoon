@@ -2399,23 +2399,64 @@ export async function getFishingStatsAction(): Promise<
   }
 }
 
+export type FishingAdminSettingsPayload = {
+  fishing_enabled: boolean;
+  fishing_age_max: number;
+  fishing_rod_cooldown_basic_minutes: number;
+  fishing_rod_cooldown_mid_minutes: number;
+  fishing_rod_cooldown_high_minutes: number;
+  matchmaker_lock_diet: boolean;
+  matchmaker_lock_smoking: boolean;
+  matchmaker_lock_pets: boolean;
+  matchmaker_lock_single_parent: boolean;
+  matchmaker_lock_fertility: boolean;
+  matchmaker_lock_marriage: boolean;
+  matchmaker_lock_zodiac: boolean;
+  matchmaker_lock_v1: boolean;
+  matchmaker_lock_v3: boolean;
+  matchmaker_lock_v4: boolean;
+  matchmaker_v_max_diff: number;
+};
+
 export async function getFishingAdminSettingsAction(): Promise<
-  ActionResult<{
-    fishing_enabled: boolean;
-    fishing_age_max: number;
-    fishing_rod_cooldown_basic_minutes: number;
-    fishing_rod_cooldown_mid_minutes: number;
-    fishing_rod_cooldown_high_minutes: number;
-  }>
+  ActionResult<FishingAdminSettingsPayload>
 > {
   try {
     await requireRole(["master", "moderator"]);
-    const [enabledRaw, ageRaw, bRaw, mRaw, hRaw] = await Promise.all([
+    const [
+      enabledRaw,
+      ageRaw,
+      bRaw,
+      mRaw,
+      hRaw,
+      ld,
+      ls,
+      lp,
+      lsp,
+      lf,
+      lm,
+      lz,
+      lv1,
+      lv3,
+      lv4,
+      vmax,
+    ] = await Promise.all([
       findSystemSettingByKey("fishing_enabled"),
       findSystemSettingByKey("fishing_age_max"),
       findSystemSettingByKey("fishing_rod_cooldown_basic_minutes"),
       findSystemSettingByKey("fishing_rod_cooldown_mid_minutes"),
       findSystemSettingByKey("fishing_rod_cooldown_high_minutes"),
+      findSystemSettingByKey("matchmaker_lock_diet"),
+      findSystemSettingByKey("matchmaker_lock_smoking"),
+      findSystemSettingByKey("matchmaker_lock_pets"),
+      findSystemSettingByKey("matchmaker_lock_single_parent"),
+      findSystemSettingByKey("matchmaker_lock_fertility"),
+      findSystemSettingByKey("matchmaker_lock_marriage"),
+      findSystemSettingByKey("matchmaker_lock_zodiac"),
+      findSystemSettingByKey("matchmaker_lock_v1"),
+      findSystemSettingByKey("matchmaker_lock_v3"),
+      findSystemSettingByKey("matchmaker_lock_v4"),
+      findSystemSettingByKey("matchmaker_v_max_diff"),
     ]);
     const fishing_enabled = enabledRaw !== "false";
     const parsed = ageRaw != null && ageRaw !== "" ? Number.parseInt(ageRaw, 10) : NaN;
@@ -2425,6 +2466,13 @@ export async function getFishingAdminSettingsAction(): Promise<
       const x = Number.parseInt(v, 10);
       return Number.isFinite(x) && x >= 0 ? x : fb;
     };
+    const parseBool = (v: string | null) => v === "true";
+    const parseVMax = (v: string | null) => {
+      const x =
+        v != null && v.trim() !== "" ? Number.parseInt(v.trim(), 10) : NaN;
+      if (Number.isFinite(x) && x >= 1 && x <= 4) return x;
+      return 2;
+    };
     return {
       ok: true,
       data: {
@@ -2433,6 +2481,17 @@ export async function getFishingAdminSettingsAction(): Promise<
         fishing_rod_cooldown_basic_minutes: n(bRaw, 1440),
         fishing_rod_cooldown_mid_minutes: n(mRaw, 720),
         fishing_rod_cooldown_high_minutes: n(hRaw, 480),
+        matchmaker_lock_diet: parseBool(ld),
+        matchmaker_lock_smoking: parseBool(ls),
+        matchmaker_lock_pets: parseBool(lp),
+        matchmaker_lock_single_parent: parseBool(lsp),
+        matchmaker_lock_fertility: parseBool(lf),
+        matchmaker_lock_marriage: parseBool(lm),
+        matchmaker_lock_zodiac: parseBool(lz),
+        matchmaker_lock_v1: parseBool(lv1),
+        matchmaker_lock_v3: parseBool(lv3),
+        matchmaker_lock_v4: parseBool(lv4),
+        matchmaker_v_max_diff: parseVMax(vmax),
       },
     };
   } catch (e: unknown) {
@@ -2528,6 +2587,17 @@ export async function updateFishingSettingsAction(settings: {
   fishing_rod_cooldown_basic_minutes?: number;
   fishing_rod_cooldown_mid_minutes?: number;
   fishing_rod_cooldown_high_minutes?: number;
+  matchmaker_lock_diet?: boolean;
+  matchmaker_lock_smoking?: boolean;
+  matchmaker_lock_pets?: boolean;
+  matchmaker_lock_single_parent?: boolean;
+  matchmaker_lock_fertility?: boolean;
+  matchmaker_lock_marriage?: boolean;
+  matchmaker_lock_zodiac?: boolean;
+  matchmaker_lock_v1?: boolean;
+  matchmaker_lock_v3?: boolean;
+  matchmaker_lock_v4?: boolean;
+  matchmaker_v_max_diff?: number;
 }): Promise<ActionResult<{ success: boolean }>> {
   try {
     const { user } = await requireRole(["master", "moderator"]);
@@ -2566,7 +2636,57 @@ export async function updateFishingSettingsAction(settings: {
         user.id,
       );
     }
+    const setBool = async (key: string, v: boolean) => {
+      await repoUpdateSystemSetting(key, v ? "true" : "false", user.id);
+    };
+    if (settings.matchmaker_lock_diet !== undefined) {
+      await setBool("matchmaker_lock_diet", settings.matchmaker_lock_diet);
+    }
+    if (settings.matchmaker_lock_smoking !== undefined) {
+      await setBool("matchmaker_lock_smoking", settings.matchmaker_lock_smoking);
+    }
+    if (settings.matchmaker_lock_pets !== undefined) {
+      await setBool("matchmaker_lock_pets", settings.matchmaker_lock_pets);
+    }
+    if (settings.matchmaker_lock_single_parent !== undefined) {
+      await setBool(
+        "matchmaker_lock_single_parent",
+        settings.matchmaker_lock_single_parent,
+      );
+    }
+    if (settings.matchmaker_lock_fertility !== undefined) {
+      await setBool(
+        "matchmaker_lock_fertility",
+        settings.matchmaker_lock_fertility,
+      );
+    }
+    if (settings.matchmaker_lock_marriage !== undefined) {
+      await setBool(
+        "matchmaker_lock_marriage",
+        settings.matchmaker_lock_marriage,
+      );
+    }
+    if (settings.matchmaker_lock_zodiac !== undefined) {
+      await setBool("matchmaker_lock_zodiac", settings.matchmaker_lock_zodiac);
+    }
+    if (settings.matchmaker_lock_v1 !== undefined) {
+      await setBool("matchmaker_lock_v1", settings.matchmaker_lock_v1);
+    }
+    if (settings.matchmaker_lock_v3 !== undefined) {
+      await setBool("matchmaker_lock_v3", settings.matchmaker_lock_v3);
+    }
+    if (settings.matchmaker_lock_v4 !== undefined) {
+      await setBool("matchmaker_lock_v4", settings.matchmaker_lock_v4);
+    }
+    if (settings.matchmaker_v_max_diff !== undefined) {
+      await repoUpdateSystemSetting(
+        "matchmaker_v_max_diff",
+        String(settings.matchmaker_v_max_diff),
+        user.id,
+      );
+    }
     revalidateTag("system_settings");
+    revalidatePath("/admin/fishing");
     return { ok: true, data: { success: true } };
   } catch (e: unknown) {
     return { ok: false, error: (e as Error).message };

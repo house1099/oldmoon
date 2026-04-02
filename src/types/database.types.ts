@@ -106,6 +106,22 @@ export interface Database {
           matchmaker_region_pref: string;
           /** 是否願意加入月老魚配對池 */
           matchmaker_opt_in: boolean;
+          /** 飲食習慣：月老魚配對硬鎖用 */
+          diet_type: string | null;
+          smoking_habit: string | null;
+          accept_smoking: string | null;
+          my_pets: string | null;
+          accept_pets: string | null;
+          has_children: string | null;
+          accept_single_parent: string | null;
+          fertility_self: string | null;
+          fertility_pref: string | null;
+          marriage_view: string | null;
+          zodiac: string | null;
+          exclude_zodiac: string | null;
+          v1_money: number | null;
+          v3_clingy: number | null;
+          v4_conflict: number | null;
           avatar_url: string | null;
           /** active / suspended / banned / pending */
           status: "pending" | "active" | "suspended" | "banned";
@@ -181,6 +197,21 @@ export interface Database {
           matchmaker_age_younger?: number;
           matchmaker_region_pref?: string;
           matchmaker_opt_in?: boolean;
+          diet_type?: string | null;
+          smoking_habit?: string | null;
+          accept_smoking?: string | null;
+          my_pets?: string | null;
+          accept_pets?: string | null;
+          has_children?: string | null;
+          accept_single_parent?: string | null;
+          fertility_self?: string | null;
+          fertility_pref?: string | null;
+          marriage_view?: string | null;
+          zodiac?: string | null;
+          exclude_zodiac?: string | null;
+          v1_money?: number | null;
+          v3_clingy?: number | null;
+          v4_conflict?: number | null;
           avatar_url?: string | null;
           status?: "pending" | "active" | "suspended" | "banned";
           /** 累積經驗值，欄位名 `total_exp`（Postgres int4／int8 → TS `number`） */
@@ -229,6 +260,21 @@ export interface Database {
           matchmaker_age_younger?: number;
           matchmaker_region_pref?: string;
           matchmaker_opt_in?: boolean;
+          diet_type?: string | null;
+          smoking_habit?: string | null;
+          accept_smoking?: string | null;
+          my_pets?: string | null;
+          accept_pets?: string | null;
+          has_children?: string | null;
+          accept_single_parent?: string | null;
+          fertility_self?: string | null;
+          fertility_pref?: string | null;
+          marriage_view?: string | null;
+          zodiac?: string | null;
+          exclude_zodiac?: string | null;
+          v1_money?: number | null;
+          v3_clingy?: number | null;
+          v4_conflict?: number | null;
           avatar_url?: string | null;
           status?: "pending" | "active" | "suspended" | "banned";
           /** 累積經驗值，欄位名 `total_exp`（Postgres int4／int8 → TS `number`） */

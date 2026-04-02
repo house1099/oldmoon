@@ -21,6 +21,17 @@ export default async function FishingAdminPage() {
         fishing_rod_cooldown_basic_minutes: 1440,
         fishing_rod_cooldown_mid_minutes: 720,
         fishing_rod_cooldown_high_minutes: 480,
+        matchmaker_lock_diet: false,
+        matchmaker_lock_smoking: false,
+        matchmaker_lock_pets: false,
+        matchmaker_lock_single_parent: false,
+        matchmaker_lock_fertility: false,
+        matchmaker_lock_marriage: false,
+        matchmaker_lock_zodiac: false,
+        matchmaker_lock_v1: false,
+        matchmaker_lock_v3: false,
+        matchmaker_lock_v4: false,
+        matchmaker_v_max_diff: 2,
       };
 
   return (

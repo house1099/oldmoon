@@ -2,6 +2,17 @@
 
 舊版主檔內之逐日／逐任務紀錄與長篇 Wave 敘事已遷移至此。**平時不必讀**；需追溯決策或實作細節時再開。
 
+### 2026-04-02 — 月老魚配對邏輯地基（users 欄位、system_settings、後台開關）
+
+1. **目標**：為月老魚配對預備 **DB 使用者欄位**、**全服硬鎖開關**（`system_settings`）、型別與 **`/admin/fishing` 系統設定 Tab** 之 **💘 月老配對條件開關**（基礎說明／進階硬鎖七項／三觀三項＋**最大允許差距** `matchmaker_v_max_diff`）。
+2. **資料庫** 🗄️：**`supabase/migrations/20260405100000_users_matchmaker_profile.sql`** — **`users`**：`diet_type`、`smoking_habit`、`accept_smoking`、`my_pets`、`accept_pets`、`has_children`、`accept_single_parent`、`fertility_self`、`fertility_pref`、`marriage_view`、`zodiac`、`exclude_zodiac`、`v1_money`／`v3_clingy`／`v4_conflict`（1–5 CHECK）；**`system_settings`**：`matchmaker_lock_diet` … `matchmaker_lock_v4`、`matchmaker_v_max_diff`（預設 `2`）；**`NOTIFY pgrst`**。雲端已 **`apply_migration`**（**`users_matchmaker_profile`**）。
+3. **型別**：**`database.types.ts`** — **`users` Row／Insert／Update** 補齊上述欄位。
+4. **Layer 3**：**`admin.action.ts`** — **`FishingAdminSettingsPayload`**；**`getFishingAdminSettingsAction`** 讀取 11 個 matchmaker 鍵；**`updateFishingSettingsAction`** 可寫入布林與 **`matchmaker_v_max_diff`**（**`revalidatePath('/admin/fishing')`**）。
+5. **Layer 5**：**`fishing-admin-client.tsx`**（年齡差距區塊後）— 三組 UI、**Switch** **`data-checked:bg-violet-600 data-unchecked:bg-gray-200`**；任一三觀開啟時顯示 **1–4** 文字輸入（**blur** 儲存）；**`page.tsx`** 失敗後備預設含 matchmaker 欄位。
+6. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+7. **文件**：**`HANDOFF.md`** 最近完成、DB SSOT 補充。
+8. **Git**：**`feat(matchmaker): DB fields, admin lock switches for matchmaker conditions`**。
+
 ### 2026-04-02 — 釣魚與商城九項（封存、餌堆疊、兩段收成、tier 冷卻、中魚通知）
 
 1. **目標**：商城 **封存**（**`is_archived`**）；釣魚管理 **Switch** 可讀；**魚餌** **`user_rewards.quantity`** 堆疊；章魚／愛心餌 **metadata** 防呆與種子修正；收成 **預覽 → 確認** 才寫 **`fishing_logs`**；釣竿 **圖示快選** 與 **tier** 冷卻（**`system_settings`** 三鍵 **`fishing_rod_cooldown_{basic,mid,high}_minutes`**，**`rod_tier`** 未覆寫 **`rod_cooldown_minutes`** 時套用）；**`pending_harvest_ready_at`** 隨機可收竿、**`bite_notified_at`** 中魚信＋ **Web Push**（不影響拋竿冷卻）。
