@@ -17,7 +17,7 @@ export default async function FishingAdminPage() {
     ? settingsRes.data
     : {
         fishing_enabled: true,
-        fishing_age_max: 10,
+        matchmaker_age_max: 10,
         fishing_rod_cooldown_basic_minutes: 1440,
         fishing_rod_cooldown_mid_minutes: 720,
         fishing_rod_cooldown_high_minutes: 480,

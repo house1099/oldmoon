@@ -34,6 +34,64 @@ const PLATFORM_SETTING_FIELDS = [
   { key: "like_require_mutual", label: "需互讚才能申請血盟", type: "boolean", fallback: "true" },
 ] as const;
 
+const FRONTEND_DISPLAY_FIELDS: {
+  key: string;
+  label: string;
+  description: string;
+  fallback: string;
+  min: number;
+  max: number;
+}[] = [
+  {
+    key: "broadcast_message_max_length",
+    label: "廣播字數上限",
+    description: "玩家廣播訊息最多幾字",
+    fallback: "50",
+    min: 1,
+    max: 200,
+  },
+  {
+    key: "chat_message_max_length",
+    label: "私訊字數上限",
+    description: "私訊最多幾字",
+    fallback: "500",
+    min: 1,
+    max: 1000,
+  },
+  {
+    key: "inventory_max_slots",
+    label: "背包最大格數",
+    description: "玩家背包上限格數",
+    fallback: "48",
+    min: 16,
+    max: 200,
+  },
+  {
+    key: "bag_expansion_slots_per_use",
+    label: "每次擴充格數",
+    description: "購買背包擴充每次增加幾格",
+    fallback: "4",
+    min: 1,
+    max: 20,
+  },
+  {
+    key: "bio_field_max_length",
+    label: "自介字數上限",
+    description: "自白欄位最多幾字",
+    fallback: "200",
+    min: 50,
+    max: 500,
+  },
+  {
+    key: "nickname_max_length",
+    label: "暱稱字數上限",
+    description: "暱稱最多幾字",
+    fallback: "32",
+    min: 2,
+    max: 50,
+  },
+];
+
 function normalizeBoolean(value: string | undefined, fallback: string) {
   const raw = (value ?? fallback).toLowerCase();
   return raw === "true";
@@ -385,6 +443,61 @@ export default function AdminSettingsClient({ isMaster }: { isMaster: boolean })
             );
           })}
 
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
+        <h2 className="text-base font-semibold text-gray-900">📱 前台顯示設定</h2>
+        <p className="text-xs text-gray-500">
+          調整前台玩家可見的字數上限、背包格數等。儲存後約 60 秒內前台快取更新。
+        </p>
+        <div className="space-y-3">
+          {FRONTEND_DISPLAY_FIELDS.map((field) => {
+            const rawValue = settings[field.key] ?? field.fallback;
+            const numValue = Number(rawValue) || Number(field.fallback);
+            return (
+              <div
+                key={field.key}
+                className="rounded-xl border border-gray-100 bg-gray-50/60 px-4 py-3"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-gray-700">{field.label}</p>
+                    <p className="mt-0.5 text-[10px] text-gray-500">
+                      {field.description}（目前 {numValue}，範圍 {field.min}–{field.max}）
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={savingKey === field.key}
+                    onClick={() => {
+                      const n = Number(settings[field.key] ?? rawValue);
+                      if (!Number.isFinite(n) || n < field.min || n > field.max) {
+                        toast.error(`${field.label}需介於 ${field.min}–${field.max}`);
+                        return;
+                      }
+                      void saveSetting(field.key, String(n));
+                    }}
+                    className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-60"
+                  >
+                    {savingKey === field.key ? "儲存中..." : "儲存"}
+                  </button>
+                </div>
+                <div className="mt-2 max-w-xs">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={rawValue}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^0-9]/g, "");
+                      setSettings((prev) => ({ ...prev, [field.key]: v }));
+                    }}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 

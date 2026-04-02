@@ -32,17 +32,15 @@ import {
   parseRegionPref,
   TAIWAN_REGIONS,
 } from "@/lib/utils/matchmaker-region";
-import {
-  getMatchmakerAgeMaxAction,
-  getMatchmakerHeightThresholdsAction,
-} from "@/services/system-settings.action";
+import { getMatchmakerHeightThresholdsAction } from "@/services/system-settings.action";
 import { updateMyProfile } from "@/services/profile-update.action";
+import { useAppSettings } from "@/hooks/useAppSettings";
 
 export function MatchmakerSettingsTab() {
   const router = useRouter();
   const { profile, mutate: mutateProfile } = useMyProfile();
+  const { settings: appSettings } = useAppSettings();
 
-  const [ageMax, setAgeMax] = useState(30);
   const [matchmakerOptIn, setMatchmakerOptIn] = useState(true);
   const [matchmakerOptInSaving, setMatchmakerOptInSaving] = useState(false);
 
@@ -64,10 +62,6 @@ export function MatchmakerSettingsTab() {
     () => new Set(),
   );
   const [savingRegionPref, setSavingRegionPref] = useState(false);
-
-  useEffect(() => {
-    void getMatchmakerAgeMaxAction().then(setAgeMax).catch(() => setAgeMax(30));
-  }, []);
 
   useEffect(() => {
     if (!profile) return;
@@ -192,8 +186,8 @@ export function MatchmakerSettingsTab() {
   async function confirmOlderPref() {
     const digits = olderInput.replace(/\D/g, "");
     const n = parseInt(digits, 10);
-    if (!Number.isFinite(n) || n < 1 || n > ageMax) {
-      toast.error(`請輸入 1～${ageMax} 的正整數`);
+    if (!Number.isFinite(n) || n < 1 || n > appSettings.matchmaker_age_max) {
+      toast.error(`請輸入 1～${appSettings.matchmaker_age_max} 的正整數`);
       return;
     }
     setSavingOlder(true);
@@ -214,8 +208,8 @@ export function MatchmakerSettingsTab() {
   async function confirmYoungerPref() {
     const digits = youngerInput.replace(/\D/g, "");
     const n = parseInt(digits, 10);
-    if (!Number.isFinite(n) || n < 1 || n > ageMax) {
-      toast.error(`請輸入 1～${ageMax} 的正整數`);
+    if (!Number.isFinite(n) || n < 1 || n > appSettings.matchmaker_age_max) {
+      toast.error(`請輸入 1～${appSettings.matchmaker_age_max} 的正整數`);
       return;
     }
     setSavingYounger(true);
@@ -236,12 +230,12 @@ export function MatchmakerSettingsTab() {
   async function confirmBothPrefs() {
     const o = parseInt(olderInput.replace(/\D/g, ""), 10);
     const y = parseInt(youngerInput.replace(/\D/g, ""), 10);
-    if (!Number.isFinite(o) || o < 1 || o > ageMax) {
-      toast.error(`年長差距須為 1～${ageMax}`);
+    if (!Number.isFinite(o) || o < 1 || o > appSettings.matchmaker_age_max) {
+      toast.error(`年長差距須為 1～${appSettings.matchmaker_age_max}`);
       return;
     }
-    if (!Number.isFinite(y) || y < 1 || y > ageMax) {
-      toast.error(`年輕差距須為 1～${ageMax}`);
+    if (!Number.isFinite(y) || y < 1 || y > appSettings.matchmaker_age_max) {
+      toast.error(`年輕差距須為 1～${appSettings.matchmaker_age_max}`);
       return;
     }
     setSavingOlder(true);
@@ -363,7 +357,7 @@ export function MatchmakerSettingsTab() {
           <p className="whitespace-nowrap text-sm font-medium text-white">
             年齡偏好
           </p>
-          <p className="text-xs text-zinc-500">後台設定最大差距為 {ageMax} 歲</p>
+          <p className="text-xs text-zinc-500">後台設定最大差距為 {appSettings.matchmaker_age_max} 歲</p>
         </div>
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
@@ -662,15 +656,16 @@ function MatchmakerProfileForm({
   busy: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const { settings: appSettings } = useAppSettings();
 
   const { data: heightThresholds } = useSWR(
     "matchmaker-height-thresholds",
     getMatchmakerHeightThresholdsAction,
   );
   const tallThreshold =
-    heightThresholds?.matchmaker_height_tall_threshold ?? 175;
+    heightThresholds?.matchmaker_height_tall_threshold ?? appSettings.matchmaker_height_tall_threshold;
   const shortThreshold =
-    heightThresholds?.matchmaker_height_short_threshold ?? 163;
+    heightThresholds?.matchmaker_height_short_threshold ?? appSettings.matchmaker_height_short_threshold;
 
   const save = useCallback(
     async (patch: Parameters<typeof updateMyProfile>[0]) => {
@@ -1055,7 +1050,7 @@ function MatchmakerProfileForm({
 
           {/* 三觀量表 */}
           <div className={cardCls}>
-            <p className={labelCls}>🧭 三觀（1-5）</p>
+            <p className={labelCls}>🧭 三觀（1-5，最大差距 {appSettings.matchmaker_v_max_diff}）</p>
             <p className={subLabelCls}>
               選擇最符合你的數值，僅在後台開啟三觀篩選時生效
             </p>

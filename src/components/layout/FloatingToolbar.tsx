@@ -44,7 +44,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import useSWR, { mutate as swrMutate } from "swr";
 import { SWR_KEYS } from "@/lib/swr/keys";
-import { BROADCAST_MESSAGE_MAX_LENGTH } from "@/lib/constants/broadcast";
+import { useAppSettings } from "@/hooks/useAppSettings";
 import { cn } from "@/lib/utils";
 import { useMyProfile } from "@/hooks/useMyProfile";
 import {
@@ -95,7 +95,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const TOTAL_INVENTORY_SLOTS = 48;
+const TOTAL_INVENTORY_SLOTS_FALLBACK = 48;
 
 const inventoryCellBaseStyle: CSSProperties = {
   width: "100%",
@@ -499,6 +499,7 @@ function FloatingToolbarInner({
 }) {
   const router = useRouter();
   const { profile, mutate: mutateProfile } = useMyProfile();
+  const { settings: appSettings } = useAppSettings();
   const guildCtx = useGuildTabContext();
   const [expanded, setExpanded] = useState(false);
   const [tavernOpen, setTavernOpen] = useState(false);
@@ -703,7 +704,8 @@ function FloatingToolbarInner({
     [rewardsPayload?.allRewards],
   );
   const inventorySlots = rewardsPayload?.inventorySlots ?? 16;
-  const openSlots = Math.min(TOTAL_INVENTORY_SLOTS, Math.max(0, inventorySlots));
+  const totalInventorySlots = appSettings.inventory_max_slots || TOTAL_INVENTORY_SLOTS_FALLBACK;
+  const openSlots = Math.min(totalInventorySlots, Math.max(0, inventorySlots));
   const lockedStart = openSlots;
   const displayStacks = stacks.slice(0, openSlots);
   const isFull = stacks.length >= openSlots && openSlots > 0;
@@ -1215,7 +1217,7 @@ function FloatingToolbarInner({
             <DialogTitle>使用廣播券</DialogTitle>
             <DialogDescription className="text-zinc-500">
               訊息將顯示於畫面頂部約 24 小時（1〜
-              {BROADCAST_MESSAGE_MAX_LENGTH} 字）
+              {appSettings.broadcast_message_max_length} 字）
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -1223,7 +1225,7 @@ function FloatingToolbarInner({
               value={broadcastDraft}
               onChange={(e) =>
                 setBroadcastDraft(
-                  e.target.value.slice(0, BROADCAST_MESSAGE_MAX_LENGTH),
+                  e.target.value.slice(0, appSettings.broadcast_message_max_length),
                 )
               }
               placeholder="輸入廣播內容…"
@@ -1231,7 +1233,7 @@ function FloatingToolbarInner({
               className="min-h-[5rem] border-zinc-700 bg-zinc-900/80 text-zinc-100"
             />
             <div className="flex justify-end text-xs text-zinc-500">
-              {broadcastDraft.trim().length}/{BROADCAST_MESSAGE_MAX_LENGTH}
+              {broadcastDraft.trim().length}/{appSettings.broadcast_message_max_length}
             </div>
             <div className="rounded-2xl border border-amber-400/40 bg-amber-950/60 px-4 py-2">
               <p className="flex flex-wrap items-center gap-2 text-sm text-amber-100">
@@ -1259,7 +1261,7 @@ function FloatingToolbarInner({
               disabled={
                 broadcastSending ||
                 broadcastDraft.trim().length < 1 ||
-                broadcastDraft.trim().length > BROADCAST_MESSAGE_MAX_LENGTH
+                broadcastDraft.trim().length > appSettings.broadcast_message_max_length
               }
               onClick={async () => {
                 const unused = broadcastStack?.rows.find(
@@ -1450,12 +1452,12 @@ function FloatingToolbarInner({
             <input
               type="text"
               value={renameDraft}
-              onChange={(e) => setRenameDraft(e.target.value.slice(0, 32))}
-              placeholder="新暱稱（1〜32 字）"
-              maxLength={32}
+              onChange={(e) => setRenameDraft(e.target.value.slice(0, appSettings.nickname_max_length))}
+              placeholder={`新暱稱（1〜${appSettings.nickname_max_length} 字）`}
+              maxLength={appSettings.nickname_max_length}
               className="w-full rounded-xl border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100"
             />
-            <p className="text-xs text-zinc-500">{renameDraft.length} / 32</p>
+            <p className="text-xs text-zinc-500">{renameDraft.length} / {appSettings.nickname_max_length}</p>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
@@ -1511,7 +1513,7 @@ function FloatingToolbarInner({
           <AlertDialogHeader>
             <AlertDialogTitle>使用背包擴充包？</AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
-              將消耗一個擴充包並解鎖 4 格背包空間（上限 48 格）。欄位已全開時無法使用，可贈送給其他冒險者。
+              {`將消耗一個擴充包並解鎖 ${appSettings.bag_expansion_slots_per_use} 格背包空間（上限 ${totalInventorySlots} 格）。欄位已全開時無法使用，可贈送給其他冒險者。`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1595,7 +1597,7 @@ function FloatingToolbarInner({
               </div>
             ) : (
               <div className="grid grid-cols-4 gap-2 [&>*]:min-w-0">
-                {Array.from({ length: TOTAL_INVENTORY_SLOTS }, (_, slotIdx) => {
+                {Array.from({ length: totalInventorySlots }, (_, slotIdx) => {
                   if (slotIdx >= lockedStart) {
                     return (
                       <div
@@ -2012,7 +2014,7 @@ function FloatingToolbarInner({
                 type="text"
                 value={giftNicknameDraft}
                 onChange={(e) =>
-                  setGiftNicknameDraft(e.target.value.slice(0, 32))
+                  setGiftNicknameDraft(e.target.value.slice(0, appSettings.nickname_max_length))
                 }
                 placeholder="輸入暱稱（至少 1 字）"
                 className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"

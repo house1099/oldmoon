@@ -45,6 +45,7 @@ import { getMyRewardsAction } from "@/services/rewards.action";
 import type { UserRewardWithEffect } from "@/lib/repositories/server/rewards.repository";
 import { toast } from "sonner";
 import type { MarketListingStatus } from "@/types/database.types";
+import { useAppSettings } from "@/hooks/useAppSettings";
 
 function toThumbImageUrl(raw: string, width: number, height: number): string {
   const src = raw.trim();
@@ -265,6 +266,7 @@ export function MarketSheet({
   onOpenChange: (open: boolean) => void;
 }) {
   const { profile } = useMyProfile();
+  const { settings: appSettings } = useAppSettings();
   const me = profile?.id ?? null;
 
   const [mainTab, setMainTab] = useState<"hall" | "mine">("hall");
@@ -843,7 +845,7 @@ export function MarketSheet({
               <DialogHeader>
                 <DialogTitle>選擇要上架的道具</DialogTitle>
                 <DialogDescription className="text-zinc-400">
-                  僅顯示未使用、允許玩家交易且尚未上架中的道具。
+                  僅顯示未使用、允許玩家交易且尚未上架中的道具。每人最多上架 {appSettings.market_max_listings_per_user} 件，上架 {appSettings.market_listing_days} 天後到期。
                 </DialogDescription>
               </DialogHeader>
               <div className="max-h-[min(60vh,320px)] overflow-y-auto py-2">

@@ -13,7 +13,6 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
-import { BROADCAST_MESSAGE_MAX_LENGTH } from "@/lib/constants/broadcast";
 import { DAILY_CHECKIN_ALREADY_CLAIMED } from "@/lib/constants/daily-checkin";
 import { markPwaInstallEngaged } from "@/lib/pwa-install-engagement";
 import {
@@ -109,6 +108,7 @@ import {
   submitProfileChangeRequestAction,
 } from "@/services/profile-change.action";
 import { clearPwaAppBadge } from "@/lib/utils/app-badge";
+import { useAppSettings } from "@/hooks/useAppSettings";
 const IOS_TEXTAREA_CLASS =
   "w-full resize-none rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-base text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none";
 
@@ -373,6 +373,7 @@ export function GuildProfileHome({
   const { mutate: mutateGlobalCache } = useSWRConfig();
   const openEquipmentSheet = useOpenEquipmentSheet();
   const { mutate: mutateProfile } = useMyProfile();
+  const { settings: appSettings } = useAppSettings();
 
   const framePreloadKey = JSON.stringify(preloadImageUrls ?? []);
   useEffect(() => {
@@ -1415,13 +1416,13 @@ export function GuildProfileHome({
                   onChange={(e) => setBioVillage(e.target.value)}
                   onFocus={handleIosTextareaFocus}
                   placeholder="說說你的興趣..."
-                  maxLength={200}
+                  maxLength={appSettings.bio_field_max_length}
                   rows={3}
                   className={IOS_TEXTAREA_CLASS}
                 />
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-zinc-600">
-                    {bioVillage.length}/200
+                    {bioVillage.length}/{appSettings.bio_field_max_length}
                   </span>
                   <LoadingButton
                     className="rounded-full bg-white/10 px-5 py-2 text-sm font-medium text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-40"
@@ -1441,13 +1442,13 @@ export function GuildProfileHome({
                   onChange={(e) => setBioMarket(e.target.value)}
                   onFocus={handleIosTextareaFocus}
                   placeholder="說說你能提供的技能..."
-                  maxLength={200}
+                  maxLength={appSettings.bio_field_max_length}
                   rows={3}
                   className={IOS_TEXTAREA_CLASS}
                 />
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-zinc-600">
-                    {bioMarket.length}/200
+                    {bioMarket.length}/{appSettings.bio_field_max_length}
                   </span>
                   <LoadingButton
                     className="rounded-full bg-white/10 px-5 py-2 text-sm font-medium text-white transition-all hover:bg-white/20 active:scale-95 disabled:opacity-40"
@@ -1714,7 +1715,7 @@ export function GuildProfileHome({
             <DialogTitle>使用廣播券</DialogTitle>
             <DialogDescription className="text-zinc-500">
               訊息將在畫面頂部顯示約 24 小時（1〜
-              {BROADCAST_MESSAGE_MAX_LENGTH} 字）
+              {appSettings.broadcast_message_max_length} 字）
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -1722,7 +1723,7 @@ export function GuildProfileHome({
               value={broadcastDraft}
               onChange={(e) =>
                 setBroadcastDraft(
-                  e.target.value.slice(0, BROADCAST_MESSAGE_MAX_LENGTH),
+                  e.target.value.slice(0, appSettings.broadcast_message_max_length),
                 )
               }
               onFocus={handleIosTextareaFocus}
@@ -1731,7 +1732,7 @@ export function GuildProfileHome({
               className={cn(IOS_TEXTAREA_CLASS, "min-h-[5rem]")}
             />
             <div className="flex justify-end text-xs text-zinc-500">
-              {broadcastDraft.trim().length}/{BROADCAST_MESSAGE_MAX_LENGTH}
+              {broadcastDraft.trim().length}/{appSettings.broadcast_message_max_length}
             </div>
             <div>
               <p className="mb-1 text-[10px] font-medium text-amber-400/90">
@@ -1764,7 +1765,7 @@ export function GuildProfileHome({
               disabled={
                 broadcastSending ||
                 broadcastDraft.trim().length < 1 ||
-                broadcastDraft.trim().length > BROADCAST_MESSAGE_MAX_LENGTH
+                broadcastDraft.trim().length > appSettings.broadcast_message_max_length
               }
               onClick={async () => {
                 const unused = rewardsData?.broadcasts.find(
@@ -2507,11 +2508,11 @@ export function GuildProfileHome({
               type="text"
               value={renameDraft}
               onChange={(e) => setRenameDraft(e.target.value)}
-              placeholder="新暱稱（1~32 字）"
-              maxLength={32}
+              placeholder={`新暱稱（1~${appSettings.nickname_max_length} 字）`}
+              maxLength={appSettings.nickname_max_length}
               className="w-full rounded-xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-base text-white transition-colors placeholder:text-zinc-600 focus:border-white/30 focus:outline-none"
             />
-            <p className="text-xs text-zinc-500">{renameDraft.length} / 32</p>
+            <p className="text-xs text-zinc-500">{renameDraft.length} / {appSettings.nickname_max_length}</p>
           </div>
           <div className="flex gap-2 border-t border-white/10 px-4 py-3">
             <Button

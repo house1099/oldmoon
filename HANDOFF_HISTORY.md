@@ -2,6 +2,17 @@
 
 舊版主檔內之逐日／逐任務紀錄與長篇 Wave 敘事已遷移至此。**平時不必讀**；需追溯決策或實作細節時再開。
 
+### 2026-04-03 — 全站動態設定系統（useAppSettings、合併 fishing_age_max、替換硬編碼）
+
+1. **目標**：建立 `getPublicAppSettingsAction` + `useAppSettings` hook，讓後台修改 `system_settings` 後前台自動同步；合併 `fishing_age_max` → `matchmaker_age_max`；替換全站前台硬編碼為動態讀取。
+2. **DB**（Supabase MCP `execute_sql`）：`UPDATE matchmaker_age_max` from `fishing_age_max` value → `DELETE fishing_age_max`；`INSERT` 6 新 keys：`broadcast_message_max_length`(50)、`chat_message_max_length`(500)、`inventory_max_slots`(48)、`bag_expansion_slots_per_use`(4)、`nickname_max_length`(32)、`bio_field_max_length`(200)；`NOTIFY pgrst`。
+3. **L3 新增**：**`src/services/public-settings.action.ts`** — `PublicAppSettings` interface（17 keys）、`DEFAULT_SETTINGS` const、`getPublicAppSettingsAction`（`unstable_cache` 60s，tag `system_settings`），逐 key 查 `findSystemSettingByKey` 後 fallback。
+4. **L4 新增**：**`src/hooks/useAppSettings.ts`** — SWR fetcher + `fallbackData: DEFAULT_SETTINGS` + `dedupingInterval: 60_000`。**`src/lib/swr/keys.ts`** 補 `publicAppSettings`。
+5. **合併 `fishing_age_max` → `matchmaker_age_max`**：**`admin.action.ts`** `FishingAdminSettingsPayload` 欄位名、`getFishingAdminSettingsAction` 讀取 key、`updateFishingSettingsAction` 寫入 key；**`fishing/page.tsx`** fallback；**`fishing-admin-client.tsx`** state 與 action 呼叫。
+6. **前台硬編碼替換**：**`matchmaker-settings-tab.tsx`** — 移除 `ageMax` state＋`getMatchmakerAgeMaxAction` fetch，改用 `appSettings.matchmaker_age_max`；身高 fallback 改用 `appSettings`；三觀標題加 `最大差距 ${matchmaker_v_max_diff}`。**`FloatingToolbar.tsx`** — `TOTAL_INVENTORY_SLOTS` → `appSettings.inventory_max_slots`；暱稱 32 → `appSettings.nickname_max_length`；`BROADCAST_MESSAGE_MAX_LENGTH` → `appSettings.broadcast_message_max_length`；背包擴充文案動態化。**`ChatModal.tsx`** — `maxLength={500}` → `appSettings.chat_message_max_length`。**`guild-profile-home.tsx`** — 自介 200 → `appSettings.bio_field_max_length`；暱稱 32 → `appSettings.nickname_max_length`；廣播同步動態化。**`MarketSheet.tsx`** — 上架 Dialog 說明加入 `market_max_listings_per_user` 與 `market_listing_days`。
+7. **後台**：**`settings-client.tsx`** 新增「📱 前台顯示設定」section — 6 欄位（廣播字數 1-200、私訊字數 1-1000、背包格數 16-200、擴充格數 1-20、自介字數 50-500、暱稱字數 2-50），含範圍驗證與 `revalidateTag('system_settings')`。
+8. **驗證**：`src/` 無殘留 `fishing_age_max`；**`npx tsc --noEmit`** 通過；**`npm run build`** 通過。
+
 ### 2026-04-02 — 身高配對完整實作（pref_height、硬鎖、門檻、月老 UI、商城說明）
 
 1. **目標**：**`users.pref_height`**（月老身高偏好 slug）、**`system_settings`** 女生／男生門檻（**`matchmaker_height_tall_threshold`／`matchmaker_height_short_threshold`**，預設 175／163）、**`matchmaker-locks`** 身高硬鎖、**`fishing.action`** 候選池篩選、月老設定 Tab 📏 表單、後台釣魚頁門檻輸入、愛心餌說明補充。

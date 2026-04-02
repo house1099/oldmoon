@@ -28,6 +28,7 @@ import {
 } from "@/lib/utils/date";
 import type { UserRow } from "@/lib/repositories/server/user.repository";
 import type { ShopFrameLayout } from "@/lib/utils/avatar-frame-layout";
+import { useAppSettings } from "@/hooks/useAppSettings";
 
 const UserDetailModal = dynamic(
   () =>
@@ -102,6 +103,7 @@ export default function ChatModal({
   const [avatarLoadingId, setAvatarLoadingId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const { profile: myProfile } = useMyProfile();
+  const { settings: appSettings } = useAppSettings();
   const { data: myRewards } = useSWR(
     open ? ["chat-modal-my-rewards", currentUserId] : null,
     () => getMyRewardsAction(),
@@ -371,7 +373,7 @@ export default function ChatModal({
               }
             }}
             placeholder="輸入訊息..."
-            maxLength={500}
+            maxLength={appSettings.chat_message_max_length}
             rows={1}
             enterKeyHint="send"
             inputMode="text"

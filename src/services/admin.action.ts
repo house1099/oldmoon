@@ -2401,7 +2401,7 @@ export async function getFishingStatsAction(): Promise<
 
 export type FishingAdminSettingsPayload = {
   fishing_enabled: boolean;
-  fishing_age_max: number;
+  matchmaker_age_max: number;
   fishing_rod_cooldown_basic_minutes: number;
   fishing_rod_cooldown_mid_minutes: number;
   fishing_rod_cooldown_high_minutes: number;
@@ -2448,7 +2448,7 @@ export async function getFishingAdminSettingsAction(): Promise<
       vmax,
     ] = await Promise.all([
       findSystemSettingByKey("fishing_enabled"),
-      findSystemSettingByKey("fishing_age_max"),
+      findSystemSettingByKey("matchmaker_age_max"),
       findSystemSettingByKey("fishing_rod_cooldown_basic_minutes"),
       findSystemSettingByKey("fishing_rod_cooldown_mid_minutes"),
       findSystemSettingByKey("fishing_rod_cooldown_high_minutes"),
@@ -2469,7 +2469,7 @@ export async function getFishingAdminSettingsAction(): Promise<
     ]);
     const fishing_enabled = enabledRaw !== "false";
     const parsed = ageRaw != null && ageRaw !== "" ? Number.parseInt(ageRaw, 10) : NaN;
-    const fishing_age_max = Number.isFinite(parsed) ? parsed : 10;
+    const matchmaker_age_max = Number.isFinite(parsed) ? parsed : 10;
     const n = (v: string | null, fb: number) => {
       if (v == null || v.trim() === "") return fb;
       const x = Number.parseInt(v, 10);
@@ -2492,7 +2492,7 @@ export async function getFishingAdminSettingsAction(): Promise<
       ok: true,
       data: {
         fishing_enabled,
-        fishing_age_max,
+        matchmaker_age_max,
         fishing_rod_cooldown_basic_minutes: n(bRaw, 1440),
         fishing_rod_cooldown_mid_minutes: n(mRaw, 720),
         fishing_rod_cooldown_high_minutes: n(hRaw, 480),
@@ -2601,7 +2601,7 @@ export async function deleteFishingRewardAction(
 
 export async function updateFishingSettingsAction(settings: {
   fishing_enabled?: boolean;
-  fishing_age_max?: number;
+  matchmaker_age_max?: number;
   fishing_rod_cooldown_basic_minutes?: number;
   fishing_rod_cooldown_mid_minutes?: number;
   fishing_rod_cooldown_high_minutes?: number;
@@ -2629,10 +2629,10 @@ export async function updateFishingSettingsAction(settings: {
         user.id,
       );
     }
-    if (settings.fishing_age_max !== undefined) {
+    if (settings.matchmaker_age_max !== undefined) {
       await repoUpdateSystemSetting(
-        "fishing_age_max",
-        String(settings.fishing_age_max),
+        "matchmaker_age_max",
+        String(settings.matchmaker_age_max),
         user.id,
       );
     }

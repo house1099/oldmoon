@@ -423,7 +423,7 @@ export default function FishingAdminClient({
     initialSettings.fishing_enabled,
   );
   const [ageMaxDraft, setAgeMaxDraft] = useState(
-    String(initialSettings.fishing_age_max),
+    String(initialSettings.matchmaker_age_max),
   );
   const [rodBasicDraft, setRodBasicDraft] = useState(
     String(initialSettings.fishing_rod_cooldown_basic_minutes),
@@ -773,7 +773,7 @@ export default function FishingAdminClient({
       toast.error("年齡差距上限須為 1–50 的整數");
       return;
     }
-    const r = await updateFishingSettingsAction({ fishing_age_max: n });
+    const r = await updateFishingSettingsAction({ matchmaker_age_max: n });
     if (!r.ok) {
       toast.error(r.error);
       return;

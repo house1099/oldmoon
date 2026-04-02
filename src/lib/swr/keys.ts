@@ -27,4 +27,6 @@ export const SWR_KEYS = {
   fishingRewards: 'fishing-rewards',
   /** 後台：釣魚小／中／大獎 tier 機率 */
   fishingTierSettings: 'fishing-tier-settings',
+  /** 前台公開設定（useAppSettings） */
+  publicAppSettings: 'public-app-settings',
 } as const
