@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { revalidateTag, unstable_cache } from "next/cache";
+import { revalidateTag } from "next/cache";
 import {
   findActiveShopItems,
   findShopItemById,
@@ -53,19 +53,13 @@ function toShopItemDto(item: ShopItemRow, now: Date): ShopItemDto {
   };
 }
 
+/** 列表不包 unstable_cache，避免新上架（含釣魚道具）被舊快取遮住。 */
 export async function getShopItemsAction(
   currencyType?: "free_coins" | "premium_coins",
 ): Promise<ShopItemDto[]> {
-  const cached = unstable_cache(
-    async () => {
-      const items = await findActiveShopItems(currencyType);
-      const now = new Date();
-      return items.map((item) => toShopItemDto(item, now));
-    },
-    [`shop-items-${currencyType ?? "all"}`],
-    { revalidate: 60, tags: ["shop_items"] },
-  );
-  return cached();
+  const items = await findActiveShopItems(currencyType);
+  const now = new Date();
+  return items.map((item) => toShopItemDto(item, now));
 }
 
 type PurchaseResult =
