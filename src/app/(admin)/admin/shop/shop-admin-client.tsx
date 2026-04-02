@@ -107,6 +107,47 @@ function stripReservedCardDecorationKeys(meta: Record<string, unknown>) {
   return m;
 }
 
+const FISHING_ROD_META_KEYS = [
+  "rod_tier",
+  "rod_cooldown_minutes",
+  "rod_max_casts_per_day",
+  "rod_wait_until_harvest_minutes",
+] as const;
+
+function stripFishingRodKeys(meta: Record<string, unknown>): Record<string, unknown> {
+  const m = { ...meta };
+  for (const k of FISHING_ROD_META_KEYS) delete m[k];
+  return m;
+}
+
+function metaRodTierFromRaw(
+  meta: Record<string, unknown>,
+): "" | "basic" | "mid" | "high" {
+  const v = meta.rod_tier;
+  return v === "basic" || v === "mid" || v === "high" ? v : "";
+}
+
+function metaNumStr(
+  meta: Record<string, unknown>,
+  key: string,
+  fallback: string,
+): string {
+  const v = meta[key];
+  if (v === undefined || v === null) return fallback;
+  if (typeof v === "number" && Number.isFinite(v)) return String(Math.trunc(v));
+  if (typeof v === "string" && v.trim() !== "") return v.trim();
+  return fallback;
+}
+
+/** 冷卻分鐘：未設定時留空（走 tier／全站預設） */
+function metaCooldownStr(meta: Record<string, unknown>): string {
+  const v = meta.rod_cooldown_minutes;
+  if (v === undefined || v === null) return "";
+  if (typeof v === "number" && Number.isFinite(v)) return String(Math.trunc(v));
+  if (typeof v === "string" && v.trim() !== "") return v.trim();
+  return "";
+}
+
 function readMetaString(meta: Record<string, unknown>, key: string): string {
   const v = meta[key];
   return typeof v === "string" ? v.trim() : "";
@@ -156,6 +197,11 @@ type FormData = {
   card_mascot_image_url: string;
   /** 預留：卡片動畫識別（metadata.cardEffectKey） */
   card_effect_key: string;
+  /** 釣竿：寫入 metadata，免手打 JSON */
+  rod_tier: "" | "basic" | "mid" | "high";
+  rod_cooldown_minutes: string;
+  rod_max_casts_per_day: string;
+  rod_wait_until_harvest_minutes: string;
 };
 
 const EMPTY_FORM: FormData = {
@@ -187,6 +233,10 @@ const EMPTY_FORM: FormData = {
   card_corner_image_url: "",
   card_mascot_image_url: "",
   card_effect_key: "",
+  rod_tier: "",
+  rod_cooldown_minutes: "",
+  rod_max_casts_per_day: "1",
+  rod_wait_until_harvest_minutes: "1",
 };
 
 function itemToForm(item: ShopItemRow): FormData {
@@ -196,7 +246,10 @@ function itemToForm(item: ShopItemRow): FormData {
       : {};
   const layout =
     parseShopFrameLayoutFromMetadata(rawMeta) ?? DEFAULT_SHOP_FRAME_LAYOUT;
-  const metaForTextarea = stripReservedCardDecorationKeys(rawMeta);
+  let metaForTextarea = stripReservedCardDecorationKeys(rawMeta);
+  if (item.item_type === "fishing_rod") {
+    metaForTextarea = stripFishingRodKeys(metaForTextarea);
+  }
   return {
     sku: item.sku,
     name: item.name,
@@ -235,6 +288,18 @@ function itemToForm(item: ShopItemRow): FormData {
     card_corner_image_url: readMetaString(rawMeta, "cardCornerImageUrl"),
     card_mascot_image_url: readMetaString(rawMeta, "cardMascotImageUrl"),
     card_effect_key: readMetaString(rawMeta, "cardEffectKey"),
+    rod_tier:
+      item.item_type === "fishing_rod" ? metaRodTierFromRaw(rawMeta) : "",
+    rod_cooldown_minutes:
+      item.item_type === "fishing_rod" ? metaCooldownStr(rawMeta) : "",
+    rod_max_casts_per_day:
+      item.item_type === "fishing_rod"
+        ? metaNumStr(rawMeta, "rod_max_casts_per_day", "1")
+        : "1",
+    rod_wait_until_harvest_minutes:
+      item.item_type === "fishing_rod"
+        ? metaNumStr(rawMeta, "rod_wait_until_harvest_minutes", "1")
+        : "1",
   };
 }
 
@@ -442,6 +507,47 @@ export default function ShopAdminClient() {
       metadata = Object.keys(m).length ? m : null;
     }
 
+    if (form.item_type === "fishing_rod") {
+      const base: Record<string, unknown> =
+        metadata && typeof metadata === "object" && !Array.isArray(metadata)
+          ? stripFishingRodKeys(metadata as Record<string, unknown>)
+          : {};
+      const max = parseInt(form.rod_max_casts_per_day.replace(/\D/g, ""), 10);
+      const wait = parseInt(
+        form.rod_wait_until_harvest_minutes.replace(/\D/g, ""),
+        10,
+      );
+      if (!Number.isFinite(max) || max < 1) {
+        toast.error("每日拋竿上限須為 ≥1 的整數");
+        return;
+      }
+      if (!Number.isFinite(wait) || wait < 1) {
+        toast.error("拋竿後至可收成之分鐘須為 ≥1 的整數");
+        return;
+      }
+      base.rod_max_casts_per_day = max;
+      base.rod_wait_until_harvest_minutes = wait;
+      if (
+        form.rod_tier === "basic" ||
+        form.rod_tier === "mid" ||
+        form.rod_tier === "high"
+      ) {
+        base.rod_tier = form.rod_tier;
+      }
+      const cdRaw = form.rod_cooldown_minutes.trim();
+      if (cdRaw !== "") {
+        const cd = parseInt(cdRaw.replace(/\D/g, ""), 10);
+        if (!Number.isFinite(cd) || cd < 0 || cd > 10080) {
+          toast.error(
+            "拋竿冷卻分鐘須為 0–10080 的整數，或留空以套用等級／全站預設",
+          );
+          return;
+        }
+        base.rod_cooldown_minutes = cd;
+      }
+      metadata = Object.keys(base).length ? base : null;
+    }
+
     if (form.item_type === "fishing_bait" && metadata) {
       const { validateBaitMetadata } = await import(
         "@/lib/utils/fishing-shop-metadata"
@@ -452,10 +558,14 @@ export default function ShopAdminClient() {
         return;
       }
     }
-    if (form.item_type === "fishing_rod" && metadata) {
+    if (form.item_type === "fishing_rod") {
       const { validateFishingRodMetadata } = await import(
         "@/lib/utils/fishing-shop-metadata"
       );
+      if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+        toast.error("釣竿設定異常，請重試");
+        return;
+      }
       const err = validateFishingRodMetadata(metadata as Record<string, unknown>);
       if (err) {
         toast.error(err);
@@ -1169,7 +1279,21 @@ export default function ShopAdminClient() {
               <span className="text-gray-700">商品類型</span>
               <select
                 value={form.item_type}
-                onChange={(e) => setField("item_type", e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setForm((prev) => ({
+                    ...prev,
+                    item_type: v,
+                    ...(v === "fishing_rod"
+                      ? {
+                          rod_tier: "" as FormData["rod_tier"],
+                          rod_cooldown_minutes: "",
+                          rod_max_casts_per_day: "1",
+                          rod_wait_until_harvest_minutes: "1",
+                        }
+                      : {}),
+                  }));
+                }}
                 className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2"
               >
                 {ITEM_TYPE_OPTIONS.map((opt) => (
@@ -1682,10 +1806,103 @@ export default function ShopAdminClient() {
                 </div>
               ) : null}
             </div>
+
+            {form.item_type === "fishing_rod" ? (
+              <div className="rounded-xl border border-violet-200 bg-violet-50/90 p-4 space-y-3">
+                <p className="text-sm font-semibold text-gray-900">
+                  釣竿數值設定（直接生效，不必手寫 JSON）
+                </p>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  <strong>拋竿冷卻</strong>留空時：已選
+                  basic／mid／high 則套用「後台 → 釣魚系統 → 釣竿拋竿冷卻（tier
+                  預設）」；未選等級則遊戲內預設 480 分鐘。若填數字則<strong>永遠以該分鐘為準</strong>。
+                </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label className="block sm:col-span-2">
+                    <span className="text-xs font-medium text-gray-800">
+                      釣竿等級（rod_tier）
+                    </span>
+                    <select
+                      value={form.rod_tier}
+                      onChange={(e) =>
+                        setField("rod_tier", e.target.value as FormData["rod_tier"])
+                      }
+                      className="mt-1 block w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-gray-900"
+                    >
+                      <option value="">未指定（冷卻留空時用 480 分）</option>
+                      <option value="basic">
+                        basic — 冷卻留空時用後台「basic」預設分鐘
+                      </option>
+                      <option value="mid">mid — 冷卻留空時用後台「mid」預設</option>
+                      <option value="high">high — 冷卻留空時用後台「high」預設</option>
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-gray-800">
+                      拋竿後再拋冷卻（分鐘）
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={form.rod_cooldown_minutes}
+                      onChange={(e) =>
+                        setField(
+                          "rod_cooldown_minutes",
+                          e.target.value.replace(/\D/g, ""),
+                        )
+                      }
+                      className="mt-1 block w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-gray-900"
+                      placeholder="留空＝依等級／全站預設"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-gray-800">
+                      每日可拋竿上限
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={form.rod_max_casts_per_day}
+                      onChange={(e) =>
+                        setField(
+                          "rod_max_casts_per_day",
+                          e.target.value.replace(/\D/g, ""),
+                        )
+                      }
+                      className="mt-1 block w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-gray-900"
+                    />
+                  </label>
+                  <label className="block sm:col-span-2">
+                    <span className="text-xs font-medium text-gray-800">
+                      拋竿後至可收成（分鐘）
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={form.rod_wait_until_harvest_minutes}
+                      onChange={(e) =>
+                        setField(
+                          "rod_wait_until_harvest_minutes",
+                          e.target.value.replace(/\D/g, ""),
+                        )
+                      }
+                      className="mt-1 block w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-gray-900"
+                    />
+                  </label>
+                </div>
+              </div>
+            ) : null}
+
             <label className="block">
-              <span className="text-gray-700">進階設定（metadata JSON，選填）</span>
+              <span className="text-gray-700">
+                {form.item_type === "fishing_rod"
+                  ? "其他進階設定（metadata JSON，選填）"
+                  : "進階設定（metadata JSON，選填）"}
+              </span>
               <span className="ml-1 text-xs text-gray-400">
-                釣竿機率加成等（框類商品的對齊會另存為 frame_layout，不須手寫）
+                {form.item_type === "fishing_rod"
+                  ? "釣竿主要欄位已用上方表單；此處僅限額外鍵值。"
+                  : "釣竿機率加成等（框類商品的對齊會另存為 frame_layout，不須手寫）"}
               </span>
               {form.item_type === "fishing_bait" ? (
                 <p className="mt-1 text-xs text-amber-900 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5 space-y-1">
@@ -1705,23 +1922,6 @@ export default function ShopAdminClient() {
                   </span>
                   <span className="block text-gray-700">
                     月老配對可於「後台 → 釣魚系統」開啟身高條件篩選並設定門檻（與玩家身高偏好連動）。
-                  </span>
-                </p>
-              ) : null}
-              {form.item_type === "fishing_rod" ? (
-                <p className="mt-1 text-xs text-amber-900 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5 space-y-1">
-                  <span className="block">釣竿 metadata：</span>
-                  <span className="block">
-                    <code className="text-[11px] text-gray-900">rod_max_casts_per_day</code>
-                    ：每日上限次數（整數；可省略，預設 1）
-                  </span>
-                  <span className="block">
-                    <code className="text-[11px] text-gray-900">rod_cooldown_minutes</code>
-                    ：拋竿後再拋冷卻分鐘數（整數；可省略，預設 480）
-                  </span>
-                  <span className="block">
-                    <code className="text-[11px] text-gray-900">rod_wait_until_harvest_minutes</code>
-                    ：拋竿後至可收成之分鐘（整數；可省略，預設 1）
                   </span>
                 </p>
               ) : null}

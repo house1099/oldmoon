@@ -473,6 +473,18 @@ export default function FishingAdminClient({
     initialSettings.matchmaker_height_short_threshold,
   ]);
 
+  useEffect(() => {
+    setRodBasicDraft(
+      String(initialSettings.fishing_rod_cooldown_basic_minutes),
+    );
+    setRodMidDraft(String(initialSettings.fishing_rod_cooldown_mid_minutes));
+    setRodHighDraft(String(initialSettings.fishing_rod_cooldown_high_minutes));
+  }, [
+    initialSettings.fishing_rod_cooldown_basic_minutes,
+    initialSettings.fishing_rod_cooldown_mid_minutes,
+    initialSettings.fishing_rod_cooldown_high_minutes,
+  ]);
+
   const anyVLockOn =
     mmLocks.matchmaker_lock_v1 ||
     mmLocks.matchmaker_lock_v3 ||
@@ -791,6 +803,7 @@ export default function FishingAdminClient({
       return;
     }
     toast.success("釣竿 tier 冷卻已更新");
+    router.refresh();
   };
 
   const onSaveTierSettings = async () => {
