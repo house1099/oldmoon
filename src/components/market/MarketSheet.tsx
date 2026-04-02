@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useCallback, useMemo, useState } from "react";
 import useSWR from "swr";
 import { mutate as globalMutate } from "swr";
-import { X } from "lucide-react";
+import { Gem, Moon, X } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -591,9 +591,11 @@ export function MarketSheet({
                   </p>
                   <div className="flex justify-between gap-3">
                     <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                      <span className="text-base" aria-hidden>
-                        🪙
-                      </span>
+                      <Moon
+                        className="h-4 w-4 shrink-0 text-amber-400"
+                        aria-hidden
+                        strokeWidth={2}
+                      />
                       <div className="min-w-0">
                         <p className="text-sm font-bold tabular-nums text-amber-400">
                           {myCoinsData == null ? "…" : myCoinsData.free_coins}
@@ -608,9 +610,11 @@ export function MarketSheet({
                         </p>
                         <p className="text-[10px] text-zinc-500">純金</p>
                       </div>
-                      <span className="text-base" aria-hidden>
-                        💎
-                      </span>
+                      <Gem
+                        className="h-4 w-4 shrink-0 text-violet-400"
+                        aria-hidden
+                        strokeWidth={2}
+                      />
                     </div>
                   </div>
                 </div>

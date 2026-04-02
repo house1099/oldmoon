@@ -68,6 +68,7 @@ import {
   type MyRewardsPayload,
 } from "@/services/rewards.action";
 import {
+  cancelListingAction,
   createListingAction,
   getMyListingsAction,
 } from "@/services/market-listing.action";
@@ -320,6 +321,8 @@ const EQUIPPED_BADGE_REWARD_TYPES = new Set([
 ]);
 
 const INVENTORY_LONGPRESS_MS = 500;
+
+const MARKET_LISTED_EQUIP_HINT = "此道具已在拍賣市集上架中，請先下架";
 
 function firstUnequippedRow(stack: RewardStack): UserRewardWithEffect | null {
   return stack.rows.find((r) => !r.is_equipped) ?? null;
@@ -583,6 +586,7 @@ function FloatingToolbarInner({
   >("free_coins");
   const [marketListPriceStr, setMarketListPriceStr] = useState("");
   const [marketListBusy, setMarketListBusy] = useState(false);
+  const [cancelListingMenuBusy, setCancelListingMenuBusy] = useState(false);
   /** 關閉自由市場面板後視為已讀；高於此時間戳的「24h 內成交」才顯示橘點（session 內持久化） */
   const [lastMarketSheetClosedAt, setLastMarketSheetClosedAt] = useState(0);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -760,8 +764,16 @@ function FloatingToolbarInner({
       }
       toast.success("已卸下");
     } else {
-      const target = stack.rows.find((r) => !r.is_equipped) ?? stack.rows[0];
-      if (!target) return;
+      const target =
+        stack.rows.find(
+          (r) => !r.is_equipped && !listedRewardIdSet.has(r.id),
+        ) ?? null;
+      if (!target) {
+        if (stack.rows.some((r) => listedRewardIdSet.has(r.id))) {
+          toast.error(MARKET_LISTED_EQUIP_HINT);
+        }
+        return;
+      }
       const r = await equipRewardAction(target.id, rt);
       if (!r.ok) {
         toast.error(r.error);
@@ -776,6 +788,27 @@ function FloatingToolbarInner({
     setRewardsPayload(p);
     router.refresh();
   };
+
+  async function handleCancelListingFromMenu(listingId: string) {
+    if (cancelListingMenuBusy) return;
+    setCancelListingMenuBusy(true);
+    try {
+      const r = await cancelListingAction(listingId);
+      if (!r.ok) {
+        toast.error(r.error ?? "下架失敗");
+        return;
+      }
+      toast.success("已下架");
+      setStackMenuOpen(false);
+      setStackMenuTarget(null);
+      const p = await getMyRewardsAction();
+      setRewardsPayload(p);
+      await swrMutate(SWR_KEYS.myMarketListings);
+      router.refresh();
+    } finally {
+      setCancelListingMenuBusy(false);
+    }
+  }
 
   function clearLongPressTimer() {
     if (longPressTimerRef.current) {
@@ -1747,15 +1780,26 @@ function FloatingToolbarInner({
                 const canListMarket =
                   u != null &&
                   canListRewardToMarket(u, listedRewardIdSet);
-                const hasAnyAction =
+                const nowMs = Date.now();
+                const activeListingForStack = myMarketRows.find(
+                  (l) =>
+                    l.status === "active" &&
+                    sm.rows.some((r) => r.id === l.user_reward_id) &&
+                    (!l.expires_at ||
+                      new Date(l.expires_at).getTime() > nowMs),
+                );
+                const canDelistFromMarket = Boolean(activeListingForStack);
+                const needsQty =
                   act.canGift ||
                   act.canDelete ||
                   (act.canResell && u != null) ||
                   canOpenLoot ||
                   canListMarket;
+                const showQtyInput = needsQty && maxQ > 0;
+                const hasAnyAction = needsQty || canDelistFromMarket;
                 return (
                   <>
-                    {hasAnyAction ? (
+                    {showQtyInput ? (
                       <label className="flex flex-col gap-1 text-xs text-[#71717a]">
                         <span>數量（未裝備者可操作最多 {maxQ} 件）</span>
                         <input
@@ -1776,6 +1820,14 @@ function FloatingToolbarInner({
                           className="rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-sm text-zinc-100"
                         />
                       </label>
+                    ) : !hasAnyAction ? (
+                      <p className="px-1 text-sm leading-relaxed text-[#a1a1aa]">
+                        此道具依商城設定，目前未開放贈送、刪除、回賣或上架市集。可先卸下或點擊格位使用／裝備。
+                      </p>
+                    ) : canDelistFromMarket ? (
+                      <p className="px-1 text-sm leading-relaxed text-[#a1a1aa]">
+                        此道具正在市集上架中，下架後即可裝備、贈送或使用其他功能。
+                      </p>
                     ) : (
                       <p className="px-1 text-sm leading-relaxed text-[#a1a1aa]">
                         此道具依商城設定，目前未開放贈送、刪除、回賣或上架市集。可先卸下或點擊格位使用／裝備。
@@ -1789,6 +1841,35 @@ function FloatingToolbarInner({
                         gap: 9,
                       }}
                     >
+                      {canDelistFromMarket && activeListingForStack ? (
+                        <button
+                          type="button"
+                          disabled={cancelListingMenuBusy}
+                          onClick={() =>
+                            void handleCancelListingFromMenu(
+                              activeListingForStack.id,
+                            )
+                          }
+                          style={inventoryActionBtnStyles.cancel}
+                        >
+                          <InventoryActionBtnContent
+                            icon="🏪"
+                            label={
+                              cancelListingMenuBusy
+                                ? "下架中…"
+                                : "從市集下架"
+                            }
+                          />
+                        </button>
+                      ) : null}
+                      {canDelistFromMarket &&
+                      (canOpenLoot ||
+                        act.canGift ||
+                        act.canDelete ||
+                        (act.canResell && u) ||
+                        canListMarket) ? (
+                        <InventoryActionDivider />
+                      ) : null}
                       {canOpenLoot ? (
                         <button
                           type="button"
@@ -1875,7 +1956,8 @@ function FloatingToolbarInner({
                       (act.canResell && u) ||
                       act.canDelete ||
                       canListMarket ||
-                      canOpenLoot ? (
+                      canOpenLoot ||
+                      canDelistFromMarket ? (
                         <InventoryActionDivider />
                       ) : null}
                       <button

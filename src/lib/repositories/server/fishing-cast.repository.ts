@@ -243,6 +243,8 @@ export async function getRodCastSnapshot(opts: {
   cooldownAfterHarvestRemainingSec: number;
   pendingHarvestRemainSec: number;
   hasPendingCast: boolean;
+  /** 本次進行中拋竿所消耗的餌（shop_items.id） */
+  pendingBaitShopItemId: string | null;
   cooldownInfo: RodCooldownInfo | null;
 }> {
   const today = taipeiCalendarDateKey();
@@ -278,6 +280,7 @@ export async function getRodCastSnapshot(opts: {
     cooldownAfterHarvestRemainingSec,
     pendingHarvestRemainSec,
     hasPendingCast,
+    pendingBaitShopItemId: row?.pending_bait_shop_item_id ?? null,
     cooldownInfo: computeRodCooldownInfo(row, opts.cooldownAfterCastMinutes),
   };
 }

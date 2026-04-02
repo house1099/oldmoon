@@ -92,6 +92,10 @@ export type FishingStatusDto = {
       remainMinutes: number;
       nextCastAt: string | null;
     } | null;
+    /** 本次進行中拋竿實際消耗的餌名稱（與背包選取無關） */
+    pendingBaitName: string | null;
+    /** 同上，供魚種標籤顯示 */
+    pendingBaitMetadata: Json | null;
   }>;
   baits: Array<{
     id: string;
@@ -573,6 +577,8 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
     let hasPendingCast = false;
     let pendingHarvestRemainSec = 0;
     let cooldownInfo: FishingStatusDto["rods"][number]["cooldownInfo"] = null;
+    let pendingBaitName: string | null = null;
+    let pendingBaitMetadata: Json | null = null;
     if (r.shop_item_id) {
       const si = await findShopItemById(r.shop_item_id);
       const rules = parseRodFishingRules(si?.metadata ?? null);
@@ -589,6 +595,12 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
         hasPendingCast = snap.hasPendingCast;
         pendingHarvestRemainSec = snap.pendingHarvestRemainSec;
         cooldownInfo = snap.cooldownInfo;
+        if (snap.hasPendingCast && snap.pendingBaitShopItemId) {
+          const baitSi = await findShopItemById(snap.pendingBaitShopItemId);
+          const bn = baitSi?.name?.trim();
+          pendingBaitName = bn || null;
+          pendingBaitMetadata = baitSi?.metadata ?? null;
+        }
       }
     }
     rodsOut.push({
@@ -600,6 +612,8 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
       hasPendingCast,
       pendingHarvestRemainSec,
       cooldownInfo,
+      pendingBaitName,
+      pendingBaitMetadata,
     });
   }
 

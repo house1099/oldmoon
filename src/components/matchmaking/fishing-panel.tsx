@@ -154,6 +154,11 @@ export function FishingPanel() {
 
   useEffect(() => {
     if (!statusDto?.rods.length) return;
+    const pendingRod = statusDto.rods.find((r) => r.hasPendingCast);
+    if (pendingRod) {
+      setSelectedRodId(pendingRod.id);
+      return;
+    }
     setSelectedRodId((prev) => {
       if (prev && statusDto.rods.some((r) => r.id === prev)) return prev;
       return statusDto.rods[0].id;
@@ -175,6 +180,14 @@ export function FishingPanel() {
     statusDto?.baits.find((b) => b.id === selectedBaitId) ?? statusDto?.baits[0];
   const rodName = activeRod?.name ?? statusDto?.equippedRodName ?? "命運釣竿";
   const baitName = activeBait?.name ?? statusDto?.defaultBaitName ?? "釣餌";
+  const displayBaitName =
+    activeRod?.hasPendingCast && activeRod.pendingBaitName
+      ? activeRod.pendingBaitName
+      : baitName;
+  const pendingTagsMetadata =
+    activeRod?.hasPendingCast && activeRod.pendingBaitMetadata != null
+      ? activeRod.pendingBaitMetadata
+      : null;
 
   const lakeUiPhase: LakeUiPhase = useMemo(() => {
     if (!activeRod?.hasPendingCast) return "idle";
@@ -442,7 +455,15 @@ export function FishingPanel() {
               <div className="h-full w-full animate-pulse rounded-full bg-violet-500/80" />
             </div>
             <p className="mt-3 text-xs text-zinc-500">
-              {baitName} · 等待中（由釣竿 metadata 決定等待時間）
+              {displayBaitName} · 等待中（由釣竿 metadata 決定等待時間）
+            </p>
+            {pendingTagsMetadata != null ? (
+              <p className="mt-2 text-xs">
+                <BaitFishTags metadata={pendingTagsMetadata} />
+              </p>
+            ) : null}
+            <p className="mt-2 text-[11px] text-zinc-600">
+              倒數結束後會出現「收竿」按鈕
             </p>
             <p className="mt-4 rounded-xl border border-zinc-800/60 bg-zinc-900/50 px-3 py-2 text-xs text-zinc-500">
               離開此畫面不影響釣魚，稍後回來收竿即可

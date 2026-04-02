@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, Search, Check } from "lucide-react";
+import { Gem, Loader2, Moon, Search, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -510,18 +510,22 @@ export default function ShopPage() {
           style={{ background: "rgba(255,255,255,0.03)" }}
         >
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="text-lg" aria-hidden>
-              🟡
-            </span>
+            <Moon
+              className="h-5 w-5 shrink-0 text-[#f59e0b]"
+              aria-hidden
+              strokeWidth={2}
+            />
             <div className="min-w-0">
               <p className="text-lg font-bold tabular-nums text-[#f59e0b]">{free}</p>
               <p className="text-xs text-[#71717a]">探險幣</p>
             </div>
           </div>
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="text-lg" aria-hidden>
-              💎
-            </span>
+            <Gem
+              className="h-5 w-5 shrink-0 text-[#a78bfa]"
+              aria-hidden
+              strokeWidth={2}
+            />
             <div className="min-w-0 text-right sm:text-left">
               <p className="text-lg font-bold tabular-nums text-[#a78bfa]">{premium}</p>
               <p className="text-xs text-[#71717a]">純金</p>

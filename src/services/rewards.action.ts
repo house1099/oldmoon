@@ -227,6 +227,11 @@ export async function equipRewardAction(
     return { ok: false, error: "獎勵類型不符" };
   }
 
+  const listedReason = await getMarketListingBlockReasonForReward(rewardId);
+  if (listedReason) {
+    return { ok: false, error: listedReason };
+  }
+
   await unequipAllOfType(user.id, rewardType);
   await equipReward(rewardId);
   revalidateTag(profileCacheTag(user.id));
