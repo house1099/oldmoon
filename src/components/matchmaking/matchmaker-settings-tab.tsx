@@ -123,14 +123,25 @@ export function MatchmakerSettingsTab() {
   async function confirmRelationshipChange() {
     setSavingRelationship(true);
     try {
-      const result = await updateMyProfile({
-        relationship_status: pendingRelationshipStatus,
-      });
+      const isNotSingle = pendingRelationshipStatus === "not_single";
+      const result = await updateMyProfile(
+        isNotSingle
+          ? {
+              relationship_status: pendingRelationshipStatus,
+              matchmaker_opt_in: false,
+            }
+          : { relationship_status: pendingRelationshipStatus },
+      );
       if (result.ok === false) {
         toast.error(result.error ?? "❌ 操作失敗，請稍後再試");
         return;
       }
-      toast.success("感情狀態已更新");
+      if (isNotSingle) {
+        setMatchmakerOptIn(false);
+        toast.success("已關閉月老配對池");
+      } else {
+        toast.success("感情狀態已更新");
+      }
       setRelationshipConfirmOpen(false);
       await mutateProfile();
       router.refresh();
@@ -621,6 +632,20 @@ const DIET_OPTIONS = [
 const PET_OPTIONS = ["無", "貓", "狗", "兔", "鼠", "鳥", "魚", "爬蟲/蛇/蜥蜴"] as const;
 const ACCEPT_PET_OPTIONS = ["都可以", "貓", "狗", "兔鼠鳥魚等小動物", "爬蟲"] as const;
 
+/** 接受對方（單親）：新文案；舊值仍可比對高亮 */
+const ACCEPT_SINGLE_PARENT_OPTIONS = [
+  { value: "接受對方是單親家庭", legacy: "可以接受" },
+  { value: "暫不考慮單親家庭", legacy: "暫不考慮" },
+] as const;
+
+function acceptSingleParentSelected(
+  stored: string | null | undefined,
+  value: string,
+  legacy: string,
+) {
+  return stored === value || stored === legacy;
+}
+
 type UserRow = NonNullable<ReturnType<typeof useMyProfile>["profile"]>;
 
 function MatchmakerProfileForm({
@@ -832,15 +857,21 @@ function MatchmakerProfileForm({
             <div>
               <p className={subLabelCls}>接受對方</p>
               <div className="mt-1 flex flex-wrap gap-2">
-                {(["可以接受", "暫不考慮"] as const).map((opt) => (
+                {ACCEPT_SINGLE_PARENT_OPTIONS.map(({ value, legacy }) => (
                   <button
-                    key={opt}
+                    key={value}
                     type="button"
                     disabled={busy}
-                    className={capsule(profile.accept_single_parent === opt)}
-                    onClick={() => void save({ accept_single_parent: opt })}
+                    className={capsule(
+                      acceptSingleParentSelected(
+                        profile.accept_single_parent,
+                        value,
+                        legacy,
+                      ),
+                    )}
+                    onClick={() => void save({ accept_single_parent: value })}
                   >
-                    {opt}
+                    {value}
                   </button>
                 ))}
               </div>
