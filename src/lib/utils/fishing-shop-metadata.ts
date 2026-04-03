@@ -12,6 +12,9 @@ function num(v: unknown): number | null {
 
 export type BaitType = "normal" | "octopus" | "heart";
 
+/** 章魚餌稀有／傳說／深海巨獸三欄加總與 100 的容差（支援 0.01% 等級小數，並吸收浮點誤差）。 */
+export const BAIT_OCTOPUS_RATE_SUM_EPSILON = 0.0001;
+
 export function detectBaitType(metadata: Record<string, unknown>): BaitType {
   /** 僅讀 `bait_profile`（勿用 metadata.bait_kind，易與舊／誤存字串衝突） */
   const profile = metadata.bait_profile;
@@ -58,7 +61,7 @@ export function validateBaitMetadata(metadata: Record<string, unknown>): {
     const legendary = Number(metadata.bait_legendary_rate ?? 0);
     const leviathan = Number(metadata.bait_leviathan_rate ?? 0);
     const total = rare + legendary + leviathan;
-    if (Math.abs(total - 100) > 0.01) {
+    if (Math.abs(total - 100) > BAIT_OCTOPUS_RATE_SUM_EPSILON) {
       return {
         valid: false,
         error: `章魚餌料：稀有魚+傳說魚+深海巨獸機率加總必須等於 100（目前 ${total}）`,
@@ -155,7 +158,7 @@ export function parseBaitFishWeightsForHarvest(
     const legendary = num(m.bait_legendary_rate) ?? 0;
     const leviathan = num(m.bait_leviathan_rate) ?? 0;
     const sum = rare + legendary + leviathan;
-    if (Math.abs(sum - 100) > 0.01) {
+    if (Math.abs(sum - 100) > BAIT_OCTOPUS_RATE_SUM_EPSILON) {
       return {
         ok: false,
         error: `章魚餌 metadata 無效：稀有+傳說+深海巨獸須合計 100（目前 ${sum}）。`,

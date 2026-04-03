@@ -62,6 +62,7 @@ import {
 } from "@/lib/constants/shop-card-frame-preview";
 import { cn } from "@/lib/utils";
 import {
+  BAIT_OCTOPUS_RATE_SUM_EPSILON,
   detectBaitType,
   resolveRodCooldownResolution,
   stripFishingBaitKeys,
@@ -2120,8 +2121,10 @@ export default function ShopAdminClient() {
               <div className="rounded-xl border border-violet-200 bg-violet-50/90 p-4 space-y-3">
                 <p className="text-sm font-semibold text-gray-900">魚餌類型與機率</p>
                 <p className="text-xs text-gray-600 leading-relaxed">
-                  三選一。普通餌固定為普通魚池；章魚餌為三種權重合計 100；愛心餌為月老魚池（玩家須符合單身等條件）。存檔會寫入{" "}
-                  <span className="font-mono">bait_profile</span>（與類型一致），愛心餌不需填章魚三欄。
+                  三選一（不同商品請各選對應類型，互不混用）：<strong>普通餌</strong>（例：蟲蟲餌）→
+                  普通魚；<strong>章魚餌</strong>→ 稀有／傳說／深海巨獸三欄加總 100，可填小數（如
+                  0.01% 級）；<strong>愛心餌（月老）</strong>（例：蝦仁豬心餌）→ 月老魚池（玩家須符合單身等）。存檔寫入{" "}
+                  <span className="font-mono">bait_profile</span>，愛心／普通不需填章魚三欄。
                 </p>
                 {baitProfileMissing && editingId ? (
                   <p className="rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
@@ -2216,18 +2219,18 @@ export default function ShopAdminClient() {
                       className={`text-xs ${
                         baitOctopusSumPreview != null &&
                         Number.isFinite(baitOctopusSumPreview) &&
-                        Math.abs(baitOctopusSumPreview - 100) > 0.02
+                        Math.abs(baitOctopusSumPreview - 100) > BAIT_OCTOPUS_RATE_SUM_EPSILON
                           ? "text-red-600 font-medium"
                           : "text-gray-600"
                       }`}
                     >
                       目前合計：{" "}
                       {baitOctopusSumPreview != null && Number.isFinite(baitOctopusSumPreview)
-                        ? baitOctopusSumPreview.toFixed(2)
+                        ? baitOctopusSumPreview.toFixed(4)
                         : "—"}{" "}
                       {baitOctopusSumPreview != null &&
                       Number.isFinite(baitOctopusSumPreview) &&
-                      Math.abs(baitOctopusSumPreview - 100) > 0.02
+                      Math.abs(baitOctopusSumPreview - 100) > BAIT_OCTOPUS_RATE_SUM_EPSILON
                         ? "（須為 100）"
                         : ""}
                     </p>

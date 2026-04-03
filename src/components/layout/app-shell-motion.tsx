@@ -68,7 +68,7 @@ export function AppShellMotion({
   return (
     <>
       <div
-        className="dark min-h-[100dvh] bg-[radial-gradient(ellipse_100%_55%_at_50%_0%,rgba(88,28,135,0.38),#020617_52%)] text-foreground"
+        className="dark flex min-h-[100dvh] flex-col bg-[radial-gradient(ellipse_100%_55%_at_50%_0%,rgba(88,28,135,0.38),#020617_52%)] text-foreground"
         style={
           {
             "--nav-reserve": NAV_BOTTOM_RESERVE,
@@ -76,14 +76,14 @@ export function AppShellMotion({
           } as CSSProperties
         }
       >
-        <div className="relative min-h-[100dvh] pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]">
+        <div className="relative flex min-h-0 flex-1 flex-col pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]">
           {/* pb 預留區填色，避免切頁時透出外層 radial 藍帶 */}
           <div
             className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] bg-zinc-950"
             style={{ height: NAV_BOTTOM_RESERVE }}
             aria-hidden
           />
-          <div className="relative z-[2] min-h-0">{children}</div>
+          <div className="relative z-[2] flex min-h-0 flex-1 flex-col">{children}</div>
         </div>
       </div>
 

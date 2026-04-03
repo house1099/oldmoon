@@ -2,6 +2,17 @@
 
 舊版主檔內之逐日／逐任務紀錄與長篇 Wave 敘事已遷移至此。**平時不必讀**；需追溯決策或實作細節時再開。
 
+### 2026-04-03 — 三餌營運對照＋章魚小數容差＋AppShell flex 魚池捲動
+
+1. **目標**：蝦仁豬心＝月老（heart）、蟲蟲餌＝普通魚（normal）、章魚餌＝三欄機率（小數可至 0.01% 級）；移除魚池頂／底黑帶與雙層捲動。
+2. **DB**（Supabase `execute_sql`）：**蝦仁豬心餌** `bait_profile: heart`＋`bait_matchmaker_rate: 100`；**蟲蟲餌** `normal`＋`bait_common_rate: 100`；**章魚餌** 維持 `octopus`＋三欄。
+3. **`fishing-shop-metadata.ts`**：匯出 **`BAIT_OCTOPUS_RATE_SUM_EPSILON`**（`0.0001`），**`validateBaitMetadata`**／**`parseBaitFishWeightsForHarvest`** 章魚加總驗證共用。
+4. **`shop-admin-client.tsx`**：魚餌說明補營運對照；章魚「目前合計」用 **`BAIT_OCTOPUS_RATE_SUM_EPSILON`**、**`toFixed(4)`**。
+5. **`app-shell-motion.tsx`**：外層 **`flex flex-col`**，內層改 **`flex flex-1 flex-col min-h-0`**（移除內層 **`min-h-[100dvh]`**），子路由可 **`flex-1`** 吃滿高度。
+6. **`matchmaking/page.tsx`**：根 **`min-h-0 flex-1 flex-col`**（移除 **`h-[calc(100dvh-…)]`**）。
+7. **文件**：**`HANDOFF.md`** 補章魚容差與三商品對照；**`HANDOFF.md`**「最近完成」更新。
+8. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過；**`git push`**。
+
 ### 2026-04-03 — 魚餌 bait_profile DB 修正＋魚池捲動單層化
 
 1. **目標**：(a) 修正換餌不換目標魚種（所有餌偵測為 octopus）；(b) 魚池 TAB 頁雙層捲動＋上下黑帶；(c) 釣竿橫向列干擾直向捲動。
