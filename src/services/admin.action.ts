@@ -1879,6 +1879,8 @@ export async function createPrizeItemAction(
     weight: number;
     effect_key?: string | null;
     image_url?: string | null;
+    /** 對應商城商品；發獎時寫入 user_rewards.shop_item_id（coins／exp 忽略） */
+    shop_item_id?: string | null;
   },
 ): Promise<ActionResult<PrizeItemRow>> {
   try {
@@ -1902,6 +1904,10 @@ export async function createPrizeItemAction(
       rt === "avatar_frame" || rt === "card_frame" || rt === "title";
     const effect_key = keepsFrameOrTitleVisual ? effectKeyRaw : null;
     const image_url = keepsFrameOrTitleVisual ? imageUrlRaw : null;
+    const shop_item_id =
+      rt === "coins" || rt === "exp"
+        ? null
+        : (data.shop_item_id?.trim() || null);
     const row = await insertPrizeItem({
       pool_id: poolId,
       reward_type: rt,
@@ -1913,6 +1919,7 @@ export async function createPrizeItemAction(
         rt === "coins" || rt === "exp" ? maxV : null,
       effect_key,
       image_url,
+      shop_item_id,
       is_active: true,
     });
     revalidatePath("/admin/prizes");
@@ -1949,6 +1956,7 @@ export async function updatePrizeItemAction(
     max_value?: number | null;
     effect_key?: string | null;
     image_url?: string | null;
+    shop_item_id?: string | null;
   },
 ): Promise<ActionResult<void>> {
   try {
@@ -1972,6 +1980,11 @@ export async function updatePrizeItemAction(
         ? data.image_url?.trim() || null
         : existing.image_url ?? null;
 
+    let shop_item_id =
+      data.shop_item_id !== undefined
+        ? data.shop_item_id?.trim() || null
+        : existing.shop_item_id ?? null;
+
     if (reward_type !== "coins" && reward_type !== "exp") {
       min_value = null;
       max_value = null;
@@ -1983,6 +1996,17 @@ export async function updatePrizeItemAction(
     ) {
       effect_key = null;
       image_url = null;
+    }
+    if (reward_type === "coins" || reward_type === "exp") {
+      shop_item_id = null;
+    }
+    if (
+      reward_type !== "avatar_frame" &&
+      reward_type !== "card_frame" &&
+      reward_type !== "title" &&
+      reward_type !== "broadcast"
+    ) {
+      shop_item_id = null;
     }
 
     const v = validatePrizeItemRewardFields({
@@ -2002,6 +2026,7 @@ export async function updatePrizeItemAction(
       max_value,
       effect_key,
       image_url,
+      shop_item_id,
     });
     revalidatePath("/admin/prizes");
     return { ok: true, data: undefined };

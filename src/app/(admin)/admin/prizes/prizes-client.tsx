@@ -98,6 +98,7 @@ type DraftItem = Pick<
   | "is_active"
   | "effect_key"
   | "image_url"
+  | "shop_item_id"
 > & { weightStr: string };
 
 export default function AdminPrizesClient() {
@@ -145,6 +146,9 @@ export default function AdminPrizesClient() {
     Record<string, number>
   >({});
   const [newItemShopTemplateNonce, setNewItemShopTemplateNonce] = useState(0);
+  const [newItemShopItemId, setNewItemShopItemId] = useState<string | null>(
+    null,
+  );
 
   const loadPools = useCallback(async () => {
     setLoadingPools(true);
@@ -183,6 +187,7 @@ export default function AdminPrizesClient() {
         is_active: it.is_active,
         effect_key: it.effect_key ?? null,
         image_url: it.image_url ?? null,
+        shop_item_id: it.shop_item_id ?? null,
       };
     }
     setDrafts(d);
@@ -260,6 +265,7 @@ export default function AdminPrizesClient() {
           reward_type: d.reward_type,
           effect_key: d.effect_key ?? null,
           image_url: d.image_url ?? null,
+          shop_item_id: d.shop_item_id ?? null,
         });
       }),
     );
@@ -340,6 +346,12 @@ export default function AdminPrizesClient() {
           newItemType === "title"
             ? newItemImageUrl.trim() || null
             : null,
+        shop_item_id:
+          newItemType === "avatar_frame" ||
+          newItemType === "card_frame" ||
+          newItemType === "title"
+            ? newItemShopItemId
+            : null,
       });
       if (!r.ok) {
         toast.error(r.error);
@@ -353,6 +365,7 @@ export default function AdminPrizesClient() {
       setNewItemMax("");
       setNewItemEffectKey("");
       setNewItemImageUrl("");
+      setNewItemShopItemId(null);
       await loadItems(selectedPoolId);
     } finally {
       setCreatingItem(false);
@@ -735,7 +748,24 @@ export default function AdminPrizesClient() {
                                     aria-label="從商城商品帶入名稱與框架設定"
                                     onChange={(e) => {
                                       const sid = e.target.value;
-                                      if (!sid) return;
+                                      if (!sid) {
+                                        setDrafts((prev) => {
+                                          const cur = prev[it.id];
+                                          if (!cur) return prev;
+                                          return {
+                                            ...prev,
+                                            [it.id]: {
+                                              ...cur,
+                                              shop_item_id: null,
+                                            },
+                                          };
+                                        });
+                                        setItemTemplateNonce((p) => ({
+                                          ...p,
+                                          [it.id]: (p[it.id] ?? 0) + 1,
+                                        }));
+                                        return;
+                                      }
                                       const row = shopItemsForTemplates.find(
                                         (x) => x.id === sid,
                                       );
@@ -757,6 +787,7 @@ export default function AdminPrizesClient() {
                                               row.effect_key?.trim() || null,
                                             image_url:
                                               row.image_url?.trim() || null,
+                                            shop_item_id: sid,
                                           },
                                         };
                                       });
@@ -784,6 +815,10 @@ export default function AdminPrizesClient() {
                                     {d.reward_type === "title"
                                       ? "帶入商城稱號之名稱、effect_key、胸章圖路徑。"
                                       : "僅寫入獎項可存欄位；卡框商品之背景／角圖等 metadata 不會寫入獎項。"}
+                                    <span className="mt-0.5 block text-violet-700/90">
+                                      儲存後會記錄商城關聯；玩家抽中時背包列會帶
+                                      shop_item_id，可於市集上架（仍依商城是否開放玩家交易）。
+                                    </span>
                                   </p>
                                 </div>
                                 <div>
@@ -1095,7 +1130,10 @@ export default function AdminPrizesClient() {
               <label className="text-xs text-gray-500">reward_type</label>
               <select
                 value={newItemType}
-                onChange={(e) => setNewItemType(e.target.value)}
+                onChange={(e) => {
+                  setNewItemType(e.target.value);
+                  setNewItemShopItemId(null);
+                }}
                 className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
               >
                 {REWARD_TYPE_OPTIONS.map((o) => (
@@ -1181,7 +1219,11 @@ export default function AdminPrizesClient() {
                     aria-label="從商城商品帶入名稱與框架設定"
                     onChange={(e) => {
                       const sid = e.target.value;
-                      if (!sid) return;
+                      if (!sid) {
+                        setNewItemShopItemId(null);
+                        setNewItemShopTemplateNonce((n) => n + 1);
+                        return;
+                      }
                       const row = shopItemsForTemplates.find(
                         (x) => x.id === sid,
                       );
@@ -1189,6 +1231,7 @@ export default function AdminPrizesClient() {
                       setNewItemLabel(row.name.trim() || "");
                       setNewItemEffectKey(row.effect_key?.trim() ?? "");
                       setNewItemImageUrl(row.image_url?.trim() ?? "");
+                      setNewItemShopItemId(sid);
                       setNewItemShopTemplateNonce((n) => n + 1);
                     }}
                     className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
@@ -1208,6 +1251,9 @@ export default function AdminPrizesClient() {
                     {newItemType === "title"
                       ? "帶入商城稱號之名稱、effect_key、胸章圖。"
                       : "僅寫入獎項可存欄位；卡框商品之背景／角圖等 metadata 不會寫入獎項。"}
+                    <span className="mt-0.5 block text-violet-700/90">
+                      儲存後會記錄商城關聯；玩家抽中時背包可上架市集（依商城是否開放玩家交易）。
+                    </span>
                   </p>
                 </div>
                 <div>

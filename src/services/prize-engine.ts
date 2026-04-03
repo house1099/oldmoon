@@ -100,6 +100,7 @@ export async function drawFromPool(
       user_id: userId,
       reward_type: item.reward_type,
       item_ref_id: item.id,
+      shop_item_id: item.shop_item_id ?? null,
       label: item.label,
       is_equipped: false,
     });

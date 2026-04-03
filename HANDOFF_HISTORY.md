@@ -2,6 +2,26 @@
 
 舊版主檔內之逐日／逐任務紀錄與長篇 Wave 敘事已遷移至此。**平時不必讀**；需追溯決策或實作細節時再開。
 
+### 2026-04-07 — 獎池 `prize_items.shop_item_id`、盲盒發獎寫入 `user_rewards.shop_item_id`（玩家市集）
+
+1. **目標**：獎項可選關聯商城 SKU；`drawFromPool` 發放稱號／框／廣播時一併寫入 **`user_rewards.shop_item_id`**，與商城購買同款一致，**`market-listing.action`** 需 **`shop_item_id`**＋**`allow_player_trade`** 才可上架。
+2. **資料庫** 🗄️：**`supabase/migrations/20260407120000_prize_items_shop_item_id.sql`** — **`ALTER prize_items`** **`shop_item_id`** **`REFERENCES shop_items`** **`ON DELETE SET NULL`**、partial index；雲端 **`apply_migration`** **`prize_items_shop_item_id`**（MCP）。
+3. **型別**：**`database.types.ts`** — **`prize_items`** Row／Insert／Update／Relationships 補 **`shop_item_id`**。
+4. **Layer 3**：**`prize-engine.ts`** — **`insertUserReward`** 補 **`shop_item_id: item.shop_item_id ?? null`**（**`title`／`avatar_frame`／`card_frame`／`broadcast`**）。
+5. **後台**：**`admin.action.ts`** — **`createPrizeItemAction`／`updatePrizeItemAction`** 接受並儲存 **`shop_item_id`**；**`coins`／`exp`** 強制 null；非稱號／框／廣播類清空（與 **`effect_key`** 規則對齊）。
+6. **Layer 5**：**`prizes-client.tsx`** — 「從商城商品帶入」時寫入 **`shop_item_id`**（選空白可清除）；新增獎項 **`newItemShopItemId`**；儲存說明文案。
+7. **既有獎項**：舊列 **`shop_item_id`** 為 null 時需後台重新「從商城帶入」並儲存，或手動補 DB。
+8. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+
+### 2026-04-06 — 身高 `height_any`、月老確認留存排除、簽到斷簽 UI、`pref_height` 註解
+
+1. **目標**：身高偏好「都可以不介意」；月老魚曾確認留存之對象不再進候選池；斷簽超過 1 台北曆日時首頁連簽顯示與 **`claimDailyCheckin`** 一致；DB 註解補 **`height_any`**。
+2. **utils**：**`matchmaker-locks.ts`** — **`checkOneSideHeight`** **`case "height_any": return true`**（僅放寬己方篩對方；對方仍篩己方）。
+3. **Layer 3**：**`profile-update.action.ts`** **`validPrefHeights`** 含 **`height_any`**；**`fishing.action.ts`** **`findMatchmakerKeptPeerIds`**（**`fishing.repository`** — 月老日誌略過 **`fish_item.matchmakerReleased`**）並於 **`runFishingHarvestCore`** 組 pool 前排除；**`daily-checkin.action.ts`** **`getMyStreakAction`** — **`taipeiCalendarDaysBetween(lastClaimKey, todayKey) > 1`** 時 **`currentStreak`** 回傳 **0**（顯示用）。
+4. **Layer 5**：**`matchmaker-settings-tab.tsx`** — 「都可以不介意」按鈕。
+5. **資料庫** 🗄️：**`20260406120000_pref_height_any_comment.sql`** — **`COMMENT ON users.pref_height`** 含 **`height_any`**（MCP **`apply_migration`** **`pref_height_any_comment`**）。
+6. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過；Git **`1a6abbd`**。
+
 ### 2026-04-03 — 釣魚倒數 ceil／樂觀可收竿、釣竿 SKU 限購、月老收入魚獲／放生
 
 1. **目標**：收竿／冷卻顯示與 **`fishing-cast.repository`** **`Math.ceil`** 一致；本地已過 **`pendingHarvestReadyAtIso`** 時先顯示可收竿；阻擋多把同款釣竿繞過冷卻；月老收成改 **收入魚獲**（通知對方）／**放生**（不通知、魚獲標記）。

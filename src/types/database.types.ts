@@ -1693,6 +1693,8 @@ export interface Database {
           is_active: boolean;
           effect_key: string | null;
           image_url: string | null;
+          /** 可選；發獎時寫入 user_rewards.shop_item_id */
+          shop_item_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -1706,6 +1708,7 @@ export interface Database {
           is_active?: boolean;
           effect_key?: string | null;
           image_url?: string | null;
+          shop_item_id?: string | null;
           created_at?: string;
         };
         Update: {
@@ -1717,12 +1720,19 @@ export interface Database {
           is_active?: boolean;
           effect_key?: string | null;
           image_url?: string | null;
+          shop_item_id?: string | null;
         };
         Relationships: [
           {
             foreignKeyName: "prize_items_pool_id_fkey";
             columns: ["pool_id"];
             referencedRelation: "prize_pools";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "prize_items_shop_item_id_fkey";
+            columns: ["shop_item_id"];
+            referencedRelation: "shop_items";
             referencedColumns: ["id"];
           },
         ];
