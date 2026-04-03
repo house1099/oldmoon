@@ -168,7 +168,7 @@ export async function setPendingCast(opts: {
   baitShopItemId: string;
   /** 選定之釣餌背包列（收成確認時才扣 quantity） */
   baitUserRewardId: string;
-  /** ISO：可收竿時間（拋竿後隨機，≤ 冷卻分鐘） */
+  /** ISO：可收竿時間（與拋竿冷卻分鐘一致） */
   pendingHarvestReadyAtIso: string;
 }): Promise<void> {
   const today = taipeiCalendarDateKey();
@@ -299,6 +299,8 @@ export async function getRodCastSnapshot(opts: {
   castsRemainingToday: number;
   cooldownAfterHarvestRemainingSec: number;
   pendingHarvestRemainSec: number;
+  /** 可收竿的絕對時間（ISO），供前端每秒倒數；無進行中拋竿為 null */
+  pendingHarvestReadyAtIso: string | null;
   hasPendingCast: boolean;
   /** 本次進行中拋竿所消耗的餌（shop_items.id） */
   pendingBaitShopItemId: string | null;
@@ -320,15 +322,18 @@ export async function getRodCastSnapshot(opts: {
   }
 
   let pendingHarvestRemainSec = 0;
+  let pendingHarvestReadyAtIso: string | null = null;
   let hasPendingCast = false;
   if (row?.pending_cast_started_at) {
     hasPendingCast = true;
     let readyAtMs: number;
     if (row.pending_harvest_ready_at) {
       readyAtMs = new Date(row.pending_harvest_ready_at).getTime();
+      pendingHarvestReadyAtIso = row.pending_harvest_ready_at;
     } else {
       const start = new Date(row.pending_cast_started_at).getTime();
       readyAtMs = start + opts.waitUntilHarvestMinutes * 60_000;
+      pendingHarvestReadyAtIso = new Date(readyAtMs).toISOString();
     }
     if (now < readyAtMs) {
       pendingHarvestRemainSec = Math.ceil((readyAtMs - now) / 1000);
@@ -340,6 +345,7 @@ export async function getRodCastSnapshot(opts: {
     castsRemainingToday: Math.max(0, opts.maxPerDay - castsUsed),
     cooldownAfterHarvestRemainingSec,
     pendingHarvestRemainSec,
+    pendingHarvestReadyAtIso,
     hasPendingCast,
     pendingBaitShopItemId: row?.pending_bait_shop_item_id ?? null,
     cooldownInfo: computeRodCooldownInfo(row, opts.cooldownAfterCastMinutes),

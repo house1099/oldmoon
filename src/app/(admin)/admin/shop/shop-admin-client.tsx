@@ -39,8 +39,10 @@ import {
   archiveShopItemAction,
   unarchiveShopItemAction,
   getShopLocalImageOptionsAction,
+  getFishingAdminSettingsAction,
 } from "@/services/admin.action";
 import type { ShopItemRow } from "@/lib/repositories/server/shop.repository";
+import type { Json } from "@/types/database.types";
 import { uploadAvatarToCloudinary } from "@/lib/utils/cloudinary";
 import {
   DEFAULT_SHOP_FRAME_LAYOUT,
@@ -61,7 +63,9 @@ import {
 import { cn } from "@/lib/utils";
 import {
   detectBaitType,
+  resolveRodCooldownResolution,
   stripFishingBaitKeys,
+  type RodTierCooldownDefaults,
 } from "@/lib/utils/fishing-shop-metadata";
 
 /** 後台頭像框預覽槽位邊長（px），對應 `h-20 w-20` */
@@ -414,6 +418,8 @@ export default function ShopAdminClient() {
     "listed",
   );
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [fishingTierDefaults, setFishingTierDefaults] =
+    useState<RodTierCooldownDefaults | null>(null);
   const shopImageInputRef = useRef<HTMLInputElement>(null);
   const framePreviewDragRef = useRef<{
     active: boolean;
@@ -433,6 +439,19 @@ export default function ShopAdminClient() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!dialogOpen) return;
+    void (async () => {
+      const res = await getFishingAdminSettingsAction();
+      if (!res.ok) return;
+      setFishingTierDefaults({
+        basic: res.data.fishing_rod_cooldown_basic_minutes,
+        mid: res.data.fishing_rod_cooldown_mid_minutes,
+        high: res.data.fishing_rod_cooldown_high_minutes,
+      });
+    })();
+  }, [dialogOpen]);
 
   useEffect(() => {
     if (!dialogOpen || imageMode !== "local") return;
@@ -490,6 +509,42 @@ export default function ShopAdminClient() {
     form.bait_rare_rate,
     form.bait_legendary_rate,
     form.bait_leviathan_rate,
+  ]);
+
+  const rodCooldownResolutionPreview = useMemo(() => {
+    if (form.item_type !== "fishing_rod" || !fishingTierDefaults) return null;
+    const meta: Record<string, unknown> = {};
+    const max = parseInt(form.rod_max_casts_per_day.replace(/\D/g, ""), 10);
+    const wait = parseInt(
+      form.rod_wait_until_harvest_minutes.replace(/\D/g, ""),
+      10,
+    );
+    if (Number.isFinite(max) && max >= 1) meta.rod_max_casts_per_day = max;
+    if (Number.isFinite(wait) && wait >= 1) {
+      meta.rod_wait_until_harvest_minutes = wait;
+    }
+    if (
+      form.rod_tier === "basic" ||
+      form.rod_tier === "mid" ||
+      form.rod_tier === "high"
+    ) {
+      meta.rod_tier = form.rod_tier;
+    }
+    const cdRaw = form.rod_cooldown_minutes.trim();
+    if (cdRaw !== "") {
+      const cd = parseInt(cdRaw.replace(/\D/g, ""), 10);
+      if (Number.isFinite(cd) && cd >= 0 && cd <= 10080) {
+        meta.rod_cooldown_minutes = cd;
+      }
+    }
+    return resolveRodCooldownResolution(meta as Json, fishingTierDefaults);
+  }, [
+    form.item_type,
+    form.rod_tier,
+    form.rod_cooldown_minutes,
+    form.rod_max_casts_per_day,
+    form.rod_wait_until_harvest_minutes,
+    fishingTierDefaults,
   ]);
 
   const localImageOptions = useMemo(() => {
@@ -671,18 +726,21 @@ export default function ShopAdminClient() {
     } else if (form.item_type === "fishing_bait") {
       const built: Record<string, unknown> = { ...unknownParsed };
       if (form.bait_kind === "normal") {
+        built.bait_profile = "normal";
         built.bait_common_rate = 100;
         delete built.bait_matchmaker_rate;
         delete built.bait_rare_rate;
         delete built.bait_legendary_rate;
         delete built.bait_leviathan_rate;
       } else if (form.bait_kind === "heart") {
+        built.bait_profile = "heart";
         built.bait_matchmaker_rate = 100;
         delete built.bait_common_rate;
         delete built.bait_rare_rate;
         delete built.bait_legendary_rate;
         delete built.bait_leviathan_rate;
       } else {
+        built.bait_profile = "octopus";
         delete built.bait_common_rate;
         delete built.bait_matchmaker_rate;
         const rare = parseFloat(form.bait_rare_rate.replace(",", "."));
@@ -2051,7 +2109,8 @@ export default function ShopAdminClient() {
               <div className="rounded-xl border border-violet-200 bg-violet-50/90 p-4 space-y-3">
                 <p className="text-sm font-semibold text-gray-900">魚餌類型與機率</p>
                 <p className="text-xs text-gray-600 leading-relaxed">
-                  三選一。普通餌固定為普通魚池；章魚餌為三種權重合計 100；愛心餌為月老魚池（玩家須符合單身等條件）。
+                  三選一。普通餌固定為普通魚池；章魚餌為三種權重合計 100；愛心餌為月老魚池（玩家須符合單身等條件）。存檔會寫入{" "}
+                  <span className="font-mono">bait_profile</span>（與類型一致），愛心餌不需填章魚三欄。
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {(
@@ -2160,6 +2219,16 @@ export default function ShopAdminClient() {
                   basic／mid／high 則套用「後台 → 釣魚系統 → 釣竿拋竿冷卻（tier
                   預設）」；未選等級則遊戲內預設 480 分鐘。若填數字則<strong>永遠以該分鐘為準</strong>。
                 </p>
+                {rodCooldownResolutionPreview ? (
+                  <div className="rounded-lg border border-violet-200 bg-white px-3 py-2 text-xs text-gray-800">
+                    <p className="font-semibold text-gray-900">
+                      解析後拋竿冷卻：{rodCooldownResolutionPreview.minutes} 分鐘／次
+                    </p>
+                    <p className="mt-1 text-gray-600">
+                      來源：{rodCooldownResolutionPreview.description}
+                    </p>
+                  </div>
+                ) : null}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="block sm:col-span-2">
                     <span className="text-xs font-medium text-gray-800">

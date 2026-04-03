@@ -2,6 +2,17 @@
 
 舊版主檔內之逐日／逐任務紀錄與長篇 Wave 敘事已遷移至此。**平時不必讀**；需追溯決策或實作細節時再開。
 
+### 2026-04-03 — 釣魚 UX／metadata／機率 SSOT
+
+1. **目標**：月老餌不因舊章魚欄位誤判；收竿倒數每秒更新；商城釣竿顯示解析後冷卻來源；文件化兩層機率（餌權重 vs `fishing_rewards`）。
+2. **餌**：**`fishing-shop-metadata.ts`** — **`detectBaitType`** 優先 **`bait_profile`**／**`bait_kind`**；**`stripFishingBaitKeys`** 含 profile；**`shop-admin-client`** 存檔寫入 **`bait_profile`**（與 **`bait_kind`** 表單一致）。
+3. **收竿倒數**：**`fishing-cast.repository`** **`getRodCastSnapshot`** 回傳 **`pendingHarvestReadyAtIso`**；**`fishing.action`** **`FishingStatusDto`** 補欄；**`fishing-panel`** **`PendingHarvestCountdown`**（本地 tick + ISO）；文案改為「依拋竿時鎖定的可收竿時間」。
+4. **商城釣竿**：新增 **`resolveRodCooldownResolution`**（與 **`parseRodFishingRules`** 一致）；**`getFishingAdminSettingsAction`** 拉全站 tier 分鐘；表單即時顯示「解析後拋竿冷卻」與來源說明。
+5. **文件**：**`HANDOFF.md`** — 新節「釣魚機率（兩層）」＋營運 SQL 範例。
+6. **資料庫**：無 DDL；既有餌建議重新儲存一次以寫入 **`bait_profile`**。
+7. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+8. **架構**：Layer 3 組 DTO；UI 僅依 action；餌／竿規則集中 **`fishing-shop-metadata`**。
+
 ### 2026-04-03 — 月老魚性向篩選、綁定與 IG 強制顯示
 
 1. **目標**：修正月老魚性向硬鎖（DB 存英文 slug，舊邏輯比對中文導致異性戀男男誤配）；月老配對成功後通知被釣者、開獎卡與魚獲詳情強制顯示 IG（不改 `ig_public`）。

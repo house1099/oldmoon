@@ -13,6 +13,12 @@ function num(v: unknown): number | null {
 export type BaitType = "normal" | "octopus" | "heart";
 
 export function detectBaitType(metadata: Record<string, unknown>): BaitType {
+  /** 商城存檔 SSOT，優先於數值欄位（避免舊資料殘留章魚欄位誤判） */
+  const profile = metadata.bait_profile ?? metadata.bait_kind;
+  if (profile === "heart" || profile === "octopus" || profile === "normal") {
+    return profile;
+  }
+
   const matchmakerRate = Number(metadata.bait_matchmaker_rate ?? 0);
   const commonRate = Number(metadata.bait_common_rate ?? 0);
   const leviathanRate = Number(metadata.bait_leviathan_rate ?? 0);
@@ -63,6 +69,8 @@ export function validateBaitMetadata(metadata: Record<string, unknown>): {
 
 /** 商城表單：從 metadata 剥離魚餌專用鍵，其餘併入「額外 JSON」。 */
 const FISHING_BAIT_META_KEYS = [
+  "bait_profile",
+  "bait_kind",
   "bait_common_rate",
   "bait_matchmaker_rate",
   "bait_rare_rate",
@@ -251,6 +259,66 @@ export function parseRodFishingRules(
     maxPerDay,
     waitUntilHarvestMinutes,
     cooldownAfterCastMinutes,
+  };
+}
+
+export type RodCooldownResolutionSource =
+  | "explicit"
+  | "tier_basic"
+  | "tier_mid"
+  | "tier_high"
+  | "fallback_480";
+
+/** 商城預覽：解析後的拋竿冷卻分鐘與來源（與 parseRodFishingRules 一致）。 */
+export function resolveRodCooldownResolution(
+  metadata: Json | null | undefined,
+  tierCooldownMinutes: RodTierCooldownDefaults | null,
+): {
+  minutes: number;
+  source: RodCooldownResolutionSource;
+  description: string;
+} | null {
+  const rules = parseRodFishingRules(metadata, { tierCooldownMinutes });
+  if (!rules) return null;
+  const m =
+    metadata && typeof metadata === "object" && !Array.isArray(metadata)
+      ? (metadata as Record<string, unknown>)
+      : {};
+  const afterRaw = num(m.rod_cooldown_minutes);
+  if (afterRaw != null && Number.isInteger(afterRaw) && afterRaw >= 0) {
+    return {
+      minutes: rules.cooldownAfterCastMinutes,
+      source: "explicit",
+      description: "此商品 metadata 的 rod_cooldown_minutes（顯式覆寫）",
+    };
+  }
+  const tr = m.rod_tier;
+  if (tr === "basic" && tierCooldownMinutes) {
+    return {
+      minutes: rules.cooldownAfterCastMinutes,
+      source: "tier_basic",
+      description: `釣魚後台「basic」全站預設（${tierCooldownMinutes.basic} 分／次）`,
+    };
+  }
+  if (tr === "mid" && tierCooldownMinutes) {
+    return {
+      minutes: rules.cooldownAfterCastMinutes,
+      source: "tier_mid",
+      description: `釣魚後台「mid」全站預設（${tierCooldownMinutes.mid} 分／次）`,
+    };
+  }
+  if (tr === "high" && tierCooldownMinutes) {
+    return {
+      minutes: rules.cooldownAfterCastMinutes,
+      source: "tier_high",
+      description: `釣魚後台「high」全站預設（${tierCooldownMinutes.high} 分／次）`,
+    };
+  }
+  return {
+    minutes: rules.cooldownAfterCastMinutes,
+    source: "fallback_480",
+    description:
+      "未填 rod_cooldown_minutes 且 rod_tier 非 basic／mid／high → 遊戲內預設 480 分",
   };
 }
 

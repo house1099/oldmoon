@@ -102,6 +102,8 @@ export type FishingStatusDto = {
     hasPendingCast: boolean;
     /** 拋竿後至可收成剩餘秒（無 pending 為 0） */
     pendingHarvestRemainSec: number;
+    /** 可收竿的絕對時間（ISO），前端收竿倒數用 */
+    pendingHarvestReadyAtIso: string | null;
     cooldownInfo: {
       isOnCooldown: boolean;
       remainMinutes: number;
@@ -758,6 +760,7 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
     let cooldownAfterHarvestRemainingSec = 0;
     let hasPendingCast = false;
     let pendingHarvestRemainSec = 0;
+    let pendingHarvestReadyAtIso: string | null = null;
     let cooldownInfo: FishingStatusDto["rods"][number]["cooldownInfo"] = null;
     let pendingBaitName: string | null = null;
     let pendingBaitMetadata: Json | null = null;
@@ -780,6 +783,7 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
         cooldownAfterHarvestRemainingSec = snap.cooldownAfterHarvestRemainingSec;
         hasPendingCast = snap.hasPendingCast;
         pendingHarvestRemainSec = snap.pendingHarvestRemainSec;
+        pendingHarvestReadyAtIso = snap.pendingHarvestReadyAtIso;
         cooldownInfo = snap.cooldownInfo;
         if (snap.hasPendingCast && snap.pendingBaitShopItemId) {
           const baitSi = await findShopItemById(snap.pendingBaitShopItemId);
@@ -805,6 +809,7 @@ export async function getFishingStatusAction(): Promise<FishingStatusResult> {
       cooldownAfterHarvestRemainingSec,
       hasPendingCast,
       pendingHarvestRemainSec,
+      pendingHarvestReadyAtIso,
       cooldownInfo,
       pendingBaitName,
       pendingBaitMetadata,

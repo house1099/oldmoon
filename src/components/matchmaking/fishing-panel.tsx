@@ -218,6 +218,50 @@ function CooldownTimer({
   return <span className="tabular-nums">{formatRemainHms(remainSec)}</span>;
 }
 
+/** 收竿前等待：以伺服器給的 ready ISO 每秒本地重算，避免僅依 SWR 輪詢導致數字不跳動 */
+function PendingHarvestCountdown({
+  readyAtIso,
+  fallbackRemainSec,
+  onElapsed,
+}: {
+  readyAtIso: string | null;
+  fallbackRemainSec: number;
+  onElapsed: () => void;
+}) {
+  const [tick, setTick] = useState(0);
+  const firedRef = useRef(false);
+
+  useEffect(() => {
+    firedRef.current = false;
+  }, [readyAtIso]);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick((x) => x + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const remainSec = useMemo(() => {
+    void tick;
+    if (readyAtIso) {
+      const targetMs = new Date(readyAtIso).getTime();
+      const sec = (targetMs - Date.now()) / 1000;
+      return Number.isFinite(sec) ? Math.max(0, sec) : Math.max(0, fallbackRemainSec);
+    }
+    return Math.max(0, fallbackRemainSec);
+  }, [readyAtIso, fallbackRemainSec, tick]);
+
+  useEffect(() => {
+    if (remainSec > 0) return;
+    if (firedRef.current) return;
+    firedRef.current = true;
+    onElapsed();
+  }, [remainSec, onElapsed]);
+
+  return (
+    <span className="tabular-nums">{formatRemainHms(remainSec)}</span>
+  );
+}
+
 export function FishingPanel() {
   const router = useRouter();
   const { data: status } = useSWR<FishingStatusResult>(
@@ -555,9 +599,15 @@ export function FishingPanel() {
       {phase === "can_cast" && lakeUiPhase === "casting" ? (
         <div className="space-y-3">
           <div className="glass-panel rounded-2xl border border-zinc-800/40 p-4 text-center">
-            <p className="mb-1 text-xs text-zinc-500">收竿倒數（與該釣竿冷卻同步）</p>
+            <p className="mb-1 text-xs text-zinc-500">
+              收竿倒數（依拋竿時鎖定的可收竿時間）
+            </p>
             <p className="text-2xl font-semibold tabular-nums text-violet-400">
-              {formatRemainHms(activeRod?.pendingHarvestRemainSec ?? 0)}
+              <PendingHarvestCountdown
+                readyAtIso={activeRod?.pendingHarvestReadyAtIso ?? null}
+                fallbackRemainSec={activeRod?.pendingHarvestRemainSec ?? 0}
+                onElapsed={() => void swrMutate(SWR_KEYS.fishingStatus)}
+              />
             </p>
             <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-zinc-800">
               <div className="h-full w-full animate-pulse rounded-full bg-violet-500/80" />
