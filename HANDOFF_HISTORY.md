@@ -2,6 +2,18 @@
 
 舊版主檔內之逐日／逐任務紀錄與長篇 Wave 敘事已遷移至此。**平時不必讀**；需追溯決策或實作細節時再開。
 
+### 2026-04-03 — 月老魚性向篩選、綁定與 IG 強制顯示
+
+1. **目標**：修正月老魚性向硬鎖（DB 存英文 slug，舊邏輯比對中文導致異性戀男男誤配）；月老配對成功後通知被釣者、開獎卡與魚獲詳情強制顯示 IG（不改 `ig_public`）。
+2. **根因**：**`checkGenderOrientation`** 比對「異性戀」等中文 label，**`users.orientation`** 實際為 **`heterosexual`／`homosexual`／`pansexual`**（見 **`adventurer-questionnaire.ts`**），落到錯誤後備條件。
+3. **修正**：**`src/lib/utils/matchmaker-locks.ts`** — `normalizeOrientationForMatch`（legacy slug＋極少數中文）、**`isOrientationMatch`**（**`matching.ts`**）；任一方性向空白則不擋。
+4. **Layer 2**：**`user.repository.ts`** — **`MatchmakerPoolCandidateRow`** 與 **`findMatchmakerPoolCandidates`** `.select` 補 **`instagram_handle`／`interests`／`bio_village`**。
+5. **Layer 3**：**`fishing.action.ts`** — 匯出 **`MatchmakerCollectPeer`**；**`HarvestPreviewPayload`** 補 **`peerRegion`／`peerInterests`／`peerBioVillage`／`peerInstagramHandle`**（預覽回放）；**`matchmakerUserFromPick`**；**`applyHarvestPreviewPayload`** 在 **`tryInsertMatchmakerLog`**（有緣人）後 **`notifyUserMailboxSilent`**（`type: system`，`from_user_id`＝釣魚者）；**`prepareHarvestFishAction`** 從預覽還原 **`matchmakerUser`** 新欄位。（實際寫入日誌與發獎僅在確認收成路徑。）
+6. **Layer 5**：**`fishing-reward-modal.tsx`** — 月老卡顯示地區／興趣／自介／IG（**`instagramProfileUrlFromHandle`**）；**`UserDetailModal.tsx`** — **`forceShowIg`**；**`catch-panel.tsx`** — 有緣人列 **「❤️ 月老」** 標記、開啟詳情 **`forceShowIg`**。
+7. **資料庫**：無 DDL 變更。
+8. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+9. **架構**：通知經 Layer 3 `notifyUserMailboxSilent` → Repository；UI 不直連 DB。
+
 ### 2026-04-03 — 全站動態設定系統（useAppSettings、合併 fishing_age_max、替換硬編碼）
 
 1. **目標**：建立 `getPublicAppSettingsAction` + `useAppSettings` hook，讓後台修改 `system_settings` 後前台自動同步；合併 `fishing_age_max` → `matchmaker_age_max`；替換全站前台硬編碼為動態讀取。

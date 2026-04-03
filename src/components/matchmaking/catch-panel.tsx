@@ -119,16 +119,21 @@ export function CatchPanel({ subTab, onSubTabChange }: CatchPanelProps) {
 
   const [detailUser, setDetailUser] = useState<MemberProfileView | null>(null);
   const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
+  const [detailForceShowIg, setDetailForceShowIg] = useState(false);
 
-  const openDetail = useCallback(async (userId: string) => {
-    setDetailLoadingId(userId);
-    try {
-      const p = await getMemberProfileByIdAction(userId);
-      if (p) setDetailUser(p);
-    } finally {
-      setDetailLoadingId(null);
-    }
-  }, []);
+  const openDetail = useCallback(
+    async (userId: string, opts?: { forceShowIg?: boolean }) => {
+      setDetailLoadingId(userId);
+      setDetailForceShowIg(opts?.forceShowIg === true);
+      try {
+        const p = await getMemberProfileByIdAction(userId);
+        if (p) setDetailUser(p);
+      } finally {
+        setDetailLoadingId(null);
+      }
+    },
+    [],
+  );
 
   if (isLoading || !data) {
     return (
@@ -203,10 +208,17 @@ export function CatchPanel({ subTab, onSubTabChange }: CatchPanelProps) {
                           </span>
                         ) : null}
                       </div>
-                      <p className="text-xs text-zinc-500">
-                        {l.peer_region ?? "—"} ·{" "}
-                        {formatTaipeiMd(l.created_at)}
-                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {l.fish_type === "matchmaker" && l.fish_user_id ? (
+                          <span className="rounded-full border border-violet-500/40 bg-violet-900/60 px-2 py-0.5 text-[10px] text-violet-300">
+                            ❤️ 月老
+                          </span>
+                        ) : null}
+                        <span className="text-xs text-zinc-500">
+                          {l.peer_region ?? "—"} ·{" "}
+                          {formatTaipeiMd(l.created_at)}
+                        </span>
+                      </div>
                       {(l.peer_interests ?? []).length > 0 ? (
                         <div className="mt-1 flex flex-wrap gap-1">
                           {l.peer_interests!.slice(0, 3).map((slug) => (
@@ -238,7 +250,9 @@ export function CatchPanel({ subTab, onSubTabChange }: CatchPanelProps) {
                     size="sm"
                     className="shrink-0 border-zinc-700 text-xs text-zinc-200"
                     disabled={detailLoadingId === l.fish_user_id}
-                    onClick={() => void openDetail(l.fish_user_id!)}
+                    onClick={() =>
+                      void openDetail(l.fish_user_id!, { forceShowIg: true })
+                    }
                   >
                     {detailLoadingId === l.fish_user_id ? "…" : "查看"}
                   </Button>
@@ -307,8 +321,12 @@ export function CatchPanel({ subTab, onSubTabChange }: CatchPanelProps) {
         <UserDetailModal
           user={detailUser}
           open
+          forceShowIg={detailForceShowIg}
           onOpenChange={(open) => {
-            if (!open) setDetailUser(null);
+            if (!open) {
+              setDetailUser(null);
+              setDetailForceShowIg(false);
+            }
           }}
         />
       ) : null}

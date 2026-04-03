@@ -78,6 +78,8 @@ export type UserDetailModalProps = {
   stackAboveChatZ?: number;
   /** 首頁「他人視角」預覽：隱藏互動與管理員專屬區，且不載入社交狀態 */
   publicPreview?: boolean;
+  /** 月老魚魚獲等：強制顯示 IG（不依 ig_public／血盟） */
+  forceShowIg?: boolean;
 };
 
 export function UserDetailModal({
@@ -86,6 +88,7 @@ export function UserDetailModal({
   onOpenChange,
   stackAboveChatZ,
   publicPreview = false,
+  forceShowIg = false,
 }: UserDetailModalProps) {
   const { mutate: globalMutate } = useSWRConfig();
   const { profile: myProfile } = useMyProfile();
@@ -153,8 +156,9 @@ export function UserDetailModal({
   const { isLiked, isMutualLike, allianceStatus, allianceId } = socialStatus;
 
   const showInstagram =
-    Boolean(u.instagram_handle?.trim()) &&
-    (u.ig_public === true || allianceStatus === "accepted");
+    forceShowIg ||
+    (Boolean(u.instagram_handle?.trim()) &&
+      (u.ig_public === true || allianceStatus === "accepted"));
 
   const genderLabel = resolveLegacyLabel(u.gender, GENDER_OPTIONS);
   const regionLabel = resolveLegacyLabel(

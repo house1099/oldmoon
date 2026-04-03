@@ -255,6 +255,9 @@ export type MatchmakerPoolCandidateRow = Pick<
   | "birth_year"
   | "gender"
   | "orientation"
+  | "instagram_handle"
+  | "interests"
+  | "bio_village"
   | "matchmaker_age_mode"
   | "matchmaker_age_older"
   | "matchmaker_age_younger"
@@ -285,7 +288,7 @@ export async function findMatchmakerPoolCandidates(
   const { data, error } = await admin
     .from("users")
     .select(
-      "id, nickname, avatar_url, region, birth_year, gender, orientation, matchmaker_age_mode, matchmaker_age_older, matchmaker_age_younger, matchmaker_region_pref, diet_type, smoking_habit, accept_smoking, my_pets, accept_pets, has_children, accept_single_parent, fertility_self, fertility_pref, marriage_view, zodiac, exclude_zodiac, v1_money, v3_clingy, v4_conflict, height_cm, pref_height",
+      "id, nickname, avatar_url, region, birth_year, gender, orientation, instagram_handle, interests, bio_village, matchmaker_age_mode, matchmaker_age_older, matchmaker_age_younger, matchmaker_region_pref, diet_type, smoking_habit, accept_smoking, my_pets, accept_pets, has_children, accept_single_parent, fertility_self, fertility_pref, marriage_view, zodiac, exclude_zodiac, v1_money, v3_clingy, v4_conflict, height_cm, pref_height",
     )
     .eq("status", "active")
     .neq("activity_status", "hidden")

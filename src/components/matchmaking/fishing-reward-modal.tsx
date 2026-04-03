@@ -6,6 +6,7 @@ import Lottie from "lottie-react";
 import { Button } from "@/components/ui/button";
 import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
 import { getFishingRevealLottiePath } from "@/lib/utils/fishing-reveal-lottie";
+import { instagramProfileUrlFromHandle } from "@/lib/utils/instagram";
 import type { CollectFishResult } from "@/services/fishing.action";
 import type { MemberProfileView } from "@/services/profile.action";
 
@@ -226,32 +227,77 @@ export function FishingRewardModal({
                       {lastResult.matchmakerUser.nickname}
                     </span>
                   </div>
-                  {peerExtra ? (
-                    <>
-                      <p className="mt-2 text-xs text-zinc-400">
-                        📍 {peerExtra.region}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {(peerExtra.interests ?? [])
-                          .slice(0, 3)
-                          .map((slug) => (
-                            <span
-                              key={slug}
-                              className="rounded-full border border-violet-500/40 bg-violet-950/50 px-2 py-0.5 text-[10px] text-violet-200"
+                  {(() => {
+                    const mm = lastResult.matchmakerUser;
+                    const regionLine =
+                      mm.region?.trim() ||
+                      peerExtra?.region ||
+                      "未填寫";
+                    const interestSlugs =
+                      mm.interests && mm.interests.length > 0
+                        ? mm.interests
+                        : (peerExtra?.interests ?? []);
+                    const bioLine =
+                      [mm.bioVillage, peerExtra?.bio_village, peerExtra?.bio].find(
+                        (b) => b?.trim(),
+                      ) ?? "尚未填寫自介";
+                    const igHandle =
+                      mm.instagramHandle?.trim() ||
+                      peerExtra?.instagram_handle?.trim();
+                    const igUrl = instagramProfileUrlFromHandle(igHandle ?? "");
+                    const hasLocal =
+                      Boolean(mm.region?.trim()) ||
+                      (mm.interests && mm.interests.length > 0) ||
+                      Boolean(mm.bioVillage?.trim()) ||
+                      Boolean(mm.instagramHandle?.trim());
+                    if (!hasLocal && !peerExtra) {
+                      return (
+                        <p className="mt-2 text-xs text-zinc-500">載入資料中…</p>
+                      );
+                    }
+                    return (
+                      <>
+                        <p className="mt-2 text-xs text-zinc-400">
+                          📍 {regionLine}
+                        </p>
+                        {interestSlugs.length > 0 ? (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {interestSlugs.slice(0, 3).map((slug) => (
+                              <span
+                                key={slug}
+                                className="rounded-full border border-violet-500/40 bg-violet-950/50 px-2 py-0.5 text-[10px] text-violet-200"
+                              >
+                                {tagLabel(slug)}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                        <p className="mt-2 line-clamp-2 text-sm text-zinc-400">
+                          {bioLine}
+                        </p>
+                        {igHandle && igUrl ? (
+                          <div className="mt-3 flex items-center justify-between rounded-xl border border-zinc-700/40 bg-zinc-900/60 p-3">
+                            <div>
+                              <div className="mb-0.5 text-xs text-zinc-500">
+                                Instagram
+                              </div>
+                              <div className="text-sm font-medium text-white">
+                                @{igHandle.replace(/^@+/, "")}
+                              </div>
+                            </div>
+                            <a
+                              href={igUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="rounded-full bg-violet-600 px-3 py-1.5 text-xs text-white transition-colors hover:bg-violet-500"
                             >
-                              {tagLabel(slug)}
-                            </span>
-                          ))}
-                      </div>
-                      <p className="mt-2 line-clamp-2 text-sm text-zinc-400">
-                        {[peerExtra.bio_village, peerExtra.bio].find((b) =>
-                          b?.trim(),
-                        ) ?? "尚未填寫自介"}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="mt-2 text-xs text-zinc-500">載入資料中…</p>
-                  )}
+                              前往 IG
+                            </a>
+                          </div>
+                        ) : null}
+                      </>
+                    );
+                  })()}
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Button
                       type="button"

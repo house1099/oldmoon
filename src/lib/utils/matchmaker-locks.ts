@@ -1,3 +1,5 @@
+import { isOrientationMatch } from "@/lib/utils/matching";
+
 export interface MatchmakerProfile {
   gender: string | null;
   orientation: string | null;
@@ -95,26 +97,39 @@ export function checkAllMatchmakerLocks(
   return true;
 }
 
-// ── 性別 × 性向（V500 checkGenderOrientation） ──
+// ── 性別 × 性向（與 `matching.ts` 雙向邏輯一致；DB 存英文 slug） ──
+
+/** 對齊 `users.orientation` 英文 slug／舊版 slug／極少數誤存中文 label */
+function normalizeOrientationForMatch(raw: string | null | undefined): string {
+  const s = (raw ?? "").trim();
+  if (!s) return "";
+  const lower = s.toLowerCase();
+  if (lower === "straight") return "heterosexual";
+  if (lower === "gay" || lower === "lesbian") return "homosexual";
+  if (lower === "bisexual") return "pansexual";
+  if (
+    lower === "heterosexual" ||
+    lower === "homosexual" ||
+    lower === "pansexual"
+  ) {
+    return lower;
+  }
+  if (s === "異性戀") return "heterosexual";
+  if (s === "同性戀") return "homosexual";
+  if (s === "泛性戀" || s === "雙性戀") return "pansexual";
+  return lower;
+}
 
 function checkGenderOrientation(
   a: MatchmakerProfile,
   b: MatchmakerProfile,
 ): boolean {
-  const gA = a.gender ?? "",
-    gB = b.gender ?? "";
-  const oA = a.orientation ?? "",
-    oB = b.orientation ?? "";
-
-  if (oA === "雙性戀" || oB === "雙性戀") {
-    if (oA === "異性戀") return gA !== gB;
-    if (oB === "異性戀") return gA !== gB;
-    if (oA === "同性戀") return gA === gB;
-    if (oB === "同性戀") return gA === gB;
-    return true;
-  }
-  if (oA === "異性戀") return gA !== gB && oB !== "同性戀";
-  return gA === gB && oB !== "異性戀";
+  const gA = a.gender ?? "";
+  const gB = b.gender ?? "";
+  const oA = normalizeOrientationForMatch(a.orientation);
+  const oB = normalizeOrientationForMatch(b.orientation);
+  if (!oA || !oB) return true;
+  return isOrientationMatch(gA, oA, gB, oB);
 }
 
 function checkHeightLock(

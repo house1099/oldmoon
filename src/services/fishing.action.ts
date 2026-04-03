@@ -19,6 +19,7 @@ import {
 import {
   findMatchmakerPoolCandidates,
   findProfileById,
+  type MatchmakerPoolCandidateRow,
 } from "@/lib/repositories/server/user.repository";
 import {
   buildFishItemJson,
@@ -124,17 +125,24 @@ export type FishingStatusResult =
   | { ok: true; data: FishingStatusDto }
   | { ok: false; error: "fishing_disabled" };
 
+/** 月老魚開獎／預覽：有緣人摘要（IG 為月老情境強制帶出，不依 ig_public） */
+export type MatchmakerCollectPeer = {
+  id: string;
+  nickname: string;
+  avatar_url: string | null;
+  region: string | null;
+  interests: string[] | null;
+  bioVillage: string | null;
+  instagramHandle: string | null;
+};
+
 export type CollectFishResult =
   | {
       ok: true;
       fishType: FishType;
       /** 本次抽中的獎勵階級（供開獎 Lottie）；無表或 fallback 時可能為 null */
       rewardTier?: FishingRewardTier | null;
-      matchmakerUser?: {
-        id: string;
-        nickname: string;
-        avatar_url: string | null;
-      } | null;
+      matchmakerUser?: MatchmakerCollectPeer | null;
       noMatchFound?: boolean;
       fishCoins?: number;
       fishExp?: number;
@@ -163,6 +171,35 @@ function clampAgeFields(older: number, younger: number, ageMax: number) {
     matchmaker_age_older: Math.min(older, ageMax),
     matchmaker_age_younger: Math.min(younger, ageMax),
   };
+}
+
+const MATCHMAKER_PEER_MAILBOX_MESSAGE =
+  "🎣 命運之湖有人釣到你了！\n\n有位冒險者透過月老魚池對你感興趣，快去「魚獲」查看吧。";
+
+function matchmakerUserFromPick(
+  pick: MatchmakerPoolCandidateRow,
+): MatchmakerCollectPeer {
+  return {
+    id: pick.id,
+    nickname: pick.nickname,
+    avatar_url: pick.avatar_url,
+    region: pick.region,
+    interests: pick.interests,
+    bioVillage: pick.bio_village,
+    instagramHandle: pick.instagram_handle,
+  };
+}
+
+function notifyMatchmakerPeerCaught(
+  fisherUserId: string,
+  peerUserId: string,
+): Promise<void> {
+  return notifyUserMailboxSilent({
+    user_id: peerUserId,
+    type: "system",
+    from_user_id: fisherUserId,
+    message: MATCHMAKER_PEER_MAILBOX_MESSAGE,
+  });
 }
 
 function peerSnapshotFromProfile(p: UserRow | null) {
@@ -985,8 +1022,8 @@ export async function castFishAction(opts?: {
     return { ok: false, error: "釣餌數量不足。" };
   }
 
-  const capMin = Math.max(1, rodRules.cooldownAfterCastMinutes);
-  const delayMinutes = 1 + Math.floor(Math.random() * capMin);
+  /** 與釣竿冷卻對齊：可收竿時間＝拋竿時間＋冷卻分鐘（與再次拋竿解鎖時間相同） */
+  const delayMinutes = Math.max(0, rodRules.cooldownAfterCastMinutes);
   const readyIso = new Date(Date.now() + delayMinutes * 60_000).toISOString();
 
   await setPendingCast({
@@ -1014,6 +1051,11 @@ type HarvestPreviewPayload = {
   peerUserId: string | null;
   peerNickname: string | null;
   peerAvatarUrl: string | null;
+  /** 月老魚預覽用，舊預覽可能無此欄 */
+  peerRegion?: string | null;
+  peerInterests?: string[] | null;
+  peerBioVillage?: string | null;
+  peerInstagramHandle?: string | null;
   noMatchFound: boolean;
 };
 
@@ -1303,11 +1345,7 @@ async function runFishingHarvestCore(
       ok: true,
       fishType: "matchmaker",
       rewardTier,
-      matchmakerUser: {
-        id: pick.id,
-        nickname: pick.nickname,
-        avatar_url: pick.avatar_url,
-      },
+      matchmakerUser: matchmakerUserFromPick(pick),
       fishCoins: 0,
       fishExp: 0,
     };
@@ -1326,6 +1364,10 @@ async function runFishingHarvestCore(
         peerUserId: pick.id,
         peerNickname: pick.nickname,
         peerAvatarUrl: pick.avatar_url,
+        peerRegion: pick.region,
+        peerInterests: pick.interests,
+        peerBioVillage: pick.bio_village,
+        peerInstagramHandle: pick.instagram_handle,
         noMatchFound: false,
       };
       await setPendingHarvestPreview({
@@ -1354,11 +1396,7 @@ async function runFishingHarvestCore(
     ok: true,
     fishType: "matchmaker",
     rewardTier,
-    matchmakerUser: {
-      id: pick.id,
-      nickname: pick.nickname,
-      avatar_url: pick.avatar_url,
-    },
+    matchmakerUser: matchmakerUserFromPick(pick),
     fishCoins,
     fishExp,
   };
@@ -1377,6 +1415,10 @@ async function runFishingHarvestCore(
       peerUserId: pick.id,
       peerNickname: pick.nickname,
       peerAvatarUrl: pick.avatar_url,
+      peerRegion: pick.region,
+      peerInterests: pick.interests,
+      peerBioVillage: pick.bio_village,
+      peerInstagramHandle: pick.instagram_handle,
       noMatchFound: false,
     };
     await setPendingHarvestPreview({
@@ -1523,6 +1565,9 @@ async function applyHarvestPreviewPayload(
     peer: peerFull,
     fish_item: p.fishItemJson,
   });
+  if (p.peerUserId) {
+    await notifyMatchmakerPeerCaught(userId, p.peerUserId);
+  }
 }
 
 async function sharedHarvestGate(
@@ -1626,6 +1671,10 @@ export async function prepareHarvestFishAction(opts?: {
                 id: prev.peerUserId,
                 nickname: prev.peerNickname,
                 avatar_url: prev.peerAvatarUrl,
+                region: prev.peerRegion ?? null,
+                interests: prev.peerInterests ?? null,
+                bioVillage: prev.peerBioVillage ?? null,
+                instagramHandle: prev.peerInstagramHandle ?? null,
               }
             : null,
         noMatchFound: prev.noMatchFound,
