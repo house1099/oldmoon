@@ -49,6 +49,7 @@ export async function findFirstFishingRodDisplayName(
     .select("shop_items(name), prize_items(label)")
     .eq("user_id", userId)
     .eq("reward_type", "fishing_rod")
+    .is("used_at", null)
     .limit(1)
     .maybeSingle();
   if (error) throw error;
@@ -78,6 +79,7 @@ export async function findFirstFishingBaitDisplayName(
     .select("shop_items(name), prize_items(label)")
     .eq("user_id", userId)
     .eq("reward_type", "fishing_bait")
+    .is("used_at", null)
     .limit(1)
     .maybeSingle();
   if (error) throw error;

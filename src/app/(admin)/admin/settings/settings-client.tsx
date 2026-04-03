@@ -860,11 +860,22 @@ export default function AdminSettingsClient({ isMaster }: { isMaster: boolean })
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50/60 px-4 py-3">
                 <p className="text-sm text-gray-700">Banner 開關</p>
-                <Switch
-                  checked={bannerEnabled}
-                  disabled={bannerSavingKey === "enabled"}
-                  onCheckedChange={(v) => void saveBannerEnabled(v)}
-                />
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "min-w-[2.75rem] text-right text-sm font-semibold tabular-nums",
+                      bannerEnabled ? "text-violet-700" : "text-zinc-500",
+                    )}
+                  >
+                    {bannerEnabled ? "開啟" : "關閉"}
+                  </span>
+                  <Switch
+                    checked={bannerEnabled}
+                    disabled={bannerSavingKey === "enabled"}
+                    onCheckedChange={(v) => void saveBannerEnabled(v)}
+                    className="h-7 w-[3.25rem] shrink-0 border border-zinc-300 shadow-inner data-[checked]:border-violet-700 data-[checked]:bg-violet-600 data-[unchecked]:bg-zinc-200"
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <p className="text-sm text-gray-700">Banner 標題</p>
@@ -894,11 +905,22 @@ export default function AdminSettingsClient({ isMaster }: { isMaster: boolean })
                     開啟後所有用戶都會看到 Banner 且無法關閉，關閉後僅資料不完整的用戶看到
                   </p>
                 </div>
-                <Switch
-                  checked={bannerForce}
-                  disabled={bannerSavingKey === "force"}
-                  onCheckedChange={(v) => void saveBannerForce(v)}
-                />
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "min-w-[2.75rem] text-right text-sm font-semibold tabular-nums",
+                      bannerForce ? "text-violet-700" : "text-zinc-500",
+                    )}
+                  >
+                    {bannerForce ? "開啟" : "關閉"}
+                  </span>
+                  <Switch
+                    checked={bannerForce}
+                    disabled={bannerSavingKey === "force"}
+                    onCheckedChange={(v) => void saveBannerForce(v)}
+                    className="h-7 w-[3.25rem] shrink-0 border border-zinc-300 shadow-inner data-[checked]:border-violet-700 data-[checked]:bg-violet-600 data-[unchecked]:bg-zinc-200"
+                  />
+                </div>
               </div>
             </div>
           )}

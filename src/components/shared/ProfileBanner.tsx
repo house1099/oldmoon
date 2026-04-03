@@ -10,6 +10,12 @@ import { getProfileBannerSettingsAction } from "@/services/profile-change.action
 import { cn } from "@/lib/utils";
 
 const DISMISS_STORAGE_KEY = "profile_banner_dismissed_v1";
+/** 月老配對補填橫幅：關閉僅限本瀏覽器工作階段，重開分頁／重登後再提示 */
+const MATCHMAKER_BANNER_DISMISS_SESSION_KEY =
+  "matchmaker_fields_banner_dismissed_v1";
+
+/** 需低於 Dialog overlay（z-50），高於底部導覽（z-40），避免擋住商城等 Modal */
+const BANNER_Z_CLASS = "z-[41]";
 
 /** 需經「帳號設定 → 基本資料變更」審核之欄位（非月老設定 Tab） */
 const MATCHMAKER_FIELDS_BASIC_PROFILE = new Set<string>(["height_cm"]);
@@ -44,13 +50,33 @@ function writeStoredDismissTitle(title: string) {
   }
 }
 
+function readMatchmakerBannerDismissedSession(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return sessionStorage.getItem(MATCHMAKER_BANNER_DISMISS_SESSION_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeMatchmakerBannerDismissedSession() {
+  try {
+    sessionStorage.setItem(MATCHMAKER_BANNER_DISMISS_SESSION_KEY, "1");
+  } catch {
+    /* ignore */
+  }
+}
+
 export function ProfileBanner() {
   const router = useRouter();
   const { profile } = useMyProfile();
   const [dismissedTitle, setDismissedTitle] = useState<string | null>(null);
+  const [matchmakerDismissedThisSession, setMatchmakerDismissedThisSession] =
+    useState(false);
 
   useEffect(() => {
     setDismissedTitle(readStoredDismissTitle());
+    setMatchmakerDismissedThisSession(readMatchmakerBannerDismissedSession());
   }, []);
 
   const { data: settings } = useSWR(
@@ -68,7 +94,9 @@ export function ProfileBanner() {
   }, [profile]);
 
   const showMatchmakerBanner = Boolean(
-    settings?.checkMatchmakerFields && missingMatchmakerFields.length > 0,
+    settings?.checkMatchmakerFields &&
+      missingMatchmakerFields.length > 0 &&
+      !matchmakerDismissedThisSession,
   );
 
   const shouldShowProfileBase = useMemo(() => {
@@ -104,6 +132,11 @@ export function ProfileBanner() {
     setDismissedTitle(settings.title);
   }, [settings]);
 
+  const handleDismissMatchmakerBanner = useCallback(() => {
+    writeMatchmakerBannerDismissedSession();
+    setMatchmakerDismissedThisSession(true);
+  }, []);
+
   const goFillProfile = useCallback(() => {
     router.push("/?accountSettings=profileChange");
   }, [router]);
@@ -127,7 +160,8 @@ export function ProfileBanner() {
     return (
       <div
         className={cn(
-          "fixed left-0 right-0 z-[55] flex min-h-14 items-center gap-2 border-t border-amber-500/40 bg-amber-950/90 px-3 py-2 backdrop-blur-xl",
+          BANNER_Z_CLASS,
+          "fixed left-0 right-0 flex min-h-14 items-center gap-2 border-t border-amber-500/40 bg-amber-950/90 px-3 py-2 backdrop-blur-xl",
           "bottom-[calc(3.75rem+env(safe-area-inset-bottom,0px))] w-full",
         )}
         role="region"
@@ -142,6 +176,14 @@ export function ProfileBanner() {
         </p>
         <button
           type="button"
+          onClick={handleDismissMatchmakerBanner}
+          className="shrink-0 rounded-full p-1.5 text-amber-200 transition hover:bg-white/10"
+          aria-label="暫時關閉（本次連線有效，下次開啟網站會再提示）"
+        >
+          <X className="size-4" />
+        </button>
+        <button
+          type="button"
           onClick={goMatchmakerBanner}
           className="shrink-0 rounded-full bg-amber-500/80 px-3 py-1.5 text-xs font-medium text-zinc-950 transition hover:bg-amber-400/90"
         >
@@ -154,7 +196,8 @@ export function ProfileBanner() {
   return (
     <div
       className={cn(
-        "fixed left-0 right-0 z-[55] flex h-14 items-center gap-2 border-t border-violet-400/40 bg-violet-950/90 px-3 backdrop-blur-xl",
+        BANNER_Z_CLASS,
+        "fixed left-0 right-0 flex h-14 items-center gap-2 border-t border-violet-400/40 bg-violet-950/90 px-3 backdrop-blur-xl",
         "bottom-[calc(3.75rem+env(safe-area-inset-bottom,0px))] w-full",
       )}
       role="region"

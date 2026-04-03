@@ -780,7 +780,8 @@ export async function listFishingRodsAndBaits(
     .from("user_rewards")
     .select("id, reward_type, shop_item_id, label, quantity, shop_items(name, metadata)")
     .eq("user_id", userId)
-    .in("reward_type", ["fishing_rod", "fishing_bait"]);
+    .in("reward_type", ["fishing_rod", "fishing_bait"])
+    .is("used_at", null);
   if (error) throw error;
   const rows = (data ?? []) as {
     id: string;
@@ -845,6 +846,7 @@ export async function userHasFishingRodForShopItem(
     .eq("user_id", userId)
     .eq("reward_type", "fishing_rod")
     .eq("shop_item_id", shopItemId)
+    .is("used_at", null)
     .limit(1)
     .maybeSingle();
   if (error) throw error;
@@ -860,7 +862,8 @@ export async function countUserRewardsByType(
     .from("user_rewards")
     .select("*", { count: "exact", head: true })
     .eq("user_id", userId)
-    .eq("reward_type", rewardType);
+    .eq("reward_type", rewardType)
+    .is("used_at", null);
   if (error) throw error;
   return count ?? 0;
 }
@@ -872,7 +875,8 @@ export async function sumFishingBaitQuantity(userId: string): Promise<number> {
     .from("user_rewards")
     .select("quantity")
     .eq("user_id", userId)
-    .eq("reward_type", "fishing_bait");
+    .eq("reward_type", "fishing_bait")
+    .is("used_at", null);
   if (error) throw error;
   let sum = 0;
   for (const r of data ?? []) {
