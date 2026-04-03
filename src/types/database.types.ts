@@ -96,7 +96,7 @@ export interface Database {
           birth_year: number | null;
           /** 自身身高（公分），月老魚配對與個人資料用 */
           height_cm: number | null;
-          /** 身高偏好：taller/similar/shorter/tall_threshold/short_threshold，月老魚配對用 */
+          /** 身高偏好：taller/similar/shorter/tall_threshold/short_threshold/height_any，月老魚配對用 */
           pref_height: string | null;
           /** 月老魚可接受年齡差距（歲），預設 10；舊欄位，新程式改寫三欄位 */
           matchmaker_age_range: number;

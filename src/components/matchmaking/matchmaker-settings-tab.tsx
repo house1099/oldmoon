@@ -764,6 +764,7 @@ function MatchmakerProfileForm({
                   { value: "taller", label: "比我高" },
                   { value: "similar", label: "跟我差不多（±5cm）" },
                   { value: "shorter", label: "比我矮" },
+                  { value: "height_any", label: "都可以不介意" },
                   ...(profile.gender === "female"
                     ? [
                         {

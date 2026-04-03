@@ -159,6 +159,8 @@ function checkOneSideHeight(
   const RESCUE = 2;
 
   switch (pref) {
+    case "height_any":
+      return true;
     case "taller":
       return targetH > myH || myH - targetH <= RESCUE;
     case "shorter":

@@ -39,6 +39,39 @@ export async function findFishingLogsForUser(
   return (data ?? []) as FishingLogRow[];
 }
 
+/**
+ * 月老魚曾「確認留存」的對象（`fish_item.matchmakerReleased` 不為 true 的紀錄）；
+ * 放生列不列入，之後仍可能再配對到同一人。
+ */
+export async function findMatchmakerKeptPeerIds(
+  userId: string,
+): Promise<Set<string>> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("fishing_logs")
+    .select("fish_user_id, fish_item")
+    .eq("user_id", userId)
+    .eq("fish_type", "matchmaker")
+    .not("fish_user_id", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(2000);
+  if (error) throw error;
+  const out = new Set<string>();
+  for (const row of data ?? []) {
+    const fid = row.fish_user_id as string | null;
+    if (!fid) continue;
+    const fi = row.fish_item;
+    const released =
+      fi &&
+      typeof fi === "object" &&
+      !Array.isArray(fi) &&
+      (fi as Record<string, unknown>).matchmakerReleased === true;
+    if (released) continue;
+    out.add(fid);
+  }
+  return out;
+}
+
 /** 第一支釣竿顯示名：優先 `shop_items.name`，否則 `prize_items.label`。 */
 export async function findFirstFishingRodDisplayName(
   userId: string,

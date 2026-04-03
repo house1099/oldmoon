@@ -347,9 +347,22 @@ export async function getMyStreakAction(): Promise<
     return { ok: false, error: "請先登入。" };
   }
   const row = await findStreakByUserId(user.id);
+  const dbStreak = row?.current_streak ?? 0;
+  const now = new Date();
+  const todayKey = taipeiCalendarDateKey(now);
+  const lastClaimKey = row?.last_claim_at
+    ? taipeiCalendarDateKey(new Date(row.last_claim_at))
+    : null;
+  let currentStreak = dbStreak;
+  if (lastClaimKey != null) {
+    const gap = taipeiCalendarDaysBetween(lastClaimKey, todayKey);
+    if (gap > 1) {
+      currentStreak = 0;
+    }
+  }
   return {
     ok: true,
-    currentStreak: row?.current_streak ?? 0,
+    currentStreak,
     longestStreak: row?.longest_streak ?? 0,
     lastClaimAt: row?.last_claim_at ?? null,
   };

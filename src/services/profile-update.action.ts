@@ -289,6 +289,7 @@ export async function updateMyProfile(input: {
       "shorter",
       "tall_threshold",
       "short_threshold",
+      "height_any",
     ];
     const t = input.pref_height.trim();
     if (t.length === 0) {

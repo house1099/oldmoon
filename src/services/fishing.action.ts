@@ -26,6 +26,7 @@ import {
   findFishingLogsForUser,
   findFirstFishingBaitDisplayName,
   findFirstFishingRodDisplayName,
+  findMatchmakerKeptPeerIds,
   insertFishingLog,
   pickReward,
 } from "@/lib/repositories/server/fishing.repository";
@@ -1155,9 +1156,11 @@ async function runFishingHarvestCore(
     return collect;
   }
 
-  const [ageMax, blocked, candidatesRaw, ...lockRaw] = await Promise.all([
+  const [ageMax, blocked, keptPeerIds, candidatesRaw, ...lockRaw] =
+    await Promise.all([
     getMatchmakerAgeMaxAction(),
     findUserIdsInBlockRelation(userId).then((ids) => new Set(ids)),
+    findMatchmakerKeptPeerIds(userId),
     findMatchmakerPoolCandidates(userId),
     findSystemSettingByKey("matchmaker_lock_height"),
     findSystemSettingByKey("matchmaker_height_tall_threshold"),
@@ -1235,6 +1238,7 @@ async function runFishingHarvestCore(
   const pool: typeof candidatesRaw = [];
   for (const c of candidatesRaw) {
     if (blocked.has(c.id)) continue;
+    if (keptPeerIds.has(c.id)) continue;
     if (
       !c.region ||
       !isRegionMatch(c.region, fisher.matchmaker_region_pref ?? '["all"]')
