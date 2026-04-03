@@ -51,17 +51,28 @@ function tagLabel(slug: string): string {
   return INTEREST_TAG_OPTIONS.find((o) => o.value === slug)?.label ?? slug;
 }
 
+/** 與 fishing-cast.repository getRodCastSnapshot 一致：剩餘秒採 ceil */
 function formatRemainHms(totalSec: number): string {
-  const s = Math.max(0, Math.floor(totalSec));
+  const s = Math.max(0, Math.ceil(totalSec));
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
   return `${h} 小時 ${m} 分 ${sec} 秒`;
 }
 
+/** 可收竿：後端已回 0 秒，或本地時鐘已過 readyAt（樂觀） */
+function harvestReadyByServerOrLocal(r: FishingRodRow): boolean {
+  if (!r.hasPendingCast) return false;
+  if (r.pendingHarvestRemainSec <= 0) return true;
+  const iso = r.pendingHarvestReadyAtIso;
+  if (!iso) return false;
+  const targetMs = new Date(iso).getTime();
+  return Number.isFinite(targetMs) && Date.now() >= targetMs;
+}
+
 function rodChipStatus(r: FishingRodRow): { label: string; detail: string } {
   if (r.hasPendingCast) {
-    if (r.pendingHarvestRemainSec > 0) {
+    if (!harvestReadyByServerOrLocal(r)) {
       return {
         label: "等待",
         detail: "等待收竿倒數中",
@@ -204,11 +215,18 @@ function CooldownTimer({
     void tick;
     if (!nextCastAt) return 0;
     const targetMs = new Date(nextCastAt).getTime();
-    return Math.max(0, (targetMs - Date.now()) / 1000);
+    return Math.max(0, Math.ceil((targetMs - Date.now()) / 1000));
   }, [nextCastAt, tick]);
 
   useEffect(() => {
-    if (!nextCastAt || remainSec > 0) return;
+    if (!nextCastAt) return;
+    const targetMs = new Date(nextCastAt).getTime();
+    if (Date.now() >= targetMs && !firedRef.current) {
+      firedRef.current = true;
+      onElapsed();
+      return;
+    }
+    if (remainSec > 0) return;
     if (firedRef.current) return;
     firedRef.current = true;
     onElapsed();
@@ -244,18 +262,28 @@ function PendingHarvestCountdown({
     void tick;
     if (readyAtIso) {
       const targetMs = new Date(readyAtIso).getTime();
-      const sec = (targetMs - Date.now()) / 1000;
-      return Number.isFinite(sec) ? Math.max(0, sec) : Math.max(0, fallbackRemainSec);
+      if (!Number.isFinite(targetMs)) {
+        return Math.max(0, Math.ceil(fallbackRemainSec));
+      }
+      return Math.max(0, Math.ceil((targetMs - Date.now()) / 1000));
     }
-    return Math.max(0, fallbackRemainSec);
+    return Math.max(0, Math.ceil(fallbackRemainSec));
   }, [readyAtIso, fallbackRemainSec, tick]);
 
   useEffect(() => {
+    if (readyAtIso) {
+      const targetMs = new Date(readyAtIso).getTime();
+      if (Number.isFinite(targetMs) && Date.now() >= targetMs && !firedRef.current) {
+        firedRef.current = true;
+        onElapsed();
+        return;
+      }
+    }
     if (remainSec > 0) return;
     if (firedRef.current) return;
     firedRef.current = true;
     onElapsed();
-  }, [remainSec, onElapsed]);
+  }, [readyAtIso, remainSec, onElapsed]);
 
   return (
     <span className="tabular-nums">{formatRemainHms(remainSec)}</span>
@@ -324,7 +352,7 @@ export function FishingPanel() {
 
   const lakeUiPhase: LakeUiPhase = useMemo(() => {
     if (!activeRod?.hasPendingCast) return "idle";
-    if (activeRod.pendingHarvestRemainSec > 0) return "casting";
+    if (!harvestReadyByServerOrLocal(activeRod)) return "casting";
     return "ready";
   }, [activeRod]);
 
@@ -420,20 +448,27 @@ export function FishingPanel() {
     };
   }, [resultOverlay, lastResult]);
 
-  const closeRewardModal = useCallback(async () => {
-    if (lastResult?.ok === true) {
-      const r = await confirmHarvestFishAction({
-        rodUserRewardId: selectedRodId ?? undefined,
-      });
-      if (!r.ok) {
-        toast.error(r.error);
-        return;
+  const closeRewardModal = useCallback(
+    async (matchmakerOutcome?: "collect" | "release") => {
+      if (lastResult?.ok === true) {
+        const r = await confirmHarvestFishAction({
+          rodUserRewardId: selectedRodId ?? undefined,
+          matchmakerOutcome:
+            lastResult.matchmakerUser != null
+              ? matchmakerOutcome ?? "collect"
+              : undefined,
+        });
+        if (!r.ok) {
+          toast.error(r.error);
+          return;
+        }
       }
-    }
-    setResultOverlay(false);
-    void swrMutate(SWR_KEYS.fishingLogs);
-    void swrMutate(SWR_KEYS.fishingStatus);
-  }, [lastResult, selectedRodId]);
+      setResultOverlay(false);
+      void swrMutate(SWR_KEYS.fishingLogs);
+      void swrMutate(SWR_KEYS.fishingStatus);
+    },
+    [lastResult, selectedRodId],
+  );
 
   if (fishingDisabled) {
     return (
@@ -685,7 +720,7 @@ export function FishingPanel() {
           fishTypeLabels={FISH_TYPE_LABEL}
           tagLabel={tagLabel}
           peerExtra={peerExtra}
-          onConfirm={closeRewardModal}
+          onConfirmSuccess={closeRewardModal}
           onOpenPeerDetail={(userId) => {
             void openPeerDetail(userId);
           }}

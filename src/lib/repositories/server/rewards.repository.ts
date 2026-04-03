@@ -833,6 +833,24 @@ export async function findFirstUserRewardIdOfType(
   return (data?.id as string | undefined) ?? null;
 }
 
+/** 是否已擁有該商城 SKU 的釣竿（每使用者每 SKU 至多一把） */
+export async function userHasFishingRodForShopItem(
+  userId: string,
+  shopItemId: string,
+): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("user_rewards")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("reward_type", "fishing_rod")
+    .eq("shop_item_id", shopItemId)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data != null;
+}
+
 export async function countUserRewardsByType(
   userId: string,
   rewardType: string,

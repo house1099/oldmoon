@@ -14,7 +14,10 @@ import {
 } from "@/lib/repositories/server/shop.repository";
 import { creditCoins } from "@/lib/repositories/server/coin.repository";
 import { insertUserReward } from "@/lib/repositories/server/prize.repository";
-import { upsertFishingBaitStack } from "@/lib/repositories/server/rewards.repository";
+import {
+  upsertFishingBaitStack,
+  userHasFishingRodForShopItem,
+} from "@/lib/repositories/server/rewards.repository";
 import { drawFromPool, type DrawResult } from "@/services/prize-engine";
 import { findProfileById } from "@/lib/repositories/server/user.repository";
 import { notifyUserMailboxSilent } from "@/services/notification.action";
@@ -80,6 +83,8 @@ export type PurchaseItemOptions = {
   skipBuyerMailbox?: boolean;
   /** 公會盲盒：寫入未開封背包列，不當場抽獎（購買並贈送用） */
   sealLootBoxes?: boolean;
+  /** 購買並贈送時：釣竿限購改檢查受贈者是否已有該 SKU */
+  giftRecipientUserId?: string;
 };
 
 export async function purchaseItemAction(
@@ -111,6 +116,18 @@ export async function purchaseItemAction(
       const purchased = await getDailyPurchaseCount(user.id, item.id, dateKey);
       if (purchased + quantity > item.daily_limit) {
         return { ok: false, error: "daily_limit_reached" };
+      }
+    }
+
+    if (item.item_type === "fishing_rod") {
+      if (quantity !== 1) {
+        return { ok: false, error: "fishing_rod_quantity_limited" };
+      }
+      const rodOwnerId =
+        options?.giftRecipientUserId?.trim() || user.id;
+      const hasRod = await userHasFishingRodForShopItem(rodOwnerId, item.id);
+      if (hasRod) {
+        return { ok: false, error: "fishing_rod_already_owned" };
       }
     }
 

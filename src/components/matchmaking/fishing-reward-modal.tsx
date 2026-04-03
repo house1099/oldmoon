@@ -3,6 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import Lottie from "lottie-react";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { MasterAvatarShell } from "@/components/ui/MasterAvatarShell";
 import { getFishingRevealLottiePath } from "@/lib/utils/fishing-reveal-lottie";
@@ -27,7 +37,8 @@ type FishingRewardModalProps = {
   fishTypeLabels?: Record<string, string>;
   tagLabel: (slug: string) => string;
   peerExtra: MemberProfileView | null;
-  onConfirm: () => void;
+  /** 非月老魚／緣分不足等：不帶參數；月老魚須帶 collect 或 release */
+  onConfirmSuccess: (matchmakerOutcome?: "collect" | "release") => void | Promise<void>;
   onOpenPeerDetail: (userId: string) => void;
 };
 
@@ -38,11 +49,16 @@ export function FishingRewardModal({
   fishTypeLabels = FISH_TYPE_LABEL,
   tagLabel,
   peerExtra,
-  onConfirm,
+  onConfirmSuccess,
   onOpenPeerDetail,
 }: FishingRewardModalProps) {
   const [animationData, setAnimationData] = useState<object | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const [releaseDialogOpen, setReleaseDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) setReleaseDialogOpen(false);
+  }, [open]);
 
   const lottiePath =
     lastResult.ok === true
@@ -118,7 +134,7 @@ export function FishingRewardModal({
             <Button
               type="button"
               className="w-full rounded-xl bg-violet-600"
-              onClick={onConfirm}
+              onClick={() => void onConfirmSuccess()}
             >
               確認
             </Button>
@@ -189,7 +205,7 @@ export function FishingRewardModal({
                 <Button
                   type="button"
                   className="w-full rounded-xl bg-violet-600"
-                  onClick={onConfirm}
+                  onClick={() => void onConfirmSuccess()}
                 >
                   確認
                 </Button>
@@ -204,7 +220,7 @@ export function FishingRewardModal({
                 <Button
                   type="button"
                   className="w-full rounded-xl bg-violet-600"
-                  onClick={onConfirm}
+                  onClick={() => void onConfirmSuccess()}
                 >
                   確認
                 </Button>
@@ -298,25 +314,32 @@ export function FishingRewardModal({
                       </>
                     );
                   })()}
+                  <button
+                    type="button"
+                    className="mt-3 text-xs text-violet-400 underline underline-offset-2 hover:text-violet-300"
+                    onClick={() => {
+                      onOpenPeerDetail(lastResult.matchmakerUser!.id);
+                    }}
+                  >
+                    查看完整資料
+                  </button>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Button
                       type="button"
                       size="sm"
                       className="flex-1 bg-violet-600"
-                      onClick={() => {
-                        onOpenPeerDetail(lastResult.matchmakerUser!.id);
-                      }}
+                      onClick={() => void onConfirmSuccess("collect")}
                     >
-                      查看完整資料
+                      收入魚獲
                     </Button>
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
                       className="flex-1 border-zinc-600"
-                      onClick={onConfirm}
+                      onClick={() => setReleaseDialogOpen(true)}
                     >
-                      下次再說
+                      放生
                     </Button>
                   </div>
                 </div>
@@ -325,6 +348,31 @@ export function FishingRewardModal({
           </>
         )}
       </div>
+
+      <AlertDialog open={releaseDialogOpen} onOpenChange={setReleaseDialogOpen}>
+        <AlertDialogContent className="border-zinc-800 bg-zinc-950 text-zinc-100">
+          <AlertDialogHeader>
+            <AlertDialogTitle>確認放生？</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              魚兒將一去不回，對方也不會收到通知。日後仍有可能再次釣獲同一位有緣人。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-zinc-700 bg-zinc-900 text-zinc-300">
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-zinc-700 text-white hover:bg-zinc-600"
+              onClick={() => {
+                setReleaseDialogOpen(false);
+                void onConfirmSuccess("release");
+              }}
+            >
+              確認放生
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

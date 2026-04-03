@@ -301,6 +301,9 @@ export default function ShopPage() {
   const ERROR_LABELS: Record<string, string> = {
     daily_limit_reached: "今日已達購買上限",
     insufficient_balance: tab === "free_coins" ? "探險幣不足" : "純金不足",
+    fishing_rod_already_owned:
+      "每人每款釣竿限持有一把（無法重複購買或贈送已擁有者）",
+    fishing_rod_quantity_limited: "釣竿每次僅能購買一把",
   };
 
   async function handlePurchase() {
@@ -401,6 +404,7 @@ export default function ShopPage() {
       const res = await purchaseItemAction(snap.target.id, snap.qty, {
         skipBuyerMailbox: true,
         sealLootBoxes: snap.target.item_type === "loot_box",
+        giftRecipientUserId: snap.recipient.id,
       });
       if (!res.ok) {
         toast.error(ERROR_LABELS[res.error] ?? res.error);

@@ -70,6 +70,19 @@ function tagLabel(slug: string): string {
   return INTEREST_TAG_OPTIONS.find((o) => o.value === slug)?.label ?? slug;
 }
 
+function matchmakerReleasedFromFishItem(
+  fishItem: FishingLogListItemDto["fish_item"],
+): boolean {
+  if (
+    !fishItem ||
+    typeof fishItem !== "object" ||
+    Array.isArray(fishItem)
+  ) {
+    return false;
+  }
+  return (fishItem as Record<string, unknown>).matchmakerReleased === true;
+}
+
 function fishEmoji(t: FishingLogListItemDto["fish_type"]): string {
   switch (t) {
     case "common":
@@ -212,6 +225,11 @@ export function CatchPanel({ subTab, onSubTabChange }: CatchPanelProps) {
                         {l.fish_type === "matchmaker" && l.fish_user_id ? (
                           <span className="rounded-full border border-violet-500/40 bg-violet-900/60 px-2 py-0.5 text-[10px] text-violet-300">
                             ❤️ 月老
+                          </span>
+                        ) : null}
+                        {matchmakerReleasedFromFishItem(l.fish_item) ? (
+                          <span className="shrink-0 rounded-full border border-zinc-600 bg-zinc-800/80 px-1.5 text-[10px] text-zinc-400">
+                            已放生
                           </span>
                         ) : null}
                         <span className="text-xs text-zinc-500">

@@ -204,6 +204,16 @@ function notifyMatchmakerPeerCaught(
   });
 }
 
+function mergeMatchmakerReleasedIntoFishItem(fishItemJson: Json | null): Json {
+  const base =
+    fishItemJson &&
+    typeof fishItemJson === "object" &&
+    !Array.isArray(fishItemJson)
+      ? { ...(fishItemJson as Record<string, unknown>) }
+      : {};
+  return { ...base, matchmakerReleased: true } as Json;
+}
+
 function peerSnapshotFromProfile(p: UserRow | null) {
   if (!p) {
     return {
@@ -1451,6 +1461,7 @@ async function applyHarvestPreviewPayload(
   userId: string,
   rodId: string,
   p: HarvestPreviewPayload,
+  opts?: { matchmakerOutcome?: "collect" | "release" },
 ): Promise<void> {
   const mmNote = `月老魚：${p.peerNickname ?? ""}`;
   if (p.branch === "standard") {
@@ -1562,15 +1573,19 @@ async function applyHarvestPreviewPayload(
       }
     }
   }
+  const released = opts?.matchmakerOutcome === "release";
+  const fishItemForLog = released
+    ? mergeMatchmakerReleasedIntoFishItem(p.fishItemJson)
+    : p.fishItemJson;
   await tryInsertMatchmakerLog(userId, {
     fish_user_id: p.peerUserId,
     no_match_found: false,
     fish_coins: p.coinFailure ? 0 : p.fishCoins,
     fish_exp: p.coinFailure ? 0 : p.fishExp,
     peer: peerFull,
-    fish_item: p.fishItemJson,
+    fish_item: fishItemForLog,
   });
-  if (p.peerUserId) {
+  if (p.peerUserId && !released) {
     await notifyMatchmakerPeerCaught(userId, p.peerUserId);
   }
 }
@@ -1701,6 +1716,8 @@ export async function prepareHarvestFishAction(opts?: {
 /** 確認收成：依預覽發獎並寫入釣魚日誌。 */
 export async function confirmHarvestFishAction(opts?: {
   rodUserRewardId?: string | null;
+  /** 月老魚：收入魚獲會通知對方；放生不通知（獎勵相同） */
+  matchmakerOutcome?: "collect" | "release";
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = createClient();
   const {
@@ -1760,7 +1777,12 @@ export async function confirmHarvestFishAction(opts?: {
     : null;
 
   try {
-    await applyHarvestPreviewPayload(user.id, rodId, p);
+    await applyHarvestPreviewPayload(user.id, rodId, p, {
+      matchmakerOutcome:
+        p.branch === "matchmaker_peer"
+          ? opts?.matchmakerOutcome ?? "collect"
+          : undefined,
+    });
     revalidateTag(profileCacheTag(user.id));
     await recordHarvestSuccess({
       userId: user.id,

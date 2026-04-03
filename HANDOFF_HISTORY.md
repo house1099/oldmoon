@@ -2,6 +2,16 @@
 
 舊版主檔內之逐日／逐任務紀錄與長篇 Wave 敘事已遷移至此。**平時不必讀**；需追溯決策或實作細節時再開。
 
+### 2026-04-03 — 釣魚倒數 ceil／樂觀可收竿、釣竿 SKU 限購、月老收入魚獲／放生
+
+1. **目標**：收竿／冷卻顯示與 **`fishing-cast.repository`** **`Math.ceil`** 一致；本地已過 **`pendingHarvestReadyAtIso`** 時先顯示可收竿；阻擋多把同款釣竿繞過冷卻；月老收成改 **收入魚獲**（通知對方）／**放生**（不通知、魚獲標記）。
+2. **UI**：**`fishing-panel.tsx`** — **`formatRemainHms`** **`Math.ceil`**；**`PendingHarvestCountdown`／`CooldownTimer`** 剩餘秒 ceil；**`harvestReadyByServerOrLocal`**、**`lakeUiPhase`**／**`rodChipStatus`** 樂觀 ready；**`onElapsed`** 於 **`Date.now() >= targetMs`** 觸發。
+3. **商城**：**`rewards.repository.ts`** **`userHasFishingRodForShopItem`**；**`shop.action.ts`** — **`fishing_rod`** 僅能買 **quantity 1**、已有同 **`shop_item_id`** 則 **`fishing_rod_already_owned`**；**`PurchaseItemOptions.giftRecipientUserId`** 贈送時改查受贈者；**`shop/page.tsx`** **`ERROR_LABELS`**。
+4. **月老**：**`fishing.action.ts`** — **`mergeMatchmakerReleasedIntoFishItem`**；**`applyHarvestPreviewPayload`** 第四參 **`matchmakerOutcome`**；**`confirmHarvestFishAction`** **`matchmakerOutcome`** **`collect`／`release`**；放生寫入 **`fish_item.matchmakerReleased`**、不 **`notifyMatchmakerPeerCaught`**（獎勵與 collect 相同）。
+5. **Layer 5**：**`fishing-reward-modal.tsx`** — **收入魚獲**／**放生**（**`AlertDialog`**）、**`onConfirmSuccess`**；**`catch-panel.tsx`** **已放生** 膠囊。
+6. **資料庫**：無 DDL；可選 **`(user_id, shop_item_id)`** partial unique **`WHERE reward_type = 'fishing_rod'`** 待資料乾淨後再加。
+7. **驗證**：**`npx tsc --noEmit`**、**`npm run build`** 通過。
+
 ### 2026-04-03 — 三餌營運對照＋章魚小數容差＋AppShell flex 魚池捲動
 
 1. **目標**：蝦仁豬心＝月老（heart）、蟲蟲餌＝普通魚（normal）、章魚餌＝三欄機率（小數可至 0.01% 級）；移除魚池頂／底黑帶與雙層捲動。
