@@ -13,8 +13,8 @@ function num(v: unknown): number | null {
 export type BaitType = "normal" | "octopus" | "heart";
 
 export function detectBaitType(metadata: Record<string, unknown>): BaitType {
-  /** 商城存檔 SSOT，優先於數值欄位（避免舊資料殘留章魚欄位誤判） */
-  const profile = metadata.bait_profile ?? metadata.bait_kind;
+  /** 僅讀 `bait_profile`（勿用 metadata.bait_kind，易與舊／誤存字串衝突） */
+  const profile = metadata.bait_profile;
   if (profile === "heart" || profile === "octopus" || profile === "normal") {
     return profile;
   }

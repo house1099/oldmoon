@@ -100,7 +100,7 @@ function FishingRodStrip({
       <p className="text-[11px] text-zinc-500">
         每支釣竿狀態獨立；一支在等待或冷卻時，可切換到其他釣竿操作。
       </p>
-      <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex touch-pan-x gap-2 overflow-x-auto overscroll-x-contain pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {rods.map((r) => {
           const selected = selectedRodId === r.id;
           const st = rodChipStatus(r);

@@ -754,6 +754,7 @@ export default function ShopAdminClient() {
         built.bait_legendary_rate = legendary;
         built.bait_leviathan_rate = leviathan;
       }
+      delete built.bait_kind;
       metadata = built;
       const { validateBaitMetadata } = await import(
         "@/lib/utils/fishing-shop-metadata"
@@ -2124,7 +2125,17 @@ export default function ShopAdminClient() {
                       key={val}
                       type="button"
                       onClick={() =>
-                        setForm((prev) => ({ ...prev, bait_kind: val }))
+                        setForm((prev) => ({
+                          ...prev,
+                          bait_kind: val,
+                          ...(val === "normal" || val === "heart"
+                            ? {
+                                bait_rare_rate: "",
+                                bait_legendary_rate: "",
+                                bait_leviathan_rate: "",
+                              }
+                            : {}),
+                        }))
                       }
                       className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
                         form.bait_kind === val
