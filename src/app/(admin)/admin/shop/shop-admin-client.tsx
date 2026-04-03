@@ -407,6 +407,7 @@ export default function ShopAdminClient() {
   const [imageUploading, setImageUploading] = useState(false);
   const [imageMode, setImageMode] = useState<"local" | "cloudinary">("local");
   const [imagePreviewError, setImagePreviewError] = useState(false);
+  const [baitProfileMissing, setBaitProfileMissing] = useState(false);
   const [localFrameBuckets, setLocalFrameBuckets] = useState<{
     root: string[];
     avatars: string[];
@@ -481,6 +482,15 @@ export default function ShopAdminClient() {
     setEditingId(item.id);
     setForm(itemToForm(item));
     setExtraMetaEditor(false);
+    if (item.item_type === "fishing_bait") {
+      const m =
+        item.metadata && typeof item.metadata === "object" && !Array.isArray(item.metadata)
+          ? (item.metadata as Record<string, unknown>)
+          : {};
+      setBaitProfileMissing(!("bait_profile" in m));
+    } else {
+      setBaitProfileMissing(false);
+    }
     setImageMode(
       item.image_url?.trim().startsWith("https://") ? "cloudinary" : "local",
     );
@@ -2113,6 +2123,12 @@ export default function ShopAdminClient() {
                   三選一。普通餌固定為普通魚池；章魚餌為三種權重合計 100；愛心餌為月老魚池（玩家須符合單身等條件）。存檔會寫入{" "}
                   <span className="font-mono">bait_profile</span>（與類型一致），愛心餌不需填章魚三欄。
                 </p>
+                {baitProfileMissing && editingId ? (
+                  <p className="rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                    此商品 metadata 尚無 <span className="font-mono">bait_profile</span>
+                    ，目前由數值欄位自動推斷。請確認下方類型正確後儲存，即可寫入 bait_profile。
+                  </p>
+                ) : null}
                 <div className="flex flex-wrap gap-2">
                   {(
                     [

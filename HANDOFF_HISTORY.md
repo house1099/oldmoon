@@ -2,6 +2,16 @@
 
 舊版主檔內之逐日／逐任務紀錄與長篇 Wave 敘事已遷移至此。**平時不必讀**；需追溯決策或實作細節時再開。
 
+### 2026-04-03 — 魚餌 bait_profile DB 修正＋魚池捲動單層化
+
+1. **目標**：(a) 修正換餌不換目標魚種（所有餌偵測為 octopus）；(b) 魚池 TAB 頁雙層捲動＋上下黑帶；(c) 釣竿橫向列干擾直向捲動。
+2. **DB 修正**（Supabase `execute_sql`）：四筆 `fishing_bait` shop_items 全部補寫 `bait_profile`——普通釣餌 `"normal"`＋`bait_common_rate:100`；蝦仁豬心餌／蟲蟲餌 `"octopus"`（保留原 rate）；章魚餌已由管理員修正。
+3. **`detectBaitType`**（`fishing-shop-metadata.ts`）：fallback 新增 matchmakerRate 優先規則——`matchmakerRate > octopus 三欄合計` → `"heart"`，避免同時有兩組欄位時誤判。
+4. **商城後台**（`shop-admin-client.tsx`）：新增 `baitProfileMissing` 狀態，編輯餌時若 metadata 無 `bait_profile` 顯示黃色警示，提示管理員確認類型後儲存。
+5. **魚池捲動**（`matchmaking/page.tsx`）：根容器高度從 `h-[100dvh]` 改為 `h-[calc(100dvh-2rem-env(safe-area-inset-top,0px)-5.25rem-env(safe-area-inset-bottom,0px))]`，扣除 `AppShellMotion` 上下 padding；移除重複的 `pb-[max(5rem,...)]`。單層捲動，無黑帶。
+6. **釣竿橫向列**（`fishing-panel.tsx` `FishingRodStrip`）：`touch-pan-x` → `touch-manipulation`，讓瀏覽器自動鎖定方向，橫滑不再干擾直向捲動。
+7. **驗證**：`npx tsc --noEmit`、`npm run build` 通過。
+
 ### 2026-04-03 — 釣魚 UX／metadata／機率 SSOT
 
 1. **目標**：月老餌不因舊章魚欄位誤判；收竿倒數每秒更新；商城釣竿顯示解析後冷卻來源；文件化兩層機率（餌權重 vs `fishing_rewards`）。

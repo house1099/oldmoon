@@ -47,7 +47,7 @@ export default function MatchmakingPage() {
   }, [searchParams]);
 
   return (
-    <div className="flex h-[100dvh] flex-col bg-zinc-950 pb-[max(5rem,env(safe-area-inset-bottom))]">
+    <div className="flex h-[calc(100dvh-2rem-env(safe-area-inset-top,0px)-5.25rem-env(safe-area-inset-bottom,0px))] flex-col bg-zinc-950">
       <div className="pb-1 pt-3 text-center text-base font-medium text-white">
         月老
       </div>

@@ -27,6 +27,8 @@ export function detectBaitType(metadata: Record<string, unknown>): BaitType {
 
   if (matchmakerRate === 100) return "heart";
   if (commonRate === 100) return "normal";
+  if (matchmakerRate > 0 && matchmakerRate > rareRate + legendaryRate + leviathanRate)
+    return "heart";
   if (rareRate > 0 || legendaryRate > 0 || leviathanRate > 0) return "octopus";
   return "normal";
 }
