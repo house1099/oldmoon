@@ -61,6 +61,23 @@ export function validateBaitMetadata(metadata: Record<string, unknown>): {
   return { valid: true };
 }
 
+/** 商城表單：從 metadata 剥離魚餌專用鍵，其餘併入「額外 JSON」。 */
+const FISHING_BAIT_META_KEYS = [
+  "bait_common_rate",
+  "bait_matchmaker_rate",
+  "bait_rare_rate",
+  "bait_legendary_rate",
+  "bait_leviathan_rate",
+] as const;
+
+export function stripFishingBaitKeys(
+  meta: Record<string, unknown>,
+): Record<string, unknown> {
+  const m = { ...meta };
+  for (const k of FISHING_BAIT_META_KEYS) delete m[k];
+  return m;
+}
+
 /** @deprecated 使用 validateBaitMetadata */
 export function validateFishingBaitMetadata(
   metadata: Record<string, unknown>,

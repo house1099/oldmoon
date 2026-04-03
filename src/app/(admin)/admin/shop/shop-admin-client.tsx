@@ -59,6 +59,10 @@ import {
   SHOP_CARD_FRAME_PREVIEW_WIDTH_PX,
 } from "@/lib/constants/shop-card-frame-preview";
 import { cn } from "@/lib/utils";
+import {
+  detectBaitType,
+  stripFishingBaitKeys,
+} from "@/lib/utils/fishing-shop-metadata";
 
 /** 後台頭像框預覽槽位邊長（px），對應 `h-20 w-20` */
 const AVATAR_FRAME_PREVIEW_SLOT_PX = 80;
@@ -118,6 +122,36 @@ function stripFishingRodKeys(meta: Record<string, unknown>): Record<string, unkn
   const m = { ...meta };
   for (const k of FISHING_ROD_META_KEYS) delete m[k];
   return m;
+}
+
+/** 載入時：已由表單管理的鍵不寫入「額外 metadata」文字區 */
+function pickUnknownShopMetadata(
+  raw: Record<string, unknown>,
+  itemType: string,
+): Record<string, unknown> {
+  if (FRAME_ITEM_TYPES.has(itemType)) {
+    return stripReservedCardDecorationKeys({ ...raw });
+  }
+  if (itemType === "fishing_rod") {
+    const m = stripFishingRodKeys({ ...raw });
+    delete m.rare_bonus;
+    return m;
+  }
+  if (itemType === "fishing_bait") {
+    return stripFishingBaitKeys({ ...raw });
+  }
+  if (itemType === "exp_boost") {
+    const m = { ...raw };
+    delete m.value;
+    return m;
+  }
+  if (itemType === "coins_pack") {
+    const m = { ...raw };
+    delete m.value;
+    delete m.coin_type;
+    return m;
+  }
+  return { ...raw };
 }
 
 function metaRodTierFromRaw(
@@ -202,6 +236,16 @@ type FormData = {
   rod_cooldown_minutes: string;
   rod_max_casts_per_day: string;
   rod_wait_until_harvest_minutes: string;
+  /** 釣竿選填，寫入 metadata.rare_bonus */
+  rod_rare_bonus: string;
+  /** 魚餌類型（對應 detectBaitType） */
+  bait_kind: "normal" | "octopus" | "heart";
+  bait_rare_rate: string;
+  bait_legendary_rate: string;
+  bait_leviathan_rate: string;
+  exp_boost_value: string;
+  coins_pack_value: string;
+  coins_pack_coin_type: "free" | "premium";
 };
 
 const EMPTY_FORM: FormData = {
@@ -237,6 +281,14 @@ const EMPTY_FORM: FormData = {
   rod_cooldown_minutes: "",
   rod_max_casts_per_day: "1",
   rod_wait_until_harvest_minutes: "1",
+  rod_rare_bonus: "",
+  bait_kind: "normal",
+  bait_rare_rate: "",
+  bait_legendary_rate: "",
+  bait_leviathan_rate: "",
+  exp_boost_value: "1",
+  coins_pack_value: "1",
+  coins_pack_coin_type: "free",
 };
 
 function itemToForm(item: ShopItemRow): FormData {
@@ -246,10 +298,15 @@ function itemToForm(item: ShopItemRow): FormData {
       : {};
   const layout =
     parseShopFrameLayoutFromMetadata(rawMeta) ?? DEFAULT_SHOP_FRAME_LAYOUT;
-  let metaForTextarea = stripReservedCardDecorationKeys(rawMeta);
-  if (item.item_type === "fishing_rod") {
-    metaForTextarea = stripFishingRodKeys(metaForTextarea);
-  }
+  const unknownMeta = pickUnknownShopMetadata(rawMeta, item.item_type);
+  const baitKindDetected =
+    item.item_type === "fishing_bait" ? detectBaitType(rawMeta) : "normal";
+  const baitKindUi: FormData["bait_kind"] =
+    baitKindDetected === "heart"
+      ? "heart"
+      : baitKindDetected === "octopus"
+        ? "octopus"
+        : "normal";
   return {
     sku: item.sku,
     name: item.name,
@@ -268,8 +325,8 @@ function itemToForm(item: ShopItemRow): FormData {
       : "",
     sort_order: String(item.sort_order),
     is_active: item.is_active,
-    metadata: Object.keys(metaForTextarea).length
-      ? JSON.stringify(metaForTextarea, null, 2)
+    metadata: Object.keys(unknownMeta).length
+      ? JSON.stringify(unknownMeta, null, 2)
       : "",
     image_url: item.image_url?.trim() ?? "",
     allow_gift: item.allow_gift !== false,
@@ -300,6 +357,37 @@ function itemToForm(item: ShopItemRow): FormData {
       item.item_type === "fishing_rod"
         ? metaNumStr(rawMeta, "rod_wait_until_harvest_minutes", "1")
         : "1",
+    rod_rare_bonus:
+      item.item_type === "fishing_rod"
+        ? (() => {
+            const v = rawMeta.rare_bonus;
+            if (typeof v === "number" && Number.isFinite(v)) return String(v);
+            if (typeof v === "string" && v.trim() !== "") return v.trim();
+            return "";
+          })()
+        : "",
+    bait_kind: item.item_type === "fishing_bait" ? baitKindUi : "normal",
+    bait_rare_rate:
+      item.item_type === "fishing_bait"
+        ? metaNumStr(rawMeta, "bait_rare_rate", "")
+        : "",
+    bait_legendary_rate:
+      item.item_type === "fishing_bait"
+        ? metaNumStr(rawMeta, "bait_legendary_rate", "")
+        : "",
+    bait_leviathan_rate:
+      item.item_type === "fishing_bait"
+        ? metaNumStr(rawMeta, "bait_leviathan_rate", "")
+        : "",
+    exp_boost_value:
+      item.item_type === "exp_boost" ? metaNumStr(rawMeta, "value", "1") : "1",
+    coins_pack_value:
+      item.item_type === "coins_pack" ? metaNumStr(rawMeta, "value", "1") : "1",
+    coins_pack_coin_type:
+      item.item_type === "coins_pack" &&
+      rawMeta.coin_type === "premium"
+        ? "premium"
+        : "free",
   };
 }
 
@@ -311,6 +399,7 @@ export default function ShopAdminClient() {
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ShopItemRow | null>(null);
+  const [extraMetaEditor, setExtraMetaEditor] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
   const [imageMode, setImageMode] = useState<"local" | "cloudinary">("local");
   const [imagePreviewError, setImagePreviewError] = useState(false);
@@ -363,6 +452,7 @@ export default function ShopAdminClient() {
   function openCreate() {
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setExtraMetaEditor(false);
     setImageMode("local");
     setImagePreviewError(false);
     setDialogOpen(true);
@@ -371,6 +461,7 @@ export default function ShopAdminClient() {
   function openEdit(item: ShopItemRow) {
     setEditingId(item.id);
     setForm(itemToForm(item));
+    setExtraMetaEditor(false);
     setImageMode(
       item.image_url?.trim().startsWith("https://") ? "cloudinary" : "local",
     );
@@ -381,6 +472,25 @@ export default function ShopAdminClient() {
   function setField(key: keyof FormData, value: string | boolean) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
+
+  const baitOctopusSumPreview = useMemo(() => {
+    if (form.item_type !== "fishing_bait" || form.bait_kind !== "octopus") {
+      return null;
+    }
+    const rare = parseFloat(form.bait_rare_rate.replace(",", "."));
+    const legendary = parseFloat(form.bait_legendary_rate.replace(",", "."));
+    const leviathan = parseFloat(form.bait_leviathan_rate.replace(",", "."));
+    if (![rare, legendary, leviathan].every((n) => Number.isFinite(n))) {
+      return NaN;
+    }
+    return rare + legendary + leviathan;
+  }, [
+    form.item_type,
+    form.bait_kind,
+    form.bait_rare_rate,
+    form.bait_legendary_rate,
+    form.bait_leviathan_rate,
+  ]);
 
   const localImageOptions = useMemo(() => {
     if (form.item_type === "avatar_frame") {
@@ -468,15 +578,22 @@ export default function ShopAdminClient() {
       resellPriceNum = rp;
     }
 
-    let metadata: Record<string, unknown> | null = null;
+    let unknownParsed: Record<string, unknown> = {};
     if (form.metadata.trim()) {
       try {
-        metadata = JSON.parse(form.metadata) as Record<string, unknown>;
+        const o = JSON.parse(form.metadata) as unknown;
+        if (!o || typeof o !== "object" || Array.isArray(o)) {
+          toast.error("額外 metadata JSON 必須為物件");
+          return;
+        }
+        unknownParsed = o as Record<string, unknown>;
       } catch {
-        toast.error("進階設定 JSON 格式錯誤");
+        toast.error("額外 metadata JSON 格式錯誤");
         return;
       }
     }
+
+    let metadata: Record<string, unknown> | null = null;
 
     if (FRAME_ITEM_TYPES.has(form.item_type)) {
       const lim = SHOP_FRAME_LAYOUT_OFFSET_MAX_ABS;
@@ -488,30 +605,21 @@ export default function ShopAdminClient() {
         offsetYPercent: oy,
         scalePercent: sc,
       };
-      metadata = { ...(metadata ?? {}), frame_layout: layout };
+      const merged: Record<string, unknown> = { ...unknownParsed, frame_layout: layout };
       if (form.item_type === "card_frame") {
-        const m = metadata as Record<string, unknown>;
         const setPath = (key: string, val: string) => {
           const t = val.trim();
-          if (t) m[key] = t;
-          else delete m[key];
+          if (t) merged[key] = t;
+          else delete merged[key];
         };
         setPath("cardBgImageUrl", form.card_bg_image_url);
         setPath("cardCornerImageUrl", form.card_corner_image_url);
         setPath("cardMascotImageUrl", form.card_mascot_image_url);
         setPath("cardEffectKey", form.card_effect_key);
-        metadata = m;
       }
-    } else if (metadata != null && typeof metadata === "object" && !Array.isArray(metadata)) {
-      const m = stripFrameLayoutKeys(metadata as Record<string, unknown>);
-      metadata = Object.keys(m).length ? m : null;
-    }
-
-    if (form.item_type === "fishing_rod") {
-      const base: Record<string, unknown> =
-        metadata && typeof metadata === "object" && !Array.isArray(metadata)
-          ? stripFishingRodKeys(metadata as Record<string, unknown>)
-          : {};
+      metadata = Object.keys(merged).length ? merged : null;
+    } else if (form.item_type === "fishing_rod") {
+      const base: Record<string, unknown> = { ...unknownParsed };
       const max = parseInt(form.rod_max_casts_per_day.replace(/\D/g, ""), 10);
       const wait = parseInt(
         form.rod_wait_until_harvest_minutes.replace(/\D/g, ""),
@@ -533,6 +641,8 @@ export default function ShopAdminClient() {
         form.rod_tier === "high"
       ) {
         base.rod_tier = form.rod_tier;
+      } else {
+        delete base.rod_tier;
       }
       const cdRaw = form.rod_cooldown_minutes.trim();
       if (cdRaw !== "") {
@@ -544,11 +654,49 @@ export default function ShopAdminClient() {
           return;
         }
         base.rod_cooldown_minutes = cd;
+      } else {
+        delete base.rod_cooldown_minutes;
+      }
+      if (form.rod_rare_bonus.trim() === "") {
+        delete base.rare_bonus;
+      } else {
+        const rb = parseFloat(form.rod_rare_bonus.replace(",", "."));
+        if (!Number.isFinite(rb)) {
+          toast.error("稀有加成 rare_bonus 須為有效數字");
+          return;
+        }
+        base.rare_bonus = rb;
       }
       metadata = Object.keys(base).length ? base : null;
-    }
-
-    if (form.item_type === "fishing_bait" && metadata) {
+    } else if (form.item_type === "fishing_bait") {
+      const built: Record<string, unknown> = { ...unknownParsed };
+      if (form.bait_kind === "normal") {
+        built.bait_common_rate = 100;
+        delete built.bait_matchmaker_rate;
+        delete built.bait_rare_rate;
+        delete built.bait_legendary_rate;
+        delete built.bait_leviathan_rate;
+      } else if (form.bait_kind === "heart") {
+        built.bait_matchmaker_rate = 100;
+        delete built.bait_common_rate;
+        delete built.bait_rare_rate;
+        delete built.bait_legendary_rate;
+        delete built.bait_leviathan_rate;
+      } else {
+        delete built.bait_common_rate;
+        delete built.bait_matchmaker_rate;
+        const rare = parseFloat(form.bait_rare_rate.replace(",", "."));
+        const legendary = parseFloat(form.bait_legendary_rate.replace(",", "."));
+        const leviathan = parseFloat(form.bait_leviathan_rate.replace(",", "."));
+        if (![rare, legendary, leviathan].every((n) => Number.isFinite(n))) {
+          toast.error("章魚餌：稀有／傳說／深海巨獸須為有效數字");
+          return;
+        }
+        built.bait_rare_rate = rare;
+        built.bait_legendary_rate = legendary;
+        built.bait_leviathan_rate = leviathan;
+      }
+      metadata = built;
       const { validateBaitMetadata } = await import(
         "@/lib/utils/fishing-shop-metadata"
       );
@@ -557,7 +705,28 @@ export default function ShopAdminClient() {
         toast.error(r.error ?? "魚餌 metadata 無效");
         return;
       }
+    } else if (form.item_type === "exp_boost") {
+      const v = parseInt(form.exp_boost_value.replace(/\D/g, ""), 10);
+      if (!Number.isFinite(v) || v < 0) {
+        toast.error("EXP 加成數值須為 ≥0 的整數");
+        return;
+      }
+      metadata = { ...unknownParsed, value: v };
+    } else if (form.item_type === "coins_pack") {
+      const v = parseInt(form.coins_pack_value.replace(/\D/g, ""), 10);
+      if (!Number.isFinite(v) || v < 0) {
+        toast.error("幣包數量須為 ≥0 的整數");
+        return;
+      }
+      metadata = {
+        ...unknownParsed,
+        value: v,
+        coin_type: form.coins_pack_coin_type === "premium" ? "premium" : "free",
+      };
+    } else {
+      metadata = Object.keys(unknownParsed).length ? { ...unknownParsed } : null;
     }
+
     if (form.item_type === "fishing_rod") {
       const { validateFishingRodMetadata } = await import(
         "@/lib/utils/fishing-shop-metadata"
@@ -1290,9 +1459,26 @@ export default function ShopAdminClient() {
                           rod_cooldown_minutes: "",
                           rod_max_casts_per_day: "1",
                           rod_wait_until_harvest_minutes: "1",
+                          rod_rare_bonus: "",
+                        }
+                      : {}),
+                    ...(v === "fishing_bait"
+                      ? {
+                          bait_kind: "normal",
+                          bait_rare_rate: "",
+                          bait_legendary_rate: "",
+                          bait_leviathan_rate: "",
+                        }
+                      : {}),
+                    ...(v === "exp_boost" ? { exp_boost_value: "1" } : {}),
+                    ...(v === "coins_pack"
+                      ? {
+                          coins_pack_value: "1",
+                          coins_pack_coin_type: "free" as FormData["coins_pack_coin_type"],
                         }
                       : {}),
                   }));
+                  setExtraMetaEditor(false);
                 }}
                 className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2"
               >
@@ -1324,6 +1510,60 @@ export default function ShopAdminClient() {
                 />
               </label>
             )}
+            {form.item_type === "exp_boost" ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/90 p-4 space-y-2">
+                <p className="text-sm font-semibold text-gray-900">EXP 加成券</p>
+                <label className="block">
+                  <span className="text-xs font-medium text-gray-800">
+                    發放經驗值（metadata.value，≥0 整數）
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={form.exp_boost_value}
+                    onChange={(e) =>
+                      setField("exp_boost_value", e.target.value.replace(/\D/g, ""))
+                    }
+                    className="mt-1 block w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-gray-900"
+                  />
+                </label>
+              </div>
+            ) : null}
+            {form.item_type === "coins_pack" ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/90 p-4 space-y-3">
+                <p className="text-sm font-semibold text-gray-900">探險幣包</p>
+                <label className="block">
+                  <span className="text-xs font-medium text-gray-800">
+                    發放數量（metadata.value，≥0 整數）
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={form.coins_pack_value}
+                    onChange={(e) =>
+                      setField("coins_pack_value", e.target.value.replace(/\D/g, ""))
+                    }
+                    className="mt-1 block w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-gray-900"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-medium text-gray-800">幣種（metadata.coin_type）</span>
+                  <select
+                    value={form.coins_pack_coin_type}
+                    onChange={(e) =>
+                      setField(
+                        "coins_pack_coin_type",
+                        e.target.value as FormData["coins_pack_coin_type"],
+                      )
+                    }
+                    className="mt-1 block w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-gray-900"
+                  >
+                    <option value="free">探險幣（free）</option>
+                    <option value="premium">純金（premium）</option>
+                  </select>
+                </label>
+              </div>
+            ) : null}
             {FRAME_ITEM_TYPES.has(form.item_type) ? (
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
                 <p className="text-xs text-gray-600">
@@ -1807,6 +2047,109 @@ export default function ShopAdminClient() {
               ) : null}
             </div>
 
+            {form.item_type === "fishing_bait" ? (
+              <div className="rounded-xl border border-violet-200 bg-violet-50/90 p-4 space-y-3">
+                <p className="text-sm font-semibold text-gray-900">魚餌類型與機率</p>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  三選一。普通餌固定為普通魚池；章魚餌為三種權重合計 100；愛心餌為月老魚池（玩家須符合單身等條件）。
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      ["normal", "普通餌"],
+                      ["octopus", "章魚餌"],
+                      ["heart", "愛心餌（月老）"],
+                    ] as const
+                  ).map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() =>
+                        setForm((prev) => ({ ...prev, bait_kind: val }))
+                      }
+                      className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                        form.bait_kind === val
+                          ? "border-violet-600 bg-violet-600 text-white"
+                          : "border-violet-200 bg-white text-gray-800 hover:bg-violet-50"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {form.bait_kind === "normal" ? (
+                  <p className="text-xs text-gray-600 rounded-lg bg-white/80 border border-violet-100 px-3 py-2">
+                    已內建 <span className="font-mono">bait_common_rate: 100</span>，僅能釣到一般魚種權重。
+                  </p>
+                ) : null}
+                {form.bait_kind === "heart" ? (
+                  <p className="text-xs text-gray-600 rounded-lg bg-white/80 border border-violet-100 px-3 py-2">
+                    已內建 <span className="font-mono">bait_matchmaker_rate: 100</span>。月老篩選可於「後台 →
+                    釣魚系統」調整。
+                  </p>
+                ) : null}
+                {form.bait_kind === "octopus" ? (
+                  <div className="space-y-2 rounded-lg bg-white/80 border border-violet-100 p-3">
+                    <p className="text-xs font-medium text-gray-800">
+                      稀有／傳說／深海巨獸三欄加總須為 100
+                    </p>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      <label className="block text-xs">
+                        bait_rare_rate
+                        <input
+                          type="text"
+                          value={form.bait_rare_rate}
+                          onChange={(e) => setField("bait_rare_rate", e.target.value)}
+                          className="mt-0.5 block w-full rounded border border-violet-200 px-2 py-1 font-mono text-xs"
+                        />
+                      </label>
+                      <label className="block text-xs">
+                        bait_legendary_rate
+                        <input
+                          type="text"
+                          value={form.bait_legendary_rate}
+                          onChange={(e) =>
+                            setField("bait_legendary_rate", e.target.value)
+                          }
+                          className="mt-0.5 block w-full rounded border border-violet-200 px-2 py-1 font-mono text-xs"
+                        />
+                      </label>
+                      <label className="block text-xs">
+                        bait_leviathan_rate
+                        <input
+                          type="text"
+                          value={form.bait_leviathan_rate}
+                          onChange={(e) =>
+                            setField("bait_leviathan_rate", e.target.value)
+                          }
+                          className="mt-0.5 block w-full rounded border border-violet-200 px-2 py-1 font-mono text-xs"
+                        />
+                      </label>
+                    </div>
+                    <p
+                      className={`text-xs ${
+                        baitOctopusSumPreview != null &&
+                        Number.isFinite(baitOctopusSumPreview) &&
+                        Math.abs(baitOctopusSumPreview - 100) > 0.02
+                          ? "text-red-600 font-medium"
+                          : "text-gray-600"
+                      }`}
+                    >
+                      目前合計：{" "}
+                      {baitOctopusSumPreview != null && Number.isFinite(baitOctopusSumPreview)
+                        ? baitOctopusSumPreview.toFixed(2)
+                        : "—"}{" "}
+                      {baitOctopusSumPreview != null &&
+                      Number.isFinite(baitOctopusSumPreview) &&
+                      Math.abs(baitOctopusSumPreview - 100) > 0.02
+                        ? "（須為 100）"
+                        : ""}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             {form.item_type === "fishing_rod" ? (
               <div className="rounded-xl border border-violet-200 bg-violet-50/90 p-4 space-y-3">
                 <p className="text-sm font-semibold text-gray-900">
@@ -1889,50 +2232,102 @@ export default function ShopAdminClient() {
                       className="mt-1 block w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-gray-900"
                     />
                   </label>
+                  <label className="block sm:col-span-2">
+                    <span className="text-xs font-medium text-gray-800">
+                      稀有加成 rare_bonus（選填，預留欄位）
+                    </span>
+                    <input
+                      type="text"
+                      value={form.rod_rare_bonus}
+                      onChange={(e) => setField("rod_rare_bonus", e.target.value)}
+                      placeholder="例：0.1"
+                      className="mt-1 block w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm text-gray-900"
+                    />
+                  </label>
                 </div>
               </div>
             ) : null}
 
-            <label className="block">
-              <span className="text-gray-700">
-                {form.item_type === "fishing_rod"
-                  ? "其他進階設定（metadata JSON，選填）"
-                  : "進階設定（metadata JSON，選填）"}
-              </span>
-              <span className="ml-1 text-xs text-gray-400">
-                {form.item_type === "fishing_rod"
-                  ? "釣竿主要欄位已用上方表單；此處僅限額外鍵值。"
-                  : "釣竿機率加成等（框類商品的對齊會另存為 frame_layout，不須手寫）"}
-              </span>
-              {form.item_type === "fishing_bait" ? (
-                <p className="mt-1 text-xs text-amber-900 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5 space-y-1">
-                  <span className="block font-medium">魚餌類型說明（三選一，機率設定對應不同類型）</span>
-                  <span className="block">
-                    🪱 普通餌料：<code className="text-[11px] text-gray-900">bait_common_rate</code>: 100
-                  </span>
-                  <span className="block">
-                    🐙 章魚餌料：
-                    <code className="text-[11px] text-gray-900">bait_rare_rate</code>+
-                    <code className="text-[11px] text-gray-900">bait_legendary_rate</code>+
-                    <code className="text-[11px] text-gray-900">bait_leviathan_rate</code>
-                    ＝100（三者加總必須等於 100）
-                  </span>
-                  <span className="block">
-                    💕 愛心餌料：<code className="text-[11px] text-gray-900">bait_matchmaker_rate</code>: 100
-                  </span>
-                  <span className="block text-gray-700">
-                    月老配對可於「後台 → 釣魚系統」開啟身高條件篩選並設定門檻（與玩家身高偏好連動）。
-                  </span>
-                </p>
-              ) : null}
-              <textarea
-                value={form.metadata}
-                onChange={(e) => setField("metadata", e.target.value)}
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-xs"
-                rows={3}
-                placeholder='{"rare_bonus": 0.1}'
-              />
-            </label>
+            {(form.metadata.trim() !== "" || extraMetaEditor) &&
+            form.item_type !== "fishing_bait" &&
+            form.item_type !== "exp_boost" &&
+            form.item_type !== "coins_pack" ? (
+              <label className="block">
+                <span className="text-gray-700">額外 metadata（JSON，選填）</span>
+                <span className="ml-1 text-xs text-gray-400">
+                  僅保留上方表單未涵蓋的鍵；一般不需填寫。
+                </span>
+                <textarea
+                  value={form.metadata}
+                  onChange={(e) => setField("metadata", e.target.value)}
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-xs"
+                  rows={3}
+                  placeholder="{}"
+                />
+              </label>
+            ) : null}
+            {form.metadata.trim() === "" &&
+            !extraMetaEditor &&
+            form.item_type !== "fishing_bait" &&
+            form.item_type !== "exp_boost" &&
+            form.item_type !== "coins_pack" ? (
+              <button
+                type="button"
+                className="text-xs font-medium text-violet-700 hover:underline"
+                onClick={() => setExtraMetaEditor(true)}
+              >
+                ＋ 額外 metadata（進階）
+              </button>
+            ) : null}
+            {form.item_type === "fishing_bait" && (form.metadata.trim() !== "" || extraMetaEditor) ? (
+              <label className="block">
+                <span className="text-gray-700">額外 metadata（JSON，選填）</span>
+                <span className="ml-1 text-xs text-gray-400">
+                  魚餌機率已由上方按鈕設定；此處僅在需要保留其他自訂鍵時使用。
+                </span>
+                <textarea
+                  value={form.metadata}
+                  onChange={(e) => setField("metadata", e.target.value)}
+                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-xs"
+                  rows={2}
+                  placeholder="{}"
+                />
+              </label>
+            ) : null}
+            {form.item_type === "fishing_bait" &&
+            form.metadata.trim() === "" &&
+            !extraMetaEditor ? (
+              <button
+                type="button"
+                className="text-xs font-medium text-violet-700 hover:underline"
+                onClick={() => setExtraMetaEditor(true)}
+              >
+                ＋ 額外 metadata（進階，一般用不到）
+              </button>
+            ) : null}
+            {form.item_type === "exp_boost" ||
+            form.item_type === "coins_pack" ? (
+              form.metadata.trim() !== "" || extraMetaEditor ? (
+                <label className="block">
+                  <span className="text-gray-700">額外 metadata（JSON，選填）</span>
+                  <textarea
+                    value={form.metadata}
+                    onChange={(e) => setField("metadata", e.target.value)}
+                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-xs"
+                    rows={2}
+                    placeholder="{}"
+                  />
+                </label>
+              ) : (
+                <button
+                  type="button"
+                  className="text-xs font-medium text-violet-700 hover:underline"
+                  onClick={() => setExtraMetaEditor(true)}
+                >
+                  ＋ 額外 metadata（進階）
+                </button>
+              )
+            ) : null}
           </div>
           <DialogFooter>
             <Button variant="outlineLight" onClick={() => setDialogOpen(false)}>

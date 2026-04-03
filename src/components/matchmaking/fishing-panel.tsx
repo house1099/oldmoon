@@ -35,6 +35,8 @@ import type { MemberProfileView } from "@/services/profile.action";
 import { detectBaitType } from "@/lib/utils/fishing-shop-metadata";
 import type { Json } from "@/types/database.types";
 
+type FishingRodRow = FishingStatusDto["rods"][number];
+
 const FISH_TYPE_LABEL: Record<string, string> = {
   common: "普通魚",
   rare: "稀有魚",
@@ -49,12 +51,110 @@ function tagLabel(slug: string): string {
   return INTEREST_TAG_OPTIONS.find((o) => o.value === slug)?.label ?? slug;
 }
 
-function formatWaitHuman(sec: number): string {
-  if (sec <= 0) return "即將可收";
-  const h = Math.floor(sec / 3600);
-  const m = Math.ceil((sec % 3600) / 60);
-  if (h >= 1) return `約 ${h} 小時 ${m > 0 ? `${m} 分` : ""}`;
-  return `約 ${Math.max(1, m)} 分鐘`;
+function formatRemainHms(totalSec: number): string {
+  const s = Math.max(0, Math.floor(totalSec));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${h} 小時 ${m} 分 ${sec} 秒`;
+}
+
+function rodChipStatus(r: FishingRodRow): { label: string; detail: string } {
+  if (r.hasPendingCast) {
+    if (r.pendingHarvestRemainSec > 0) {
+      return {
+        label: "等待",
+        detail: "等待收竿倒數中",
+      };
+    }
+    return { label: "可收竿", detail: "可點收竿結算" };
+  }
+  if (r.cooldownAfterHarvestRemainingSec > 0) {
+    return {
+      label: "冷卻",
+      detail: `冷卻 ${formatRemainHms(r.cooldownAfterHarvestRemainingSec)}`,
+    };
+  }
+  if (r.castsRemainingToday < 1) {
+    return { label: "額滿", detail: "今日次數已用完" };
+  }
+  return {
+    label: "可拋",
+    detail: `今日剩 ${r.castsRemainingToday} 次`,
+  };
+}
+
+function FishingRodStrip({
+  rods,
+  selectedRodId,
+  onSelect,
+}: {
+  rods: FishingRodRow[];
+  selectedRodId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  if (rods.length < 2) return null;
+  return (
+    <div className="rounded-xl bg-zinc-900/60 p-3 space-y-2">
+      <p className="text-xs font-medium text-zinc-400">選擇釣竿</p>
+      <p className="text-[11px] text-zinc-500">
+        每支釣竿狀態獨立；一支在等待或冷卻時，可切換到其他釣竿操作。
+      </p>
+      <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {rods.map((r) => {
+          const selected = selectedRodId === r.id;
+          const st = rodChipStatus(r);
+          return (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => onSelect(r.id)}
+              className={`relative flex shrink-0 flex-col items-center rounded-xl border-2 p-1.5 transition-colors ${
+                selected
+                  ? "border-violet-500 bg-violet-950/40"
+                  : "border-zinc-700/80 bg-zinc-900/50"
+              }`}
+              title={`${r.name} · ${st.detail}`}
+            >
+              <div className="relative h-14 w-14 overflow-hidden rounded-lg bg-zinc-800">
+                {r.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- 商城圖可能為本機路徑或任意 CDN
+                  <img
+                    src={r.imageUrl}
+                    alt=""
+                    className="h-full w-full object-contain p-1"
+                  />
+                ) : (
+                  <span
+                    className="flex h-full w-full items-center justify-center text-2xl"
+                    aria-hidden
+                  >
+                    🎣
+                  </span>
+                )}
+              </div>
+              <span className="mt-1 max-w-[4.75rem] truncate text-center text-[10px] leading-tight text-zinc-500">
+                {r.name}
+              </span>
+              <span
+                className={`mt-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium ${
+                  st.label === "可拋"
+                    ? "bg-emerald-500/20 text-emerald-300"
+                    : st.label === "可收竿"
+                      ? "bg-orange-500/25 text-orange-200"
+                      : st.label === "等待"
+                        ? "bg-violet-500/20 text-violet-200"
+                        : "bg-zinc-700/80 text-zinc-400"
+                }`}
+              >
+                {st.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function metadataRecord(m: Json | null): Record<string, unknown> {
@@ -79,14 +179,6 @@ function BaitFishTags({ metadata }: { metadata: Json | null }) {
   return (
     <span className="text-zinc-400">❤️ 月老魚（需單身狀態）</span>
   );
-}
-
-function formatRemainHms(totalSec: number): string {
-  const s = Math.max(0, Math.floor(totalSec));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  return `${h} 小時 ${m} 分 ${sec} 秒`;
 }
 
 function CooldownTimer({
@@ -155,14 +247,10 @@ export function FishingPanel() {
 
   useEffect(() => {
     if (!statusDto?.rods.length) return;
-    const pendingRod = statusDto.rods.find((r) => r.hasPendingCast);
-    if (pendingRod) {
-      setSelectedRodId(pendingRod.id);
-      return;
-    }
     setSelectedRodId((prev) => {
       if (prev && statusDto.rods.some((r) => r.id === prev)) return prev;
-      return statusDto.rods[0].id;
+      const pending = statusDto.rods.find((r) => r.hasPendingCast);
+      return pending?.id ?? statusDto.rods[0].id;
     });
   }, [statusDto]);
 
@@ -322,6 +410,14 @@ export function FishingPanel() {
     <div className="flex flex-col gap-4 px-4 py-4">
       <FishingLakeVisual serverPhase={phase} uiPhase={lakeUiPhase} />
 
+      {phase === "can_cast" && statusDto && statusDto.rods.length > 1 ? (
+        <FishingRodStrip
+          rods={statusDto.rods}
+          selectedRodId={selectedRodId}
+          onSelect={setSelectedRodId}
+        />
+      ) : null}
+
       {phase === "no_rod" ? (
         <div className="glass-panel rounded-2xl border border-zinc-800/40 p-4 text-center">
           <p className="text-4xl" aria-hidden>
@@ -374,69 +470,26 @@ export function FishingPanel() {
 
       {phase === "can_cast" && lakeUiPhase === "idle" ? (
         <>
-          <div className="rounded-xl bg-zinc-900/60 p-3 space-y-2">
-            <p className="text-xs font-medium text-zinc-400">選擇釣竿</p>
-            {statusDto && statusDto.rods.length > 1 ? (
-              <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {statusDto.rods.map((r) => {
-                  const selected = selectedRodId === r.id;
-                  const sub =
-                    r.cooldownAfterHarvestRemainingSec > 0
-                      ? `冷卻 ${Math.ceil(r.cooldownAfterHarvestRemainingSec / 60)} 分`
-                      : `今日 ${r.castsRemainingToday}`;
-                  return (
-                    <button
-                      key={r.id}
-                      type="button"
-                      onClick={() => setSelectedRodId(r.id)}
-                      className={`relative flex shrink-0 flex-col items-center rounded-xl border-2 p-1.5 transition-colors ${
-                        selected
-                          ? "border-violet-500 bg-violet-950/40"
-                          : "border-zinc-700/80 bg-zinc-900/50"
-                      }`}
-                      title={`${r.name} · ${sub}`}
-                    >
-                      <div className="relative h-14 w-14 overflow-hidden rounded-lg bg-zinc-800">
-                        {r.imageUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element -- 商城圖可能為本機路徑或任意 CDN
-                          <img
-                            src={r.imageUrl}
-                            alt=""
-                            className="h-full w-full object-contain p-1"
-                          />
-                        ) : (
-                          <span
-                            className="flex h-full w-full items-center justify-center text-2xl"
-                            aria-hidden
-                          >
-                            🎣
-                          </span>
-                        )}
-                      </div>
-                      <span className="mt-1 max-w-[4.75rem] truncate text-center text-[10px] leading-tight text-zinc-500">
-                        {r.name}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
+          {statusDto && statusDto.rods.length === 1 ? (
+            <div className="rounded-xl bg-zinc-900/60 p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="truncate text-sm font-medium text-white">
                   {rodName}
                 </span>
                 <span className="shrink-0 text-xs text-zinc-500">
-                  今日剩餘 {remaining} 次
+                  {activeRod && activeRod.cooldownAfterHarvestRemainingSec > 0
+                    ? `冷卻 ${formatRemainHms(activeRod.cooldownAfterHarvestRemainingSec)}`
+                    : `今日剩餘 ${remaining} 次`}
                 </span>
               </div>
-            )}
-            {statusDto && statusDto.rods.length > 1 ? (
-              <div className="flex items-center justify-between gap-2 text-xs text-zinc-500">
-                <span>今日可拋（含釣餌上限）</span>
-                <span>{remaining} 次</span>
-              </div>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
+          {statusDto && statusDto.rods.length > 1 ? (
+            <div className="flex items-center justify-between gap-2 rounded-xl bg-zinc-900/40 px-1 py-1 text-xs text-zinc-500">
+              <span>目前釣竿 · 今日可拋（含釣餌上限）</span>
+              <span>{remaining} 次</span>
+            </div>
+          ) : null}
           <div>
             <p className="mb-2 text-xs font-medium text-zinc-400">
               選擇魚餌
@@ -466,7 +519,7 @@ export function FishingPanel() {
                   ) : null}
                 </span>
                 <span className="text-xs text-zinc-500">
-                  拋竿後依釣竿設定等待再收竿
+                  拋竿後等待與該釣竿冷卻同步
                 </span>
               </div>
               <p className="mt-2 text-xs">
@@ -474,6 +527,20 @@ export function FishingPanel() {
               </p>
             </div>
           </div>
+          {activeRod?.cooldownInfo?.isOnCooldown &&
+          activeRod.cooldownInfo.nextCastAt &&
+          lakeUiPhase === "idle" ? (
+            <div className="rounded-xl border border-zinc-800/40 bg-zinc-900/60 p-4 text-center">
+              <div className="mb-1 text-sm text-zinc-400">下次可拋竿</div>
+              <div className="text-xl font-semibold text-violet-400">
+                <CooldownTimer
+                  nextCastAt={activeRod.cooldownInfo.nextCastAt}
+                  onElapsed={() => void swrMutate(SWR_KEYS.fishingStatus)}
+                />
+              </div>
+              <div className="mt-2 text-xs text-zinc-600">冷卻中，請耐心等待</div>
+            </div>
+          ) : null}
           <Button
             type="button"
             className="h-12 w-full rounded-xl bg-violet-600 text-base font-semibold"
@@ -488,14 +555,15 @@ export function FishingPanel() {
       {phase === "can_cast" && lakeUiPhase === "casting" ? (
         <div className="space-y-3">
           <div className="glass-panel rounded-2xl border border-zinc-800/40 p-4 text-center">
+            <p className="mb-1 text-xs text-zinc-500">收竿倒數（與該釣竿冷卻同步）</p>
             <p className="text-2xl font-semibold tabular-nums text-violet-400">
-              {formatWaitHuman(activeRod?.pendingHarvestRemainSec ?? 0)}
+              {formatRemainHms(activeRod?.pendingHarvestRemainSec ?? 0)}
             </p>
             <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-zinc-800">
               <div className="h-full w-full animate-pulse rounded-full bg-violet-500/80" />
             </div>
             <p className="mt-3 text-xs text-zinc-500">
-              {displayBaitName} · 等待中（由釣竿 metadata 決定等待時間）
+              {displayBaitName} · 等待中
             </p>
             {pendingTagsMetadata != null ? (
               <p className="mt-2 text-xs">
@@ -509,18 +577,6 @@ export function FishingPanel() {
               離開此畫面不影響釣魚，稍後回來收竿即可
             </p>
           </div>
-          {activeRod?.cooldownInfo?.isOnCooldown ? (
-            <div className="rounded-xl bg-zinc-900/60 border border-zinc-800/40 p-4 text-center">
-              <div className="text-zinc-400 text-sm mb-1">下次可拋竿</div>
-              <div className="text-violet-400 text-xl font-semibold">
-                <CooldownTimer
-                  nextCastAt={activeRod.cooldownInfo.nextCastAt}
-                  onElapsed={() => void swrMutate(SWR_KEYS.fishingStatus)}
-                />
-              </div>
-              <div className="text-zinc-600 text-xs mt-2">冷卻中，請耐心等待</div>
-            </div>
-          ) : null}
         </div>
       ) : null}
 
@@ -546,7 +602,9 @@ export function FishingPanel() {
           <AlertDialogHeader>
             <AlertDialogTitle>確認拋竿</AlertDialogTitle>
             <AlertDialogDescription className="space-y-2 text-zinc-400">
-              <p>消耗【{baitName}】。拋竿後須依釣竿設定的時間等待，時間到才可收竿結算。</p>
+              <p>
+                消耗【{baitName}】。等待時間與該釣竿冷卻相同，倒數結束即可收竿；收竿後若要再拋，須等同一支釣竿冷卻結束，或改用其他釣竿。
+              </p>
               <p className="text-amber-200/90">
                 ⚠️ 月老魚須符合配對條件；若無符合對象將記為未配對成功。
               </p>
